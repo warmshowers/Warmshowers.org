@@ -40,7 +40,7 @@
     </div><!-- /#site-header -->
 
     <div id="internal-nav" class="grid-16 push-16">
-      <div id="slogan-bcrumb" class="grid-10 alpha">  
+      <div id="slogan-bcrumb" class="grid-10 alpha">
         <?php if ($site_slogan && $is_front): ?>
           <div id="slogan"><?php print $site_slogan; ?></div>
         <?php endif; ?>
@@ -65,8 +65,9 @@
         <?php print $preface_last; ?>
       </div>
     </div><!-- /preface-wrapper -->
-    <?php print $messages; ?>
-    <div id="main" class="column <?php print ns('grid-16', $sidebar_first, 4, $sidebar_last, 4) . ' ' . ns('push-4', !$sidebar_first, 4); ?>">
+    <div class="grid-16"><?php print $help; ?><?php print $messages; ?></div>
+    <div id="main-wrapper" class="column <?php print ns('grid-16', $sidebar_first, 4, $sidebar_last, 4) . ' ' . ns('push-4', !$sidebar_first, 4); ?>">
+      
       <?php if ($mission && $is_front): ?>
 	      <div id="mission" class="">
 	        <?php print $mission; ?>
@@ -77,15 +78,15 @@
       <div id="content-top">
         <?php print $content_top; ?>
       </div>
-      
+      <?php if ($tabs): ?>
+          <div id="content-tabs" class=""><?php print $tabs; ?></div>
+        <?php endif; ?>
       <?php if ($title): ?>
         <h1 class="title" id="page-title"><?php print $title; ?></h1>
       <?php endif; ?>
-      <?php if ($tabs): ?>
-        <div class="tabs"><?php print $tabs; ?></div>
-      <?php endif; ?>
       
-      <?php print $help; ?>
+      
+      
 
       <div id="main-content" class="region clear-block">
         <?php print $content; ?>
@@ -95,7 +96,7 @@
         <?php print $content_bottom; ?>
       </div>
       
-      <?php print $feed_icons; ?>
+      
     </div>
 
   <?php if ($sidebar_first): ?>
@@ -127,16 +128,18 @@
   
   
   <div id="footer-first" class="grid-16 clear-block">
-    <?php if ($footer): ?>
-      <div id="footer-region">
-        <?php print $footer; ?>
-      </div>
+    <?php if ($footer_first): ?>
+        <?php print $footer_first; ?>
     <?php endif; ?>
   </div>
   <div id="footer-last" class="grid-16 clear-block">
+  
     <?php if ($footer_message): ?>
+      <?php if ($footer_last): ?>
+        <?php print $footer_last; ?>
+      <?php endif; ?>
       <div id="footer-message">
-        <?php print $footer_message; ?>
+        <?php print $feed_icons; ?><?php print $footer_message; ?>
       </div>
     <?php endif; ?>
   </div>

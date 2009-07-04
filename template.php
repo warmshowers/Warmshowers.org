@@ -7,17 +7,29 @@ require_once './'. drupal_get_path('theme', 'omega') ."/theme-functions.inc";
  */
 function omega_preprocess_page(&$vars, $hook) {
 	// Pull out some things from the page.tpl.php and make that code more consise.
-// $header_first
+  // $header_first
+  global $theme_key;
+  $settings = theme_get_settings($theme_key);
+  //krumo($settings);
+  $omega = array(
+    'omega_header_first_width' => ovars($settings['omega_header_first_width'], 6),
+    'omega_header_last_width' => ovars($settings['omega_header_last_width'], 6),
+  );
+  $vars['omega'] = $omega;
+  //krumo($vars['omega']);
+  
+  
+  
   if ($vars['header_first']) {
   	if (!$vars['header_last']) {
   		// if this header_first region is available and header_last isn't, let's give it an omega class plz.
   		$vars['omega']['header_first'] = ' omega';
   	}
-    $vars['header_first'] = '<div id="header-first" class="'.ns('grid-12', $vars['header_last'], 6). $vars['omega']['header_first']. '">'. $vars['header_first']. '</div>';
+    $vars['header_first'] = '<div id="header-first" class="'.ns('grid-12', $vars['header_last'], $omega['omega_header_last_width']). $vars['omega']['header_first']. '">'. $vars['header_first']. '</div>';
   }
 // $header_last
   if ($vars['header_last']) {
-    $vars['header_last'] = '<div id="header-last" class="'.ns('grid-12', $vars['header_first'], 6).' omega">'. $vars['header_last']. '</div>';
+    $vars['header_last'] = '<div id="header-last" class="'.ns('grid-12', $vars['header_first'], $omega['omega_header_first_width']).' omega">'. $vars['header_last']. '</div>';
   }
   // For easy printing of variables.
   $vars['logo_img']         = $vars['logo'] ? theme('image', substr($vars['logo'], strlen(base_path())), t('Home'), t('Home')) : '';

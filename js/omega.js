@@ -15,6 +15,7 @@ function populateElement(selector, defvalue) {
  }
 
 $(document).ready(function(){
+	// give the search box some fancy stuff
 	populateElement('#search-box input.form-text, #search-block-form input.form-text', 'search...');
-
+	// define sliders for the admin page for theme-settings.php
 });
