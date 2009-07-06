@@ -13,6 +13,7 @@
 </head>
 
 <body class="<?php print $body_classes; ?>">
+  <?php if (!empty($admin)) print $admin; ?>
   <div id="page" class="container-16 clear-block">
   
     <div id="site-header" class="grid-16 clear-block">
@@ -39,7 +40,7 @@
     <?php print $header_last; ?>
     </div><!-- /#site-header -->
 
-    <div id="internal-nav" class="grid-16 push-16">
+    <div id="internal-nav" class="grid-16">
       <div id="slogan-bcrumb" class="grid-10 alpha">
         <?php if ($site_slogan && $is_front): ?>
           <div id="slogan"><?php print $site_slogan; ?></div>
@@ -54,19 +55,15 @@
       
     </div>
 
-    <div id="preface-wrapper" class="grid-16 pull-16">
-      <div id="preface-first" class="preface grid-8 alpha">
-        <?php print $preface_first; ?>
-      </div>
-      <div id="preface-middle" class="preface grid-4">
-        <?php print $preface_middle; ?>
-      </div>
-      <div id="preface-last" class="preface grid-4 omega">
-        <?php print $preface_last; ?>
-      </div>
+    <div id="preface-wrapper" class="grid-16">
+      <?php print $preface_first; ?>
+      <?php print $preface_middle; ?>
+      <?php print $preface_last; ?>
     </div><!-- /preface-wrapper -->
+    
     <div class="grid-16"><?php print $help; ?><?php print $messages; ?></div>
-    <div id="main-wrapper" class="column <?php print ns('grid-16', $sidebar_first, 4, $sidebar_last, 4) . ' ' . ns('push-4', !$sidebar_first, 4); ?>">
+    
+    <div id="main-wrapper" class="column <?php print $main_content_classes; ?>">
       
       <?php if ($mission && $is_front): ?>
 	      <div id="mission" class="">
@@ -74,19 +71,17 @@
 	      </div>
 	    <?php endif; ?>
       
-
       <div id="content-top">
         <?php print $content_top; ?>
       </div>
+      
       <?php if ($tabs): ?>
-          <div id="content-tabs" class=""><?php print $tabs; ?></div>
-        <?php endif; ?>
+        <div id="content-tabs" class=""><?php print $tabs; ?></div>
+      <?php endif; ?>
+      
       <?php if ($title): ?>
         <h1 class="title" id="page-title"><?php print $title; ?></h1>
       <?php endif; ?>
-      
-      
-      
 
       <div id="main-content" class="region clear-block">
         <?php print $content; ?>
@@ -95,35 +90,26 @@
       <div id="content-bottom">
         <?php print $content_bottom; ?>
       </div>
-      
-      
     </div>
 
   <?php if ($sidebar_first): ?>
-    <div id="sidebar-first" class="column sidebar region grid-4 <?php print ns('pull-12', $sidebar_last, 4); ?>">
+    <div id="sidebar-first" class="column sidebar region <?php print $sidebar_first_classes; ?>">
       <?php print $sidebar_first; ?>
     </div>
   <?php endif; ?>
 
   <?php if ($sidebar_last): ?>
-    <div id="sidebar-last" class="column sidebar region grid-4">
+    <div id="sidebar-last" class="column sidebar region <?php print $sidebar_last_classes; ?>">
       <?php print $sidebar_last; ?>
     </div>
   <?php endif; ?>
 
+
   <div id="postscript-wrapper" class="grid-16">
-    <div id="postscript-one" class="postscript grid-4 alpha">
       <?php print $postscript_one; ?>
-    </div>
-    <div id="postscript-two" class="postscript grid-4">
       <?php print $postscript_two; ?>
-    </div>
-    <div id="postscript-three" class="postscript grid-4">
       <?php print $postscript_three; ?>
-    </div>
-    <div id="postscript-four" class="postscript grid-4 omega">
       <?php print $postscript_four; ?>
-    </div>
   </div><!-- /postscript-wrapper -->
   
   
@@ -139,7 +125,7 @@
         <?php print $footer_last; ?>
       <?php endif; ?>
       <div id="footer-message">
-        <?php print $feed_icons; ?><?php print $footer_message; ?>
+        <?php print $footer_message; ?>
       </div>
     <?php endif; ?>
   </div>

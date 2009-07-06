@@ -8,16 +8,6 @@
  * @param default value $d
  * @return value
  */
-
-function omega_vars($setting, $d){
-  $s = theme_get_setting($setting);
-  if ($s) {
-    return $s;
-  }
-  else {
-    return $d;
-  }
-}
 function ovars($s, $d){
   if ($s) {
     return $s;
