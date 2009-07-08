@@ -65,11 +65,9 @@
     <div>
     <div id="main-wrapper" class="column <?php print $main_content_classes; ?>">
       
-      <?php if ($mission && $is_front): ?>
-	      <div id="mission" class="">
-	        <?php print $mission; ?>
-	      </div>
-	    <?php endif; ?>
+
+	    <?php print $mission; ?>
+
       
       <div id="content-top">
         <?php print $content_top; ?>

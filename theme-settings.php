@@ -28,10 +28,10 @@ function omega_settings($saved_settings) {
 	  // General Settings
 	  $form['omega_container']['omega_general'] = array(
 	    '#type' => 'fieldset',
-	    '#title' => t('General Settings'),
+	    '#title' => t('General Omega 960 Settings'),
 	    '#description' => t('Configure generic options on rendering content in this theme.'),
 	    '#collapsible' => TRUE,
-	    '#collapsed' => FALSE,
+	    '#collapsed' => TRUE,
 	  );
 		// Page titles
 		  $form['omega_container']['omega_general']['page_format_titles'] = array(
@@ -196,7 +196,7 @@ function omega_settings($saved_settings) {
 	    '#title' => t('960gs Region Settings'),
 	    '#description' => t('Configure how your regions are rendered. This area is currently a quick implementation of an interface to allow end users to quickly build out and adjust the default page layout. This feature will be improved over time, and include much more flexibility.'),
 	    '#collapsible' => TRUE,
-	    '#collapsed' => false,
+	    '#collapsed' => TRUE,
 	  );
 	  // Header BLocks
 		  $form['omega_container']['omega_regions']['headers'] = array(
@@ -289,7 +289,21 @@ function omega_settings($saved_settings) {
           '#options' => $grids,
           '#description' => t('This number, combined with the Sidebar First and Main Content determine the share of your grid for each element.'),
         );
-        
+        $options = array(t('Combine Sidebars on all except the listed pages.'), t('Combine Sidebars on only the listed pages.'));
+        $description = t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
+		    $form['omega_container']['omega_regions']['main']['sidebar_combine'] = array(
+		      '#type' => 'radios',
+		      '#title' => t('Combine Sidebars'),
+		      '#description' => t('This is useful for administrative pages, and in certain contexts. You may choose to in certain areas, combine the <strong>$sidebar_first</strong> and <strong>$sidebar_last</strong> to create one sidebar from the content of both.'),
+		      '#options' => $options,
+		      '#default_value' => ovars($saved_settings['sidebar_combine'], 1),
+		    );
+		    $form['omega_container']['omega_regions']['main']['sidebar_contain_pages'] = array(
+		      '#type' => 'textarea',
+		      '#title' => t('Pages'),
+		      '#default_value' => ovars($saved_settings['sidebar_contain_pages'], ''),
+		      '#description' => $description,
+		    );
     // Preface Blocks
       $form['omega_container']['omega_regions']['postscript'] = array(
         '#type' => 'fieldset',
