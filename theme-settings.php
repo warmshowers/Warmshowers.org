@@ -2,7 +2,9 @@
 // $Id$
 // require_once for the functions that need to be available when we are outside
 // of the omega theme in the administrative interface
-require_once 'theme-functions.inc';
+if (!function_exists('ovars')) {
+  require_once 'theme-functions.inc';
+}
 /**
 * Implementation of THEMEHOOK_settings() function.
 *
@@ -12,13 +14,6 @@ require_once 'theme-functions.inc';
 *   array A form array.
 */
 function omega_settings($saved_settings) {
-	//krumo($saved_settings);
-	// add in custom CSS & jQuery for the sliders to be filled with awesomeness and #moonfruit
-	//drupal_add_css(drupal_get_path('theme', 'omega'). '/css/ui.slider.extras.css', 'module', 'all', TRUE);
-	//drupal_add_css(drupal_get_path('theme', 'omega'). '/css/redmond/jquery-ui-1.7.1.custom.css', 'module', 'all', TRUE);
-	//drupal_add_js(drupal_get_path('theme', 'omega'). '/js/jquery-1.3.2.min.js', 'module');
-	//drupal_add_js(drupal_get_path('theme', 'omega'). '/js/jquery-ui-1.7.1.custom.min.js', 'module');
-	//drupal_add_js(drupal_get_path('theme', 'omega'). '/js/selectToUISlider.jQuery.js', 'module');
 	drupal_add_js(drupal_get_path('theme', 'omega'). '/js/omega_admin.js', 'module');
 	for($i=1;$i<=16;$i++){
 		$grids[$i]= $i;
@@ -28,7 +23,7 @@ function omega_settings($saved_settings) {
     '#title' => t('Omega 960 settings'),
     '#description' => t('Core configuration options for the Omega theme.'),
     '#collapsible' => TRUE,
-    '#collapsed' => false,
+    '#collapsed' => FALSE,
   );
 	  // General Settings
 	  $form['omega_container']['omega_general'] = array(
@@ -36,7 +31,7 @@ function omega_settings($saved_settings) {
 	    '#title' => t('General Settings'),
 	    '#description' => t('Configure generic options on rendering content in this theme.'),
 	    '#collapsible' => TRUE,
-	    '#collapsed' => TRUE,
+	    '#collapsed' => FALSE,
 	  );
 		// Page titles
 		  $form['omega_container']['omega_general']['page_format_titles'] = array(
@@ -115,9 +110,50 @@ function omega_settings($saved_settings) {
 		      $form['omega_container']['omega_general']['page_format_titles']['#description'] = 'NOTICE: You currently have the "Page Title" module installed and enabled, so the Page titles theme settings have been disabled to prevent conflicts.  If you wish to re-enable the Page titles theme settings, you must first disable the "Page Title" module.';
 		      $form['omega_container']['omega_general']['page_format_titles']['configurable_separator']['#disabled'] = 'disabled';
 		  }
-	  
-	  
-	  
+	  // Breadcrumb
+	  $form['omega_container']['omega_general']['breadcrumb'] = array(
+	    '#type'          => 'fieldset',
+	    '#title'         => t('Breadcrumb settings'),
+	    '#attributes'    => array('id' => 'omega-breadcrumb'),
+	    '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb'] = array(
+	    '#type'          => 'select',
+	    '#title'         => t('Display breadcrumb'),
+	    '#default_value' => ovars($saved_settings['omega_breadcrumb'], 'yes'),
+	    '#options'       => array(
+	                          'yes'   => t('Yes'),
+	                          'admin' => t('Only in admin section'),
+	                          'no'    => t('No'),
+	                        ),
+	  );
+	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_separator'] = array(
+	    '#type'          => 'textfield',
+	    '#title'         => t('Breadcrumb separator'),
+	    '#description'   => t('Text only. Don’t forget to include spaces.'),
+	    '#default_value' => ovars($saved_settings['omega_breadcrumb_separator'], ' / '),
+	    '#size'          => 5,
+	    '#maxlength'     => 10,
+	  );
+	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_home'] = array(
+	    '#type'          => 'checkbox',
+	    '#title'         => t('Show home page link in breadcrumb'),
+	    '#default_value' => ovars($saved_settings['omega_breadcrumb_home'], 1),
+	  );
+	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_trailing'] = array(
+	    '#type'          => 'checkbox',
+	    '#title'         => t('Append a separator to the end of the breadcrumb'),
+	    '#default_value' => ovars($saved_settings['omega_breadcrumb_trailing'], 0),
+	    '#description'   => t('Useful when the breadcrumb is placed just before the title.'),
+	  );
+	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_title'] = array(
+	    '#type'          => 'checkbox',
+	    '#title'         => t('Append the content title to the end of the breadcrumb'),
+	    '#default_value' => ovars($saved_settings['omega_breadcrumb_title'], 1),
+	    '#description'   => t('Useful when the breadcrumb is not placed just before the title.'),
+	  );
+		  
 	  
 	  
 	   $form['omega_container']['omega_general']['jquery'] = array(
@@ -130,7 +166,7 @@ function omega_settings($saved_settings) {
           '#type'          => 'radios',
 	        '#description'   => t('The Omega theme provides jQueryUI functionality. You will need to turn this off if you are using the jQuery UI module.'),
           '#title'         => t('Include jQuery UI?'),
-          '#default_value' => ovars($saved_settings['omega_jqueryui'], 1),
+          '#default_value' => ovars($saved_settings['omega_jqueryui'], 0),
           '#options'       => array(
 	                             t('Do NOT include jQueryUI'),
 	                             t('DO include jQueryUI'),
@@ -152,23 +188,13 @@ function omega_settings($saved_settings) {
 			                          'all' => t('Display mission statement on all pages'),
 			                        ),
 			  );
-		  // Breadcrumb
-		  $form['omega_container']['omega_general']['breadcrumb'] = array(
-		    '#type' => 'fieldset',
-		    '#title' => t('Breadcrumb'),
-		    '#collapsible' => TRUE,
-		    '#collapsed' => TRUE,
-		  );
-			  $form['omega_container']['omega_general']['breadcrumb']['breadcrumb_display'] = array(
-			    '#type' => 'checkbox',
-			    '#title' => t('Display breadcrumb'),
-			    '#default_value' => ovars($saved_settings['breadcrumb_display'], 1),
-			  );
+		  
+
 	  // Region Settings
 	  $form['omega_container']['omega_regions'] = array(
 	    '#type' => 'fieldset',
-	    '#title' => t('Region Settings'),
-	    '#description' => t('Configure how your regions are rendered.'),
+	    '#title' => t('960gs Region Settings'),
+	    '#description' => t('Configure how your regions are rendered. This area is currently a quick implementation of an interface to allow end users to quickly build out and adjust the default page layout. This feature will be improved over time, and include much more flexibility.'),
 	    '#collapsible' => TRUE,
 	    '#collapsed' => false,
 	  );

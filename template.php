@@ -36,6 +36,8 @@ function omega_preprocess_page(&$vars, $hook) {
 	  'other_page_title_display' => ovars($settings['other_page_title_display'], 'ptitle_slogan'),
 	  'other_page_title_display_custom' => ovars($settings['other_page_title_display_custom'], ''),
 	  'configurable_separator' => ovars($settings['configurable_separator'], ' | '),
+  
+    'omega_jqueryui' => ovars($settings['omega_jqueryui'], '0'),  
     
   );
   $vars['omega'] = $omega;
@@ -221,7 +223,32 @@ function omega_preprocess_page(&$vars, $hook) {
       . ' '.$vars['omega']['postscript_four_classes'].'">'. 
       $vars['postscript_four'] .'</div>';
   }
-  
+  // ZEN - BODY CLASSES
+  // Classes for body element. Allows advanced theming based on context
+  // (home page, node of certain type, etc.)
+  $classes = split(' ', $vars['body_classes']);
+  // Remove the mostly useless page-ARG0 class.
+  if ($index = array_search(preg_replace('![^abcdefghijklmnopqrstuvwxyz0-9-_]+!s', '', 'page-'. drupal_strtolower(arg(0))), $classes)) {
+    unset($classes[$index]);
+  }
+  if (!$vars['is_front']) {
+    // Add unique class for each page.
+    $path = drupal_get_path_alias($_GET['q']);
+    $classes[] = omega_id_safe('page-' . $path);
+    // Add unique class for each website section.
+    list($section, ) = explode('/', $path, 2);
+    if (arg(0) == 'node') {
+      if (arg(1) == 'add') {
+        $section = 'node-add';
+      }
+      elseif (is_numeric(arg(1)) && (arg(2) == 'edit' || arg(2) == 'delete')) {
+        $section = 'node-' . arg(2);
+      }
+    }
+    $classes[] = omega_id_safe('section-' . $section);
+  }
+  $vars['body_classes_array'] = $classes;
+  $vars['body_classes'] = implode(' ', $classes); // Concatenate with spaces.
   // NINESIXTY - For easy printing of variables.
   $vars['logo_img']         = $vars['logo'] ? theme('image', substr($vars['logo'], strlen(base_path())), t('Home'), t('Home')) : '';
   $vars['linked_logo_img']  = $vars['logo_img'] ? l($vars['logo_img'], '<front>', array('rel' => 'home', 'title' => t('Home'), 'html' => TRUE)) : '';
@@ -404,4 +431,64 @@ function ao($vars, $elements, $current, $alpha = FALSE, $omega = FALSE){
     }
   }
   return $classes[$current];
+}
+/**
+ * Converts a string to a suitable html ID attribute.
+ *
+ * http://www.w3.org/TR/html4/struct/global.html#h-7.5.2 specifies what makes a
+ * valid ID attribute in HTML. This function:
+ *
+ * - Ensure an ID starts with an alpha character by optionally adding an 'id'.
+ * - Replaces any character except alphanumeric characters with dashes.
+ * - Converts entire string to lowercase.
+ *
+ * @param $string
+ *   The string
+ * @return
+ *   The converted string
+ */
+function omega_id_safe($string) {
+  // Replace with dashes anything that isn't A-Z, numbers, dashes, or underscores.
+  $string = strtolower(preg_replace('/[^a-zA-Z0-9-]+/', '-', $string));
+  // If the first character is not a-z, add 'id' in front.
+  if (!ctype_lower($string{0})) { // Don't use ctype_alpha since its locale aware.
+    $string = 'id' . $string;
+  }
+  return $string;
+}
+/**
+ * Return a themed breadcrumb trail.
+ *
+ * @param $breadcrumb
+ *   An array containing the breadcrumb links.
+ * @return
+ *   A string containing the breadcrumb output.
+ */
+function omega_breadcrumb($breadcrumb) {
+  // Determine if we are to display the breadcrumb.
+  $show_breadcrumb = theme_get_setting('omega_breadcrumb');
+  if ($show_breadcrumb == 'yes' || $show_breadcrumb == 'admin' && arg(0) == 'admin') {
+
+    // Optionally get rid of the homepage link.
+    $show_breadcrumb_home = theme_get_setting('omega_breadcrumb_home');
+    if (!$show_breadcrumb_home) {
+      array_shift($breadcrumb);
+    }
+
+    // Return the breadcrumb with separators.
+    if (!empty($breadcrumb)) {
+      $breadcrumb_separator = theme_get_setting('omega_breadcrumb_separator');
+      $trailing_separator = $title = '';
+      if (theme_get_setting('omega_breadcrumb_title')) {
+        $trailing_separator = $breadcrumb_separator;
+        $title = menu_get_active_title();
+      }
+      elseif (theme_get_setting('omega_breadcrumb_trailing')) {
+        $trailing_separator = $breadcrumb_separator;
+      }
+      return '<div class="breadcrumb">' . implode($breadcrumb_separator, $breadcrumb) . "$trailing_separator$title</div>";
+    }
+  }
+  // Otherwise, return an empty string.
+  return '';
 }

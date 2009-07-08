@@ -62,7 +62,7 @@
     </div><!-- /preface-wrapper -->
     
     <div class="grid-16"><?php print $help; ?><?php print $messages; ?></div>
-    
+    <div>
     <div id="main-wrapper" class="column <?php print $main_content_classes; ?>">
       
       <?php if ($mission && $is_front): ?>
@@ -91,7 +91,7 @@
         <?php print $content_bottom; ?>
       </div>
     </div>
-
+    </div>
   <?php if ($sidebar_first): ?>
     <div id="sidebar-first" class="column sidebar region <?php print $sidebar_first_classes; ?>">
       <?php print $sidebar_first; ?>
@@ -114,16 +114,11 @@
   
   
   <div id="footer-first" class="grid-16 clear-block">
-    <?php if ($footer_first): ?>
-        <?php print $footer_first; ?>
-    <?php endif; ?>
+    <?php print $footer_first; ?>
   </div>
   <div id="footer-last" class="grid-16 clear-block">
-  
+    <?php print $footer_last; ?>
     <?php if ($footer_message): ?>
-      <?php if ($footer_last): ?>
-        <?php print $footer_last; ?>
-      <?php endif; ?>
       <div id="footer-message">
         <?php print $footer_message; ?>
       </div>
