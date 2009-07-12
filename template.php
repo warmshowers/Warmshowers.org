@@ -1,14 +1,21 @@
 <?php
 //$Id$
-require_once './'. drupal_get_path('theme', 'omega') ."/theme-functions.inc";
+// Report all PHP errors (see changelog)
+ini_set('error_reporting', E_ALL);
+require_once drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
 /**
  * Implementation of hook_theme().
  *
  * @return
  */
-function omega_theme() {
-	
-}
+function omega_theme(&$existing, $type, $theme, $path) {
+  if (!db_is_active()) {
+    return array();
+  }
+  include_once './' . drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
+  return _omega_theme($existing, $type, $theme, $path);
+}// */
+
 /**
  * Implementation of hook_preprocess()
  * 
@@ -26,7 +33,7 @@ function omega_theme() {
  */
 function omega_preprocess(&$vars, $hook) {
   if(is_file(drupal_get_path('theme', 'omega') . '/preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc')) {
-    include('preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc');
+    include_once('preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc');
   }
 }
 /**
@@ -186,7 +193,7 @@ function omega_id_safe($string) {
 }
 
 /**
- * Return a themed breadcrumb trail.
+ * ZEN - Return a themed breadcrumb trail.
  *
  * @param $breadcrumb
  *   An array containing the breadcrumb links.

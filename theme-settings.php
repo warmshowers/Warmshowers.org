@@ -2,9 +2,7 @@
 // $Id$
 // require_once for the functions that need to be available when we are outside
 // of the omega theme in the administrative interface
-if (!function_exists('ovars')) {
-  require_once 'theme-functions.inc';
-}
+include_once './' . drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
 /**
 * Implementation of THEMEHOOK_settings() function.
 *
@@ -13,8 +11,20 @@ if (!function_exists('ovars')) {
 * @return
 *   array A form array.
 */
-function omega_settings($saved_settings) {
-	drupal_add_js(drupal_get_path('theme', 'omega'). '/js/omega_admin.js', 'module');
+function omega_settings($saved_settings, $subtheme_defaults = array()) {
+	// Add the form's CSS
+  //drupal_add_css(drupal_get_path('theme', 'omega') . '/theme-settings.css', 'theme');
+
+  // Add javascript to show/hide optional settings
+  drupal_add_js(drupal_get_path('theme', 'omega'). '/js/omega_admin.js', 'theme');
+
+  // Get the default values from the .info file.
+  $defaults = omega_theme_get_default_settings('omega');
+  // Allow a subtheme to override the default values.
+  $defaults = array_merge($defaults, $subtheme_defaults);
+  // Merge the saved variables and their default values.
+  $settings = array_merge($defaults, $saved_settings);
+		
 	for($i=1;$i<=16;$i++){
 		$grids[$i]= $i;
 	}
@@ -55,7 +65,7 @@ function omega_settings($saved_settings) {
 		      '#title' => t('Set text of front page title'),
 		      '#collapsible' => TRUE,
 		      '#collapsed' => FALSE,
-		      '#default_value' => ovars($saved_settings['front_page_title_display'], ''),
+		      '#default_value' => $saved_settings['front_page_title_display'],
 		      '#options' => array(
 		                      'title_slogan' => t('Site title | Site slogan'),
 		                      'slogan_title' => t('Site slogan | Site title'),
@@ -67,7 +77,7 @@ function omega_settings($saved_settings) {
 		      '#type' => 'textfield',
 		      '#title' => t('Custom'),
 		      '#size' => 60,
-		      '#default_value' => ovars($saved_settings['page_title_display_custom'], ''),
+		      '#default_value' => $saved_settings['page_title_display_custom'],
 		      '#description'   => t('Enter a custom page title for your front page'),
 		    );
 		    // other pages title
@@ -82,7 +92,7 @@ function omega_settings($saved_settings) {
 		      '#title' => t('Set text of other page titles'),
 		      '#collapsible' => TRUE,
 		      '#collapsed' => FALSE,
-		      '#default_value' => ovars($saved_settings['other_page_title_display'], 'ptitle_slogan'),
+		      '#default_value' => $saved_settings['other_page_title_display'],
 		      '#options' => array(
 		                      'ptitle_slogan' => t('Page title | Site slogan'),
 		                      'ptitle_stitle' => t('Page title | Site title'),
@@ -95,7 +105,7 @@ function omega_settings($saved_settings) {
 		      '#type' => 'textfield',
 		      '#title' => t('Custom'),
 		      '#size' => 60,
-		      '#default_value' => ovars($saved_settings['other_page_title_display_custom'], ''),
+		      '#default_value' => $saved_settings['other_page_title_display_custom'],
 		      '#description'   => t('Enter a custom page title for all other pages'),
 		    );
 		    // SEO configurable separator
@@ -104,7 +114,7 @@ function omega_settings($saved_settings) {
 		      '#title' => t('Title separator'),
 		      '#description' => t('Customize the separator character used in the page title'),
 		      '#size' => 60,
-		      '#default_value' => ovars($saved_settings['configurable_separator'], ' | '),
+		      '#default_value' => $saved_settings['configurable_separator'],
 		    );
 		  } else {
 		      $form['omega_container']['omega_general']['page_format_titles']['#description'] = 'NOTICE: You currently have the "Page Title" module installed and enabled, so the Page titles theme settings have been disabled to prevent conflicts.  If you wish to re-enable the Page titles theme settings, you must first disable the "Page Title" module.';
@@ -121,7 +131,7 @@ function omega_settings($saved_settings) {
 	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb'] = array(
 	    '#type'          => 'select',
 	    '#title'         => t('Display breadcrumb'),
-	    '#default_value' => ovars($saved_settings['omega_breadcrumb'], 'yes'),
+	    '#default_value' => $saved_settings['omega_breadcrumb'],
 	    '#options'       => array(
 	                          'yes'   => t('Yes'),
 	                          'admin' => t('Only in admin section'),
@@ -132,25 +142,25 @@ function omega_settings($saved_settings) {
 	    '#type'          => 'textfield',
 	    '#title'         => t('Breadcrumb separator'),
 	    '#description'   => t('Text only. Don’t forget to include spaces.'),
-	    '#default_value' => ovars($saved_settings['omega_breadcrumb_separator'], ' / '),
+	    '#default_value' => $saved_settings['omega_breadcrumb_separator'],
 	    '#size'          => 5,
 	    '#maxlength'     => 10,
 	  );
 	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_home'] = array(
 	    '#type'          => 'checkbox',
 	    '#title'         => t('Show home page link in breadcrumb'),
-	    '#default_value' => ovars($saved_settings['omega_breadcrumb_home'], 1),
+	    '#default_value' => $saved_settings['omega_breadcrumb_home'],
 	  );
 	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_trailing'] = array(
 	    '#type'          => 'checkbox',
 	    '#title'         => t('Append a separator to the end of the breadcrumb'),
-	    '#default_value' => ovars($saved_settings['omega_breadcrumb_trailing'], 0),
+	    '#default_value' => $saved_settings['omega_breadcrumb_trailing'],
 	    '#description'   => t('Useful when the breadcrumb is placed just before the title.'),
 	  );
 	  $form['omega_container']['omega_general']['breadcrumb']['omega_breadcrumb_title'] = array(
 	    '#type'          => 'checkbox',
 	    '#title'         => t('Append the content title to the end of the breadcrumb'),
-	    '#default_value' => ovars($saved_settings['omega_breadcrumb_title'], 1),
+	    '#default_value' => $saved_settings['omega_breadcrumb_title'],
 	    '#description'   => t('Useful when the breadcrumb is not placed just before the title.'),
 	  );
 		  
@@ -166,7 +176,7 @@ function omega_settings($saved_settings) {
           '#type'          => 'radios',
 	        '#description'   => t('The Omega theme provides jQueryUI functionality. You will need to turn this off if you are using the jQuery UI module.'),
           '#title'         => t('Include jQuery UI?'),
-          '#default_value' => ovars($saved_settings['omega_jqueryui'], 0),
+          '#default_value' => $saved_settings['omega_jqueryui'],
           '#options'       => array(
 	                             t('Do NOT include jQueryUI'),
 	                             t('DO include jQueryUI'),
@@ -182,7 +192,7 @@ function omega_settings($saved_settings) {
 			  $form['omega_container']['omega_general']['mission_statement']['mission_statement_pages'] = array(
 			    '#type'          => 'radios',
 			    '#title'         => t('Where should your mission statement be displayed?'),
-			    '#default_value' => ovars($saved_settings['mission_statement_pages'], 'home'),
+			    '#default_value' => $saved_settings['mission_statement_pages'],
 			    '#options'       => array(
 			                          'home' => t('Display mission statement only on front page'),
 			                          'all' => t('Display mission statement on all pages'),
@@ -209,14 +219,14 @@ function omega_settings($saved_settings) {
         $form['omega_container']['omega_regions']['headers']['omega_header_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Header First'),
-          '#default_value' => ovars($saved_settings['omega_header_first_width'], 6),
+          '#default_value' => $saved_settings['omega_header_first_width'],
           '#options' => $grids,
           '#description' => t('This number, paired with the Header Last determine the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_header_last_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Header First'),
-          '#default_value' => ovars($saved_settings['omega_header_last_width'], 6),
+          '#default_value' => $saved_settings['omega_header_last_width'],
           '#options' => $grids,
           '#description' => t('This number, paired with the Header First determine the share of your grid for each element.'),
         );
@@ -231,21 +241,21 @@ function omega_settings($saved_settings) {
         $form['omega_container']['omega_regions']['preface']['omega_preface_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface First'),
-          '#default_value' => ovars($saved_settings['omega_preface_first_width'], 6),
+          '#default_value' => $saved_settings['omega_preface_first_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Preface Middle and Preface Last determine the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_middle_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface Middle'),
-          '#default_value' => ovars($saved_settings['omega_preface_middle_width'], 4),
+          '#default_value' => $saved_settings['omega_preface_middle_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Preface First and Preface Last determine the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_last_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface Last'),
-          '#default_value' => ovars($saved_settings['omega_preface_last_width'], 6),
+          '#default_value' => $saved_settings['omega_preface_last_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Preface First and Preface Middle determine the share of your grid for each element.'),
         );
@@ -261,7 +271,7 @@ function omega_settings($saved_settings) {
           '#type'          => 'radios',
           '#description'   => t('You may arrange the order and size of your sidebars and main content zones here.'),
           '#title'         => t('Content Zone Layout'),
-          '#default_value' => ovars($saved_settings['omega_content_layout'], first_content_last),
+          '#default_value' => $saved_settings['omega_content_layout'],
           '#options'       => array(
                                'first_content_last' => t('Sidebar First - Content - Sidebar Last'),
                                'content_first_last' => t('Content - Sidebar First - Sidebar Last'),
@@ -271,21 +281,21 @@ function omega_settings($saved_settings) {
         $form['omega_container']['omega_regions']['main']['omega_sidebar_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Sidebar First'),
-          '#default_value' => ovars($saved_settings['omega_sidebar_first_width'], 4),
+          '#default_value' => $saved_settings['omega_sidebar_first_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Content Main and Sidebar Last determine the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['main']['omega_content_main_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Main Content Region'),
-          '#default_value' => ovars($saved_settings['omega_content_main_width'], 8),
+          '#default_value' => $saved_settings['omega_content_main_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Sidebar First and Sidebar Last determine the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['main']['omega_sidebar_last_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Sidebar Last'),
-          '#default_value' => ovars($saved_settings['omega_sidebar_last_width'], 4),
+          '#default_value' => $saved_settings['omega_sidebar_last_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Sidebar First and Main Content determine the share of your grid for each element.'),
         );
@@ -296,12 +306,12 @@ function omega_settings($saved_settings) {
 		      '#title' => t('Combine Sidebars'),
 		      '#description' => t('This is useful for administrative pages, and in certain contexts. You may choose to in certain areas, combine the <strong>$sidebar_first</strong> and <strong>$sidebar_last</strong> to create one sidebar from the content of both.'),
 		      '#options' => $options,
-		      '#default_value' => ovars($saved_settings['sidebar_combine'], 1),
+		      '#default_value' => $saved_settings['sidebar_combine'],
 		    );
 		    $form['omega_container']['omega_regions']['main']['sidebar_contain_pages'] = array(
 		      '#type' => 'textarea',
 		      '#title' => t('Pages'),
-		      '#default_value' => ovars($saved_settings['sidebar_contain_pages'], ''),
+		      '#default_value' => $saved_settings['sidebar_contain_pages'],
 		      '#description' => $description,
 		    );
     // Preface Blocks
@@ -315,28 +325,28 @@ function omega_settings($saved_settings) {
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 1'),
-          '#default_value' => ovars($saved_settings['omega_postscript_one_width'], 4),
+          '#default_value' => $saved_settings['omega_postscript_one_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 2'),
-          '#default_value' => ovars($saved_settings['omega_postscript_two_width'], 4),
+          '#default_value' => $saved_settings['omega_postscript_two_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 3'),
-          '#default_value' => ovars($saved_settings['omega_postscript_three_width'], 4),
+          '#default_value' => $saved_settings['omega_postscript_three_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 4'),
-          '#default_value' => ovars($saved_settings['omega_postscript_four_width'], 4),
+          '#default_value' => $saved_settings['omega_postscript_four_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );

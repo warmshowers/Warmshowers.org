@@ -4,39 +4,10 @@
 // $header_first
 global $theme_key;
 $settings = theme_get_settings($theme_key);
-//krumo($settings);
-$omega = array(
-  // grid size/layout variable defaults
-  // Header Regions
-  'omega_header_first_width' => ovars($settings['omega_header_first_width'], 6),
-  'omega_header_last_width' => ovars($settings['omega_header_last_width'], 6),
-  // Preface Regions
-  'omega_preface_first_width' => ovars($settings['omega_preface_first_width'], 6),
-  'omega_preface_middle_width' => ovars($settings['omega_preface_middle_width'], 4),
-  'omega_preface_last_width' => ovars($settings['omega_preface_last_width'], 6),
-  // Postscript Regions
-  'omega_postscript_one_width' => ovars($settings['omega_postscript_one_width'], 4),
-  'omega_postscript_two_width' => ovars($settings['omega_postscript_two_width'], 4),
-  'omega_postscript_three_width' => ovars($settings['omega_postscript_three_width'], 4),
-  'omega_postscript_four_width' => ovars($settings['omega_postscript_four_width'], 4),
-  // Main Content Regions
-  'omega_content_layout' => ovars($settings['omega_content_layout'], 'first_content_last'),
-  'omega_sidebar_first_width' => ovars($settings['omega_sidebar_first_width'], 4),
-  'omega_content_main_width' => ovars($settings['omega_content_main_width'], 8),
-  'omega_sidebar_last_width' => ovars($settings['omega_sidebar_last_width'], 4),
-  // page title information
-  'front_page_title_display' => ovars($settings['front_page_title_display'], 'title_slogan'),
-  'page_title_display_custom' => ovars($settings['page_title_display_custom'], ''),
-  'other_page_title_display' => ovars($settings['other_page_title_display'], 'ptitle_slogan'),
-  'other_page_title_display_custom' => ovars($settings['other_page_title_display_custom'], ''),
-  'configurable_separator' => ovars($settings['configurable_separator'], ' | '),
-  'mission_statement_pages' => ovars($settings['mission_statement_pages'], 'home'),
-  'omega_jqueryui' => ovars($settings['omega_jqueryui'], '0'),  
-  'sidebar_combine' => ovars($settings['sidebar_combine'], '1'),
-  'sidebar_contain_pages' => ovars($settings['sidebar_contain_pages'], ''),
-);
+$omega = omega_theme_get_default_settings('omega');
+// Merge the saved variables and their default values.
+$settings = array_merge($omega, $settings);
 $vars['omega'] = $omega;
-//krumo($vars);
 /**
  * Adding in the ability to combine the sidebars on certain paths in order to adjust 
  * layouts based on context of the page. My main purpose for this is in the admin 
@@ -46,14 +17,14 @@ $vars['omega'] = $omega;
  * unset the sidebar_last variable. This resets the layout to act like only one 
  * sidebar is present in certain paths
  */
- if ($omega['sidebar_contain_pages']) {
+ if ($settings['sidebar_contain_pages']) {
    $path = drupal_get_path_alias($_GET['q']);
    // Compare with the internal and path alias (if any).
-   $page_match = drupal_match_path($path, $omega['sidebar_contain_pages']);
+   $page_match = drupal_match_path($path, $settings['sidebar_contain_pages']);
    if ($path != $_GET['q']) {
-     $page_match = $page_match || drupal_match_path($_GET['q'], $omega['sidebar_contain_pages']);
+     $page_match = $page_match || drupal_match_path($_GET['q'], $settings['sidebar_contain_pages']);
    }
-   $page_match = !($omega['sidebar_combine'] xor $page_match);
+   $page_match = !($settings['sidebar_combine'] xor $page_match);
    if($page_match && substr($_GET['q'], 0, 17) != 'admin/build/block') {
      $vars['sidebar_first'] = $vars['sidebar_first']. $vars['sidebar_last'];
      unset($vars['sidebar_last']); 
@@ -68,130 +39,142 @@ $vars['omega'] = $omega;
  */
 if ($vars['header_first']) {
   $vars['omega']['header_first_classes'] = ao($vars, array('header_first', 'header_last'), 'header_first', TRUE);
-  $vars['header_first'] = '<div id="header-first" class="'.ns('grid-12', $vars['header_last'], $omega['omega_header_last_width']). $vars['omega']['header_first']. $vars['omega']['header_first_classes']. '">'. $vars['header_first']. '</div>';
+  $vars['header_first'] = '<div id="header-first" class="'.ns('grid-12', $vars['header_last'], $settings['omega_header_last_width']). $vars['omega']['header_first']. $vars['omega']['header_first_classes']. '">'. $vars['header_first']. '</div>';
 }
 // $header_last
 if ($vars['header_last']) {
   $vars['omega']['header_last_classes'] = ao($vars, array('header_first', 'header_last'), 'header_last', TRUE);
-  $vars['header_last'] = '<div id="header-last" class="'.ns('grid-12', $vars['header_first'], $omega['omega_header_first_width']). $vars['omega']['header_last_classes']. '">'. $vars['header_last']. '</div>';
+  $vars['header_last'] = '<div id="header-last" class="'.ns('grid-12', $vars['header_first'], $settings['omega_header_first_width']). $vars['omega']['header_last_classes']. '">'. $vars['header_last']. '</div>';
 }
 /**
  * Preface Region
  * Same as above, preparing the preface regions to accept settings configurations
  */
 if ($vars['preface_first']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['preface_first_classes'] = ao($vars, array('preface_first', 'preface_middle', 'preface_last'), 'preface_first');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['preface_first'] = '<div id="preface-first" class="preface '.ns(
       'grid-16', 
-        $vars['preface_middle'], $omega['omega_preface_middle_width'], 
-        $vars['preface_last'], $omega['omega_preface_last_width'])
+        $vars['preface_middle'], $settings['omega_preface_middle_width'], 
+        $vars['preface_last'], $settings['omega_preface_last_width'])
     . ' '.$vars['omega']['preface_first_classes'].'">' 
     .$vars['preface_first']. '</div>';
 }
 if ($vars['preface_middle']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['preface_middle_classes'] = ao($vars, array('preface_first', 'preface_middle', 'preface_last'), 'preface_middle');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['preface_middle'] = '<div id="preface-middle" class="preface '.ns(
       'grid-16', 
-        $vars['preface_first'], $omega['omega_preface_first_width'], 
-        $vars['preface_last'], $omega['omega_preface_last_width'])
+        $vars['preface_first'], $settings['omega_preface_first_width'], 
+        $vars['preface_last'], $settings['omega_preface_last_width'])
     . $vars['omega']['preface_middle_classes']. '">' 
     .$vars['preface_middle']. '</div>';
 }
 if ($vars['preface_last']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['preface_last_classes'] = ao($vars, array('preface_first', 'preface_middle', 'preface_last'), 'preface_last');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['preface_last'] = '<div id="preface-last" class="preface '.ns(
       'grid-16', 
-        $vars['preface_first'], $omega['omega_preface_first_width'], 
-        $vars['preface_middle'], $omega['omega_preface_middle_width'])
+        $vars['preface_first'], $settings['omega_preface_first_width'], 
+        $vars['preface_middle'], $settings['omega_preface_middle_width'])
     . $vars['omega']['preface_last_classes']. '">' 
     .$vars['preface_last']. '</div>';
 }
 /**
  * Body Region
  * Configuration of $sidebar_first, $sidebar_last, and the main content zone
+ * 
+ * This section needs MUCH cleanup as I know I can condense the switch
+ * statement to be much shorter than completely redeclaring each zone
+ * for each case that can be present.
+ * 
+ * @todo cleanup switch statement
  */
 switch($settings['omega_content_layout']){
   default:
   case 'first_content_last':
   // FIRST - CONTENT - LAST
-  $sl_max_width = $omega['omega_sidebar_first_width'] + $omega['omega_sidebar_last_width'];
-  $sl_pull = $omega['omega_content_main_width'] + $omega['omega_sidebar_last_width'];
+  $sl_max_width = $omega['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
+  $sl_pull = $omega['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
   if ($vars['sidebar_first']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
-      $vars['sidebar_last'] || !$vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
       
     ). ' '. ns('pull-'. $sl_pull,
-      $vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_last'], $settings['omega_sidebar_last_width']
     );
   }
   if ($vars['sidebar_last']) {
     $vars['sidebar_last_classes'] = 
       ns('grid-'. $sl_max_width, 
-      $vars['sidebar_first'] || !$vars['sidebar_first'], $omega['omega_sidebar_first_width']
+      $vars['sidebar_first'] || !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
   }
   if($vars['content']) {
     $vars['main_content_classes'] = 
       ns('grid-16',  
-      $vars['sidebar_first'], $omega['omega_sidebar_first_width'],
-      $vars['sidebar_last'], $omega['omega_sidebar_last_width']
-    ). ' '. ns('push-'. $omega['omega_sidebar_first_width'],
-      !$vars['sidebar_first'], $omega['omega_sidebar_first_width']
+      $vars['sidebar_first'], $settings['omega_sidebar_first_width'],
+      $vars['sidebar_last'], $settings['omega_sidebar_last_width']
+    ). ' '. ns('push-'. $settings['omega_sidebar_first_width'],
+      !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
   }
   break;
   // CONTENT  - FIRST - LAST
   case 'content_first_last':
-  $sl_max_width = $omega['omega_sidebar_first_width'] + $omega['omega_sidebar_last_width'];
-  $sl_pull = $omega['omega_content_main_width'] + $omega['omega_sidebar_last_width'];
+  $sl_max_width = $settings['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
+  $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
   if ($vars['sidebar_first']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
-      $vars['sidebar_last'] || !$vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
     );
   }
   if ($vars['sidebar_last']) {
     $vars['sidebar_last_classes'] = 
       ns('grid-'. $sl_max_width, 
-      $vars['sidebar_first'] || !$vars['sidebar_first'], $omega['omega_sidebar_first_width']
+      $vars['sidebar_first'] || !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
   }
   if($vars['content']) {
     $vars['main_content_classes'] = 
       ns('grid-16',  
-      $vars['sidebar_first'], $omega['omega_sidebar_first_width'],
-      $vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_first'], $settings['omega_sidebar_first_width'],
+      $vars['sidebar_last'], $settings['omega_sidebar_last_width']
     );
   }
   break;
   // FIRST - LAST - CONTENT
   case 'first_last_content':
-  $sl_max_width = $omega['omega_sidebar_first_width'] + $omega['omega_sidebar_last_width'];
-  $sl_pull = $omega['omega_content_main_width'] + $omega['omega_sidebar_last_width'];
+  $sl_max_width = $settings['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
+  $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
   if ($vars['sidebar_first']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
-      $vars['sidebar_last'] || !$vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
     ). ' '. ns('pull-'. $sl_pull,
-      $vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_last'], $settings['omega_sidebar_last_width']
     );
   }
   if ($vars['sidebar_last']) {
     $vars['sidebar_last_classes'] = 
       ns('grid-'. $sl_max_width, 
-      $vars['sidebar_first'] || !$vars['sidebar_first'], $omega['omega_sidebar_first_width']
+      $vars['sidebar_first'] || !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     ). ' '. ns('pull-'. $sl_pull,
-      $vars['sidebar_first'], $omega['omega_sidebar_first_width']
+      $vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
   }
   if($vars['content']) {
     $vars['main_content_classes'] = 
       ns('grid-16',  
-      $vars['sidebar_first'], $omega['omega_sidebar_first_width'],
-      $vars['sidebar_last'], $omega['omega_sidebar_last_width']
+      $vars['sidebar_first'], $settings['omega_sidebar_first_width'],
+      $vars['sidebar_last'], $settings['omega_sidebar_last_width']
     ). ' '. ns('push-'. $sl_max_width,
-      !$vars['sidebar_first'], $omega['omega_sidebar_first_width']
+      !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
   }
   break;
@@ -202,42 +185,50 @@ switch($settings['omega_content_layout']){
  * Same as above, preparing the preface regions to accept settings configurations
  */
 if ($vars['postscript_one']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['postscript_one_classes'] = ao($vars, array('postscript_one', 'postscript_two', 'postscript_three', 'postscript_four'), 'postscript_one');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['postscript_one'] = '<div id="postscript-one" class="postscript '.ns(
       'grid-16', 
-        $vars['postscript_two'], $omega['omega_postscript_two_width'], 
-        $vars['postscript_three'], $omega['omega_postscript_three_width'], 
-        $vars['postscript_four'], $omega['omega_postscript_four_width']) 
+        $vars['postscript_two'], $settings['omega_postscript_two_width'], 
+        $vars['postscript_three'], $settings['omega_postscript_three_width'], 
+        $vars['postscript_four'], $settings['omega_postscript_four_width']) 
     . ' '.$vars['omega']['postscript_one_classes'].'">'. 
     $vars['postscript_one'] . '</div>';
 }
 if ($vars['postscript_two']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['postscript_two_classes'] = ao($vars, array('postscript_one', 'postscript_two', 'postscript_three', 'postscript_four'), 'postscript_two');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['postscript_two'] = '<div id="postscript-two" class="postscript '.ns(
       'grid-16', 
-        $vars['postscript_one'], $omega['omega_postscript_one_width'], 
-        $vars['postscript_three'], $omega['omega_postscript_three_width'], 
-        $vars['postscript_four'], $omega['omega_postscript_four_width']) 
+        $vars['postscript_one'], $settings['omega_postscript_one_width'], 
+        $vars['postscript_three'], $settings['omega_postscript_three_width'], 
+        $vars['postscript_four'], $settings['omega_postscript_four_width']) 
     . ' '.$vars['omega']['postscript_two_classes'].'">'. 
     $vars['postscript_two'] . '</div>';
 }
 if ($vars['postscript_three']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['postscript_three_classes'] = ao($vars, array('postscript_one', 'postscript_two', 'postscript_three', 'postscript_four'), 'postscript_three');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['postscript_three'] = '<div id="postscript-three" class="postscript '.ns(
       'grid-16', 
-        $vars['postscript_one'], $omega['omega_postscript_one_width'], 
-        $vars['postscript_two'], $omega['omega_postscript_two_width'], 
-        $vars['postscript_four'], $omega['omega_postscript_four_width']) 
+        $vars['postscript_one'], $settings['omega_postscript_one_width'], 
+        $vars['postscript_two'], $settings['omega_postscript_two_width'], 
+        $vars['postscript_four'], $settings['omega_postscript_four_width']) 
     . ' '.$vars['omega']['postscript_three_classes'].'">'. 
     $vars['postscript_three'] . '</div>';
 }
 if ($vars['postscript_four']) {
+	// determine if this region needs an alpha or omega class applied
   $vars['omega']['postscript_four_classes'] = ao($vars, array('postscript_one', 'postscript_two', 'postscript_three', 'postscript_four'), 'postscript_four');
+  // add the wrapper element, grid-x and alpha/omega classes 
   $vars['postscript_four'] = '<div id="postscript-four" class="postscript '.ns(
       'grid-16', 
-        $vars['postscript_one'], $omega['omega_postscript_one_width'], 
-        $vars['postscript_two'], $omega['omega_postscript_two_width'], 
-        $vars['postscript_three'], $omega['omega_postscript_three_width']) 
+        $vars['postscript_one'], $settings['omega_postscript_one_width'], 
+        $vars['postscript_two'], $settings['omega_postscript_two_width'], 
+        $vars['postscript_three'], $settings['omega_postscript_three_width']) 
     . ' '.$vars['omega']['postscript_four_classes'].'">'. 
     $vars['postscript_four'] .'</div>';
 }
@@ -328,7 +319,7 @@ if (!module_exists('page_title')) {
 }
 // implement mission statement settings
 $vars['mission'] = t(variable_get('site_mission', ''));
-if ($omega['mission_statement_pages'] == 'all' || $vars['is_front'] && $omega['mission_statement_pages'] == 'home') {
+if ($settings['mission_statement_pages'] == 'all' || $vars['is_front'] && $settings['mission_statement_pages'] == 'home') {
   $vars['mission'] = '<div id="mission" class="">' .$vars['mission']. '</div>';
 }
 else {
