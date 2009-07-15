@@ -171,6 +171,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
         '#title' => t('jQuery Configuration'),
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
+	      '#description' => t('<div class="warning">This section is currently disabled as the advanced jQuery features are not currently implemented, and are slated for a 2.x feature release. For now, the jQuery UI setting below is mostly a placeholder.</div>'),
       );
 	    $form['omega_container']['omega_general']['jquery']['omega_jqueryui'] = array(
           '#type'          => 'radios',
@@ -181,6 +182,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
 	                             t('Do NOT include jQueryUI'),
 	                             t('DO include jQueryUI'),
                               ),
+          '#disabled'      => TRUE,                              
         );
 		  // Mission Statement
 		  $form['omega_container']['omega_general']['mission_statement'] = array(

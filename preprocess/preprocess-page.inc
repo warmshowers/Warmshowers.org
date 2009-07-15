@@ -320,7 +320,7 @@ if (!module_exists('page_title')) {
 // implement mission statement settings
 $vars['mission'] = t(variable_get('site_mission', ''));
 if ($settings['mission_statement_pages'] == 'all' || $vars['is_front'] && $settings['mission_statement_pages'] == 'home') {
-  $vars['mission'] = '<div id="mission" class="">' .$vars['mission']. '</div>';
+  $vars['mission'] = '<div id="mission" class=""><p>' .$vars['mission']. '</p></div>';
 }
 else {
   unset($vars['mission']);
