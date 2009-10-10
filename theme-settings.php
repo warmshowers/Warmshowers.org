@@ -2,7 +2,8 @@
 // $Id$
 // require_once for the functions that need to be available when we are outside
 // of the omega theme in the administrative interface
-include_once './' . drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
+//include_once './' . drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
+include_once './' . drupal_get_path('theme', 'omega') . '/theme-functions.inc';
 /**
 * Implementation of THEMEHOOK_settings() function.
 *
@@ -208,9 +209,9 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
 	    '#title' => t('960gs Region Settings'),
 	    '#description' => t('Configure how your regions are rendered. This area is currently a quick implementation of an interface to allow end users to quickly build out and adjust the default page layout. This feature will be improved over time, and include much more flexibility.'),
 	    '#collapsible' => TRUE,
-	    '#collapsed' => TRUE,
+	    '#collapsed' => FALSE,
 	  );
-	  // Header BLocks
+	  // Header Blocks
 		  $form['omega_container']['omega_regions']['headers'] = array(
         '#type' => 'fieldset',
         '#title' => t('Header Configuration'),
@@ -218,6 +219,42 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
+      $form['omega_container']['omega_regions']['omega_default_container_width'] = array(
+        '#type' => 'select',
+        '#title' => t('Default container width'),
+        '#default_value' => $saved_settings['omega_default_container_width'],
+        '#options' => $grids,
+        '#weight' => -50,
+        '#description' => t('This width is used for regions like $help, $messages and other non-important regions in page.tpl.php'),
+      );
+        $form['omega_container']['omega_regions']['headers']['omega_branding_wrapper_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Header/Navigation Elements'),
+          '#default_value' => $saved_settings['omega_branding_wrapper_width'],
+          '#options' => $grids,
+          '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
+        );
+        $form['omega_container']['omega_regions']['headers']['omega_header_menu_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Menu Elements'),
+          '#default_value' => $saved_settings['omega_header_menu_width'],
+          '#options' => $grids,
+          '#description' => t('Width of menu elements.'),
+        );
+        $form['omega_container']['omega_regions']['headers']['omega_header_logo_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Width for Logo/Branding area'),
+          '#default_value' => $saved_settings['omega_header_logo_width'],
+          '#options' => $grids,
+          '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
+        );
+        $form['omega_container']['omega_regions']['headers']['omega_header_wrapper_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Header/Navigation Elements'),
+          '#default_value' => $saved_settings['omega_header_wrapper_width'],
+          '#options' => $grids,
+          '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
+        );
         $form['omega_container']['omega_regions']['headers']['omega_header_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Header First'),
@@ -232,6 +269,29 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('This number, paired with the Header First determine the share of your grid for each element.'),
         );
+        $form['omega_container']['omega_regions']['headers']['omega_internal_nav_wrapper_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Breadcrumb/Slogan/Search'),
+          '#default_value' => $saved_settings['omega_internal_nav_wrapper_width'],
+          '#options' => $grids,
+          '#description' => t(''),
+        );
+        $form['omega_container']['omega_regions']['headers']['omega_breadcrumb_slogan_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Breadcrumb/Slogan'),
+          '#default_value' => $saved_settings['omega_breadcrumb_slogan_width'],
+          '#options' => $grids,
+          '#description' => t(''),
+        );
+        $form['omega_container']['omega_regions']['headers']['omega_search_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Search'),
+          '#default_value' => $saved_settings['omega_search_width'],
+          '#options' => $grids,
+          '#description' => t(''),
+        );
+        
+        
       // Preface Blocks
       $form['omega_container']['omega_regions']['preface'] = array(
         '#type' => 'fieldset',
@@ -240,6 +300,13 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
+        $form['omega_container']['omega_regions']['preface']['omega_preface_wrapper_grids'] = array(
+          '#type' => 'select',
+          '#title' => t('Preface Wrapper Container Grids'),
+          '#default_value' => $saved_settings['omega_preface_wrapper_grids'],
+          '#options' => $grids,
+          '#description' => t('Grid elements to be used for the preface region.'),
+        );
         $form['omega_container']['omega_regions']['preface']['omega_preface_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface First'),
@@ -279,6 +346,13 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
                                'content_first_last' => t('Content - Sidebar First - Sidebar Last'),
                                'first_last_content' => t('Sidebar First - Sidebar Last - Content'),
                               ),
+        );
+        $form['omega_container']['omega_regions']['main']['omega_content_container_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Container width for content zone'),
+          '#default_value' => $saved_settings['omega_content_container_width'],
+          '#options' => $grids,
+          '#description' => t(''),
         );
         $form['omega_container']['omega_regions']['main']['omega_sidebar_first_width'] = array(
           '#type' => 'select',
@@ -324,6 +398,13 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
+        $form['omega_container']['omega_regions']['postscript']['omega_postscript_container_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Container width for postscript regions'),
+          '#default_value' => $saved_settings['omega_postscript_container_width'],
+          '#options' => $grids,
+          '#description' => t(''),
+        );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 1'),
@@ -351,6 +432,35 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#default_value' => $saved_settings['omega_postscript_four_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
+        );
+    // Preface Blocks
+      $form['omega_container']['omega_regions']['footer'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Footer Configuration'),
+        '#description' => t('Footer region zones.'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+        $form['omega_container']['omega_regions']['footer']['omega_footer_container_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Container width for footer regions'),
+          '#default_value' => $saved_settings['omega_footer_container_width'],
+          '#options' => $grids,
+          '#description' => t(''),
+        );
+        $form['omega_container']['omega_regions']['footer']['omega_footer_first_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Contextual Width for Footer First'),
+          '#default_value' => $saved_settings['omega_footer_first_width'],
+          '#options' => $grids,
+          '#description' => t(''),
+        );
+        $form['omega_container']['omega_regions']['footer']['omega_footer_last_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Contextual Width for Footer Last'),
+          '#default_value' => $saved_settings['omega_footer_last_width'],
+          '#options' => $grids,
+          '#description' => t(''),
         );
   // Return theme settings form
   return $form;

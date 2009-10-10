@@ -1,21 +1,7 @@
 <?php
 //$Id$
 // Report all PHP errors (see changelog)
-ini_set('error_reporting', E_ALL);
-require_once drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
-/**
- * Implementation of hook_theme().
- *
- * @return
- */
-function omega_theme(&$existing, $type, $theme, $path) {
-  if (!db_is_active()) {
-    return array();
-  }
-  include_once './' . drupal_get_path('theme', 'omega') . '/template.theme-registry.inc';
-  return _omega_theme($existing, $type, $theme, $path);
-}// */
-
+//ini_set('error_reporting', E_ALL);
 /**
  * Implementation of hook_preprocess()
  * 
@@ -41,8 +27,11 @@ function omega_preprocess(&$vars, $hook) {
  * The default functionality can be found in preprocess/preprocess-page.inc
  */
 function omega_preprocess_page(&$vars, $hook) {
-	
+  
 } // end preprocess_page
+function omega_preprocess_node(&$vars, $hook) {
+  
+} // end preprocess_node
 
 /** 
  * NINESIXTY - Contextually adds 960 Grid System classes.
@@ -228,3 +217,45 @@ function omega_breadcrumb($breadcrumb) {
   // Otherwise, return an empty string.
   return '';
 }
+/**
+ * Create a string of attributes form a provided array.
+ * 
+ * @param $attributes
+ * @return string
+ */
+function omega_render_attributes($attributes) {
+  if($attributes) {
+    $items = array();
+    foreach($attributes as $attribute => $data) {
+      if(is_array($data)) {
+        $data = implode(' ', $data);
+      }
+      $items[] = $attribute . '="' . $data . '"';
+    }
+    $output = ' ' . implode(' ', $items);
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @return
+ */
+function omega_theme(&$existing, $type, $theme, $path) {
+  if (!db_is_active()) {
+    return array();
+  }
+  include_once './' . drupal_get_path('theme', 'omega') . '/theme-functions.inc';
+  // Since we are rebuilding the theme registry and the theme settings' default
+  // values may have changed, make sure they are saved in the database properly.
+  omega_theme_get_default_settings($theme);
+  return array(
+    'id_safe' => array(
+      'arguments' => array('string'),
+    ),
+    'render_attributes' => array(
+      'arguments' => array('attributes'),
+    ),
+  );
+}// */
