@@ -11,9 +11,10 @@ include_once './' . drupal_get_path('theme', 'omega') . '/theme-settings.php';
  * @return
  *   A form array.
  */
-function polished_settings($saved_settings) {
+function omega_starterkit_settings($saved_settings) {
   // Get the default values from the .info file.
-  $defaults = omega_theme_get_default_settings('polished');
+  //krumo($saved_settings);
+  $defaults = omega_theme_get_default_settings('omega_starterkit');
   // Merge the saved variables and their default values.
   $settings = array_merge($defaults, $saved_settings);
   $form = array();
