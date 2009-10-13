@@ -26,12 +26,13 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
   // Merge the saved variables and their default values.
   $settings = array_merge($defaults, $saved_settings);
 		
-	for($i=1;$i<=16;$i++){
+	for($i=1;$i<=24;$i++){
 		$grids[$i]= $i;
 	}
 	$containers = array(
     '12' => '12 column grid',
 	  '16' => '16 column grid',
+	  '24' => '24 column grid'
 	);
   $form['omega_container'] = array(
     '#type' => 'fieldset',

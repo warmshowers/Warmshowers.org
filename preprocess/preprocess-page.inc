@@ -106,8 +106,10 @@ switch($settings['omega_content_layout']){
   default:
   case 'first_content_last':
   // FIRST - CONTENT - LAST
-  $sl_max_width = $omega['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
-  $sl_pull = $omega['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
+  $sl_max_width = $settings['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
+  
+  $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
+  
   if ($vars['sidebar_first']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
