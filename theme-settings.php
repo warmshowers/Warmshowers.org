@@ -15,17 +15,19 @@ include_once './' . drupal_get_path('theme', 'omega') . '/theme-functions.inc';
 function omega_settings($saved_settings, $subtheme_defaults = array()) {
 	// Add the form's CSS
   //drupal_add_css(drupal_get_path('theme', 'omega') . '/theme-settings.css', 'theme');
-
   // Add javascript to show/hide optional settings
   drupal_add_js(drupal_get_path('theme', 'omega'). '/js/omega_admin.js', 'theme');
 
   // Get the default values from the .info file.
-  $defaults = omega_theme_get_default_settings('omega');
-  // Allow a subtheme to override the default values.
-  $defaults = array_merge($defaults, $subtheme_defaults);
-  // Merge the saved variables and their default values.
-  $settings = array_merge($defaults, $saved_settings);
-		
+  if(count($subtheme_defaults) > 0) {
+    // Allow a subtheme to override the default values.
+    $settings = array_merge($subtheme_defaults, $saved_settings);
+  }
+  else {
+    // Merge the saved variables and their default values.
+    $defaults = omega_theme_get_default_settings('omega');
+    $settings = array_merge($defaults, $saved_settings);
+  }
 	for($i=1;$i<=24;$i++){
 		$grids[$i]= $i;
 	}
@@ -171,25 +173,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
 	  );
 		  
 	  
-	  
-	   $form['omega_container']['omega_general']['jquery'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('jQuery Configuration'),
-        '#collapsible' => TRUE,
-        '#collapsed' => TRUE,
-	      '#description' => t('<div class="warning">This section is currently disabled as the advanced jQuery features are not currently implemented, and are slated for a 2.x feature release. For now, the jQuery UI setting below is mostly a placeholder.</div>'),
-      );
-	    $form['omega_container']['omega_general']['jquery']['omega_jqueryui'] = array(
-          '#type'          => 'radios',
-	        '#description'   => t('The Omega theme provides jQueryUI functionality. You will need to turn this off if you are using the jQuery UI module.'),
-          '#title'         => t('Include jQuery UI?'),
-          '#default_value' => $saved_settings['omega_jqueryui'],
-          '#options'       => array(
-	                             t('Do NOT include jQueryUI'),
-	                             t('DO include jQueryUI'),
-                              ),
-          '#disabled'      => TRUE,                              
-        );
+	
 		  // Mission Statement
 		  $form['omega_container']['omega_general']['mission_statement'] = array(
 		    '#type' => 'fieldset',
@@ -239,13 +223,6 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $containers,
           '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
         );
-        $form['omega_container']['omega_regions']['headers']['omega_header_menu_width'] = array(
-          '#type' => 'select',
-          '#title' => t('Wrapper Area width for Menu Elements'),
-          '#default_value' => $saved_settings['omega_header_menu_width'],
-          '#options' => $grids,
-          '#description' => t('Width of menu elements.'),
-        );
         $form['omega_container']['omega_regions']['headers']['omega_header_logo_width'] = array(
           '#type' => 'select',
           '#title' => t('Width for Logo/Branding area'),
@@ -253,6 +230,14 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
         );
+        $form['omega_container']['omega_regions']['headers']['omega_header_menu_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Menu Elements'),
+          '#default_value' => $saved_settings['omega_header_menu_width'],
+          '#options' => $grids,
+          '#description' => t('Width of menu elements.'),
+        );
+        
         $form['omega_container']['omega_regions']['headers']['omega_header_wrapper_width'] = array(
           '#type' => 'select',
           '#title' => t('Wrapper Area width for Header/Navigation Elements'),

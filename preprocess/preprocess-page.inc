@@ -5,9 +5,12 @@
 global $theme_key;
 include_once './' . drupal_get_path('theme', 'omega') . '/theme-functions.inc';
 $settings = theme_get_settings($theme_key);
-$omega = omega_theme_get_default_settings('omega');
+//krumo($theme_key);
+//$omega = omega_theme_get_default_settings($theme_key);
+//krumo($settings);
+//krumo($omega);
 // Merge the saved variables and their default values.
-$settings = array_merge($omega, $settings);
+//$settings = array_merge($omega, $settings);
 /**
  * The $original_regions array is a set of the default values for the 
  * current regions available. This is great so that they can be manipulated
@@ -162,23 +165,31 @@ switch($settings['omega_content_layout']){
   // FIRST - LAST - CONTENT
   case 'first_last_content':
   $sl_max_width = $settings['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
+  
   $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
+  $sr_pull = $settings['omega_content_main_width'];
+  
+  
+  
   if ($vars['sidebar_first']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
       $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
-    ). ' '. ns('pull-'. $sl_pull,
-      $vars['sidebar_last'], $settings['omega_sidebar_last_width']
+    ). ' '. ns('pull-'. $sr_pull
     );
   }
+  
+  
+  
   if ($vars['sidebar_last']) {
     $vars['sidebar_last_classes'] = 
-      ns('grid-'. $sl_max_width, 
-      $vars['sidebar_first'] || !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
-    ). ' '. ns('pull-'. $sl_pull,
-      $vars['sidebar_first'], $settings['omega_sidebar_first_width']
+      ns('grid-'. $settings['omega_sidebar_last_width']
+    ). ' '. ns('pull-'. $sr_pull
     );
   }
+  
+  
+  
   if($vars['content']) {
     $vars['main_content_classes'] = 
       ns('grid-'. $vars['content_container_width'],  
