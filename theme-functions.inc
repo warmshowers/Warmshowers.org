@@ -36,8 +36,8 @@ function omega_theme_get_default_settings($theme) {
 }
 
 function omega_theme_generate_region_settings() {
-	
+  
 }
 function omega_theme_generate_region_options(){
-	
+  
 }

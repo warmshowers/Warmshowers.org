@@ -1,6 +1,5 @@
 <?php
 // $Id$
-//krumo($vars);
 /**
  * Implementation of theme_preprocess_HOOK().
  * Passes varables to the node templates.
@@ -8,13 +7,7 @@
  * @return $vars
  */
 // Prepare the arrays to handle the classes and ids for the node container.
-if(!isset($vars['node']->attributes)) {
-  $vars['node_attributes'] = array();
-}
-else {
-  $vars['node_attributes'] = $vars['node']->attributes;
-}
-
+$vars['node_attributes'] = array();
 // Add an id to allow the styling of a specific node.
 $vars['node_attributes']['id'] = 'node-' . $vars['type'] . '-' . $vars['nid'];
 

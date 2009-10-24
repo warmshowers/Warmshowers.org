@@ -3,6 +3,7 @@
 
 // Include the definition of zen_settings() and zen_theme_get_default_settings().
 include_once './' . drupal_get_path('theme', 'omega') . '/theme-settings.php';
+
 /**
  * Implementation of THEMEHOOK_settings() function.
  *

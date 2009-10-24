@@ -224,7 +224,7 @@ function omega_breadcrumb($breadcrumb) {
  * @return string
  */
 function omega_render_attributes($attributes) {
-  if($attributes) {
+  if ($attributes) {
     $items = array();
     foreach($attributes as $attribute => $data) {
       if(is_array($data)) {
