@@ -52,16 +52,19 @@
 
   <?php print $picture ?>
 
-  <?php if (!$page): ?>
+  <?php if (!$page && $title): ?>
   <h2><a href="<?php print $node_url ?>" title="<?php print $title ?>"><?php print $title ?></a></h2>
   <?php endif; ?>
-
+  <?php if ($submitted):?>
   <div class="submitted"><?php print $submitted ?></div>
-
+  <?php endif; ?>
   
 
   <?php print $content ?>
-  <div class="taxonomy"><?php print $terms ?></div>
+  <?php if ($terms):?>
+  <div class="taxonomy"><?php print $terms; ?></div>
+  <?php endif; ?>
+  <?php if ($links):?>
   <div class="node-links"><?php print $links; ?></div>
-
+  <?php endif; ?>
 </div>

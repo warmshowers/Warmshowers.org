@@ -18,8 +18,27 @@
  * @return Array
  */
 function omega_preprocess(&$vars, $hook) {
-  if(is_file(drupal_get_path('theme', 'omega') . '/preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc')) {
-    include_once('preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc');
+  // Collect all information for the active theme.
+  $themes_active = array();
+  global $theme_info;
+
+  // If there is a base theme, collect the names of all themes that may have 
+  // preprocess files to load.
+  if($theme_info->base_theme) {
+    global $base_theme_info;
+    foreach($base_theme_info as $base){
+      $themes_active[] = $base->name;
+    }
+  }
+
+  // Add the active theme to the list of themes that may have preprocess files.
+  $themes_active[] = $theme_info->name;
+
+  // Check all active themes for preprocess files that will need to be loaded.
+  foreach($themes_active as $name) {
+    if(is_file(drupal_get_path('theme', $name) . '/preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc')) {
+      include(drupal_get_path('theme', $name) . '/preprocess/preprocess-' . str_replace('_', '-', $hook) . '.inc');
+    }
   }
 }
 /**

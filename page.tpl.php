@@ -15,9 +15,7 @@
 <body class="<?php print $body_classes; ?>">
   <?php if (!empty($admin)) print $admin; ?>
   <div id="page" class="clear-block">
-
     <div id="site-header" class="container-<?php print $branding_wrapper_width; ?> clear-block">
-
       <div id="branding" class="grid-<?php print $header_logo_width; ?>">
         <?php if ($linked_logo_img): ?>
           <?php print $linked_logo_img; ?>
@@ -35,6 +33,7 @@
       <?php endif; ?>
     </div><!-- /#site-header -->
 
+    <?php if($header_first || $header_last): ?>
     <div id="header-regions" class="container-<?php print $header_wrapper_width; ?> clear-block">
       <?php if($header_first): ?>
         <div id="header-first" class="<?php print $header_first_classes; ?>">
@@ -47,7 +46,9 @@
         </div><!-- /#header-last -->
       <?php endif; ?>
     </div><!-- /#header-regions -->
-
+    <?php endif; ?>
+    
+    <?php if($site_slogan && $is_front || $search_box || $breadcrumb): ?>
     <div id="internal-nav" class="container-<?php print $internal_nav_wrapper_width; ?> clear-block">
       <div id="slogan-bcrumb" class="grid-<?php print $breadcrumb_slogan_width; ?>">
         <?php if ($site_slogan && $is_front): ?>
@@ -61,7 +62,9 @@
         <div id="search-box" class="grid-<?php print $search_width; ?>"><?php print $search_box; ?></div><!-- /#search-box -->
       <?php endif; ?>
     </div><!-- /#internal-nav -->
-
+    <?php endif; ?>
+    
+    <?php if($preface_first || $preface_middle || $preface_last): ?>
     <div id="preface-wrapper" class="container-<?php print $preface_wrapper_grids; ?>">
       <?php if($preface_first): ?>
         <div id="preface-first" class="preface <?php print $preface_first_classes; ?>">
@@ -79,7 +82,8 @@
         </div><!-- /#preface-last -->
       <?php endif; ?>
     </div><!-- /#preface-wrapper -->
-
+    <?php endif; ?>
+    
     <div class="container-<?php print $default_container_width; ?> clear-block">
       <div class="grid-<?php print $default_container_width; ?>">
         <?php print $help; ?><?php print $messages; ?>
@@ -89,11 +93,11 @@
     <div id="main-content-container" class="container-<?php print $content_container_width; ?> clear-block">
       <div id="main-wrapper" class="column <?php print $main_content_classes; ?>">
         <?php print $mission; ?>
-    
+        <?php if($content_top): ?>
         <div id="content-top">
           <?php print $content_top; ?>
         </div><!-- /#content-top -->
-    
+        <?php endif; ?>
         <?php if ($tabs): ?>
           <div id="content-tabs" class=""><?php print $tabs; ?></div><!-- /#content-tabs -->
         <?php endif; ?>
@@ -105,10 +109,12 @@
         <div id="main-content" class="region clear-block">
           <?php print $content; ?>
         </div><!-- /#main-content -->
-    
+        
+        <?php if($content_bottom): ?>
         <div id="content-bottom">
           <?php print $content_bottom; ?>
         </div><!-- /#content-bottom -->
+        <?php endif; ?>
       </div><!-- /#main-wrapper -->
     
       <?php if ($sidebar_first): ?>
@@ -124,6 +130,7 @@
       <?php endif; ?>
     </div><!-- /#main-content-container -->
     
+    <?php if($postscript_one || $postscript_two || $postscript_three || $postscript_four): ?>
     <div id="postscript-wrapper" class="container-<?php print $postscript_container_width; ?> clear-block">
       <?php if($postscript_one): ?>
         <div id="postscript-one" class="postscript <?php print $postscript_one_classes; ?>">
@@ -146,14 +153,16 @@
         </div><!-- /#postscript-four -->
       <?php endif; ?>
     </div><!-- /#postscript-wrapper -->
+    <?php endif; ?>
     
+    <?php if($footer_first || $footer_last || $footer_message): ?>
     <div id="footer-wrapper" class="container-<?php print $footer_container_width; ?> clearfix">
       <?php if($footer_first): ?>
         <div id="footer-first" class="grid-<?php print $footer_first_classes; ?>">
           <?php print $footer_first; ?>
         </div><!-- /#footer-first -->
       <?php endif; ?>
-      <?php if($footer_last): ?>
+      <?php if($footer_last || $footer_message): ?>
         <div id="footer-last" class="grid-<?php print $footer_last_classes; ?>">
           <?php print $footer_last; ?>
           <?php if ($footer_message): ?>
@@ -164,7 +173,7 @@
         </div><!-- /#footer-last -->
       <?php endif; ?>
     </div><!-- /#footer-wrapper -->
-
+    <?php endif; ?>
   </div><!-- /#page -->
   <?php print $closure; ?>
 </body>
