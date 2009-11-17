@@ -34,6 +34,9 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
   for ($i = 1; $i <= 24; $i++){
     $grids[$i] = $i;
   }
+  for ($i = 0; $i <= 23; $i++){
+    $spacing[$i] = $i;
+  }
   $containers = array(
     '12' => '12 column grid',
     '16' => '16 column grid',
@@ -191,8 +194,9 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#title'         => t('Where should your mission statement be displayed?'),
           '#default_value' => $saved_settings['mission_statement_pages'],
           '#options'       => array(
-                                'home' => t('Display mission statement only on front page'),
-                                'all' => t('Display mission statement on all pages'),
+                                'home' => t('Display mission statement only on front page.'),
+                                'all' => t('Display mission statement on all pages.'),
+                                'none'=> t('Do not display the mission statement on any pages.'),
                               ),
         );
 
@@ -307,12 +311,36 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('This number, combined with the Preface Middle and Preface Last determine the share of your grid for each element.'),
         );
+        $form['omega_container']['omega_regions']['preface']['omega_preface_first_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Preface First'),
+          '#default_value' => $saved_settings['omega_preface_first_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['preface']['omega_preface_first_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Preface First'),
+          '#default_value' => $saved_settings['omega_preface_first_suffix'],
+          '#options' => $spacing,
+        );
         $form['omega_container']['omega_regions']['preface']['omega_preface_middle_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface Middle'),
           '#default_value' => $saved_settings['omega_preface_middle_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the Preface First and Preface Last determine the share of your grid for each element.'),
+        );
+        $form['omega_container']['omega_regions']['preface']['omega_preface_middle_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Preface Middle'),
+          '#default_value' => $saved_settings['omega_preface_middle_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['preface']['omega_preface_middle_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Preface Middle'),
+          '#default_value' => $saved_settings['omega_preface_middle_suffix'],
+          '#options' => $spacing,
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_last_width'] = array(
           '#type' => 'select',
@@ -321,7 +349,18 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('This number, combined with the Preface First and Preface Middle determine the share of your grid for each element.'),
         );
-
+        $form['omega_container']['omega_regions']['preface']['omega_preface_last_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Preface Last'),
+          '#default_value' => $saved_settings['omega_preface_last_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['preface']['omega_preface_last_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Preface Last'),
+          '#default_value' => $saved_settings['omega_preface_last_suffix'],
+          '#options' => $spacing,
+        );
       // Main Body Regions
       $form['omega_container']['omega_regions']['main'] = array(
         '#type' => 'fieldset',
@@ -407,12 +446,36 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );
+        $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Postscript 1'),
+          '#default_value' => $saved_settings['omega_postscript_one_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Postscript 1'),
+          '#default_value' => $saved_settings['omega_postscript_one_suffix'],
+          '#options' => $spacing,
+        );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 2'),
           '#default_value' => $saved_settings['omega_postscript_two_width'],
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
+        );
+        $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Postscript 2'),
+          '#default_value' => $saved_settings['omega_postscript_two_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Postscript 2'),
+          '#default_value' => $saved_settings['omega_postscript_two_suffix'],
+          '#options' => $spacing,
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_width'] = array(
           '#type' => 'select',
@@ -421,6 +484,18 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );
+        $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Postscript 3'),
+          '#default_value' => $saved_settings['omega_postscript_three_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Postscript 3'),
+          '#default_value' => $saved_settings['omega_postscript_three_suffix'],
+          '#options' => $spacing,
+        );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 4'),
@@ -428,7 +503,18 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#options' => $grids,
           '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
         );
-
+        $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_prefix'] = array(
+          '#type' => 'select',
+          '#title' => t('Prefix Spacing for Postscript 4'),
+          '#default_value' => $saved_settings['omega_postscript_four_prefix'],
+          '#options' => $spacing,
+        );
+         $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_suffix'] = array(
+          '#type' => 'select',
+          '#title' => t('Suffix Spacing for Postscript 4'),
+          '#default_value' => $saved_settings['omega_postscript_four_suffix'],
+          '#options' => $spacing,
+        );
       // Footer Blocks
       $form['omega_container']['omega_regions']['footer'] = array(
         '#type' => 'fieldset',

@@ -66,12 +66,16 @@ $vars['search_width'] = $settings['omega_search_width'];
 
  
 if ($vars['header_first']) {
-  $vars['header_first_classes'] = ns('grid-'. $settings['omega_header_wrapper_width'], $vars['header_last'], $settings['omega_header_last_width']);
+  $vars['header_first_classes'] = 
+    ns('grid-'. $settings['omega_header_wrapper_width'], 
+      $vars['header_last'], $settings['omega_header_last_width']);
 }
 
 // $header_last
 if ($vars['header_last']) {
-	$vars['header_last_classes'] = ns('grid-'. $settings['omega_header_wrapper_width'], $vars['header_first'], $settings['omega_header_first_width']);
+  $vars['header_last_classes'] = 
+  ns('grid-'. $settings['omega_header_wrapper_width'], 
+    $vars['header_first'], $settings['omega_header_first_width']);
 }
 
 /**
@@ -79,21 +83,31 @@ if ($vars['header_last']) {
  * Same as above, preparing the preface regions to accept settings configurations
  */
 $vars['preface_wrapper_grids'] = $settings['omega_preface_wrapper_grids'];
-if ($vars['preface_first']) {
-  $vars['preface_first_classes'] = ns('grid-'. $settings['omega_preface_wrapper_grids'], 
-        $vars['preface_middle'], $settings['omega_preface_middle_width'], 
-        $vars['preface_last'], $settings['omega_preface_last_width']);
-}
-if ($vars['preface_middle']) {
-  $vars['preface_middle_classes'] = ns('grid-'. $settings['omega_preface_wrapper_grids'], 
-        $vars['preface_first'], $settings['omega_preface_first_width'], 
-        $vars['preface_last'], $settings['omega_preface_last_width']);
-}
-if ($vars['preface_last']) {
-  $vars['preface_last_classes'] = ns('grid-'. $settings['omega_preface_wrapper_grids'], 
-        $vars['preface_first'], $settings['omega_preface_first_width'], 
-        $vars['preface_middle'], $settings['omega_preface_middle_width']);
-}
+$preface_regions = array(
+  'preface_first' => array(
+    'data' => $vars['preface_first'],
+    'width' => $settings['omega_preface_first_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_preface_first_prefix'],
+      'suffix' => $settings['omega_preface_first_suffix']),
+    ),
+  'preface_middle' => array(
+    'data' => $vars['preface_middle'],
+    'width' => $settings['omega_preface_middle_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_preface_middle_prefix'],
+      'suffix' => $settings['omega_preface_middle_suffix']),
+    ),
+  'preface_last' => array(
+    'data' => $vars['preface_last'],
+    'width' => $settings['omega_preface_last_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_preface_last_prefix'],
+      'suffix' => $settings['omega_preface_last_suffix'])
+  ),
+);
+$vars = static_region_builder($preface_regions, $settings['preface_wrapper_grids'], $vars);
+//krumo($vars);
 
 /**
  * Body Region
@@ -204,31 +218,38 @@ switch($settings['omega_content_layout']){
  * Same as above, preparing the postscript regions to accept settings configurations
  */
 $vars['postscript_container_width'] = $settings['omega_postscript_container_width'];
-
-if ($vars['postscript_one']) {
-  $vars['postscript_one_classes'] = ns('grid-'. $vars['postscript_container_width'], 
-        $vars['postscript_two'], $settings['omega_postscript_two_width'], 
-        $vars['postscript_three'], $settings['omega_postscript_three_width'], 
-        $vars['postscript_four'], $settings['omega_postscript_four_width']);
-}
-if ($vars['postscript_two']) {
-  $vars['postscript_two_classes'] = ns('grid-'. $vars['postscript_container_width'], 
-        $vars['postscript_one'], $settings['omega_postscript_one_width'], 
-        $vars['postscript_three'], $settings['omega_postscript_three_width'], 
-        $vars['postscript_four'], $settings['omega_postscript_four_width']);
-}
-if ($vars['postscript_three']) {
-  $vars['postscript_three_classes'] = ns('grid-'. $vars['postscript_container_width'], 
-        $vars['postscript_two'], $settings['omega_postscript_two_width'], 
-        $vars['postscript_one'], $settings['omega_postscript_one_width'], 
-        $vars['postscript_four'], $settings['omega_postscript_four_width']);
-}
-if ($vars['postscript_four']) {
-  $vars['postscript_four_classes'] = ns('grid-'. $vars['postscript_container_width'], 
-        $vars['postscript_two'], $settings['omega_postscript_two_width'], 
-        $vars['postscript_three'], $settings['omega_postscript_three_width'], 
-        $vars['postscript_one'], $settings['omega_postscript_one_width']);
-}
+$vars['preface_wrapper_grids'] = $settings['omega_preface_wrapper_grids'];
+$postscript_regions = array(
+  'postscript_one' => array(
+    'data' => $vars['postscript_one'],
+    'width' => $settings['omega_postscript_one_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_postscript_one_prefix'],
+      'suffix' => $settings['omega_postscript_one_suffix']),
+    ),
+  'postscript_two' => array(
+    'data' => $vars['postscript_two'],
+    'width' => $settings['omega_postscript_two_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_postscript_two_prefix'],
+      'suffix' => $settings['omega_postscript_two_suffix']),
+    ),
+  'postscript_three' => array(
+    'data' => $vars['postscript_three'],
+    'width' => $settings['omega_postscript_three_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_postscript_three_prefix'],
+      'suffix' => $settings['omega_postscript_three_suffix'])
+  ),
+  'postscript_four' => array(
+    'data' => $vars['postscript_four'],
+    'width' => $settings['omega_postscript_four_width'],
+    'spacing' => array(
+      'prefix' => $settings['omega_postscript_four_prefix'],
+      'suffix' => $settings['omega_postscript_four_suffix'])
+  ),
+);
+$vars = static_region_builder($postscript_regions, $settings['postscript_container_width'], $vars);
 
 /**
  * Footer Region
@@ -328,7 +349,7 @@ if (!module_exists('page_title')) {
 }
 // implement mission statement settings
 $vars['mission'] = t(variable_get('site_mission', ''));
-if ($vars['mission'] && ($settings['mission_statement_pages'] == 'all' || $vars['is_front'] && $settings['mission_statement_pages'] == 'home')) { 
+if ($vars['mission'] && ($settings['mission_statement_pages'] == 'all' || $vars['is_front'] && $settings['mission_statement_pages'] == 'home') && $settings['mission_statement_pages'] != 'none') { 
   $vars['mission'] = '<div id="mission" class=""><p>' .$vars['mission']. '</p></div>';
 }
 else {

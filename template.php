@@ -141,8 +141,44 @@ function omega_css_reorder($css) {
 }
 
 /**
+ * The region_builder function will create the variables needed to create
+ * a dynamic group of regions. This function is only used for groups of
+ * regions that should be displayed inline. Region groups that should be
+ * either displayed inline or stacked (header, footer) should not be 
+ * passed through this function.
+ * 
+ */
+function static_region_builder($region_data, $container_width, $vars) {
+	// let's cycle the region data, and determine what we have
+	foreach ($region_data AS $region => $info) {
+		// if we do have content for this region, let's create it.
+		if ($info['data']) {
+			$vars[$region .'_classes'] = ns('grid-'. $info['width']);
+		}
+		if (is_array($info['spacing'])) {
+		  foreach ($info['spacing'] AS $attribute => $value) {
+		    if ($value) {
+          $vars[$region .'_classes'] .= ' '. $attribute .'-'. $value;
+		    }	
+		  }
+		}
+	}
+	//krumo($vars);
+	return $vars;
+}
+
+/**
+ * The rfilter function takes one argument, an array of values for the regions 
+ * for a "group" of regions like preface or postscript 
+ * @param $vars
+ */
+function rfilter($vars) {
+	return count(array_filter($vars));
+}
+
+/**
  * OMEGA - A function to return the alpha and or omega classes based on context
- *
+ * This function is not currently being used.
  * @param $vars
  * @param $elements
  * @param $current
