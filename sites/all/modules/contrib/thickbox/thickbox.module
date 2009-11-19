@@ -1,0 +1,246 @@
+<?php
+// $Id: thickbox.module,v 1.18.2.21 2009/09/07 15:07:01 frjo Exp $
+
+/**
+ * @file
+ * Author: Fredrik Jonsson fredrik at combonet dot se
+ * The thickbox module is a simple wrapper for the jquery plugin
+ * ThickBox http://jquery.com/demo/thickbox/.
+ */
+
+/**
+ * Implementation of hook_theme().
+ */
+function thickbox_theme() {
+  $theme = array(
+    'imagefield_image_imagecache_thickbox' => array(
+      'arguments' => array('namespace' => NULL, 'path' => NULL, 'alt' => NULL, 'title' => NULL, 'gid' => NULL, 'attributes' => NULL),
+    ),
+  );
+
+  if (module_exists('imagecache')) {
+    foreach (imagecache_presets() as $preset) {
+      $theme['thickbox_formatter_'. $preset['presetname'] .'][thickbox'] = array(
+        'function' => 'theme_thickbox_formatter',
+        'arguments' => array('element' => NULL),
+      );
+    }
+  }
+
+  return $theme;
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function thickbox_init() {
+  _thickbox_doheader();
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function thickbox_menu() {
+  $items = array();
+
+  $items['admin/settings/thickbox'] = array(
+    'title' => 'Thickbox',
+    'description' => 'Allows the user to configure the Thickbox settings.',
+    'file' => 'thickbox.admin.inc',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('thickbox_admin_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['user/login/thickbox'] = array(
+    'title' => 'Login',
+    'page callback' => 'thickbox_login',
+    'access callback' => 'user_is_anonymous',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Menu callback for thickbox_login.
+ */
+function thickbox_login() {
+  $form = variable_get('thickbox_login_form', '') == 'custom' ? variable_get('thickbox_login_custom', 'user_login') : variable_get('thickbox_login_form', 'user_login');
+  print drupal_get_form($form);
+  exit;
+}
+
+/**
+ * Check if Thickbox should be active for the current URL.
+ *
+ * @return
+ *   TRUE if Thickbox should be active for the current page.
+ */
+function _thickbox_active() {
+  // Code from the block_list funtion in block.module.
+  $path = drupal_get_path_alias($_GET['q']);
+  // Compare with the internal and path alias (if any).
+  $page_match = drupal_match_path($path, variable_get('thickbox_pages', ''));
+  if ($path != $_GET['q']) {
+    $page_match = $page_match || drupal_match_path($_GET['q'], variable_get('thickbox_pages', ''));
+  }
+
+  return !$page_match;
+}
+
+/**
+ * Loads the various js and css files.
+ */
+function _thickbox_doheader() {
+  global $user;
+  static $already_added = FALSE;
+  if ($already_added) {
+    return; // Don't add the JavaScript and CSS multiple times.
+  }
+
+  if(_thickbox_active()) {
+    $path = drupal_get_path('module', 'thickbox');
+    drupal_add_css($path .'/thickbox.css');
+    if (variable_get('thickbox_ie_css', 0) != 1) {
+      drupal_add_css($path .'/thickbox_ie.css');
+    }
+
+    // Insert options and translated strings as javascript settings.
+    $js_settings = array(
+      'close' => t('Close'),
+      'next' => t('Next >'),
+      'prev' => t('< Prev'),
+      'esc_key' => t('or Esc Key'),
+      'next_close' => t('Next / Close on last'),
+      'image_count' => t('Image !current of !total')
+    );
+    drupal_add_js(array('thickbox' => $js_settings), 'setting');
+
+    if ($user->uid == 0 && variable_get('thickbox_login', 0)) {
+      drupal_add_js($path .'/thickbox_login.js');
+    }
+
+    if (variable_get('thickbox_auto', 0) && module_exists('image')) {
+      drupal_add_js(array('thickbox' => array('derivative' => variable_get('thickbox_derivative', 'preview'))), 'setting');
+      drupal_add_js($path .'/thickbox_auto.js');
+    }
+
+    drupal_add_js($path .'/thickbox.js');
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * Reformat the login form.
+ */
+function thickbox_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'user_login' && arg(0) == 'user' && arg(1) == 'login' && arg(2) == 'thickbox') {
+    $form['#action'] = url('user/login', array('query' => array('destination' => $_GET['destination'])));
+    $form['name']['#size'] = 25;
+    $form['pass']['#size'] = 25;
+  }
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ * Adds certain thickbox+imagecache formatters to CCK image fields if imagefield.module and imagecache.module exist.
+ */
+function thickbox_field_formatter_info() {
+  $formatters = array();
+  if (module_exists('imagefield') && module_exists('imagecache')) {
+    foreach (imagecache_presets() as $preset) {
+      $formatters[$preset['presetname'] .'][thickbox'] = array(
+        'label' => t('Thickbox: @preset image', array('@preset' => $preset['presetname'])),
+        'field types' => array('image', 'filefield'),
+      );
+    }
+  }
+
+  return $formatters;
+}
+
+function theme_thickbox_formatter($element) {
+  if (isset($element['#item']['nid']) && $node = node_load($element['#item']['nid'])) {
+    return thickbox_field_formatter($element['#field_name'], $element['#item'], $element['#formatter'], $node);
+  }
+}
+
+/**
+ * Implementation of hook_field_formatter().
+ */
+function thickbox_field_formatter($field, $item, $formatter, $node) {
+  if (module_exists('imagefield') && module_exists('imagecache') && !empty($item['fid'])) {
+    if (is_string($item['data'])) {
+      $item['data'] = unserialize($item['data']);
+    }
+    if (!isset($item['filepath'])) {
+      $file = field_file_load($item['fid']);
+      $item['filepath'] = $file['filepath'];
+    }
+    // If the title is empty use description, alt or the node title in that order.
+    if (empty($item['data']['title'])) {
+      if (!empty($item['data']['description'])) {
+        $item['data']['title'] = $item['data']['description'];
+      }
+      else if (!empty($item['data']['alt'])) {
+        $item['data']['title'] = $item['data']['alt'];
+      }
+      else {
+        $item['data']['title'] = $node->title;
+      }
+    }
+    // Build the gallery id.
+    $nid = $item['nid'] ? $item['nid'] : ($node->nid ? $node->nid : '');
+    switch (variable_get('thickbox_imagefield_gallery', 1)) {
+      case 0:
+        $gallery_id = 'all';
+        break;
+      case 1:
+        $gallery_id = $nid;
+        break;
+      case 2:
+        $gallery_id = $nid .'-'. $field;
+        break;
+      case 3:
+        $gallery_id = $nid .'-'. $item['fid'];
+        break;
+    }
+    list($namespace, $presetname) = explode('][', $formatter, 2);
+    if ($preset = imagecache_preset_by_name($namespace)) {
+      return theme('imagefield_image_imagecache_thickbox', $namespace, $item['filepath'], $item['data']['alt'], $item['data']['title'], $gallery_id);
+    }
+  }
+}
+
+/**
+ * Implementation of theme_imagefield_image_imagecache_thickbox().
+ *
+ * @param $namespace
+ *   presetname of the derivative you wish to generate a tag for.
+ * @param $path
+ *   path to the original image you wish to create a derivative image tag for.
+ * @param $alt
+ *   img tag alternate text
+ * @param $title
+ *   img tag title text
+ * @param $gid
+ *   gallery id
+ * @param attributes
+ *   optional drupal attributes array. If attributes is set, the default imagecache classes
+ *   will not be set automatically, you must do this manually.
+ */
+function theme_imagefield_image_imagecache_thickbox($namespace, $path, $alt = '', $title = '', $gid = '', $attributes = NULL) {
+  if (!empty($path)) {
+    $image = theme('imagecache', $namespace, $path, $alt, $title, $attributes);
+    if ($presetname = variable_get('thickbox_imagecache_preset', 0)) {
+      $link_path = imagecache_create_url($presetname, $path);
+    }
+    else {
+      $link_path = file_create_url($path);
+    }
+
+    return l($image, $link_path, array('html' => TRUE, 'attributes' => array('title' => $title, 'class' => 'thickbox', 'rel' => 'gallery-'. $gid)));
+  }
+}

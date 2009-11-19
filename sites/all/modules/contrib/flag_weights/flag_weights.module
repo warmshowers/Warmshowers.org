@@ -1,0 +1,83 @@
+<?php
+// $Id: flag_weights.module,v 1.1 2008/10/09 10:19:50 lyricnz Exp $
+
+/**
+ * @file
+ * Add flag-weights to the Flag module.
+ */
+
+/**
+ * Implementation of hook_schema_alter(). We alter $schema by reference.
+ *
+ * @param $schema
+ * The system-wide schema collected by drupal_get_schema().
+ */
+function flag_weights_schema_alter(&$schema) {
+  // Add field to existing schema.
+  $schema['flag_content']['fields']['weight'] = array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'size' => 'tiny',
+    // 'description' => t('Flag weight within region.'),
+  );
+}
+
+/**
+ * Implementation of hook_views_data().
+ *
+ * Provide a field that can be used to sort a view.
+ */
+function flag_weights_views_data() {
+  $data = array();
+
+  $data['flag_content']['weight'] = array(
+    'title' => t('Weight'),
+    'help' => t('Used for sorting the list of flagged items.'),
+    'real field' => 'weight',
+    'field' => array(
+      'handler' => 'views_handler_field_numeric',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+
+  return $data;
+}
+
+/**
+ * Flags an item, and set it's weight.
+ * @param $content_type
+ *   The name of the content-type to flag (eg: 'node' or 'comment')
+ * @param $content_id
+ *   The ID of the item to flag or unflag.
+ * @param $account
+ *   The user on whose behalf to flag. Leave empty for the current user.
+ * @param $weight
+ *   A weight used for ordering the item within the flagged-items list.
+ * @return
+ *   FALSE if some error occured (e.g., user has no permission, flag isn't
+ *   applicable to the item, etc.), TRUE otherwise.
+ */
+function flag_weights_flag($content_type, $content_id, $account = NULL, $weight = 0) {
+  $handler = flag_create_handler($content_type);
+  $ok = $handler->flag('flag', $content_id, $account);
+  if ($ok && $weight != 0) {
+    // We don't need to check access control etc because $handler->flag just checked it
+    if (!isset($account)) {
+      $account = $GLOBALS['user'];
+    }
+    flag_weights_set_weight($handler->fid, $handlers->content_type, $content_id, $account->uid, $weight);
+  }
+  return $ok;
+}
+
+/**
+ * Update the weight of an existing flagged item.
+ */
+function flag_weights_set_weight($fid, $content_type, $content_id, $uid, $weight) {
+  db_query("UPDATE {flag_content} SET weight = %d WHERE fid = %d AND content_type = '%s' AND content_id = %d AND uid = %d",
+    $weight, $fid, $content_type, $content_id, $uid);
+}

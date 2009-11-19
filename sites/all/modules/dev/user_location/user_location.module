@@ -1,0 +1,1342 @@
+<?php
+
+// $Id: user_location.module 547 2009-09-20 00:31:41Z rfay $
+
+
+// Map location source type to text translation
+global $sources;
+$sources = array();
+$sources[1]=t("User-specified");
+$sources[2]=t("Nearly Exact, from Address Data");
+$sources[3]=t("Postal code lookup");
+$sources[4] = t("Premise-level accuracy (google)");
+
+$sources[5]=t("City/Province lookup");
+$sources[6]=t("City/Country lookup");
+$sources[7] = t("Regional Accuracy");
+$sources[8] = t('Center of country only');
+
+/**
+ * Get all the fields and their config items.
+ *
+ * @return unknown
+ */
+function _user_location_fieldlist() {
+  global $sourceoptions;
+  $fields = array(
+	'country' => array('type' => 'select', 'title' => t('Country'), 'required' => TRUE ),
+	'street' => array('type' => 'textfield', 'title' => t('Street Address')),
+	'additional' => array('type' => 'textfield', 'title' => t('Additional')),
+	'city' => array('type' => 'textfield', 'title' => t('City/Town'), 'required'=>TRUE),
+	'province' => array('type' => 'select', 'title' => t('State/Province'), 'required'=>TRUE),
+	'postal_code' => array(
+		'type' => 'textfield', 'title' => t('Postal Code'),
+		'required' => TRUE,
+		'description' => t("If you don't have a postal code or don't know it, put NONE here.")),
+	'latitude' => array('type' => 'value', 'title'=> t("Latitude")),
+	'longitude' => array('type' => 'value', 'title' => t("Longitude")),
+	'source' => array( 'type' => 'value', 'title' => "Location source"),
+
+  );
+  return $fields;
+}
+
+/**
+ * Implementation of hook_user
+ * Adds registration form, validation, and insert
+ */
+
+function user_location_user($op, &$edit, &$user, $category = NULL) {
+  switch($op) {
+    case 'register':
+    case 'form':
+      $GLOBALS['conf']['cache'] = FALSE;  // Prevent caching of registration page
+      return _user_location_form($edit, $user);  // Keyed array of fields
+
+    case 'validate':
+      _user_location_validate($edit, $user);
+      return;
+
+    case 'insert':
+      cache_clear_all(); // Might need to reset the used countries
+    case 'update':
+      _user_location_save($edit, $user);
+      return;
+    case 'delete':
+      _user_location_delete($edit, $user);
+      return;
+    case 'view':
+      return _user_location_view($edit, $user);
+    case 'load':
+      _user_location_load($user);
+
+  }
+}
+
+/**
+ * Implementation of hook_menu
+ *
+ * @param unknown_type $may_cache
+ * @return unknown
+ */
+function user_location_menu() {
+  global $user;
+  $items = array();
+  $items['admin/settings/user_location'] = array(
+		'title' => 'User Location Settings',
+		'description' => 'Change settings for User Location module',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('user_location_admin_settings'),
+		'access arguments' => array('administer site configuration') ,
+		'type' => MENU_NORMAL_ITEM,
+
+  );
+
+
+
+  if (strlen(arg(1))) {
+    $items['user/' . '%' . '/location'] = array(
+			'title' => 'map my location',
+			'page callback' => '_user_location_map_set_lat_long',
+			'access callback' => 'user_location_map_permission',
+      		'access arguments' => array(), // dummy
+			'weight' => 0,
+			'type' => MENU_LOCAL_TASK);
+  }
+
+  return $items;
+}
+
+/**
+ * Determine whether user has access to set location on map
+ * @return unknown_type
+ */
+function user_location_map_permission() {
+  if (user_access('administer users') || $GLOBALS['user']->uid == arg(1)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+
+
+function user_location_views_data() {
+  $data = array();
+  $data['user_location']['table']['group'] = t("Warmshowers");
+  $data['user_location']['street'] = array(
+    'title' => t('Street Address'),
+    'help' => t("Member's street address."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['additional'] = array(
+    'title' => t('Street Address - Additional'),
+    'help' => t("Member's additional street address info."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['city'] = array(
+    'title' => t('City'),
+    'help' => t("City."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['province'] = array(
+    'title' => t('State or Province'),
+    'help' => t("State or Province."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['country'] = array(
+    'title' => t('Country'),
+    'help' => t("Country."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['postal_code'] = array(
+    'title' => t('Postal Code'),
+    'help' => t("Postal Code."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['latitude'] = array(
+    'title' => t('Latitude'),
+    'help' => t("Latitude."),
+    'field' => array(
+      'handler' => 'views_handler_field_numeric',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_numeric',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['user_location']['longitude'] = array(
+    'title' => t('Longitude'),
+    'help' => t("Longitude."),
+    'field' => array(
+      'handler' => 'views_handler_field_numeric',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_numeric',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+
+  $data['user_location']['table']['join'] = array(
+    'users' => array(
+      // direct join to the users table via 'oid' field.
+      'left_field' => 'uid',
+      'field' => 'oid',
+     ),
+  );
+  return $data;
+
+}
+/**
+ * Admin settings form
+ *
+ * @return unknown
+ */
+function user_location_admin_settings() {
+  $form['user_location_google_key'] = array(
+	'#type' => 'textfield',
+	'#title' => 'Google Maps API Key',
+	'#default_value' => variable_get('user_location_google_key', ""),
+	'#description' => "The Google Maps API key to be used",
+
+
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Admin settinghs form submit
+ *
+ * @param unknown_type $form_id
+ * @param unknown_type $form_values
+ */
+function user_location_admin_settings_submit($form, &$form_state) {
+  variable_set('user_location_google_key', $form_state['values']['user_location_google_key']);
+  drupal_set_message("Updated google key");
+
+}
+
+
+/**
+ * Load user_location values and add to user
+ *
+ * @param unknown_type $user
+ */
+function _user_location_load(&$user) {
+  $res = db_query("SELECT * FROM {user_location} WHERE oid = %d", $user->uid);
+  $location = array();
+  unset($res->user);  // User should not be in there.
+  if ($row = db_fetch_object($res)) {
+    unset ($row->user); // User is a duplication in the user object
+    foreach ($row as $key=> $value) {
+      if ($key == 'country' || $key == 'province') { $value = strtolower($value); }  // Force all loewr case
+      $user->$key = $value;
+    }
+  }
+
+}
+
+/**
+ * Validate user_location
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ */
+function _user_location_validate($form, $user) { //CHANGEd all the $edits to $forms D6 Russo
+  $province = $form['province'];
+  $country = $form['country'];
+  $provincelist = _user_location_provincelist($country);
+  if ($province != "XX" && !$provincelist[$province]) {
+    form_set_error('province', 'State/Province not set correctly');
+  }
+  if (strlen($form['postal_code']) < 2) {
+    form_set_error('postal_code', t("Please add your postal code. If you don't know it, enter NONE"));
+  }
+
+}
+
+/**
+ * Display the user_location stuff on the user provile
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ * @return unknown
+ */
+function _user_location_view($edit, $user) {
+  $fieldlist = _user_location_fieldlist();
+  $showvalue = array();
+
+
+  $showvalue['map']['value'] = _user_location_show_map($user);
+  $showvalue['map']['value_type'] = 'html';
+
+  foreach ($fieldlist as $item => $value) {
+    $showvalue[$item] = array('title' => $fieldlist[$item]['title'],
+		'value' => check_plain($user->$item),
+		'class' => 'value');
+
+  }
+  $countrylist = _user_location_supported_countries();
+  $showvalue['country']['value'] = $countrylist[$user->country];
+  $provincelist = _user_location_provincelist($user->country);
+  $showvalue['province']['value'] = $provincelist[$user->province];
+  $user->content['#mapHTML'] = $showvalue['map']['value'];
+
+}
+
+
+/**
+ * After user profile form edit, save user_location
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ */
+function _user_location_save(&$edit, &$user) {
+  $user = user_load(array('uid'=>$user->uid));;
+
+
+  // Only do geocoding if the location has been updated
+  // And if source is not user-located
+  // Or if it's not set or admin user is doing it
+  if (array_key_exists('country',$edit) && array_key_exists('province',$edit)) {
+    if ( (user_access('administer users') ||
+    $user->latitude == 0 || $user->source == 0 ||
+    ($edit['city'] != $user->city)
+    || ($edit['street'] != $user->street)
+    || ($edit['country'] != $user->country)
+    || ($edit['province'] != $user->province) )
+    && count($edit) && $user->source != 1 && ($edit['status'] == NULL || $edit['status']==1)) {
+      $geocoded_location = _user_location_geocode($edit);
+      $source = $geocoded_location['source'];
+      if ($source <= 8) {
+        $edit['source'] = $geocoded_location['source'];
+        $edit['latitude'] = $geocoded_location['latitude'];
+        $edit['longitude'] = $geocoded_location['longitude'];
+        drupal_set_message(t("User location geocoded with accuracy %source", array('%source' => $source)));
+        if ($source > 3) {
+          drupal_set_message(t("We were unable to completely determine your location. Please set your location using "). l(t("the Set Map Location tab"),"user/$user->uid/location"));
+        } else {
+          drupal_set_message(t("Your map location has been determined from your address, but please check it using "). l(t("the Set Map Location tab"),"user/$user->uid/location"));
+        }
+      }
+    }
+  }
+
+
+  $placeholders = "%d,";
+  $valuenames = "oid,";
+  $fieldlist_values = array();
+  foreach (array_keys(_user_location_fieldlist()) as $item) {
+    // Create the parts of the insert statement
+    if (!array_key_exists($item,$edit)) {
+      continue;
+    }
+    $placeholders .= "'%s',";
+    $valuenames .= "$item ,";
+    $fieldlist_values[] = $edit[$item];;
+
+    // Create the alternate update statement
+    $updatestmt .= "$item='%s',";
+
+    // We're supposed to set the edit field empty when we've saved it
+    $edit[$item] = NULL;
+  }
+
+  // If we didn't even process any of our own values, return
+  if (!count($fieldlist_values)) {
+    return;
+  }
+  $placeholders = substr_replace($placeholders,"",-1);
+  $valuenames = substr_replace($valuenames, "", -1);
+  $updatestmt = substr_replace($updatestmt, "", -1);
+
+  $query = "
+    insert into {user_location} ($valuenames) values ( $placeholders )
+    ON DUPLICATE KEY UPDATE  $updatestmt";
+  $values = array_merge(array($user->uid), $fieldlist_values,$fieldlist_values);
+  $sqlresult = db_query($query, $values);
+  if ($sqlresult == FALSE) {
+    watchdog('user_location',"Failed to save user data for user @uid. Query=@query", array('@uid'=>$user->uid, '@query'=>$query), WATCHDOG_ERROR, "user/{$user->uid}");
+    drupal_set_message(t("Sorry - your data was not saved. Please let the administrator know about this message"),'error');
+  }
+}
+
+/**
+ * Delete user_location entry on user deletion
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ */
+function _user_location_delete($edit, $user) {
+
+  $uid = $user->uid;
+  $sqlresult = db_query("delete from {user_location} where oid = %d", $uid);
+
+}
+
+
+/**
+ * Create the defaults for each user_location member. Returns array that can be used for each
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ * @return unknown
+ */
+function _user_location_form_defaults($edit, $user) {
+  $defaults = array();
+  $fields = _user_location_fieldlist();
+
+  // TODO: Make this more intelligent. This is a lot of trouble. Should just bless the array or something
+  if ($edit['country']) {
+    foreach($fields as $field => $value) {
+      $defaults[$field] = $edit[$field];
+    }
+  } else if ($user->country) {
+    foreach($fields as $field => $value) {
+      $defaults[$field] = $user->$field;
+    }
+
+  }
+  if (!$defaults['country']) {
+    $defaults['country'] = user_location_get_browser_country();
+  }
+  return $defaults;
+}
+
+/**
+ * Actual form added to user profile edit form with user_location elements
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ * @return array containing added form
+ */
+function _user_location_form($edit, $user) {
+  $sourceoptions = array(    // TODO: Put this in a general place for use
+  0 => t('Unset'),
+  1 => t('User-Defined'),
+  2 => t('Geocoded exactly from Address Data'),
+  3 => t('Geocoded from Zipcode'),
+  5 => t('Geocoded From City/State'),
+  6 => t('Geocoded from City/Country'),
+  8 => t('Guess - Center of Country Only'),
+  );
+
+
+  // HACK! I couldn't figure out what to do in the validation failure case on register (where no edit or user is provided).
+  // Without this, if validation fails on register (like if URL is bad) then it throws away the province, and possibly the country.
+  // May be some kind of side-effect of activeselect. rfay 10-1-07
+  if (!$edit && !$user) {
+    $edit = $_POST;
+  }
+
+  $fields['location'] = array(
+	'#type' => 'fieldset',
+	'#title' => t("Location Information"),
+	'#attributes' => array('autocomplete' => 'off'),
+  );
+
+  $defaults = _user_location_form_defaults($edit, $user);
+
+  $countrylist =  array();
+  $countrylist[''] = t('Select Country...');
+  $countrylist['XX'] = t('NOT LISTED');
+  $countrylist = array_merge($countrylist, _user_location_supported_countries());
+
+  $provlist[""] = t('Select Province');
+  $provlist['XX'] = t('NOT LISTED');
+  $provlist += _user_location_get_provincecode_to_province_map($defaults['country']);
+
+
+  $fieldlist = _user_location_fieldlist();
+
+  $fields['location']['noscript_warning'] = array(
+		'#type' => 'markup',
+		'#value' => t('<noscript><b><i>You do not seem to have Javascript enabled</b></i>, so you\'re going to have some
+					trouble with this part of the form. You\'ll just have to enter "Not listed" for the province.
+					Alternately, please change your browser options to allow javascript.</noscript>'),
+
+  );
+  foreach ($fieldlist as $field => $attribs) {
+    $arr = array();
+    foreach ($attribs as $tag => $val) {
+      $arr["#$tag"] = $val;
+    }
+
+    $fields['location'][$field] = $arr;
+    if ($defaults[$field]) {
+      $fields['location'][$field]['#default_value'] = $defaults[$field];
+    }
+  }
+
+
+  $fields['location']['country']['#options'] = $countrylist;
+  $fields['location']['province']['#options'] = $provlist;
+  $fields['location']['source']['#options'] = $sourceoptions;  // TODO: Wrong - remove
+
+
+  $fields['location']['country']['#ahah'] = array(
+      		'path' => 'ahah_get_provinces_profile',
+			'event' => 'change',
+      		'wrapper' => 'province_target',
+      		'method' => 'replace',
+      		'effect' => 'fade');
+
+  $fields['location']['province']['#prefix'] = '<div id="province_target">';
+  $fields['location']['province']['#suffix'] = '</div>';
+  //$fields['location']['province']['#value'] = ' ';
+
+  $fields['location']['province']['#description'] = t("<noscript><b>You don't have javascript turned on in your browser</b>, so the provinces may not be listed correctly. If so, please choose 'Not listed' and put the correct postal code.</noscript>");
+
+
+  return $fields;
+}
+
+/**
+ * Returns an array of countries that currently have warmshowers hosts
+ *
+ * @return array
+ * In Form country_code=>countryname
+ */
+function user_location_current_countries() {
+  static $current_countries = array();
+
+  // If this function has already been called this request, we can avoid a DB hit.
+  if (!empty($current_countries)) {
+    return $current_countries;
+  }
+
+  // Try first to load from cache, it's much faster than the scan below.
+  $cache = cache_get('user_location:current-countries');
+  if (!empty($cache)) {
+    $current_countries = $cache->data; //RUSSO D6 change
+  } else {
+    // '<ISO two-letter code>' => '<English name for country>'
+    $sql = 'select distinct lcase(l.country) country, description
+			from {user_location_countries} c, {user_location} l, {users} u
+			where l.oid=u.uid and u.status > 0
+			and  c.country = l.country order by description';
+    $sqlresult = db_query($sql);
+    while ($rec = db_fetch_object($sqlresult)) {
+      $current_countries[$rec->country] = $rec->description;
+    }
+
+    if (count($current_countries)) {
+      cache_set('user_location:current-countries', $current_countries);
+    }
+  }
+
+  return $current_countries;
+}
+
+
+
+
+/**
+ * Select province for a given country for activeselect
+ *
+ * @param unknown_type $parents  Array with single entry - country
+ * @return unknown
+ */
+function _user_location_getnextlevel($parents) {
+
+  /* the argument $parents is actually an array passed by the calling select */
+  $count = 0;
+  foreach ($parents as $key => $description) {
+    /* they should only be selecting one so we'll only look at the first one */
+    if ($count == 0) {
+      $parentkey = $key;
+    }
+  }
+
+
+  $children = array();
+  $children[''] = t("Select State/Province...");
+  $children['XX'] = t('NOT LISTED');
+  $provincelist = 	_user_location_get_provincecode_to_province_map($parentkey);
+  foreach ($provincelist as $province => $description) {
+    $children[$province] = $description;
+  }
+  return $children;
+}  // end of function
+
+
+/*************  Geocoding functions ******************************/
+/**
+ * Master geocoding function.
+ * Takes a locatino array (really a user array, flat), and tries to geocode it
+ * Strategy:
+ *   1. Try google geocoder with info provided
+ *   2. Try geonames with postal code
+ *   3. Try google without street or postal code
+ *   4. Try the zipcodes database developed for this module from geonames
+ *   5. Just get the geographic center of the country from user_location_countries table
+ *
+ * @param unknown_type $location  (really a $user)
+ * @return unknown  Location array with latitude, longitude, and source
+ */
+function _user_location_geocode($location = array()) {
+
+  $location['street'] = trim($location['street']);
+  if (strtoupper($location['postal_code']) == 'NONE') {
+    unset($location['postal_code']);
+  }
+
+  if (isset($location['country']) && trim($location['country']) != '') {
+
+    // Try google with all the info
+    if ($google_result = location_google_geocoder($location) ) {
+      watchdog('geocode', "Google accuracy=%source for %user=%name, details=%details",
+      array('%source'=>$google_result['source'], '%user'=>$location['name'], '%details'=> drupal_to_js($google_result)));
+      return $google_result;   // has additional accuracy and status values
+    }
+
+    // Try geonames web service with zip
+    //    if (strlen($location['postal_code']) && $geonames_postal_code_result = location_geonames_geocoder($location )) {
+    $geonames_result = location_geonames_geocoder($location);
+    if ($geonames_result) {
+      watchdog('geocode', "Geonames accuracy=%accuracy result for user=%user details=%details", array('%source'=>$geonames_result['source'],'%name'=>$location['name'], '%details' => drupal_to_js($geonames_result)));
+
+      return $geonames_result;
+    }
+
+    $stripped_location = $location;
+    $stripped_location['postal_code'] = '';
+    $stripped_location['street'] = '';
+    if ($google_result = location_google_geocoder($stripped_location) ) {
+      watchdog('geocode', "Google stripped accuracy=%accuracy result for user=%user, details=%details",
+      array('accuracy'=>$google_result['source'] , '%user'=>$location['name'], '%details'=>drupal_to_js($google_result)));
+
+      return $google_result;
+    }
+
+    if ($db_result = location_geocode_from_db($location)) {
+      watchdog('geocode', "Database accuracy=%accuracy for user %user, details=%details",array('%user'=>$location['name'],'%accuracy'=>$db_result['source'], '%details'=>drupal_to_js($db_result)));
+      return $db_result;
+    }
+
+    // If all that fails, try getting the middle of the country from ip_country
+    if ($result = _user_location_get_country_center($location)) {
+      watchdog('geocode', "Country center result for user %user details=%details",array('user'=>$location['name'],'details'=>drupal_to_js($result)));
+      return $result;
+    }
+
+  }
+
+
+
+  return NULL;
+}
+
+/**
+ * Returns a lat/lon pair of the approximate center of the given postal code in the given country
+ *
+ * @param $location
+ *   An associative array $location where only postal code and country are necessary, but can have the keys:
+ *     'street'       => the street portion of the location
+ *     'supplemental' => additional street portion of the location
+ *     'province'     => the province, state, or territory
+ *     'country'      => lower-cased two-letter ISO code (REQUIRED)
+ *     'postal_code'  => the international postal code for this location (REQUIRED)
+ *
+ * @return
+ *   An associative array where
+ *      'latitude' => approximate latitude of the center of the postal code's area
+ *      'longitude' => approximate longitude of the center of the postal code's area
+ *
+ */
+function location_geocode_from_db($location = array(), $must_match_province=false) {
+  //watchdog('user', "location_get_postalcode_data_default: location=". print_r($location, true));
+
+  $provinces = _user_location_get_provincecode_to_province_map($location['country']);
+
+  // Try geonames database with city/province/country
+  $res = db_query(
+  	 "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
+  	 FROM {geonames} g, {geonames_adm1} a
+  	 where g.country_code = '%s'
+  	 AND a.country_code=g.country_code and g.admin1_code=a.adm1_code
+  	 and feature_code in ('ppl', 'ppla', 'pplc')
+  	 and (ansiname = '%s' or g.name = '%s') AND a.name = '%s'",
+  $location['country'], $location['city'], $location['city'], $provinces[$location['province']]);
+  if ($row = db_fetch_object($res)) {
+
+    return array('latitude' => $row->latitude, 'longitude' => $row->longitude, 'city' => $row->city, 'province' => $location['province'], 'country' => $location['country'], 'source'=> 5 ); /* source=5 means geocoded from city/provi/country */
+  }
+
+  // Try geonames with country/province to just get the province center
+  $res = db_query(
+  	 "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
+  	 FROM {geonames} g, {geonames_adm1} a
+  	 where g.country_code = '%s'
+  	 AND a.country_code=g.country_code and g.admin1_code=a.adm1_code
+  	 and feature_code = 'adm1'
+  	 and a.name = '%s'",
+  $location['country'], $provinces[$location['province']]);
+  if ($row = db_fetch_object($res)) {
+    $location['latitude'] = $row->latitude;
+    $location['longitude'] = $row->longitude;
+    $location['source'] = 7;
+    return $location;
+  }
+
+
+
+  if (!$must_match_province) {
+    // Try geonames database with just city/country
+    $res = db_query(
+    // "SELECT * FROM {zipcodes} where country = '%s' AND city = '%s'",
+  		"SELECT g.name city, g.country_code country, g.admin1_code, latitude, longitude
+  	 	FROM {geonames} g
+  	 	where g.country_code = '%s'
+  	 	and (ansiname = '%s' or name = '%s')
+  	 	and feature_code in ('ppl','ppla', 'pplc')
+  	 	order by population desc",
+    $location['country'], $location['city'], $location['city']);
+
+    if ($row = db_fetch_object($res)) {
+
+      $location['latitude'] = $row->latitude;
+      $location['longitude'] = $row->longitude;
+      $location['source'] = 6;
+      return $location;
+
+    }
+
+  }
+
+  return NULL;
+
+}
+
+
+/**
+ * Get the country center from user_location_countries db
+ *
+ * @param unknown_type $location
+ * @return unknown
+ */
+function _user_location_get_country_center($location = array()) {
+  $res = db_query("select * from {user_location_countries} where country='%s'",
+  $location['country']);
+  if ($row = db_fetch_object($res)) {
+    return array('latitude' => $row->latitude, 'longitude' => $row->longitude,
+    	'country' => $row->country, 'source'=> 8 ); /* source=8 means country center only */
+  }
+  return NULL;
+
+
+
+}
+
+
+
+
+/**
+ * Calls up a web-service to retrieve a lat/lon pair using Google geocoding .
+ * See info at http://www.google.com/apis/maps/documentation under geocoding
+ *
+ * Note that Google may return a city-level accuracy result when it actually had
+ * no province and therefore no real info.
+ *
+ * @param $location
+ *    An associative array that represents an location where
+ *        'street'       => is the street location
+ *        'supplemental' => any supplemental portion to the street location
+ *        'city'         => city name
+ *        'province'     => state, province, or territorial abbreviation
+ *        'postal_code'  => postal code
+ *
+ * @return
+ *    An associative array where
+ *        'latitude' => Is a float value in latitude
+ *        'longitude' => Is a float value in longitude
+ *    If the location supplied does not provide enough information, NULL is returned.
+ *    "Enough information" means that there is either
+ *    (a valid 'street' AND valid 'postal_code') OR (valid 'street' AND valid 'city' AND valid 'province')
+ */
+function location_google_geocoder($location = array()) {
+  $location_string = '?';
+  $province_codes = _user_location_get_provincecode_to_province_map($location['country']);
+
+  $map_google_returns = array(
+  0 => 99, // 0 means unknown location
+  1 => 8,  // 1 means country-level accuracy; it's a guess. Use our 8
+  2 => 7,  // 2 means region. Probably better than our 8, but use 8)
+  3 => 7,  // 3 means subregion. Definitely better than our 8
+  4 => 5,  // 4 is town-level accuracy. Same as our 5.
+  5 => 3,  // 5 is postal code, same as our 3
+  6 => 3,  // 6 is street level in google; we'll say it's as good as postal code
+  7 => 3,  // 7 is intersection level, well call it postal code
+  8 => 2, // 8 is full address-level accuracy. Same as our 2
+  9 => 4, // 9 is premise-level accuracy
+  );
+
+
+  $baseurl = "http://maps.google.com/maps/geo?";
+  if (!empty($location['street']) ) {
+    $addr .= urlencode($location['street']) . "," ;
+  }
+  $addr .= urlencode($location['city']) . ",";
+  if (strlen($location['province']) && $location['province'] != 'xx') {
+    $addr .= urlencode($province_codes[$location['province']]) . "," ;
+  }
+  if (strlen($location['postal_code'])) {
+    $addr .= urlencode($location['postal_code']). ",";
+  }
+  $addr .= $location['country'];
+
+
+  $query = $basequery = "q=".$addr;
+  $query .= "&output=csv";
+  $query .= "&key=" . variable_get("user_location_google_key", "");
+  $fullurl = $baseurl . $query;
+
+  $results = drupal_http_request($fullurl);
+
+  if ($results->code != 200) {
+    watchdog('geocode', "Google geocoder failed with code=" . $results->code . " " . $fullurl, WATCHDOG_WARNING);
+    return NULL;
+  }
+  $lines = explode('\n', $results->data);
+  foreach($lines as $line) {
+    $fields = explode(',', $line);
+    $status=$fields[0];
+    $accuracy=$fields[1];
+    $lat = $fields[2];
+    $long  = $fields[3];
+  }
+  if ($status == 200 && isset($lat) && isset($long)) {
+
+
+    $source = 99;
+    if (array_key_exists($accuracy,$map_google_returns)) {
+      $source = $map_google_returns[$accuracy];
+    }
+    return array('latitude' => $lat, 'longitude' => $long, 'source'=>$source, 'geocoding_source' =>'google_geocoder', 'google_accuracy'=>$accuracy, 'google_status'=>$status, 'google_query' => $basequery, 'google_results' => $results);
+  }
+
+  return NULL;
+}
+
+
+
+/**
+ * Returns a lat/lon pair of the approximate center of the given postal code in the given country
+ *
+ * @param $location
+ *   An associative array $location where
+ *     'street'       => the street portion of the location
+ *     'supplemental' => additional street portion of the location
+ *     'province'     => the province, state, or territory
+ *     'country'      => lower-cased two-letter ISO code (REQUIRED)
+ *     'postal_code'  => the international postal code for this location (REQUIRED)
+ *
+ * @return
+ *   An associative array where
+ *      'latitude' => approximate latitude of the center of the postal code's area
+ *      'longitude' => approximate longitude of the center of the postal code's area
+ *
+ */
+function location_geonames_geocoder($location = array()) {
+  if (!strlen($location['postal_code'])) {
+    return NULL;
+  }
+
+
+  $location_string = 'country='.$location['country'] ;
+  $location_string .= '&postalcode=' . $location['postal_code'] ;
+
+  $location_string .= '&maxRows=1&style=short';
+
+
+  $fullurl = 'http://ws.geonames.org/postalCodeSearch?' . $location_string;
+
+  $result = drupal_http_request($fullurl);
+
+  if ($result->code != 200) {
+    watchdog('geocode', "Geonames.org geocode failed for %fullurl, details=%details", array('%fullurl'=>$fullurl, '%details'=> drupal_to_js($result)), WATCHDOG_WARNING);
+    return null;
+  }
+
+  $data = $result->data;
+
+  $xml_parser = drupal_xml_parser_create($data);
+  xml_parse_into_struct($xml_parser, $data, $vals, $index);
+  xml_parser_free($xml_parser);
+
+  $params = array();
+  $level = array();
+  foreach ($vals as $xml_elem) {
+    if ($xml_elem['tag'] == 'TOTALRESULTSCOUNT' && $xml_elem['value'] == 0) {  // No results returned
+      return null;
+    }
+    if ($xml_elem['type'] == 'open') {
+      if (array_key_exists('attributes',$xml_elem)) {
+        list($level[$xml_elem['level']],$extra) = array_values($xml_elem['attributes']);
+      } else {
+        $level[$xml_elem['level']] = $xml_elem['tag'].$id++;  //Note modification to handle Geonames structure (number each code block...)
+      }
+    }
+    if ($xml_elem['type'] == 'complete') {
+      $start_level = 1;
+      $php_stmt = '$params';
+      while($start_level < $xml_elem['level']) {
+        $php_stmt .= '[$level['.$start_level.']]';
+        $start_level++;
+      }
+      $php_stmt .= '[$xml_elem[\'tag\']] = $xml_elem[\'value\'];';
+      eval($php_stmt);
+    }
+  }
+
+  /*Note: Geonames doesn't have province data for the UK... but for other countries we might now like to perform an extra look up from the Lat, Long to find out the province...
+   See: http://www.geonames.org/export/index.html#countrysubdiv
+   */
+
+  IF($params['GEONAMES']['CODE1']['LAT'] != 0) {
+    $location['latitude'] = floatval($params['GEONAMES']['CODE1']['LAT']);
+    $location['longitude'] = floatval($params['GEONAMES']['CODE1']['LNG']);
+    $location['source'] = 3;
+    $location['geocoding_source'] = 'geonames_postal_code';
+    $location['geonames_return'] = $params;
+    return $location;
+  }
+}
+
+/**
+ * Parameters:
+ *   An associative array $location where
+ *     'street'       => the street portion of the location
+ *     'supplemental' => additional street portion of the location
+ *     'province'     => the province, state, or territory
+ *     'country'      => lower-cased two-letter ISO code (REQUIRED)
+ *     'postal_code'  => the international postal code for this location (REQUIRED)
+ *
+ *
+ */
+function location_latlon_placename_geonames($location = array()) {
+
+  $location_string = '';
+  if(!isset($location['country'])) {
+    return NULL; //We can't do anything without a country code, so return null
+  }
+
+  $province_names = _user_location_location_get_provincecode_to_province_map($location['country']);
+  $provname = $province_names[$location['province']];
+
+  $location_string = 'country='.$location['country']
+  . "&name_equals=".urlencode($location['city']) .
+                                "&fclass=P";
+  // $location_string .= '&maxRows=1' ;
+  $location_string .= '&style=full';
+  //if (!empty($location['province'])) {
+  // Problems with this: They don't have the same ADM1 codes as I have
+  // $location_string .= "&adminCode1=" . urlencode($location['province']);
+  //}
+
+
+  $query = 'http://ws.geonames.org/search?' . $location_string;
+  $result = drupal_http_request($query);
+
+  //TODO: Need to module_load_include('data = $result->data', 'user_location', '');
+
+  $xml_parser = drupal_xml_parser_create($data);
+  xml_parse_into_struct($xml_parser, $data, $vals, $index);
+  xml_parser_free($xml_parser);
+
+  $params = array();
+  $level = array();
+  foreach ($vals as $xml_elem) {
+    if ($xml_elem['type'] == 'open') {
+      if (array_key_exists('attributes',$xml_elem)) {
+        list($level[$xml_elem['level']],$extra) = array_values($xml_elem['attributes']);
+      } else {
+        $level[$xml_elem['level']] = $xml_elem['tag'].$id++;  //Note modification to handle Geonames structure (number each code block...)
+      }
+    }
+    if ($xml_elem['type'] == 'complete') {
+      $start_level = 1;
+      $php_stmt = '$params';
+      while($start_level < $xml_elem['level']) {
+        $php_stmt .= '[$level['.$start_level.']]';
+        $start_level++;
+      }
+      $php_stmt .= '[$xml_elem[\'tag\']] = $xml_elem[\'value\'];';
+      eval($php_stmt);
+    }
+  }
+
+
+  $res = null;
+  foreach ($params['GEONAMES'] as $key => $value) {
+    if (substr($key,0,7) == 'GEONAME') {
+      $res = array('latitude' => floatval($value['latitude']), 'longitude' => floatval($value['LNG']), 'postal_code' => $value['POSTALCODE'], 'city' => $value['NAME'], 'source'=>6, 'geocoding_source'=>'geonames_placename');
+      if ($value['ADMINNAME1'] == $provname) {
+        $res['source'] = 5;
+        break;
+      }
+    }
+  }
+  return $res;
+
+
+
+}
+
+
+
+
+
+/***************  Map set location ***********************/
+/**
+ * Displays map-set-location tab on user profile
+ *
+ * @return unknown
+ */
+function _user_location_map_set_lat_long() {
+  global $sources;
+
+  $key = variable_get("user_location_google_key", "");
+  $path = drupal_get_path('module','user_location');
+
+  drupal_set_html_head('
+   		<script src="http://maps.google.com/maps?file=api&v=2.x&key='.$key .'" type="text/javascript"></script>');
+  drupal_add_js("$path/setlocation.js");
+
+  drupal_add_css($path . '/user_location.css');
+
+
+
+  // TODO: Make this into a here document. Much more elegant
+  $user = user_load(array('uid'=>arg(1)));
+
+  if (!isset($user->latitude) ||  !isset($user->longitude)) {
+    $ret = '<div class="mapholder">There is no map for this host because the latitude and longitude have not been confirmed.</div>';
+  } else {
+    $ret = '
+
+	<div class="mapholder">
+	<p>' . t('Here is a map showing where the website currently thinks you live.
+	Please move the map and zoom in to the exact correct location, and
+	click in that location to select the latitude and longitude of the
+	point you double-click on. Alternately, you can fill in the exact location
+	(in decimal form) on the form below. Then click "submit" to update your coordinates.') . '
+	</p>
+	<div id="locationset" style="width: 100%; height: 480px; border: 1px solid black;">
+	    <b>'. t('Sorry, you need a more recent browser (IE6+, Firefox, etc.) and javascript must be turned on. JavaScript must be enabled in order for you to see or use the maps on Warmshowers.org.</b>
+      However, it seems JavaScript is either disabled or not supported by your browser.
+      To view the map, enable JavaScript by changing your browser options, and then
+      try again.  Alternately, you might want to try the excellent free <a href="http://getfirefox.com">Firefox browser</a>.<br/><br/>
+      You <i>can</i> enter your latitude and longitude below in decimal format.') .'
+	</noscript>
+	</div>
+	<div id="locationmap_debug" class="debug" ></div>
+';
+
+    $ret .= '<div id="location_lat"  class="debug">' . $user->latitude . "</div>";
+    $ret .= '<div id="location_lon" class="debug">' . $user->longitude. "</div>";
+    $ret .= "<div>" . t('Geocoding accuracy = '). $user->source . " (" ;
+    if ($sources[$user->source]) {
+      $ret .= $sources[$user->source];
+    } else {
+      $ret .= t("unknown");
+    }
+    $ret .=  ") </div>";
+    $ret .= t("Need a <a target='_blank' href='http://www.fcc.gov/mb/audio/bickel/DDDMMSS-decimal.html'>converter from decimal to degrees/minutes/seconds</a> or back? ");
+
+    $ret .= "</div>";
+
+    $ret .= drupal_get_form("user_location_set_map_location", $user);
+
+  }
+  return $ret;
+
+}
+
+
+
+/**
+ * Form for the set map location page
+ *
+ * @param unknown_type $user
+ * @return unknown
+ */
+function user_location_set_map_location(&$form_state, $user)
+{
+  $form['#id'] = 'latlon';
+  $form['setlocation'] = array('#type' => 'fieldset',
+    '#title' => t("Set Location from the map"),
+  );
+  $form['setlocation']['latitude'] = array(
+		'#title' => t('Latitude'),
+		'#type' => 'textfield',
+		'#description' => t('Enter your latitude or select on the map above'),
+		'#default_value' => $user->latitude,
+  );
+  $form['setlocation']['longitude'] = array(
+		'#title' => t('Longitude'),
+		'#type' => 'textfield',
+		'#description' => t('Enter your longitude or select on the map above'),
+		'#default_value' => $user->longitude,
+  );
+  $form['setlocation']['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Submit location shown on map'),
+  );
+  $form['reset_location'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Reset to location based on address only"),
+    '#description' => t("If you previously used this page to set your location, but now want your address only to determine your location, use this button."),
+  );
+
+  $form['reset_location']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Use address only for map location"),
+    '#submit' => array('user_location_reset_location_submit'),
+    '#description' => t("This removes your hand-set location and uses your address to determine your location"),
+  );
+  $form['uid'] = array(
+		'#type' => 'value',
+		'#value' => $user->uid,
+  );
+  return $form;
+
+}
+
+/**
+ * Submit function for the set map location page
+ *
+ * @param unknown_type $form_id
+ * @param unknown_type $form_values
+ */
+function user_location_set_map_location_submit($form, &$form_state) {
+  $lat = $form_state['values']['latitude'];
+  $lon = $form_state['values']['longitude'];
+  $res = db_query("update {user_location} set latitude=%f, longitude=%f, source=1 WHERE oid = %d",
+  $lat, $lon, $form_state['values']['uid']);
+
+  drupal_set_message(t("Your location has been updated"));
+}
+
+function user_location_set_map_location_validate($form, &$form_state) {
+  $lat = $form_state['values']['latitude'];
+  $lon = $form_state['values']['longitude'];
+  if (!is_numeric($lat)) {
+    form_set_error('latitude', t('Latitude must be in decimal format. Example: 42.3312'));
+  }
+  if (!is_numeric($lon)) {
+    form_set_error('longitude', t('Longitude must be in decimal format. Example: -105.939400'));
+  }
+  if ($lat < -90 || $lat > 90) {
+    form_set_error('latitude', t("Latitude must be between -90 and 90 degrees"));
+  }
+  if ($lon < -180 || $lon > 180) {
+    form_set_error('longitude', t('Longitude must be between -180 and 180 degrees'));
+  }
+}
+
+function user_location_reset_location_submit($form, &$form_state) {
+  $uid = $form_state['values']['uid'];
+  $account = user_load(array('uid'=>$uid));
+  drupal_set_message(t("Your location will be determined by your address"));
+
+  $addressdata = array('street'=>$account->street, 'city'=>$account->city, 'province'=>$account->province,
+    'country'=>$account->country);
+  $geocoded_location = _user_location_geocode($addressdata);
+  $source = $geocoded_location['source'];
+  if ($source <= 8) {
+    $edit['source'] = $geocoded_location['source'];
+    $edit['latitude'] = $geocoded_location['latitude'];
+    $edit['longitude'] = $geocoded_location['longitude'];
+    drupal_set_message(t("User location geocoded with accuracy %source", array('%source' => $source)));
+    if ($source > 3) {
+      drupal_set_message(t("We were unable to completely determine your location. Please set your location using "). l(t("the Set Map Location tab"),"user/$account->uid/location"));
+    } else {
+      drupal_set_message(t("Your map location has been determined from your address, but please check it using "). l(t("the Set Map Location tab"),"user/$account->uid/location"));
+    }
+  }
+
+  user_save($account,$edit);
+  $form_state['redirect'] = "user/$uid";
+
+}
+/**** Show Map on User Page ****/
+/**
+ * Display map for user profile page
+ *
+ * @param unknown_type $location
+ * @return unknown
+ */
+function _user_location_show_map($location) {
+  global $sources;
+
+  $key = variable_get("user_location_google_key", "");
+  $path = drupal_get_path('module','user_location');
+  drupal_add_css($path .  '/user_location.css');
+
+  drupal_add_js("$path/location.js");
+  drupal_set_html_head('<script src="http://maps.google.com/maps?file=api&v=2.x&hl=en&key='.variable_get('user_location_google_key', '').'" type="text/javascript"></script>');
+
+  global $sources;
+
+  // TODO: Make this into a here document. Much more elegant
+  if (!isset($location->latitude) || !isset($location->longitude) || ($location->latitude == 0 && $location->longitude ==0))
+  {
+    $ret = '<div class="mapholder">'.t('There is no map for this host because the latitude and longitude have not been confirmed').'.</div>';
+  } else {
+    $ret = t('
+
+	<div class="mapholder">
+	<p>'.t('Here is a map showing the location for this host.
+	Please note that this may be an approximate location, and it also may be an incorrect location.
+	Please make sure to make contact with the host before using this information.').'
+	</p>');
+    if (user_location_user_is_current($user)) {
+      $ret .= t('<p>Is this location marker in error?  You can correct it ' .
+		' by clicking on the "<a href="/user/%uid/location">set location</a>" tab.
+		', array('%uid' => $user->uid));
+    }
+    $ret .= '<div id="locationmap" style="width: 100%; height: 480px; border: 1px solid black;">
+	<b>' .t('Sorry, you need a more recent browser (IE6+, Firefox, etc.) and javascript must be turned on. JavaScript must be enabled in order for you to see or use the maps on Warmshowers.org.</b>
+      However, it seems JavaScript is either disabled or not supported by your browser.
+      To view the map, enable JavaScript by changing your browser options, and then
+      try again.  Alternately, you might want to try the excellent free <a href="http://getfirefox.com">Firefox browser</a>.<br/><br/>') .'
+
+
+	</div>
+
+<div id="locationmap_debug" class="debug" ></div>
+';
+
+    $ret .= '<div id="location_lat"  class="debug">' . $location->latitude. "</div>";
+    $ret .= '<div id="location_lon" class="debug">' . $location->longitude. "</div>";
+    $ret .= '<div id="infowindowhtml" class="debug"><div class="infowindow">'  ;
+    if (strlen($location->street)) { $ret .=  check_plain($location->street) . "<br/>"; }
+    $ret .= check_plain($location->city). ", " . $location->province . "<br />".
+	    '<a href="/map/' . "uid=" . $location->uid .
+  		'">' . t("Search for other hosts in the vicinity") . '</a></div></div>';
+
+    $ret .= '<div id="location_description">'.t('Latitude/Longitude'). "= {$location->latitude}/{$location->longitude}</div>";
+    $ret .= '<div id="source_description">'.t('Latitude/Longitude source').': ' ;
+    if ($sources[$location->source]) {
+      $ret .= $sources[$location->source];
+    } else {
+      $ret .= "guess";
+    }
+    $ret .= " (" . $location->source . ")<br/></div>"
+    .t("Geocoding courtesy of <a href='http://geonames.org'>geonames.org</a> and <a href='http://maps.google.com'>Google Maps API</a>")."</div>";
+
+
+
+  }
+  return $ret;
+}
+
+
+/*** Utility functions ***/
+function user_location_convert_distance_to_meters($distance, $distance_unit = 'km') {
+  if (!is_numeric($distance)) {
+    return NULL;
+  }
+
+  // Force an integer version of distance, just in case anyone wants to add a caching mechanism
+  // for postal code proximity searches.
+
+  if (is_float($distance)) {
+    $distance = intval(ceil($distance));
+  }
+
+  if ($distance < 1) {
+    return NULL;
+  }
+
+  if ($distance_unit != 'km' && $distance_unit != 'mile') {
+    $distance_unit = 'km';
+  }
+
+  // Convert distance to meters
+  //$distance_float = floatval($distance) * (($distance_unit == 'km') ? 1000.0 : 1609.347);
+  //return round($distance_float, 2);
+  $retval = round(floatval($distance) * (($distance_unit == 'km') ? 1000.0 : 1609.347), 2);
+  return $retval;
+}
+
+function user_location_meters_to_miles_km($meters, $distance_unit) {
+  return array('scalar' => round($meters/(($distance_unit == 'km') ? 1000.0 : 1609.347), 1), 'distance_unit' => $distance_unit);
+
+}
+
+
+function user_location_user_is_current($named_user) {
+  global $user;
+  return ($user->uid == $named_user->uid);
+}
+
+

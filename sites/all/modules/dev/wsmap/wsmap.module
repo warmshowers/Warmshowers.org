@@ -1,0 +1,343 @@
+<?php
+// $Id: wsmap.module 505 2009-05-24 18:55:09Z rfay $
+
+
+/**
+ * @file
+ * Handles the warm showers map.
+ */
+
+
+
+
+function wsmap_perm() {
+	return array('access map detail', 'access map');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function wsmap_menu() {
+
+		$items['map'] = array(
+		'title' => 'Map',
+		'page callback' => 'wsmap_view',
+		'access arguments' => array('access map'),
+		'type' => MENU_NORMAL_ITEM,
+		);
+		$items['wsmap_xml_hosts'] = array(
+		'title' => 'wsmap_xml_hosts',
+		'page callback' => 'wsmap_xml_hosts',
+		'access arguments' => array('access map'),
+		'type' => MENU_CALLBACK,
+		);
+
+	return $items;
+}
+
+function user_view_map(){
+	return true;
+}
+
+
+/**
+ * Implementation of hook_view().
+ *
+ * This is a typical implementation that simply runs the node text through
+ * the output filters.
+ */
+function wsmap_view() {
+
+	$mypath = drupal_get_path('module', 'wsmap');
+
+	global $base_path;
+	drupal_add_js($mypath . '/clusterer/Utils.jsm');
+	drupal_add_js($mypath . '/clusterer/MapUtils.jsm');
+	drupal_add_js($mypath . '/clusterer/OverlayMessage.jsm');
+	drupal_add_js($mypath . '/clusterer/Clusterer2.js');
+	drupal_add_js($mypath . '/wsmap_clusterer.js');
+	// drupal_add_js("misc/autocomplete.js");   // We shouldn't have to do this...
+
+	drupal_set_html_head('<script src="http://maps.google.com/maps?file=api&v=2&hl=en&key='.variable_get('user_location_google_key', '').'"  type="text/javascript"></script>');
+
+	$mypath = drupal_get_path('module','wsmap');
+
+	$mapdata_url = $base_path . 'wsmap_xml_hosts';
+
+	$output .= t("");
+
+
+	$searchform = drupal_get_form('wsmap_search_form');
+
+	$mapwidth=76;  // HACK so Javascript can set it.
+	if (!($myloc = location_get_browser_location())) {
+		$myloc = location_country_position_from_country('ca');  // Have to start them somewhere
+	}
+
+
+
+	$nearbyhostspos=$mapwidth+4;
+  $advcyclingkmz = variable_get("user_location_adv_cycling_kmz","http://www.warmshowers.org/files/kml/AdvCyclingManyRoutesUnsimplified.kmz");
+  $advcyclink = variable_get("user_location_adv_cycling_link","/node/345");
+
+
+
+
+	$output .= "<p>".t("This page doesn't work with some older browsers and is painfully slow on slow internet connections. See the <a href='/faq'>FAQ</a> for more information and workarounds.").
+	"</p>
+<noscript><b>" . t("This page isn't going to be much use to you until you turn on javascript in your browser. We apologize.") . "</b></noscript>
+
+<div id='searchform' >$searchform</div>
+   <div id='mapwidth' style='display:none' >$mapwidth</div>
+   <div class='wsmap_instructions'></div>
+	<div id='mapframe' style='width:100%;position:relative;clear:both;'>
+		<div id='mapholder' style='width:$mapwidth%;'>
+				<div id='wsmap_map' style='width:100%;height:400px' >
+				    <b>" . t("Sorry, you need to either get a more recent browser (IE6+, Firefox, etc.) or you have to turn on Javascript. JavaScript must be enabled in order for you to use
+				      many parts of Warmshowers.org.</b>
+				      However, it seems JavaScript is either disabled or not supported by your browser.
+				      To view the map, enable JavaScript by changing your browser options, and then
+				      try again.  Alternately, you might want to try the excellent free
+				      <a href='http://getfirefox.com'>Firefox browser</a>") . ".
+
+				   <div id='wsmap_debug'> </div>
+
+				</div><!-- end of wsmap_map -->
+		</div><!-- end mapholder -->
+		    <!-- HACK ALERT - note that style below should have left in it, but it gets removed by some js
+		         I hacked this to set the left value in wsmap_clusterer.js.
+		     -->
+    <div id='load-adv-cycling'>
+      <input type='checkBox' onclick='if (this.checked) { loadAdvCycling( \"$advcyclingkmz\" ); } else { unloadAdvCycling(); }'>
+      ". t("Load US Adventure Cycling Routes")." (<a href='$advcyclink' target='_blank'>" . t("Info here") . "</a>)
+		<br /><a id='expandText' href='javascript:toggleMap()'>" . t("Expand Map"). "</a>
+			
+    </div>
+		<div id='nearby-hosts'
+			style='position:absolute;top:0;left:$nearbyhostspos%;border:2px black;padding:5px;margin:5px'>
+		<div id='nearby-hosts-content'></div>
+		</div>
+
+	</div> <!-- mapframe -->
+";
+
+	if ($showuser = wsmap_get_user_arg()) {
+		$userobj = user_load(array('uid'=>$showuser));
+		if ($userobj) {
+			$output .= '<div id="showuser" style="visible:false" uid="' . $showuser
+				. '" latitude="' . $userobj->latitude . '" longitude="' . $userobj->longitude
+				. '"country="' . $userobj->country . '"></div>';
+		}
+	}
+
+
+	$country_code = 'us';
+	$country_name = "USA";
+	$longitude = 0;
+	$latitude=0;
+	$flag ="";
+
+	if (function_exists('ipl_country')) {
+		$country_name=""; $latitude=40;
+		if (ipl_country($country_code, $country_name, $latitude, $longitude, $flag)) {
+			$output .= "<div id='ipl_latitude' style='display:none'>$latitude</div><div id='ipl_longitude' style='display:none'>$longitude</div>";
+		}
+
+	}
+
+	$output .= <<<MOREOUTPUT
+      <div id='mapdata_source' style='display:none;'>$mapdata_url</div>
+	<div id='base_path' style='display:none;'>$base_path$mypath</div>
+	<div id='browser_lat' style='display:none'>$myloc->latitude</div>
+	<div id='browser_lon' style='display:none'>$myloc->longitude</div>
+	<div id='browser_country' style='display:none'>$myloc->country_code</div>
+	<div id='browser_default_zoom' style='display:none'>$myloc->defaultzoom</div>
+MOREOUTPUT;
+
+	global $user;
+
+	$output .= "<div id='loggedin' style='display:none;' >". user_access('access map detail') . "</div>";
+
+	return $output;
+}
+
+
+
+
+function wsmap_search_form() {
+
+	$default_country = user_location_get_browser_country();
+
+	$countrylist = array('xx' => t('Select Country...'));
+	$countrylist = array_merge($countrylist, user_location_current_countries());
+
+
+  /* rfay 2008-10-27: I don't think this variable is used anywhere */
+  $provlist = array();
+	$provlist[''] = t('Select State/Province...');
+	$provlist = array_merge($provlist, _user_location_get_provincecode_to_province_map($country));
+
+	$form['country'] = array(
+	'#title' => t("Country"),
+	'#description' => t("Quick jump to country"),
+
+	'#type' => 'select',
+	//		'#type' => 'activeselect',
+	'#options' => $countrylist,
+	//'#default_value' => $default_country,
+
+	'#attributes' => array(
+		'onChange' => "editCountryOnchange();",
+
+	),
+	'#prefix' => "<div class='form-item-div' style='float:left'>",
+	'#suffix' => "</div>",
+
+	);
+	$form['city'] = array(
+	'#title' => t("City/Town/Suburb"),
+	'#type' => 'textfield',
+	'#size' => 45,
+	'#description' => t('Try typing just a few characters and wait'),
+	'#autocomplete_path' => 'location_autocomplete',  // Overwritten in js above
+	'#attributes' => array(
+			'onFocus' => 'this.select(); '
+		),
+	'#prefix' => "<div id='city-field' class='form-item-div' style='float:left'>",
+	'#suffix' => "</div>",
+	//'#weight' => -9,
+
+	);
+
+	return $form;
+
+}
+
+function wsmap_get_user_arg() {
+
+		$arg1 = arg(1);
+		if (strlen($arg1)) {
+			$args = explode("=",$arg1);
+		}
+		if ($args[0] == "uid" && $args[1] > 0) {
+			return 0+$args[1];
+		}
+		return;
+}
+
+
+
+/******* xml output for ajax request ************/
+
+function wsmap_xml_hosts() {
+
+	header('Content-Type: text/xml');
+
+	print "<?xml version='1.0' encoding='UTF-8' ?>\n";
+
+	$minlat = (float)$_GET['minlat'];
+	$maxlat = (float)$_GET['maxlat'];
+	$minlon = (float)$_GET['minlon'];
+	$maxlon = (float)$_GET['maxlon'];
+	$centerlat = (float)$_GET['centerlat'];
+	$centerlon = (float)$_GET['centerlon'];
+
+	$limitlow = 0;
+	if (isset($_GET['limitlow'])) {
+		$limitlow = (int)$_GET['limitlow'];
+	}
+	$maxresults = 2000;
+	if (isset($_GET['maxresults'])) {
+		$maxresults = (int)$_GET['maxresults'];
+	}
+
+
+
+	if (isset($_GET['count'])) {
+		$sql = "select count(*) count from {user_location} l,{wsuser} w,{users} u where u.uid=w.uid and u.uid = l.oid and !w.isunreachable and !w.isstale and latitude > %f and latitude < %f and longitude >%f and longitude <%f  and source <= 6";
+
+		$count = db_result(db_query($sql, $minlat, $maxlat, $minlon, $maxlon));
+
+		print "<count>$count</count>";
+		return;
+	}
+
+
+	$totalsql = "select count(*) count from {user_location} l, {wsuser} w, {users} u
+	where u.uid=w.uid and u.uid=l.oid and !w.isunreachable and !w.isstale and latitude > %f and latitude < %f and longitude >%f and longitude <%f
+	and source <= 6";
+
+	$totalresults=db_result(db_query($totalsql, $minlat, $maxlat, $minlon, $maxlon));
+
+
+	print "<root>\n";
+
+
+	$latlonwhere = "latitude > %f and latitude < %f and longitude >%f and longitude <%f ";
+	if ($minlon > $maxlon) { // The case on the 180 degrees longitude (New Zealand)
+		$latlonwhere = "latitude > %f and latitude < %f and (longitude < %f or longitude > %f)";
+	}
+	$sql = "SELECT u.uid, mail, w.fullname name, street, city, province, postal_code, country, latitude, longitude,
+		 source, notcurrentlyavailable,
+		 DEGREES(ACOS(SIN(RADIANS(%f)) * SIN(RADIANS(latitude))+COS(RADIANS(%f)) * COS(RADIANS(latitude))  *
+		COS(RADIANS(%f-longitude)))) * 60      as distance
+		from {users} u, {user_location} l, {wsuser} w
+		 where $latlonwhere
+		 and u.uid = l.oid and u.uid=w.uid and u.status>0 and !w.isunreachable and !w.isstale
+		 and !notcurrentlyavailable
+		order by distance asc";
+
+
+	$sql .= " limit %d, %d";
+
+	$result = db_query($sql,$centerlat, $centerlat, $centerlon, $minlat,$maxlat,$minlon,$maxlon,$limitlow, $maxresults);
+
+
+	$status = $totalresults <= $maxresults ? "complete" : "incomplete";
+
+
+	print "<!-- minlon=$minlon, maxlon=$maxlon, minlat=$minlat, maxlat=$maxlat -->\n";
+	print "<!-- Number of items= $delivered -->\n";
+	print "<!-- $sql -->\n";
+	print '<status id="status" delivered="'.$delivered.'" totalresults="'.$totalresults.'" status="'.$status.'">'. $status;
+	print "</status>";
+	print "<hosts>\n";
+
+	$count=0;
+
+	while ($row = db_fetch_array($result)) {
+
+		$count++;
+
+		print "<host\n";
+		print 'u="'. $row['uid'] . '" ';
+		if (user_access('access map detail')) {
+			print 'n="'  . xmlentities($row['name']) . '" ';
+			print 's="'.xmlentities($row['street']) . '" ';
+		}
+
+		print 'c="' .xmlentities($row['city']). '" ';
+		print 'p="' .xmlentities($row['province']). '" ';
+		print 'z="'.xmlentities($row['postal_code']). '" ';
+		print 'cnt="' . xmlentities($row['country']) . '" ';
+		print 'la="' . $row['latitude'] . '" ';
+		print 'ln="' . $row['longitude']. '" ';
+		print 'd="' . $row['distance']. '" ';
+
+		print " />\n";
+		// if ($maxresults && $count < $totalresults) { $status="incomplete"; break; }
+	}
+	print "</hosts>";
+
+
+	print "</root>";
+	exit;
+}
+
+
+function xmlentities($string) {
+	return str_replace ( array ( '&', '"', "'", '<', '>', '?' ), array ( '&amp;' , '&quot;', '&apos;' , '&lt;' , '&gt;', '&apos;' ), $string );
+}
+
+
+

@@ -1,0 +1,1587 @@
+<?php
+// $Id: wsuser.module 545 2009-09-20 00:15:26Z rfay $
+/**
+ * @file
+ * Adds warmshowers.org fields to the User registration and display
+ * Many miscellaneous services like user searches and reports
+ */
+
+
+module_load_include('inc', 'user_location', 'earth');
+
+
+function wsuser_perm() {
+	return array("full member lists",  // Allow them to use the member listing function
+				"list all countries",  // Allow them to list all countries in member listing
+				"view email addrs",  // View raw email addrs
+				);
+}
+
+
+/**
+ * Implementation of hook_menu().
+ * TODO: Add special permissions for full download
+ */
+function wsuser_menu() {
+	global $user;
+	$items = array();
+		$items['ahah_get_provinces_member_list'] = array(
+			'title' => 'List members on one page',
+			'page callback' => 'ahah_get_provinces_member_list',
+			'access arguments' => array('full member lists'),
+			'type' => MENU_CALLBACK,
+			'weight' => 9
+		);
+		$items['ahah_get_provinces_profile'] = array(
+			'title' => 'List members on one page',
+			'page callback' => 'ahah_get_provinces_profile',
+			'access callback' => TRUE,
+			'access arguments' => array(),
+			'type' => MENU_CALLBACK,
+			'weight' => 9
+		);
+		$items['member_list'] = array(
+			'title' => 'List members on one page',
+			'page callback' => 'wsuser_member_list_page',
+			'access arguments' => array('full member lists'),
+			'type' => MENU_NORMAL_ITEM,
+			'weight' => 9
+		);
+		$items['recently_viewed_members'] = array(
+			'title' => 'Recently Viewed Members',
+			'page callback' => 'wsuser_recently_viewed_members',
+			'access arguments' => array('access user profiles'),
+			'type' => MENU_NORMAL_ITEM,
+			'weight' => 9
+		);
+/*** Leave this out for now. Privacy issue? ***
+		$items[] = array(
+			'path' => 'recently_viewing_members',
+			'title' => t('Members Who Recently Viewed My Profile'),
+			'callback' => 'wsuser_recently_viewing_members',
+			'access' => user_access('access user profiles'),
+			'type' => MENU_NORMAL_ITEM,
+			'weight' => 9
+		);
+**/
+		$items['nolonger_stale'] = array(
+			'title' => 'Your account is no longer marked as stale',
+			'page callback' => 'wsuser_nolonger_stale',
+			'type' => MENU_CALLBACK,
+			'access arguments' => array('access user profiles'),
+			'weight' => 9
+		);
+		$items['marked_unreachable'] = array(
+			'title' => 'Your account is marked as unreachable',
+			'callback' => 'wsuser_marked_unreachable',
+			'type' => MENU_CALLBACK,
+			'access' => true,
+			'weight' => 9
+		);
+		$items['wsuser/profile_alone'] = array(
+			'title' => 'profile only',
+			'callback' => 'wsuser_output_profile',
+			'type' => MENU_CALLBACK,
+			'access arguments' => array('access user profiles'),
+			'weight' => 9
+		);
+
+
+	return $items;
+}
+
+/**
+ * Implementation of hook_theme()
+ * Defines the email_addr and email_link theme functions
+ *
+ * @return unknown_type
+ */
+function wsuser_theme() {
+  return array(
+  'email_addr' =>
+      array('arguments' => array('email' => NULL) ),
+  'email_link' =>
+      array('arguments' => array('userobj' => NULL)),
+  );
+}
+
+/**
+ * Implementation of hook_token_values()
+ * Provide tokens for replacement by token module
+ * @param $type
+ * @param $object
+ * @param $options
+ * @return unknown_type
+ */
+function wsuser_token_values($type, $object = NULL, $options = array()) {
+  if ($type == 'user' || $type == 'global') {
+    $user = user_load(array('uid'=>$object->uid));
+    $tokens['fullname']      = $user->fullname;
+    $tokens['about_me']      = $user->comments;
+    $tokens['source'] = $user->source;
+    $tokens['country'] = $user->country;
+    $tokens['province'] = $user->province;
+    $tokens['city'] = $user->city;
+    $tokens['notcurrentlyavailable'] = $user->notcurrentlyavailable;
+    $tokens['howdidyouhear'] = $user->howdidyouhear;
+    return $tokens;
+  }
+}
+
+function wsuser_token_list($type = 'all') {
+  if ($type == 'user') {
+    $tokens['user']['fullname']      = t("The user's fullname");
+    $tokens['user']['about_me']      = t("The 'about me' from user's profile");
+    $tokens['user']['source'] =  t("Geocoding accuracy of location info");
+    $tokens['user']['country'] = t("User's country");
+    $tokens['user']['province'] = t("User's province");
+    $tokens['user']['city'] = t("User's city");
+    $tokens['user']['notcurrentlyavailable'] = t("User's availability status");
+    $tokens['user']['howdidyouhear'] = t("How did you hear about WarmShowers.org?");
+
+    return $tokens;
+  }
+}
+/**
+ * Implementation of hook_action_info().
+ */
+function wsuser_action_info() {
+  return array(
+    'wsuser_send_email_action' => array(
+      'description' => t('Send Warmshowers User Email'),
+      'type' => 'user',
+      'configurable' => TRUE,
+      'hooks' => array(
+        'user' => array('view', 'insert', 'update', 'delete', 'login'),
+      )
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_mail().
+ * Applies Warmshowers-based token manipulation to the suject and message
+ */
+function wsuser_mail($key, &$message, $params) {
+  if ($key == 'action_wsuser_send_email') {
+    $language = $message['language'];
+    $message['subject'] = $params['subject'];
+    $message['body'] = $params['body'];
+
+  }
+}
+
+function wsuser_views_data() {
+  $data = array();
+  $data['wsuser']['table']['group'] = t("Warmshowers");
+  $data['wsuser']['fullname'] = array(
+    'title' => t('Full Name'),
+    'help' => t("Member's full name."), // The help that appears on the UI,
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['notcurrentlyavailable'] = array(
+    'title' => t('Not Currently Available'),
+    'help' => t("Set to TRUE if member not currently hosting."), // The help that appears on the UI,
+    'field' => array(
+      'handler' => 'views_handler_field_boolean',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['fax_number'] = array(
+    'title' => t('Fax Number'),
+    'help' => t("Fax Number."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['mobilephone'] = array(
+    'title' => t('Mobile Phone Number'),
+    'help' => t("Mobile Phone Number."), // The help that appears on the UI,
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['workphone'] = array(
+    'title' => t('Work Phone Number'),
+    'help' => t("Work Phone Number."), // The help that appears on the UI,
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['homephone'] = array(
+    'title' => t('Home Phone Number'),
+    'help' => t("Home Phone Number."), // The help that appears on the UI,
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['preferred_notice'] = array(
+    'title' => t('Preferred Notice'),
+    'help' => t("Preferred Notice."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['maxcyclists'] = array(
+    'title' => t('Max Cyclists'),
+    'help' => t("Maximum number of guests that can be accomodated."),
+    'field' => array(
+      'handler' => 'views_handler_field_numeric',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_numeric',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+
+  $data['wsuser']['comments'] = array(
+    'title' => t('About Me'),
+    'help' => t("Member's info about self."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => FALSE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['isstale'] = array(
+    'title' => t('Stale'),
+    'help' => t("Set to TRUE if member has been set to stale."),
+    'field' => array(
+      'handler' => 'views_handler_field_boolean',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_boolean_operator',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['isstale_reason'] = array(
+    'title' => t('Stale Reason'),
+    'help' => t("Reason member was set to 'Stale'."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => FALSE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['isstale_date'] = array(
+    'title' => t('Stale Date'),
+    'help' => t("Date member was set to 'Stale'."),
+    'field' => array(
+      'handler' => 'views_handler_field_date',
+      'click sortable' => FALSE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_date',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+  $data['wsuser']['isunreachable'] = array(
+    'title' => t('Unreachable'),
+    'help' => t("Set to TRUE if member has been set to unreachable."),
+    'field' => array(
+      'handler' => 'views_handler_field_boolean',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_boolean_operator',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['isunreachable_reason'] = array(
+    'title' => t('Unreachable Reason'),
+    'help' => t("Reason member was set to 'unreachable'."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => FALSE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+  $data['wsuser']['isunreachable_date'] = array(
+    'title' => t('unreachable Date'),
+    'help' => t("Date member was set to 'unreachable'."),
+    'field' => array(
+      'handler' => 'views_handler_field_date',
+      'click sortable' => FALSE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_date',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+  );
+  $data['wsuser']['howdidyouhear'] = array(
+    'title' => t('How did you hear about Warmshowers.org?'),
+    'help' => t("How member heard about site'."),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => FALSE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+
+  );
+
+  $bools = "storage motel campground bikeshop shower kitchenuse lawnspace sag bed laundry food";
+  foreach (explode(' ', $bools) as $item) {
+    $data['wsuser'][$item] = array(
+      'title' => t($item),
+      'help' => t($item),
+      'field' => array(
+        'handler' => 'views_handler_field_boolean',
+        'click sortable' => TRUE,
+      ),
+      'filter' => array(
+        'handler' => 'views_handler_filter_boolean_operator',
+      ),
+      'sort' => array(
+        'handler' => 'views_handler_sort',
+      ),
+    );
+  }
+  $data['wsuser']['table']['join'] = array(
+    'users' => array(
+      // direct join to the users table via 'uid' field.
+      'left_field' => 'uid',
+      'field' => 'uid',
+     ),
+  );
+  return $data;
+
+}
+
+/**
+ * Page for when a stale user logs in and un-stales themselves.
+ * @return unknown_type
+ */
+function wsuser_nolonger_stale() {
+	$output .= t("Your account was marked as 'stale', meaning that you had not logged in
+	             in a long time, and it was not being shown to people on the site.<br/><br/>
+	             Now that you have logged in, your account is once again active");
+	return $output;
+}
+
+/**
+ * Page for when an unreachable user logs in.
+ * @return unknown_type
+ */
+function wsuser_marked_unreachable() {
+	$output .= t("<p>Your account is marked as 'Unreachable', meaning that we have been unable to reach you by email. This makes your account inactive. Please send an email to us at <a href='mailto:wsl@warmshowers.org'>wsl@warmshowers.org</a> telling us that you are in fact reachable and giving us your correct email address.<br/><br/>If you do not put a valid email and clear this up, your account will eventually be deleted.</p>");
+	return $output;
+}
+
+/**
+ * Implementation of hook_form_alter() to specialize the search form and the user registration form.
+ */
+function wsuser_form_alter(&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'search_form' ) {
+    if (strstr($form['#action'],'/search/wsuser')) {
+      $form['basic']['#title'] = t('Enter member names or cities');
+      $form['basic']['#description'] = t('Search for members by a part of their name (like "Martinez", for example) or by the town they live in.');
+    }
+    else if (strstr($form['#action'], '/search/user')) {
+      $form['basic']['#title'] = t('Search by username or partial username');
+      $form['basic']['#description'] = t('Search for members by a part of their username (like "randyfay", for example).');
+    }
+    else if (strstr($form['#action'], '/search/node')) {
+      $form['basic']['#title'] = t('Enter your keywords to search site content (postings, forums, etc.)');
+      $form['basic']['#description'] = t('Search for content on the website ("Frequently Asked Questions", for example).');
+    }
+
+  }
+	if ($form_id == 'user_edit' || $form_id == 'user_register') {
+		$form['account']['#weight'] = -9;
+		$form['location']['#weight'] = -5;
+		$form['account']['mail']['#description'] = t('A
+<i>valid</i> e-mail address that you check regularly. All e-mails from the system will be sent to this address, and this is the most common way for members to contact you. The e-mail address is not displayed on the site. You will have to confirm this email address.');
+	}
+
+	if ($form_id == 'user_edit' || $form_id == 'user_register' || $form_id == 'user_profile_form') {
+    unset ($form['contact']);
+	}
+
+	if ($form_id == 'user_pass') {
+		$form['instructions'] = array(
+			'#type' => 'markup',
+			'#value' =>'<br/>'.t('You will receive a login link that will expire in 24 hours, so you need to use it by then. <br/><br/>Remember that you need to whitelist wsl@warmshowers.org on your email account. <a href="/spam_filters">Details on how to do it are here</a>'),
+			'#weight'=>9,
+			);
+	}
+}
+
+/**
+ * Implementation of hook_menu_alter()
+ * Fix search/* to have the wsuser first, and more descriptive titles.
+ * @param $items
+ * @return unknown_type
+ */
+function wsuser_menu_alter(&$items) {
+  $items['search/wsuser/%menu_tail']['weight'] = -10;
+  $items['search/user/%menu_tail']['weight'] = -8;
+  $items['search/user/%menu_tail']['title'] = t("usernames");
+  unset($items['search/user/%menu_tail']['title callback']);
+  unset($items['search/user/%menu_tail']['title arguments']);
+  $items['search/node/%menu_tail']['title'] = t("site content");
+  unset($items['search/node/%menu_tail']['title callback']);
+  unset($items['search/node/%menu_tail']['title arguments']);
+}
+
+/**
+ * Implementation of hook_search().
+ */
+function wsuser_search($op = 'search', $keys = null) {
+	switch ($op) {
+		case 'name':
+			if (user_access('access user profiles')) {
+				return t('member names and cities');
+			}
+			break;
+		case 'search':
+			if (user_access('access user profiles')) {
+				$find = array();
+				// Replace wildcards with MySQL/PostgreSQL wildcards.
+				$keys = preg_replace('!\*+!', '%', $keys);
+				$sql = "SELECT * FROM {users} u, {wsuser w}, {user_location} l
+							WHERE u.uid = w.uid and u.uid=l.oid and status > 0
+							and !w.isstale and !w.isunreachable and
+							(LOWER(w.fullname) LIKE '%%%s%%' or u.name like '%%%s%%'
+							or l.city like '%%%s%%' or u.mail like '%s%%')";
+				$result = pager_query($sql, 50, 0, NULL, $keys, $keys, $keys, $keys);
+
+				$countrylist = _user_location_supported_countries();
+				while ($account = db_fetch_object($result)) {
+					$location = $account->city . ", $account->province, ". $countrylist[$account->country];
+
+					$find[] = array(
+						'fullname' => l($account->fullname, 'user/' . $account->uid),
+						'username' => check_plain($account->name),
+					 	'location' => l($location,'map/uid=' . $account->uid),
+					 	'comments' => check_plain($account->comments),
+					 	);
+				}
+				return $find;
+			}
+			break;
+
+	}
+}
+
+
+
+
+function wsuser_search_page($rows) {
+	$header = array(
+	'fullname' => t('Name'),
+	'username' => t('Username'),
+	'location' => t('Location'),
+	'comments' => t('About Member'),
+	);
+
+	$output .= theme('table', $header, $rows);
+	$output .= theme('pager', NULL, 50,0);
+	return $output;
+}
+
+
+function _show_distance_results($latitude, $longitude, $search_miles) {
+	$itemsPerPage = 25;
+	$countrycodes = _user_location_supported_countries();
+
+	$distance = user_location_convert_distance_to_meters($search_miles, 'mile');
+	$lonrange = earth_longitude_range($longitude, $latitude, $distance);
+
+	$latrange = earth_latitude_range($longitude, $latitude, $distance);
+
+	$distance_sql = earth_distance_sql($longitude, $latitude);
+
+	$sqlwhere = "latitude > %f and latitude < %f and
+					longitude > %f and longitudee < %f";
+
+	$sql = "select  *, w.fullname wname,  $distance_sql  distance
+		from {user_location} l, {users} u, {wsuser} w
+		where   latitude > %f and latitude < %f and	longitude > %f and longitudee < %f
+		and l.oid = wsuser.uid and l.oid=users.uid
+		and not wsuser.notcurrentlyavailable
+		and users.status >0 order by distance asc";
+
+	$count_sql = "select count(*) result_count
+		from {wsuser} w,{users} u,{user_location} l
+		where u.uid=w.uid and u.uid=l.oid
+		and not w.notcurrentlyavailable and u.status>0 and " . $sqlwhere;
+
+	$res = pager_query($sql, $itemsPerPage, 0, $count_sql, $latrange[0], $latrange[1],
+		$lonrange[0], $lonrange[1]);
+
+
+	$count = db_fetch_object(db_query($count_sql,$latrange[0], $latrange[1], $lonrange[0], $lonrange[1]));
+
+
+	while ($row = db_fetch_object($res)) {
+		$result_location = array('street' => !empty($row->street) ? $row->street : '',
+		'additional' => !empty($row->additional) ? $row->additional : '',
+		'city' => !empty($row->city) ? $row->city : $postal_codes[$city_index_key]['city'],
+		'province' => !empty($row->province) ? $row->province : $postal_codes[$city_index_key]['province'],
+		'postal_code' => $row->postal_code,
+		'country' => $row->country,
+		'distance' => $row->distance);
+
+		$provincecodes = _user_location_get_provincecode_to_province_map(strtolower($row->country));
+
+
+		$distance = user_location_meters_to_miles_km($row->distance, 'miles');
+
+		$item = array('link' => url('user/'. $row->oid),
+		'title' => round($distance['scalar']) . " miles/" . round($distance['scalar'] * 1.609344) . " km : " . $row->wname,
+		'snippet' => $row->city . ", ". $provincecodes[strtolower($row->province)] . ", " . $countrycodes[$row->country],
+		);
+		$search_results .= theme('search_item', $item, $item->type);
+
+
+	}
+	if (empty($search_results)) {
+		$search_results .= theme('box', t('Your search yielded no results.'), '');
+	}
+	else {
+		$search_results = '<dl class="search-results">'. theme('box', $search_results_message, $search_results) .'</dl>';
+		$search_results .= theme('pager', NULL, $itemsPerPage, 0, array('search_lat' => $latitude, 'search_long'=>$longitude, 'search_miles'=>$search_miles));
+	}
+
+
+	return $search_results;
+
+}
+
+
+function _state_country_results($country, $province) {
+	$itemsPerPage = 25;
+	$countrycodes = _user_location_get_provincecode_to_province_map();
+
+	$query = "select * from {users} u, {user_location} l, {wsuser} w
+		where country = '%s'";
+	if (strlen($province)) {
+		$query .= " and province = '%s'";
+	}
+	$query .= "and not w.notcurrentlyavailable and u.status and u.uid = l.oid and u.uid = w.uid order by country, province, city";
+
+	$res = db_query($query,$country,$province);
+
+	$output .= '<table class="datatable">';
+	$itemlist = "province city fullname street";
+	$items = explode(' ',$itemlist);
+
+	$output .= "<tr>";
+	foreach ($items as $item) {
+		$output .= "<td>" . $item . "</td>";
+	}
+	$output .= "</tr>";
+
+	while ($row = db_fetch_object($res)) {
+		$output .= "<tr>";
+		foreach ($items as $item)  {
+			$output .= "<td>". $row->$item . "</td>";
+		}
+		$output .= "</tr>";
+
+	}
+	$output .= "</table>";
+	return $output;
+}
+
+
+function wsuser_load(&$user) {
+	$result = db_query('SELECT * FROM {wsuser} WHERE uid = %d', $user->uid);
+	$row = db_fetch_object($result);
+	if ($row) {
+		foreach ($row as $key => $value) {
+			$user->$key = $value;
+		}
+	}
+}
+
+
+// TODO: Change notcurrentlyavailable into host type (host, guest, both)
+function wsuser_fieldlist() {
+
+	$fields = array(
+	'fullname' => array(
+	'type' => 'textfield',
+	'title' => t('Full Name'),
+	'description' => t("Please enter your full name (including last name)"),
+	'required' => TRUE
+	),
+	'comments' => array(
+	'title' => t("About You"),
+	'type' => 'textarea',
+	'rows' => '5',
+	'cols' => '40',
+	'required' => TRUE,
+	'description' => t("Please introduce yourself. Say something about your hosting capabilities, cycle touring experience, or your current trip if you're on one right now. <em><strong>You must put something descriptive here or your account will be deleted.</strong></em> Also, please mention any restrictive or distinctive things about you: Are you vegetarian? Have pets? Smoker? Allergies? "),
+	),
+
+	'notcurrentlyavailable' => array(
+	'type' => 'checkbox',
+	'title' => t('Not Currently Available'),
+	'description' => t('Check this if you are not currently available to host cyclists. Please add a note to the "About Me" section saying why you\'re not available to host, and remember to uncheck it when you become available. Checking this box leaves you off the map, and off most of the lists.'),
+	//RUSSO commented this out 3-2 ...now working in D6'options' => array( 'notcurrentlyavailable' => "Not Currently Available"),
+	),
+	'homephone' => array(
+	'type' => 'textfield',
+	'title' => t("Home Phone Number"),
+	),
+	'mobilephone' => array(
+	'type' => 'textfield',
+	'title' => t("Mobile Phone"),
+	),
+	'workphone' => array(
+	'type' => 'textfield',
+	'title' => t("Work Phone Number"),
+	),
+
+	'fax_number' => array(
+	'type' => 'textfield',
+	'title' => t("Fax Number"),
+	),
+	'preferred_notice' => array(
+	'type' => 'textfield',
+	'title' => t('Preferred Notice'),
+	'description' => t("If you require significant advance notice, please mention it here. <em>All cyclists should give as much notice as possible.</em>"),
+
+	),
+	'maxcyclists' => array(
+	'type' => 'select',
+	'title' => t("Maximum Guests"),
+	'description' => t("Maximum number of cyclists you could host at one time"),
+	'options' => array(1 => "1", 2 => "2", 3=>"3",  4=>"4", 5=>t("5 or more")),
+
+	),
+
+
+
+	'motel' => array(
+	'type' => 'textfield',
+	'title' => t("Distance to nearest hotel/motel"),
+
+	),
+	'campground' => array(
+	'type' => 'textfield',
+	'title' => t("Distance to nearest campground"),
+
+	),
+	'bikeshop' => array(
+	'type' => 'textfield',
+	'title' => t("Distance to nearest bike shop"),
+	),
+	'languagesspoken' => array(
+	'type' => 'textfield',
+	'title' => t('Languages spoken'),
+
+
+	),
+	'URL' => array(
+	'type' => 'textfield',
+	'title' => t("Your website"),
+	'description' => t("URL of your website, if any, in form http://yourwebsite.com. Leave it blank if you don't have one."),
+	),
+
+	'bed' => array(
+	'type' => 'checkbox',
+	'title' => t('Bed'),
+	),
+	'food' => array(
+	'type' => 'checkbox',
+	'title' => t('Food'),
+	),
+	'laundry' => array(
+	'type' => 'checkbox',
+	'title' => t('Laundry'),
+	),
+	'lawnspace' => array(
+	'type' => 'checkbox',
+	'title' => t('Lawn Space (for camping)'),
+	),
+	'sag' => array(
+	'type' => 'checkbox',
+	'title' => t('SAG (vehicle support)'),
+	),
+	'shower' => array(
+	'type' => 'checkbox',
+	'title' => t('Shower'),
+	),
+	'storage' => array(
+	'type' => 'checkbox',
+	'title' => t('Storage'),
+	),
+	'kitchenuse' => array(
+	'type' => 'checkbox',
+	'title' => t('Use of Kitchen'),
+	),
+	'howdidyouhear' => array(
+	'type' => 'textfield',
+	'title' => t("Please let us know how you heard about WarmShowers.org"),
+	),
+	);
+
+	return $fields;
+}
+
+function wsuser_form_defaults($edit, $user) {
+	$defaults = array();
+	$fields = wsuser_fieldlist();
+
+	// TODO: Surely this can be done more efficiently
+	if ($edit['fullname']) {
+		foreach($fields as $field => $value) {
+			$defaults[$field] = $edit[$field];
+
+		}
+	} else if ($user->fullname) {
+		foreach($fields as $field => $value) {
+			$defaults[$field] = $user->$field;
+
+		}
+
+	}
+	return $defaults;
+}
+
+
+/**
+ * Delete wsuser entry on user deletion
+ *
+ * @param unknown_type $edit
+ * @param unknown_type $user
+ */
+function wsuser_delete($edit, $user) {
+
+	$uid = $user->uid;
+	$sqlresult = db_query("delete from {wsuser} where uid = %d", $uid);
+
+}
+
+
+function wsuser_login(&$edit, &$user) {
+	$countries = _user_location_supported_countries();
+
+	watchdog('user',"$user->name login from ". $countries[user_location_get_browser_country()]);
+
+	// Note browscap settings in watchdog
+	if (module_exists(browscap)) {
+		$browser = (object)browscap_get_browser();
+
+		watchdog("browser","browser=$browser->browser, version=$browser->version, platform=$browser->platform (" .var_export($browser,true) . ")");
+	}
+
+	if ($user->isstale) {
+		db_query('update {wsuser} set isstale=0, isstale_date=unix_timestamp(), isstale_reason="User logged in" where uid=%d', $user->uid);
+		$_REQUEST['destination'] = 'nolonger_stale';
+		drupal_goto("nolonger_stale");
+	}
+	if ($user->isunreachable) {
+		$_REQUEST['destination'] = 'marked_unreachable';
+		drupal_goto("marked_unreachable");
+	}
+
+}
+
+function wsuser_save(&$edit, &$user, $category) {
+	$user = user_load(array('uid'=>$user->uid));
+	// Default drupal behavior has the user profile unavailable for view until a login
+	// (until access>0). Instead, we want to make it available immediately, since it's
+	// been screened by an admin already.
+	if ($user->status == 0 && $edit['status'] == 1 && !$user->access) {
+		db_query("update {users} set access=created where uid=%d",$user->uid);
+	}
+
+	// If their status is being changed by the admin, show a message
+	if (isset($edit['status']) && $edit['status'] == 0 && $user->status == 1) {
+		drupal_set_message(t("User @user is now blocked",array('@user' => $user->name)));
+	}
+	if (isset($edit['status']) && $edit['status'] == 1 && $user->status == 0) {
+		drupal_set_message(t("User @user was unblocked",array('@user' => $user->name)));
+	}
+
+	// Now work on the saving process.
+	$placeholders = "%d,";
+	$valuenames = "uid,";
+	$values = array();
+	$values[] = $user->uid;
+	foreach (wsuser_fieldlist() as $item=>$value) {
+		$placeholders .= "'%s',";
+		$valuenames .= "$item ,";
+		$values[] = isset($edit[$item]) ? $edit[$item] : $user->$item;
+	}
+	$placeholders = substr_replace($placeholders,"",-1);
+	$valuenames = substr_replace($valuenames, "", -1);
+
+	$uid = $user->uid;
+	$sqlresult = db_query("delete from {wsuser} where uid = %d", $uid);
+	$query = "insert into {wsuser} ($valuenames) values ( $placeholders ) ";
+	$sqlresult = db_query($query, $values);
+
+
+}
+
+
+
+function wsuser_view($user) {
+
+	$fieldlist = wsuser_fieldlist();
+	$showvalue = array();
+
+	unset($fieldlist['howdidyouhear']);  // Don't need this in the output
+
+	foreach ($fieldlist as $item => $value) {
+		if(strlen($user->$item)) {
+			$showvalue[$item] = array(
+			'title' => $fieldlist[$item]['title'],
+			//'value' => wsuser_view_item($user->$item, $fieldlist[$item]['title']),
+			'value' => $user->$item,
+			'class' => 'value');
+
+		}
+
+	}
+	return array('Member Information' => $showvalue);
+
+
+}
+
+function wsuser_view_item($item, $description) {
+	if ($item) {
+		$output = '<b>';
+		$output .= $description . ":</b> " . check_plain($item) . "<br/>" ;
+	}
+	return $output;
+}
+
+
+
+function wsuser_form($edit, $user, $category) {
+
+	$fields['wsuser'] = array(
+	'#type' => 'fieldset',
+	'#title' => t("Member Information"),
+	);
+
+
+
+	$defaults = wsuser_form_defaults($edit, $user);
+	$fieldlist = wsuser_fieldlist();
+
+	foreach ($fieldlist as $field => $attribs) {
+		$arr = array();
+		foreach ($attribs as $tag => $val) {
+			$arr["#$tag"] = $val;
+		}
+
+		$fields['wsuser'][$field] = $arr;
+		if ($defaults[$field]) {
+			$fields['wsuser'][$field]['#default_value'] = $defaults[$field];
+		}
+	}
+
+
+
+
+	return $fields;
+
+
+
+}
+
+
+
+function wsuser_validate($form, &$form_state) {
+	if ($form['URL'] && !valid_url($form['URL'],TRUE))
+	{
+		form_set_error('URL', t("Please enter a valid URL (with http:// on the front) for your website"));
+	}
+
+	$fullname = $form['fullname'];
+
+	// If admin, allow the admin to leave the things in this section alone
+	if (!user_access('administer users')) {
+	  if (!ereg('[^ ]+ +[^ ]+', $fullname)) {
+	    form_set_error('fullname', t("Please enter your full name (at least first and last names), not a first name or 'handle'."));
+	  }
+
+	  $about_me = $form['comments'];
+	  if (count(explode(" ", $about_me)) <15 ) {
+	    form_set_error('comments',t("Please say something descriptive about yourself in the 'About You' field! Potential hosts or guests want to know about you. You must enter at least 15 words. Your account will be deleted if this is not meaningful."));
+	  }
+	}
+
+	return $form;
+}
+
+
+/**
+ * Implementation of hook_user().
+ */
+function wsuser_user($type, &$edit, &$user, $category = NULL) {
+	switch ($type) {
+		case 'load':
+			return wsuser_load($user);
+		case 'form':
+		case 'register':
+			return wsuser_form($edit, $user, $category);
+		case 'update':
+		case 'insert':
+			return wsuser_save($edit, $user, $category);
+		case 'view':
+			return wsuser_view($user);
+
+		case 'validate':
+			return wsuser_validate($edit, $user);
+		case 'delete':
+			wsuser_delete($edit, $user);
+			return;
+		case 'login':
+			wsuser_login($edit, $user);
+			return;
+	}
+}
+
+
+function theme_wsuser_wsuser($user, $fields = array()) {
+
+	$output  = "<div class=\"wsuser\">\n";
+	$output .= theme('user_picture', $user);
+	$output .= ' <div class="name">'. format_name($user) ."</div>\n";
+
+	foreach ($fields as $field) {
+		if ($value = wsuser_view_field($user, $field)) {
+			$output .= " <div class=\"field\">$value</div>\n";
+		}
+	}
+
+	$output .= "</div>\n";
+
+	return $output;
+}
+
+function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
+	global $user;
+
+	if ($op == 'list') {
+		$blocks[0]['info'] = t('Latest host logins');
+		$blocks[1]['info'] = t('Newest members');
+
+		return $blocks;
+	}
+	else if ($op == 'view') {
+		$block = array();
+
+		switch ($delta) {
+
+			case 0:
+				if (user_access('access content')) {
+					$result = db_query("select count(*) numusers from {users u,wsuser w} where u.uid = w.uid
+						 and u.uid>99 and u.status and !isunreachable and !isstale ");
+					$countresult = db_fetch_object($result);
+					$numusers = $countresult->numusers;
+
+					$result = db_query_range('SELECT u.uid, access, city, province, country
+						FROM {users} u,{user_location} l,{wsuser} w
+						WHERE status != 0 and u.uid = l.oid and u.uid=w.uid
+						and not w.notcurrentlyavailable ORDER BY access DESC', 0, 15);
+					while ($account = db_fetch_object($result)) {
+						if ($account->city && $account->country) {
+							if (user_access('access user profiles')) {
+								$items[] = l($account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country),'user/'.$account->uid);
+							} else {
+								$items[] = htmlspecialchars($account->city) . ", ". strtoupper($account->province) . ", ". strtoupper($account->country);
+							}
+						}
+					}
+
+					$output = "<ul>";
+					foreach ($items as $item) {
+						$output .= "<li>$item</li>";
+					}
+					$output .= "</ul>";
+
+					$block['subject'] = t('Recent Member Logins');
+					$block['content'] = "<b><i>$numusers</i> " . t("Current Members")."</b><br/><br/>";
+					$block['content'] .= $output;
+				}
+				return $block;
+			case 1:
+				$displaycount = 15;
+				if (user_access('access content')) {
+					$result = db_query("select count(*) numusers from {users} u,{wsuser} w
+						where u.uid = w.uid and u.uid>1 and u.status and !isunreachable and !isstale");
+					$countresult = db_fetch_object($result);
+					$numusers = $countresult->numusers;
+					$activeresult = db_query("select count(*) numusers from {users} u,{wsuser} w
+						where u.uid = w.uid and u.uid>1 and u.status and !isunreachable and !isstale and !notcurrentlyavailable");
+					$countactive = db_fetch_object($activeresult);
+
+					$result = db_query_range('SELECT u.uid uid, created, city, province, country
+						FROM {users} u,{user_location} l,{wsuser} w
+						WHERE status != 0 and u.uid = l.oid and u.uid=w.uid and not w.notcurrentlyavailable
+						ORDER BY uid DESC', 0, $displaycount);
+					while ($account = db_fetch_object($result)) {
+						if ($account->city && $account->country) {
+							if (user_access('access user profiles')) {
+								$items[] = l($account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country),'user/'.$account->uid);
+						} else {
+								$items[] = $account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country);
+							}
+						}
+					}
+
+					$output = "<ul>";
+					foreach ($items as $item) {
+						$output .= "<li>$item</li>";
+					}
+					$output .= "</ul>";
+
+					$block['subject'] = t('Newest members');
+					$block['content'] = "<b>".t("Newest")." $displaycount ".t("of")." <i>$numusers</i> ".t("Active Members")."</b> (" . $countactive->numusers . " ".t("hosting right now").")<br/><br/>";
+					$block['content'] .= $output;
+				}
+				return $block;
+
+		}
+
+
+	}
+
+}
+
+function wsuser_member_list_form(&$form_state, $country=NULL, $province=NULL, $include_unavailable=NULL, $do_csv=NULL) {
+
+	$default_country= !empty($country) ? $country : user_location_get_browser_country();
+	if (!$default_country) { $default_country='ca'; }
+
+  	$countrylist = array();
+	if (user_access('list all countries')) {
+		$countrylist['all'] = t('All');
+	}
+	$countrylist = array_merge($countrylist, user_location_current_countries());
+
+
+	$provlist['all'] = t('All');
+	if($_COOKIE['has_js'] == 1){ //only populate provincelist for those with js enabled
+		$provlist = array_merge($provlist, _user_location_get_provincecode_to_province_map($default_country));
+	}
+
+	$form['country'] = array(
+		'#title' => t('Country'),
+		'#type' => 'select',
+		'#options' => $countrylist,
+		'#default_value' => $default_country,
+		'#ahah' => array(
+      		'path' => 'ahah_get_provinces_member_list',
+			'event' => 'change',
+      		'wrapper' => 'province_target',
+      		'method' => 'replace',
+      		'effect' => 'fade',
+   			),
+	);
+
+	$form['province'] = array(
+     '#type' => 'select',
+	 '#title' => t('Province/State'),
+     '#prefix' => '<div id="province_target">',
+     '#suffix' => '</div>',
+	 '#options' => $provlist //for non js users... they can only search per country
+	    );
+
+	$form['notcurrentlyavailable'] = array(
+		'#title' => t('Include "not currently available" members (who can\'t host right now)'),
+		'#type' => 'checkbox',
+		'#default_value' => $include_unavailable,
+	);
+
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Submit'),
+	);
+
+	$form['#submit'][] = 'wsuser_member_list_form_submit';
+
+	return $form;
+}
+
+function wsuser_member_list_page($country=NULL, $province=NULL, $include_unavailable=NULL, $do_csv=NULL) {
+
+	$formstuff =  drupal_get_form('wsuser_member_list_form',$country,$province,$include_unavailable, $do_csv);
+
+	// If it's been submitted, show the results
+	if (!isset($_POST['form_id']) && !empty($country)) {
+		if ($do_csv) {
+			drupal_set_header("content-type: applicaton/x-download; charset=utf-8");
+			drupal_set_header("content-disposition: filename=" . "wsl-$country-$province.txt");
+		  	$output .= wsuser_member_list_tabtext($country, $province, $include_unavailable);
+			print $output;
+			exit;
+		}
+	  $output .= $formstuff;
+
+	  $link="<a href='/member_list/$country/$province/$include_unavailable/1/wsl-$country-$province.txt'>";
+	  $output .= "<br/><div style='width:660px;'><p>" . t("You can download a !link tab-delimited text file version of this list for your spreadsheet</a>  <i>You'll probably need to right-click the link and choose to \"Save as file\". You can then import it into your spreadsheet. To load into Excel, open the file and use tabs as the delimiter and \"Unicode-UTF-8\" as the file source or character code.</i></p></div>", array('!link' => $link));
+
+
+	  $output .= wsuser_member_list_html($country, $province, $include_unavailable);
+ 	}
+ 	else {
+ 		$output .= $formstuff;
+ 	}
+ 	return $output;
+}
+
+function wsuser_member_list_form_submit($form, &$form_state) {
+	$country = $form_state['values']['country'];
+	$province=$form_state['values']['province'];
+	$notcurrentlyavailable = $form_state['values']['notcurrentlyavailable'];
+	$csv = $form_state['values']['csv'];
+
+	$form_state['redirect'] = "member_list/$country/$province/$notcurrentlyavailable/$csv";
+
+}
+
+function wsuser_recently_viewed_members() {
+  $numdays=28;
+
+  $sql = 'select distinct concat("<a href=\'/",path,"\'>",u.name,"</a>") "Member Viewed",
+    w.fullname "Full Name", l.city "City", upper(l.province) "State/Prov",
+    upper(l.country) "Country",
+    concat("<a href=\'/user/",u.uid,"/contact\' target=\'_blank\'>click to email</a>") "Email Link"';
+  if (user_access('view email addrs')) {
+    $sql .= ', u.mail Email';
+  }
+    $sql .='
+    from accesslog a, users u, wsuser w, user_location l
+    where a.uid = %d
+    and path regexp "^user/[0-9]+$"
+    and substr(path,locate("/",path)+1) = u.uid
+    and u.uid=w.uid and u.uid=l.oid
+    and datediff(now(),from_unixtime(timestamp)) < %d
+    order by timestamp desc';
+
+  $args[] = $GLOBALS['user']->uid;
+  $args[] = $numdays;
+
+  $output .= t("<p>These are members whose profiles you've viewed in the last $numdays days.</p>");
+	$output .= table_output($sql,null ,$args);
+	return $output;
+
+
+}
+function wsuser_recently_viewing_members() {
+
+  $sql = 'select distinct concat("<a href=\'/user/",a.uid,"\'>",w.fullname,"</a>") "Member",
+    from_unixtime(timestamp)  "When Viewed"
+    from accesslog a,users u,wsuser w
+    where a.uid=u.uid and u.uid=w.uid
+    and path = concat("user/",%d)
+    -- and datediff(now(),from_unixtime(timestamp)) < 7
+    order by timestamp desc';
+
+  $args[] = $GLOBALS['user']->uid;
+
+	$output .= table_output($sql,null ,$args);
+	return $output;
+
+
+}
+
+
+function wsuser_member_list_html($country,$province,$include_unavailable) {
+	$sql .= 'select ';
+	if ($country == 'all') {
+		$sql .= 'country "Country", ';
+	}
+	if ($province == 'all') {
+		$sql .= 'province "St/Prov", ';
+	}
+
+
+	$sql .= 'concat("<a href=\'http://'. $_SERVER['HTTP_HOST'] . '/map/uid=",u.uid,"\'>",l.city,"</a>") "City",
+		concat("<a href=\'http://'. $_SERVER['HTTP_HOST'] . '/user/",u.uid,"\'>",u.name,"</a>") as Username,
+		concat("<a href=\'http://'. $_SERVER['HTTP_HOST'] . '/user/",u.uid,"/contact\'>", "email link", "</a>") as "Email Link", ';
+
+  if (user_access('view email addrs')) {
+    $sql .= 'u.mail Email,';
+  }
+		$sql .= 'fullname "Full Name", if(notcurrentlyavailable,"No","Yes") Available,
+		fax_number "Fax",mobilephone "Mobile Phone",workphone "Work Phone",
+		homephone "Home Phome",preferred_notice "Preferred Notice",
+		street Street, additional Additional,
+		province "State/Province",
+		postal_code "Postal Code", country "Country", latitude "Latitude", longitude "Longitude",
+		source as "Geocoding Accuracy",
+		if (URL,concat("<a href=\'",URL,"\'>",URL,"</a>"),"") "Website",
+		date(from_unixtime(u.created)) as "Account Created",
+		date(from_unixtime(u.access)) as "Last Login"
+		from users u, wsuser w, user_location l
+		where u.uid=w.uid and u.uid=l.oid and status and !isunreachable and !isstale ';
+
+	if ($country != "all") {
+		$sql .= " and country='%s' ";
+		$args[] = $country;
+		if ($province != "all") {
+			$sql .= "and province='%s'";
+			$args[] = $province;
+		}
+	}
+
+	if (!$include_unavailable) {
+		$sql .= "and !notcurrentlyavailable ";
+	}
+
+	$sql .= "order by l.country, l.province, l.city, w.fullname";
+
+	$output .= table_output($sql,null,$args);
+	return $output;
+
+
+}
+
+/**
+ * Output member list as tab-delimited-text. Just change the query to change the output.
+ *
+ * @param unknown_type $country
+ * @param unknown_type $province
+ * @param unknown_type $include_unavailable
+ * @return unknown
+ */
+function wsuser_member_list_tabtext($country,$province,$include_unavailable) {
+	$sql = 'select u.uid Uid, u.name Username,
+    concat("http://'. $_SERVER['HTTP_HOST'] . '/user/",u.uid,"/contact") as "Email Link",';
+
+  if (user_access('view email addrs')) {
+    $sql .= 'u.mail Email,';
+  }
+    $sql .= 'fullname "Full Name", if(notcurrentlyavailable,"No","Yes") Available,
+		fax_number "Fax",mobilephone "Mobile Phone",workphone "Work Phone",
+		homephone "Home Phome",preferred_notice "Preferred Notice",
+		street Street, additional Additional,
+		city City, province "State/Province",
+		postal_code "Postal Code", country "Country", latitude "Latitude", longitude "Longitude",
+		source as "Geocoding Accuracy", URL "Website", date(from_unixtime(u.created)) as "Account Created",
+		date(from_unixtime(u.access)) as "Last Login"
+		from users u, wsuser w, user_location l
+		where u.uid=w.uid and u.uid=l.oid and status and !isunreachable and !isstale ';
+
+	if ($country != "all") {
+		$sql .= " and country='%s' ";
+		$args[] = $country;
+		if ($province != "all") {
+			$sql .= "and province='%s'";
+			$args[] = $province;
+		}
+	}
+
+	if (!$include_unavailable) {
+		$sql .= "and !notcurrentlyavailable ";
+	}
+
+	$sql .= "order by country, province, city, fullname";
+
+	$output .= csv_output($sql,null,$args);
+	return $output;
+
+
+}
+
+function theme_email_addr($str) {
+	$mail = explode("@", $str);
+	return $mail[0] . " at " . $mail[1];
+}
+function theme_email_link($userobj) {
+  $result = '<a href="/user/' . $userobj->uid . '/contact">' . t('click to email') . '</a>';
+  if (user_access('view email addrs')) {
+    $result .= ' (<a href="mailto:' . $userobj->mail . '">'. $userobj->mail . '</a>)';
+  }
+	return $result;
+}
+
+function wsuser_output_profile(&$form_state, $args) {
+	$user = user_load(array('uid'=>arg(2)));
+	print theme('user_profile',$user);
+
+	exit;
+
+}
+
+function ahah_get_provinces_profile() {
+  $provincelist[""] = t('Select Province');
+  $provincelist['XX'] = t('NOT LISTED');
+  $provincelist += _user_location_get_provincecode_to_province_map($_REQUEST['country']);
+	$formElement  = array(
+			'#title' => t('State/Province'),
+			'#type' => 'select',
+	    '#options' => $provincelist,
+			'#prefix' => '<div id="province_target">',
+			'#suffix' => '</div>'
+			);
+
+
+	$output = ahah_render_profile_form($formElement, 'province');
+	echo drupal_to_js(array('data' => $output, 'status' => true));
+	exit();
+}
+
+function ahah_get_provinces_member_list() {
+
+	$default['all'] = 'All';
+	$provlist = _user_location_get_provincecode_to_province_map($_REQUEST['country']);
+	$provincelist = array_merge($default, $provlist);
+	$form['province']  = array(
+			'#title' => t('State/Province'),
+			'#type' => 'select',
+	    	'#options' => $provincelist,
+			'#prefix' => '<div id="province_target">',
+			'#suffix' => '</div>'
+			);
+
+
+	$output = ahah_render_member_list_form($form, 'province');
+	echo drupal_to_js(array('data' => $output, 'status' => true));
+	exit();
+}
+/*
+ * This function takes in the form additions via Ajax and rerenders the form using so that Drupal can validate it.
+ *
+ */
+function ahah_render_profile_form($fields, $name) {
+  $form_state = array('submitted' => FALSE);
+  $form_build_id = $_POST['form_build_id'];
+  // Add the new element to the stored form. Without adding the element to the
+  // form, Drupal is not aware of this new elements existence and will not
+  // process it. We retreive the cached form, add the element, and resave.
+  $form = form_get_cache($form_build_id, $form_state);
+  $form['location'][$name] = $fields;
+  form_set_cache($form_build_id, $form, $form_state);
+  $form += array(
+    '#post' => $_POST,
+    '#programmed' => FALSE,
+  );
+  // Rebuild the form.
+  $form = form_builder($_POST['form_id'], $form, $form_state);
+
+
+// Render the new output.
+  $new_form = $form['location'][$name];
+  return drupal_render($new_form);
+}
+
+function ahah_render_member_list_form($fields, $name) {
+  $form_state = array('submitted' => FALSE);
+  $form_build_id = $_POST['form_build_id'];
+  // Add the new element to the stored form. Without adding the element to the
+  // form, Drupal is not aware of this new elements existence and will not
+  // process it. We retreive the cached form, add the element, and resave.
+  $form = form_get_cache($form_build_id, $form_state);
+  $form[$name] = $fields;
+  form_set_cache($form_build_id, $form, $form_state);
+  $form += array(
+    '#post' => $_POST,
+    '#programmed' => FALSE,
+  );
+  // Rebuild the form.
+  $form = form_builder($_POST['form_id'], $form, $form_state);
+
+
+// Render the new output.
+  $new_form = $form[$name];
+  return drupal_render($new_form);
+}
+
+
+
+/**
+ * Return a form definition so the Send email action can be configured.
+ *
+ * @see wsuser_send_email_action_validate()
+ * @see wsuser_send_email_action_submit()
+ * @param $context
+ *   Default values (if we are editing an existing action instance).
+ * @return
+ *   Form definition.
+ */
+function wsuser_send_email_action_form($context) {
+  // Set default values for form.
+  if (!isset($context['recipient'])) {
+    $context['recipient'] = '';
+  }
+  if (!isset($context['subject'])) {
+    $context['subject'] = '';
+  }
+  if (!isset($context['message'])) {
+    $context['message'] = '';
+  }
+
+  $form['recipient'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Recipient'),
+    '#default_value' => $context['recipient'],
+    '#maxlength' => '254',
+    '#description' => t('The email address to which the message should be sent OR enter %author if you would like to send an e-mail to the author of the original post.', array('%author' => '%author')),
+  );
+  $form['subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#default_value' => $context['subject'],
+    '#maxlength' => '254',
+    '#description' => t('The subject of the message.'),
+  );
+  $form['message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Message'),
+    '#default_value' => $context['message'],
+    '#cols' => '80',
+    '#rows' => '20',
+    '#description' => t('The message that should be sent. You may include the following variables: ' . theme('token_help','user')),
+  );
+  return $form;
+}
+
+/**
+ * Validate wsuser_send_email_action form submissions.
+ */
+function wsuser_send_email_action_validate($form, $form_state) {
+  $form_values = $form_state['values'];
+  // Validate the configuration form.
+  if (!valid_email_address($form_values['recipient']) && $form_values['recipient'] != '%author') {
+    // We want the literal %author placeholder to be emphasized in the error message.
+    form_set_error('recipient', t('Please enter a valid email address or %author.', array('%author' => '%author')));
+  }
+}
+
+/**
+ * Process wsuser_send_email_action form submissions.
+ */
+function wsuser_send_email_action_submit($form, $form_state) {
+  $form_values = $form_state['values'];
+  // Process the HTML form to store configuration. The keyed array that
+  // we return will be serialized to the database.
+  $params = array(
+    'recipient' => $form_values['recipient'],
+    'subject'   => $form_values['subject'],
+    'message'   => $form_values['message'],
+  );
+  return $params;
+}
+
+/**
+ * Implementation of a configurable Drupal action. Sends an email with user details
+ * Note that this won't work correctly unless the module weight is set in the system
+ * database to something lower than the action module's weight. I set it to -10
+ * The utility module will do this, or you can just do it in the database:
+ *   update system set weight=-10 where name in ("user_location","wsuser")
+ */
+function wsuser_send_email_action($object, $context) {
+  global $user;
+  $account = $object;
+  $recipient = $context['recipient'];
+
+  $language = user_preferred_language($account);
+  $params = array('account' => $account, 'object' => $object, 'context' => $context);
+  $params['subject'] = str_replace(array("\r", "\n"), '', token_replace_multiple($context['subject'], array('user'=>$account)));
+  $params['body'] = drupal_html_to_text(token_replace_multiple($context['message'], array('user'=>$account)));
+
+  if (drupal_mail('wsuser', 'action_wsuser_send_email', $recipient, $language, $params)) {
+    watchdog('action', 'Sent email to %recipient', array('%recipient' => $recipient));
+  }
+  else {
+    watchdog('error', 'Unable to send email to %recipient', array('%recipient' => $recipient));
+  }
+}

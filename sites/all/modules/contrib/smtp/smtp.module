@@ -1,0 +1,790 @@
+<?php
+// $Id: smtp.module 505 2009-05-24 18:55:09Z rfay $
+
+/**
+ * @file
+ * Enables Drupal to send e-mail directly to an SMTP server.
+ *
+ * This module uses the PHPMailer class, originally by Brent R. Matzelle, now
+ * maintained by Codeworx Tech.
+ *
+ * Overriding mail handling in Drupal requires setting the smtp_library
+ * variable with the filename of a file containing a drupal_mail_wrapper()
+ * function. This module sets the smtp_library value to point back to this
+ * file which contains the drupal_mail_wrapper() function that uses the
+ * PHPMailer class to send e-mail instead of the PHP mail() function.
+ *
+ * @link http://phpmailer.codeworxtech.com/
+ * @link http://sourceforge.net/projects/phpmailer/
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function smtp_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#smtp':
+      return t('Allows the sending of site e-mail through an SMTP server of your choice.');
+  }
+}  //  End of smtp_help().
+
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function smtp_menu() {
+  $items['admin/settings/smtp'] = array(
+    'title'            => 'SMTP Authentication Support',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('smtp_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'description'      => 'Allows the sending of site e-mail through an SMTP server of your choice.',
+  );
+
+  return $items;
+}  //  End of smtp_menu().
+
+
+
+/**
+ * Administrative settings.
+ *
+ * @return
+ *   An array containing form items to place on the module settings page.
+ */
+function smtp_admin_settings() {
+  // Override the smtp_library variable.
+  if (variable_get('smtp_on', 0)) {
+    $smtp_path = drupal_get_filename('module', 'smtp');
+    if ($smtp_path) {
+      variable_set('smtp_library', $smtp_path);
+      drupal_set_message(t('SMTP.module is active.'));
+    }
+    // If drupal can't find the path to the module, display an error.
+    else {
+      drupal_set_message(t("SMTP.module error: Can't find file."), 'error');
+    }
+  }
+  // If this module is turned off, delete the variable.
+  else {
+    variable_del('smtp_library');
+    drupal_set_message(t('SMTP.module is INACTIVE.'));
+  }
+
+  $form['onoff'] = array(
+    '#type'  => 'fieldset',
+    '#title' => t('Install options'),
+  );
+  $form['onoff']['smtp_on'] = array(
+    '#type'          => 'radios',
+    '#title'         => t('Turn this module on or off'),
+    '#default_value' => variable_get('smtp_on', 0),
+    '#options'       => array(1 => t('On'), 0 => t('Off')),
+    '#description'   => t('To uninstall this module you must turn it off here first.'),
+  );
+
+  $form['server'] = array(
+    '#type'  => 'fieldset',
+    '#title' => t('SMTP server settings'),
+  );
+  $form['server']['smtp_host'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('SMTP server'),
+    '#default_value' => variable_get('smtp_host', ''),
+    '#description'   => t('The address of your outgoing SMTP server.'),
+  );
+  $form['server']['smtp_hostbackup'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('SMTP backup server'),
+    '#default_value' => variable_get('smtp_hostbackup', ''),
+    '#description'   => t('The address of your outgoing SMTP backup server. If the primary server can\'t be found this one will be tried. This is optional.'),
+  );
+  $form['server']['smtp_port'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('SMTP port'),
+    '#size'          => 6,
+    '#maxlength'     => 6,
+    '#default_value' => variable_get('smtp_port', '25'),
+    '#description'   => t('The default SMTP port is 25, if that is being blocked try 80. Gmail uses 465. See !url for more information on configuring for use with Gmail.', array('!url' => l(t('this page'), 'http://gmail.google.com/support/bin/answer.py?answer=13287'))),
+  );
+  // Only display the option if openssl is installed.
+  if (function_exists('openssl_open')) {
+    $encryption_options = array(
+      'standard' => t('No'),
+      'ssl'      => t('Use SSL'),
+      'tls'      => t('Use TLS'),
+    );
+    $encryption_description = t('This allows connection to an SMTP server that requires SSL encryption such as Gmail.');
+  }
+  // If openssl is not installed, use normal protocol.
+  else {
+    variable_set('smtp_protocol', 'standard');
+    $encryption_options = array('standard' => t('No'));
+    $encryption_description = t('Your PHP installation does not have SSL enabled. See the !url page on php.net for more information. Gmail requires SSL.', array('!url' => l(t('OpenSSL Functions'), 'http://php.net/openssl')));
+  }
+  $form['server']['smtp_protocol'] = array(
+    '#type'          => 'select',
+    '#title'         => t('Use encrypted protocol'),
+    '#default_value' => variable_get('smtp_protocol', 'standard'),
+    '#options'       => $encryption_options,
+    '#description'   => $encryption_description,
+  );
+
+  $form['auth'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('SMTP Authentication'),
+    '#description' => t('Leave blank if your SMTP server does not require authentication.'),
+  );
+  $form['auth']['smtp_username'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Username'),
+    '#default_value' => variable_get('smtp_username', ''),
+    '#description'   => t('SMTP Username.'),
+  );
+  $form['auth']['smtp_password'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Password'),
+    '#default_value' => variable_get('smtp_password', ''),
+    '#description'   => t('SMTP password.'),
+  );
+
+  $form['email_options'] = array(
+    '#type'  => 'fieldset',
+    '#title' => t('E-mail options'),
+  );
+  $form['email_options']['smtp_from'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('E-mail from address'),
+    '#default_value' => variable_get('smtp_from', ''),
+    '#description'   => t('The e-mail address that all e-mails will be from.'),
+  );
+  $form['email_options']['smtp_fromname'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('E-mail from name'),
+    '#default_value' => variable_get('smtp_fromname', ''),
+    '#description'   => t('The name that all e-mails will be from. If left blank will use the site name of: ') . variable_get('site_name', 'Drupal powered site'),
+  );
+
+  // If an address was given, send a test e-mail message.
+  $test_address = variable_get('smtp_test_address', '');
+  if ($test_address != '') {
+    // Clear the variable so only one message is sent.
+    variable_del('smtp_test_address');
+    global $language;
+    $params['subject'] = t('Drupal test e-mail');
+    $params['body']    = t('If you receive this message it means your site is capable of sending e-mail.');
+    drupal_mail('smtp', 'smtp-test', $test_address, $language, $params);
+    drupal_set_message(t('A test e-mail has been sent to @email. You may want to !check for any error messages.', array('@email' => $test_address, '!check' => l(t('check the logs'), 'admin/reports/dblog'))));
+  }
+  $form['email_test'] = array(
+    '#type'  => 'fieldset',
+    '#title' => t('Send test e-mail'),
+  );
+  $form['email_test']['smtp_test_address'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('E-mail address to send a test e-mail to'),
+    '#default_value' => '',
+    '#description'   => t('Type in an address to have a test e-mail sent there.'),
+  );
+
+  $form['smtp_debugging'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Enable debugging'),
+    '#default_value' => variable_get('smtp_debugging', 0),
+    '#description'   => t('Checking this box will print SMTP messages from the server for every e-mail that is sent.'),
+  );
+
+  return system_settings_form($form);
+}  //  End of smtp_admin_settings().
+
+
+
+/**
+ * Validataion for the administrative settings form.
+ *
+ * @param form
+ *   An associative array containing the structure of the form.
+ * @param form_state
+ *   A keyed array containing the current state of the form.
+ */
+function smtp_admin_settings_validate($form, &$form_state) {
+  if ($form_state['values']['smtp_on'] == 1 && $form_state['values']['smtp_host'] == '') {
+    form_set_error('smtp_host', t('You must enter an SMTP server address.'));
+  }
+
+  if ($form_state['values']['smtp_on'] == 1 && $form_state['values']['smtp_port'] == '') {
+    form_set_error('smtp_port', t('You must enter an SMTP port number.'));
+  }
+
+  if ($form_state['values']['smtp_from'] && !valid_email_address($form_state['values']['smtp_from'])) {
+    form_set_error('smtp_from', t('The provided from e-mail address is not valid.'));
+  }
+}  //  End of smtp_admin_settings_validate().
+
+
+
+/**
+ * Sends out the e-mail.
+ *
+ * @param message
+ *   An array with at least the following elements: id, to, subject, body and
+ *  headers.
+ *
+ * @see drupal_mail_send()
+ */
+function drupal_mail_wrapper($message) {
+  $id       = $message['id'];
+  $to       = $message['to'];
+  $from     = $message['from'];
+  $language = $message['language'];
+  $subject  = $message['subject'];
+  $body     = $message['body'];
+  $headers  = $message['headers'];
+
+  // Include the PHPMailer class (which includes the SMTP class).
+  require_once(drupal_get_path('module', 'smtp') .'/phpmailer/class.phpmailer.php');
+
+  // Create a new PHPMailer object.
+  $mail = new PHPMailer();
+
+
+  // Set the language PHPMailer is to use.
+  if (!$language) {
+    global $language;
+    if ($language) {
+      $mail->SetLanguage($language->language, drupal_get_path('module', 'smtp') .'/phpmailer/language/');
+    }
+  }
+  else {
+    $mail->SetLanguage($language->language, drupal_get_path('module', 'smtp') .'/phpmailer/language/');
+  }
+
+
+  // Turn in debugging, if requested.
+  if (variable_get('smtp_debugging', 0) == 1) {
+    $mail->SMTPDebug = TRUE;
+  }
+
+
+  // Set the from name and e-mail address.
+  if (variable_get('smtp_fromname', '') != '') {
+    $from_name = variable_get('smtp_fromname', '');
+  }
+  else {
+    // If value is not defined in settings, use site_name.
+    $from_name = variable_get('site_name', '');
+  }
+
+  // Blank value will let the e-mail address appear.
+
+  if ($from == NULL || $from == '') {
+    // If from e-mail address is blank, use smtp_from config option.
+    if ($from = variable_get('smtp_from', '') == '') {
+      // If smtp_from config option is blank, use site_email.
+      if ($from = variable_get('site_email', '') == '') {
+        drupal_set_message(t('There is no submitted from address.'), 'error');
+        watchdog('smtp', 'There is no submitted from address.', array(), WATCHDOG_ERROR);
+        return FALSE;
+      }
+    }
+  }
+/*
+  if ($from == NULL || $from == '') {
+    if (variable_get('smtp_from', '') != '') {
+      $from = variable_get('smtp_from', '');
+    }
+    else {
+      // If smtp_from config option is blank, use site_email.
+      $from = variable_get('site_email', '');
+    }
+  }
+ */
+  if (preg_match('/^".*"\s*<.*>$/', $from)) {
+    // . == Matches any single character except line break characters \r and \n.
+    // * == Repeats the previous item zero or more times.
+    $from_name = preg_replace('/"(.*)"(.*)/i',   '$1', $from); // It gives: Name
+    $from      = preg_replace("/(.*)\<(.*)\>/i", '$2', $from); // It gives: name@domain.tld
+  }
+  elseif (!valid_email_address($from)) {
+    drupal_set_message(t('The submitted from address (@from) is not valid.', array('@from' => $from)), 'error');
+    watchdog('smtp', 'The submitted from address (@from) is not valid.', array('@from' => $from), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  // Defines the From value to what we expect.
+  $mail->From     = $from;
+  $mail->FromName = $from_name;
+  $mail->Sender   = $from;
+
+
+  // Create the list of 'To:' recipients.
+  $torecipients = split(',', $to);
+  foreach ($torecipients as $torecipient) {
+    if (strpos($torecipient, '<') !== FALSE) {
+      $toparts = explode(' <', $torecipient);
+      $toname = $toparts[0];
+      $toaddr = rtrim($toparts[1], '>');
+    }
+    else {
+      $toname = '';
+      $toaddr = $torecipient;
+    }
+    $mail->AddAddress($toaddr, $toname);
+  }
+
+
+  // Parse the headers of the message and set the PHPMailer object's settings
+  // accordingly.
+  foreach ($headers as $key => $value) {
+    //watchdog('error', 'Key: ' . $key . ' Value: ' . $value);
+    switch (drupal_strtolower($key)) {
+      case 'from':
+        if ($from == NULL or $from == '') {
+          // If a from value was already given, then set based on header.
+          // Should be the most common situation since drupal_mail moves the
+          // from to headers.
+          $from           = $value;
+          $mail->From     = $value;
+          // then from can be out of sync with from_name !
+          $mail->FromName = '';
+          $mail->Sender   = $value;
+        }
+        break;
+
+      case 'content-type':
+        if (strpos(drupal_strtolower($value), 'text/plain') !== FALSE) {
+          // The message includes only a plain text part.
+          $mail->IsHTML(FALSE);
+
+          // Set the charset based on the provided value, if there is one.
+          $charset = _smtp_get_substring($value, 'charset', '=', ';');
+          if ($charset) {
+            $mail->CharSet = $charset;
+          }
+
+          $content_type = 'text/plain';
+        }
+        elseif (strpos(drupal_strtolower($value), 'text/html') !== FALSE) {
+          // The message includes only an HTML part.
+          $mail->IsHTML(TRUE);
+          $content_type = 'text/html';
+        }
+        elseif (strpos(drupal_strtolower($value), 'multipart/related') !== FALSE) {
+          // The message includes an HTML part w/inline attachments.
+          $mail->ContentType = $content_type = 'multipart/related';
+        }
+        elseif (strpos(drupal_strtolower($value), 'multipart/alternative') !== FALSE) {
+          // The message includes both a plain text and an HTML part.
+          $mail->ContentType = $content_type = 'multipart/alternative';
+
+          // Get the boundary ID from the Content-Type header.
+          $boundary = _smtp_get_substring($value, 'boundary', '"', '"');
+        }
+        elseif (strpos(drupal_strtolower($value), 'multipart/mixed') !== FALSE) {
+          // The message includes one or more attachments.
+          $mail->ContentType = $content_type = 'multipart/mixed';
+
+          // Get the boundary ID from the Content-Type header.
+          $boundary = _smtp_get_substring($value, 'boundary', '"', '"');
+        }
+        else {
+          // Everything else is unsuppored by PHPMailer.
+          drupal_set_message(t('The Content-Type of your message is not supported by PHPMailer and will be sent as text/plain instead.'), 'error');
+          watchdog('smtp', 'The Content-Type of your message is not supported by PHPMailer and will be sent as text/plain instead.', array(), WATCHDOG_ERROR);
+
+          // Force the Content-Type to be text/plain.
+          $mail->IsHTML(FALSE);
+          $content_type = 'text/plain';
+        }
+        break;
+
+      case 'reply-to':
+        // Only add a "reply-to" if it's not the same as "return-path".
+        if ($value != $headers['Return-Path']) {
+          $mail->AddReplyTo($value);
+        }
+        break;
+
+      case 'content-transfer-encoding':
+        $mail->Encoding = $value;
+        break;
+
+      case 'return-path':
+      case 'mime-version':
+      case 'x-mailer':
+        // Let PHPMailer specify these.
+        break;
+
+      case 'errors-to':
+        $mail->AddCustomHeader('Errors-To: '. $value);
+        break;
+
+      case 'cc':
+        $ccrecipients = split(',', $value);
+        foreach ($ccrecipients as $ccrecipient) {
+          if (strpos($ccrecipient, '<') !== FALSE) {
+            $ccparts = explode(' <', $ccrecipient);
+            $ccname = $ccparts[0];
+            $ccaddr = rtrim($ccparts[1], '>');
+          }
+          else {
+            $ccname = '';
+            $ccaddr = $ccrecipient;
+          }
+          $mail->AddBCC($ccaddr, $ccname);
+        }
+        break;
+
+      case 'bcc':
+        $bccrecipients = split(',', $value);
+        foreach ($bccrecipients as $bccrecipient) {
+          if (strpos($bccrecipient, '<') !== FALSE) {
+            $bccparts = explode(' <', $bccrecipient);
+            $bccname = $bccparts[0];
+            $bccaddr = rtrim($bccparts[1], '>');
+          }
+          else {
+            $bccname = '';
+            $bccaddr = $bccrecipient;
+          }
+          $mail->AddBCC($bccaddr, $bccname);
+        }
+        break;
+
+      default:
+        // The header key is not special - add it as is.
+        $mail->AddCustomHeader($key .': '. $value);
+    }
+  }
+
+
+/**
+ * TODO
+ * Need to figure out the following.
+
+  // Add one last header item, but not if it has already been added.
+  $errors_to = FALSE;
+  foreach ($mail->CustomHeader as $custom_header) {
+    if ($custom_header[0] = '') {
+      $errors_to = TRUE;
+    }
+  }
+  if ($errors_to) {
+    $mail->AddCustomHeader('Errors-To: '. $from);
+  }
+ */
+
+
+  // Add the message's subject.
+  $mail->Subject = $subject;
+
+
+  // Processes the message's body.
+  switch ($content_type) {
+    case 'multipart/related':
+      $mail->Body = $body;
+
+/**
+ * TODO
+ * Firgure out if there is anything more to handling this type.
+ */
+
+      break;
+
+    case 'multipart/alternative':
+      // Split the body based on the boundary ID.
+      $body_parts = _smtp_boundary_split($body, $boundary);
+      foreach ($body_parts as $body_part) {
+        // If plain/text within the body part, add it to $mail->AltBody.
+        if (strpos($body_part, 'text/plain')) {
+          // Clean up the text.
+          $body_part = trim(_smtp_remove_headers(trim($body_part)));
+          // Include it as part of the mail object.
+          $mail->AltBody = $body_part;
+        }
+        // If plain/html within the body part, add it to $mail->Body.
+        elseif (strpos($body_part, 'text/html')) {
+          // Clean up the text.
+          $body_part = trim(_smtp_remove_headers(trim($body_part)));
+          // Include it as part of the mail object.
+          $mail->Body = $body_part;
+        }
+      }
+      break;
+
+    case 'multipart/mixed':
+      // Split the body based on the boundary ID.
+      $body_parts = _smtp_boundary_split($body, $boundary);
+
+      // Determine if there is an HTML part for when adding the plain text part.
+      $text_plain = FALSE;
+      $text_html  = FALSE;
+      foreach ($body_parts as $body_part) {
+        if (strpos($body_part, 'text/plain')) {
+          $text_plain = TRUE;
+        }
+        if (strpos($body_part, 'text/html')) {
+          $text_html = TRUE;
+        }
+      }
+
+      foreach ($body_parts as $body_part) {
+        // If test/plain within the body part, add it to either
+        // $mail->AltBody or $mail->Body, depending on whether there is
+        // also a text/html part ot not.
+        if (strpos($body_part, 'multipart/alternative')) {
+          // Clean up the text.
+          $body_part = trim(_smtp_remove_headers(trim($body_part)));
+          // Get boundary ID from the Content-Type header.
+          $boundary2 = _smtp_get_substring($body_part, 'boundary', '"', '"');
+          // Split the body based on the boundary ID.
+          $body_parts2 = _smtp_boundary_split($body_part, $boundary2);
+
+          foreach ($body_parts2 as $body_part2) {
+            // If plain/text within the body part, add it to $mail->AltBody.
+            if (strpos($body_part2, 'text/plain')) {
+              // Clean up the text.
+              $body_part2 = trim(_smtp_remove_headers(trim($body_part2)));
+              // Include it as part of the mail object.
+              $mail->AltBody = $body_part2;
+              $mail->ContentType = 'multipart/mixed';
+            }
+            // If plain/html within the body part, add it to $mail->Body.
+            elseif (strpos($body_part2, 'text/html')) {
+              // Clean up the text.
+              $body_part2 = trim(_smtp_remove_headers(trim($body_part2)));
+              // Include it as part of the mail object.
+              $mail->Body = $body_part2;
+              $mail->ContentType = 'multipart/mixed';
+            }
+          }
+        }
+        // If text/plain within the body part, add it to $mail->Body.
+        elseif (strpos($body_part, 'text/plain')) {
+          // Clean up the text.
+          $body_part = trim(_smtp_remove_headers(trim($body_part)));
+
+          if ($text_html) {
+            $mail->AltBody = $body_part;
+            $mail->IsHTML(TRUE);
+            $mail->ContentType = 'multipart/mixed';
+          }
+          else {
+            $mail->Body = $body_part;
+            $mail->IsHTML(FALSE);
+            $mail->ContentType = 'multipart/mixed';
+          }
+        }
+        // If text/html within the body part, add it to $mail->Body.
+        elseif (strpos($body_part, 'text/html')) {
+          // Clean up the text.
+          $body_part = trim(_smtp_remove_headers(trim($body_part)));
+          // Include it as part of the mail object.
+          $mail->Body = $body_part;
+          $mail->IsHTML(TRUE);
+          $mail->ContentType = 'multipart/mixed';
+        }
+        // Add the attachment.
+        elseif (strpos($body_part, 'Content-Disposition: attachment;')) {
+          $file_path     = _smtp_get_substring($body_part, 'filename=', '"', '"');
+          $file_name     = _smtp_get_substring($body_part, ' name=', '"', '"');
+          $file_encoding = _smtp_get_substring($body_part, 'Content-Transfer-Encoding', ' ', "\n");
+          $file_type     = _smtp_get_substring($body_part, 'Content-Type', ' ', ';');
+
+          if (file_exists($file_path)) {
+            if (!$mail->AddAttachment($file_path, $file_name, $file_encoding, $filetype)) {
+              drupal_set_message('Attahment could not be found or accessed.');
+            }
+          }
+          else {
+            // Clean up the text.
+            $body_part = trim(_smtp_remove_headers(trim($body_part)));
+
+            if (drupal_strtolower($file_encoding) == 'base64') {
+              $attachment = base64_decode($body_part);
+            }
+            elseif (drupal_strtolower($file_encoding) == 'quoted-printable') {
+              $attachment = quoted_printable_decode($body_part);
+            }
+            else {
+              $attachment = $body_part;
+            }
+
+            $attachment_new_filename = tempnam(realpath(file_directory_temp()), 'smtp');
+            $file_path               = file_save_data($attachment, $attachment_new_filename, FILE_EXISTS_RENAME);
+
+            if (!$mail->AddAttachment($file_path, $file_name)) { // , $file_encoding, $filetype);
+              drupal_set_message('Attachment could not be found or accessed.');
+            }
+          }
+        }
+      }
+      break;
+
+    default:
+      $mail->Body = $body;
+      break;
+  }
+
+
+  // Set the authentication settings.
+  $username = variable_get('smtp_username', '');
+  $password = variable_get('smtp_password', '');
+
+  // If username and password are given, use SMTP authentication.
+  if ($username != '' && $password != '') {
+    $mail->SMTPAuth = TRUE;
+    $mail->Username = $username;
+    $mail->Password = $password;
+  }
+
+
+  // Set the protocol prefix for the smtp host.
+  switch (variable_get('smtp_protocol', 'standard')) {
+    case 'ssl':
+      $mail->SMTPSecure = 'ssl';
+      break;
+
+    case 'tls':
+      $mail->SMTPSecure = 'tls';
+      break;
+
+    default:
+      $mail->SMTPSecure = '';
+  }
+
+
+  // Set other connection settings.
+  $mail->Host   = variable_get('smtp_host', '') .';'. variable_get('smtp_hostbackup', '');
+  $mail->Port   = variable_get('smtp_port', '25');
+  $mail->Mailer = 'smtp';
+
+
+  // Let the people know what is going on.
+  watchdog('smtp', 'Sending mail to: @to', array('@to' => $to));
+
+  // Try to send e-mail. If it fails, set watchdog entry.
+  if (!$mail->Send()) {
+    watchdog('smtp', 'Error sending e-mail from @from to @to : !error_message', array('@from' => $from, '@to' => $to, '!error_message' => $mail->ErrorInfo), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  $mail->SmtpClose();
+  return TRUE;
+}  //  End of drupal_mail_wrapper().
+
+
+
+/**
+ * Implementation of hook_mail().
+ */
+function smtp_mail($key, &$message, $params) {
+  if ($key == 'smtp-test') {
+    $message['subject'] = $params['subject'];
+    $message['body']    = $params['body'];
+  }
+}  //  End of smtp_mail().
+
+
+
+/**
+ * Splits the input into parts based on the given boundary.
+ *
+ * Swiped from Mail::MimeDecode, with modifications based on Drupal's coding
+ * standards and this bug report: http://pear.php.net/bugs/bug.php?id=6495
+ *
+ * @param input
+ *   A string containing the body text to parse.
+ * @param boundary
+ *   A string with the boundary string to parse on.
+ * @return
+ *   An array containing the resulting mime parts
+ */
+function _smtp_boundary_split($input, $boundary) {
+  $parts       = array();
+  $bs_possible = drupal_substr($boundary, 2, -2);
+  $bs_check    = '\"'. $bs_possible .'\"';
+
+  if ($boundary == $bs_check) {
+    $boundary = $bs_possible;
+  }
+
+  $tmp = explode('--'. $boundary, $input);
+
+  for ($i = 1; $i < count($tmp); $i++) {
+    if (trim($tmp[$i])) {
+      $parts[] = $tmp[$i];
+    }
+  }
+
+  return $parts;
+}  //  End of _smtp_boundary_split().
+
+
+
+/**
+ * Strips the headers from the body part.
+ *
+ * @param input
+ *   A string containing the body part to strip.
+ * @return
+ *   A string with the stripped body part.
+ */
+function _smtp_remove_headers($input) {
+  $part_array = explode("\n", $input);
+
+  if (strpos($part_array[0], 'Content') !== FALSE) {
+    if (strpos($part_array[1], 'Content') !== FALSE) {
+      if (strpos($part_array[2], 'Content') !== FALSE) {
+          array_shift($part_array);
+          array_shift($part_array);
+          array_shift($part_array);
+      }
+      else {
+        array_shift($part_array);
+        array_shift($part_array);
+      }
+    }
+    else {
+      array_shift($part_array);
+    }
+  }
+
+  $output = implode("\n", $part_array);
+  return $output;
+}  //  End of _smtp_remove_headers().
+
+
+
+/**
+ * Returns a string that is contained within another string.
+ *
+ * Returns the string from within $source that is some where after $target
+ * and is between $beginning_character and $ending_character.
+ *
+ * @param $source
+ *   A string containing the text to look through.
+ * @param $target
+ *   A string containing the text in $source to start looking from.
+ * @param $beginning_character
+ *   A string containing the character just before the sought after text.
+ * @param $ending_character
+ *   A string containing the character just after the sought after text.
+ * @return
+ *   A string with the text found between the $beginning_character and the
+ *   $ending_character.
+ */
+function _smtp_get_substring($source, $target, $beginning_character, $ending_character) {
+  $search_start     = strpos($source, $target) + 1;
+  $first_character  = strpos($source, $beginning_character, $search_start) + 1;
+  $second_character = strpos($source, $ending_character, $first_character) + 1;
+  $substring        = drupal_substr($source, $first_character, $second_character - $first_character);
+  $string_length    = drupal_strlen($substring) - 1;
+
+  if ($substring[$string_length] == $ending_character) {
+    $substring = drupal_substr($substring, 0, $string_length);
+  }
+
+  return $substring;
+}  //  End of _smtp_get_substring().

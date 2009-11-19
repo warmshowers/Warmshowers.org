@@ -1,0 +1,620 @@
+<?php
+// $Id: nodewords.install 552 2009-10-26 21:29:47Z rfay $
+
+/**
+ * @file
+ * Installation file for Nodewords.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function nodewords_schema() {
+  $schema['nodewords'] = array(
+    'description' => 'The table containing the meta tag values for all the pages.',
+    'fields' => array(
+      'mtid' => array(
+        'description' => 'The primary key.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'description' => 'The content type name (node, user, page, etc...).',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'id' => array(
+        'description' => 'The unique content ID within the content type.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'name' => array(
+        'description' => 'The meta tag name.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'content' => array(
+        'description' => 'The content of the meta tag.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('mtid'),
+    'unique keys' => array(
+      'tin' => array('type', 'id', 'name'),
+    ),
+  );
+
+  $schema['nodewords_custom'] = array(
+    'description' => 'The table containing the weight values for all the pages.',
+    'fields' => array(
+      'pid' => array(
+        'description' => 'The primary key.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'path' => array(
+        'description' => 'The page path.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'weight' => array(
+        'description' => 'The weight of the page.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'enabled' => array(
+        'description' => 'A flag set when the page is enabled.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+    ),
+    'primary key' => array('pid'),
+    'unique keys' => array(
+      'path' => array('path'),
+    ),
+  );
+
+  $schema['cache_nodewords'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_nodewords']['description'] = 'Cache table used by the Nodewords module.';
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function nodewords_install() {
+  drupal_install_schema('nodewords');
+  db_query("UPDATE {system} SET weight = 10 WHERE name = 'nodewords'");
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6100() {
+  $ret = array();
+
+  db_change_field($ret, 'nodewords', 'content', 'content',
+    array(
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => TRUE,
+    )
+  );
+
+  $settings = variable_get('nodewords', array());
+
+  // Create the new Drupal variables used for the settings.
+  if (isset($settings['global'])) {
+    variable_set('nodewords_global', $settings['global']);
+  }
+  if (isset($settings['taxonomy']['keyword_vids'])) {
+    variable_set('nodewords_keyword_vids', $settings['taxonomy']['keyword_vids']);
+  }
+  if (isset($settings['head'])) {
+    variable_set('nodewords_head', $settings['head']);
+  }
+  if (!empty($settings['advanced']['enable_user_metatags'])) {
+    variable_set('nodewords_enable_user_metatags', $settings['advanced']['enable_user_metatags']);
+  }
+  if (!empty($settings['advanced']['repeat'])) {
+    variable_set('nodewords_list_repeat', $settings['advanced']['repeat']);
+  }
+  if (!empty($settings['advanced']['use_front_page_tags'])) {
+    variable_set('nodewords_use_frontpage_tags', $settings['advanced']['use_front_page_tags']);
+  }
+  if (!empty($settings['advanced']['max_size'])) {
+    variable_set('nodewords_max_size', $settings['advanced']['max_size']);
+  }
+  if (!empty($settings['advanced']['use_teaser'])) {
+    variable_set('nodewords_use_teaser', $settings['advanced']['use_teaser']);
+  }
+  if (!empty($settings['advanced']['use_alt_tags'])) {
+    variable_set('nodewords_use_alt_attribute', $settings['advanced']['use_alt_tags']);
+  }
+
+  // Delete the old Drupal variable used.
+  variable_del('nodewords');
+
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => 'CREATE NEW SETTING VARIABLES',
+  );
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6101() {
+  $result = db_query("SELECT * FROM {nodewords}");
+  $ret = array();
+
+  while ($row = db_fetch_object($result)) {
+    if (@unserialize(base64_decode($row->content)) !== FALSE) {
+      continue;
+    }
+
+    switch ($row->name) {
+      case 'geourl':
+        list($latitude, $longitude) = explode(',', $row->content, 2);
+        $content = array(
+          'latitude' => trim($latitude),
+          'longitude' => trim($longitude),
+        );
+        break;
+
+      case 'robots':
+        $content = array_map('drupal_strtolower', array_map('trim', explode(',', $row->content)));
+        break;
+
+      default:
+        $content = array('value' => $row->content);
+        break;
+    }
+
+    $ret[] = update_sql("UPDATE {nodewords} SET content ='" . base64_encode(serialize($content)) . "' WHERE type = '" . db_escape_string($row->type) . "' AND id ='" . db_escape_string($row->id) . "' AND name ='" . db_escape_string($row->name) . "'");
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6102() {
+  $ret[] = update_sql("DELETE FROM {variable} WHERE name = 'nodewords_global'");
+  drupal_set_message(t('The default meta tags values have been reset; you can change them in the <a href="@settings_page">module settings page</a>.', array('@settings_page' => url('admin/content/nodewords/global/default'))));
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6103() {
+  $ret = array();
+
+  $ret[] = update_sql("UPDATE {nodewords} SET name = 'revisit-after' WHERE name = 'Revisit-After'");
+  $ret[] = update_sql("UPDATE {nodewords} SET name = 'dc.title' WHERE name = 'DC.Title'");
+  $ret[] = update_sql("UPDATE {nodewords} SET type = 'frontpage' WHERE type = 'page' AND id = ''");
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6104() {
+  $ret = array();
+
+  $head_tags = variable_get('nodewords_head', array());
+  array_change_key_case($head_tags);
+  variable_set('nodewords_head', $head_tags);
+
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => 'UPDATE MODULE SETTINGS',
+  );
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6105() {
+  $result = db_query("SELECT * FROM {nodewords} WHERE name <> 'geourl'");
+  $ret = array();
+
+  while ($row = db_fetch_object($result)) {
+    if (($content = @unserialize(base64_decode($row->content))) === FALSE) {
+      continue;
+    }
+
+    $ret[] = update_sql("UPDATE {nodewords} SET content ='" . db_escape_string($content['value']) . "' WHERE type = '" . db_escape_string($row->type) . "' AND id ='" . db_escape_string($row->id) . "' AND name ='" . db_escape_string($row->name) . "'");
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6106() {
+  $ret = array();
+
+  $ret[] = update_sql("DELETE FROM {nodewords} WHERE type = 'form'");
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6107() {
+  $ret = array();
+
+  $ret[] = update_sql("DELETE FROM {nodewords} WHERE type = 'robots'");
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6108() {
+  $ret = array();
+
+  db_rename_table($ret, 'nodewords', 'metatags');
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6109() {
+  $ret = array();
+
+  db_rename_table($ret, 'metatags', 'nodewords');
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6112() {
+  $result = db_query("SELECT * FROM {nodewords} WHERE name IN ('robots', 'location')");
+  $ret = array();
+
+  while ($row = db_fetch_object($result)) {
+    if (($content = base64_decode($row->content)) === FALSE) {
+      continue;
+    }
+
+    $ret[] = update_sql("UPDATE {nodewords} SET content ='" . db_escape_string($content) . "' WHERE type = '" . db_escape_string($row->type) . "' AND id ='" . db_escape_string($row->id) . "' AND name ='" . db_escape_string($row->name) . "'");
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6113() {
+  $ret = array();
+
+  db_rename_table($ret, 'nodewords', 'nodewords_tmp');
+  db_create_table($ret, 'nodewords',
+    array(
+      'fields' => array(
+        'mtid' => array(
+          'type' => 'serial',
+          'not null' => TRUE,
+        ),
+        'type' => array(
+          'type' => 'varchar',
+          'length' => 16,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'id' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'name' => array(
+          'type' => 'varchar',
+          'length' => 32,
+          'not null' => TRUE,
+          'default' => '',
+        ),
+        'content' => array(
+          'type' => 'text',
+          'size' => 'big',
+          'not null' => TRUE,
+        ),
+      ),
+      'primary key' => array('mtid'),
+      'unique keys' => array(
+        'tin' => array('type', 'id', 'name'),
+      ),
+    )
+  );
+
+  $result = db_query("SELECT * FROM {nodewords_tmp}");
+
+  while ($row = db_fetch_object($result)) {
+    drupal_write_record('nodewords', $row);
+  }
+
+  db_drop_table($ret, 'nodewords_tmp');
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6114() {
+  $ret = array();
+
+  if (!db_table_exists('cache_nodewords')) {
+    $schema = drupal_get_schema_unprocessed('system', 'cache');
+    $schema['description'] = 'Cache table used by the Nodewords module.';
+    db_create_table($ret, 'cache_nodewords', $schema);
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6115() {
+  $ret = array();
+
+  if (db_column_exists('nodewords', 'weight')) {
+    db_drop_field($ret, 'nodewords', 'weight');
+  }
+
+  if (!db_table_exists('nodewords_page_weight')) {
+    db_create_table($ret, 'nodewords_page_weight',
+      array(
+        'fields' => array(
+          'pid' => array(
+            'type' => 'serial',
+            'not null' => TRUE,
+          ),
+          'path' => array(
+            'type' => 'varchar',
+            'length' => 255,
+            'not null' => TRUE,
+            'default' => '',
+          ),
+          'weight' => array(
+            'type' => 'int',
+            'size' => 'tiny',
+            'not null' => TRUE,
+            'default' => 0,
+          ),
+          'enabled' => array(
+            'type' => 'int',
+            'size' => 'tiny',
+            'not null' => TRUE,
+            'default' => 1,
+          ),
+        ),
+        'primary key' => array('pid'),
+        'unique keys' => array(
+          'path' => array('path'),
+        ),
+      )
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6117() {
+  $ret[] = update_sql("DELETE FROM {nodewords} WHERE type IN ('views', 'panels')");
+  if (db_affected_rows()) {
+    drupal_set_message(t('The support for Views, and Panels have been changed; visit the <a href="@admin_page">administration page</a> to edit the meta tags for those pages.', array('@admin_page' => url('admin/content/nodewords/global/other'))));
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6119() {
+  $ret = array();
+
+  db_rename_table($ret, 'nodewords_page_weight', 'nodewords_custom');
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6120() {
+  $ret = array();
+
+  db_drop_unique_key($ret, 'nodewords', 'tin');
+
+  db_change_field($ret, 'nodewords', 'type', 'type',
+    array(
+      'type' => 'varchar',
+      'length' => 16,
+      'not null' => TRUE,
+      'default' => '',
+    )
+  );
+
+  db_change_field($ret, 'nodewords', 'id', 'id',
+    array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    )
+  );
+
+  db_change_field($ret, 'nodewords', 'name', 'name',
+    array(
+      'type' => 'varchar',
+      'length' => 32,
+      'not null' => TRUE,
+      'default' => '',
+    )
+  );
+
+  db_add_unique_key($ret, 'nodewords', 'tin', array('type', 'id', 'name'));
+
+  db_drop_unique_key($ret, 'nodewords_custom', 'path');
+
+  db_change_field($ret, 'nodewords_custom', 'path', 'path',
+    array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    )
+  );
+
+  db_add_unique_key($ret, 'nodewords_custom', 'path', array('path'));
+
+  db_change_field($ret, 'nodewords_custom', 'weight', 'weight',
+    array(
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'default' => 0,
+    )
+  );
+
+  if (!db_column_exists('nodewords_custom', 'enabled')) {
+    db_add_field($ret, 'nodewords_custom', 'enabled',
+      array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+      )
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6121() {
+  $ret = array();
+
+  if (!variable_get('menu_rebuild_needed', FALSE)) {
+    variable_set('menu_rebuild_needed', TRUE);
+
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => 'UPDATE MENUS',
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6122() {
+  $ret[] = update_sql("UPDATE {nodewords_custom} SET weight = 10 WHERE weight > 10");
+  $ret[] = update_sql("UPDATE {nodewords_custom} SET weight = -10 WHERE weight < -10");
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6123() {
+  $ret = array();
+
+  if (!db_table_exists('cache_nodewords')) {
+    $schema = drupal_get_schema_unprocessed('system', 'cache');
+    $schema['description'] = 'Cache table used by the Nodewords module.';
+    db_create_table($ret, 'cache_nodewords', $schema);
+  }
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6124() {
+  $ret = array();
+
+  $ret[] = update_sql("UPDATE {system} SET weight = 10 WHERE name = 'nodewords'");
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_NN().
+ */
+function nodewords_update_6126() {
+  cache_clear_all('*', 'cache_nodewords', TRUE);
+
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => 'UPDATE MODULE CACHE',
+  );
+
+  return $ret;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function nodewords_uninstall() {
+  $variables = array(
+    'nodewords_collapse_fieldset',
+    'nodewords_edit',
+    'nodewords_edit_metatags',
+    'nodewords_enable_user_metatags',
+    'nodewords_head',
+    'nodewords_max_size',
+    'nodewords_keyword_vids',
+    'nodewords_list_repeat',
+    'nodewords_use_frontpage_tags',
+  );
+
+  drupal_uninstall_schema('nodewords');
+  db_query("DELETE FROM {variable} WHERE name IN (" . db_placeholders($variables, 'varchar') . ")", $variables);
+  db_query("DELETE FROM {variable} WHERE name LIKE 'nodewords_edit_metatags\_%'");
+}

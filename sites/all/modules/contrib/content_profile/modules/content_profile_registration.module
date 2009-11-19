@@ -1,0 +1,175 @@
+<?php
+// $Id: content_profile_registration.module 505 2009-05-24 18:55:09Z rfay $
+
+/**
+ * @file
+ * Allows exposure and processing of content_profile node fields at user registration
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function content_profile_registration_form_alter(&$form, &$form_state, $form_id) {
+  // Note: We don't add the registration form to the admin create user form.
+  if ($form_id == 'user_register' && module_exists('content') && arg(0) != 'admin') {
+    require_once drupal_get_path('module', 'node') .'/node.pages.inc';
+    $profile_types = content_profile_get_types('names', 'registration_use');
+    $form += array('#field_info' => array());
+
+    foreach ($profile_types as $type => $typename) {
+      // Initialize new node:
+      $node = array('uid' => 0, 'name' => '', 'type' => $type);
+      // Get the node form
+      $node_form = drupal_retrieve_form($type .'_node_form', $form_state, $node);
+      drupal_prepare_form($type .'_node_form', $node_form, $form_state);
+
+      $form['#field_info'] += $node_form['#field_info'];
+      foreach ($node_form['#field_info'] as $field_name => $info) {
+        $form[$field_name] = $node_form[$field_name];
+      }
+
+      $keys = array_keys($node_form);
+      foreach ($keys as $key) {
+        if (stristr($key, 'group_')) {
+          $form[$key] = $node_form[$key];
+        }
+      }
+
+      // Set this to the values of one node, as it might be need by some #ahah callbacks
+      $form['#node'] = $node_form['#node'];
+      $form['type'] = $node_form['type'];
+
+      // Hide fields
+      foreach (content_profile_get_settings($type, 'registration_hide') as $field_name) {
+        $form[$field_name]['#access'] = FALSE;
+      }
+    }
+    if ($profile_types) {
+      $form['#submit'][] = 'content_profile_registration_user_register_submit';
+      $form['#validate'][] = 'content_profile_registration_user_register_validate';
+    }
+  }
+  elseif ($form_id == 'content_profile_admin_settings') {
+    $type = $form_state['type'];
+    $form['registration'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('User Registration'),
+      '#description' => t('Customize how this content profile shows up on the user registration page.'),
+      '#collapsible' => TRUE,
+    );
+    $options = _content_profile_registration_get_field_select($type);
+    if (!empty($options)) {
+      $form['registration']['registration_use'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Use on Registration'),
+        '#description' => t('Use this content type on the user registration page'),
+        '#default_value' => content_profile_get_settings($type, 'registration_use'),
+      );
+      $options = _content_profile_registration_get_field_select($type, FALSE);
+      if (!empty($options)) {
+        $form['registration']['registration_hide'] = array(
+          '#type' => 'checkboxes',
+          '#title' => t('Hide these fields during registration'),
+          '#options' => $options,
+          '#default_value' => content_profile_get_settings($type, 'registration_hide'),
+        );
+      }
+    }
+    else {
+      $help = t('There are no fields defined, so registration integration is disabled.');
+      $form['registration']['content'] = array('#value' => '<br /><p>'. $help .'</p>');
+    }
+  }
+}
+
+/**
+ * Helper function to return all available fields for a particular content type.
+ *
+ * @param string $type
+ *   The content type to return fields for.
+ * @return array
+ *   Associated fields for the given content type.
+ */
+function _content_profile_registration_get_fields($type) {
+  $typeinfo = content_types($type);
+  return $typeinfo['fields'];
+}
+
+/**
+ * Returns an array of CCK fields of this type suitable for use in a select field
+ *
+ * @param string $type
+ *   A content type to get the select elements for.
+ * @param bool $required
+ *   If $required is FALSE only not required fields will be returned,
+ *   if $required is TRUE only required fields will be returned,
+ *   if it's NULL all fields will be returned.
+ * @return Array
+ *   An array of fields suitable for use in a select field.
+*/
+function _content_profile_registration_get_field_select($type, $required = NULL) {
+  $fields = _content_profile_registration_get_fields($type);
+  $return = array();
+  foreach ($fields as $fieldname => $info) {
+    if (!isset($required) || $required == $info['required']) {
+      $return[$fieldname] = $info['widget']['label'];
+    }
+  }
+
+  if (module_exists('fieldgroup')) {
+    $groups = fieldgroup_groups($type);
+    foreach ($groups as $groupname => $info) {
+      $return[$groupname] = t('Field Group: ') . $info['label'];
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Validates the user registration form
+ */
+function content_profile_registration_user_register_validate($form, &$form_state) {
+  foreach (content_profile_get_types('names', 'registration_use') as $type => $typename) {
+    $node = new StdClass;
+    $node->type = $type;
+
+    foreach ($form['#field_info'] as $field_name => $label) {
+      $node->$field_name = $form_state['values'][$field_name];
+    }
+    content_validate($node);
+    $form_state['content_profile_registration'][$type]['node'] = $node;
+  }
+}
+
+/**
+ * Submits the user registration form
+ */
+function content_profile_registration_user_register_submit($form, &$form_state) {
+  foreach (content_profile_get_types('names', 'registration_use') as $type => $typename) {
+    if ($node = &$form_state['content_profile_registration'][$type]['node']) {
+      // Set user's information for the node.
+      $node->title = $form_state['user']->name;
+      $node->uid = $form_state['user']->uid;
+      $node->name = $form_state['user']->name;
+
+      // Create the node.
+      $node = node_submit($node);
+      node_save($node);
+      // Give us a nice log message.
+      if ($node->nid) {
+        watchdog('content', 'Content Profile: added %user %type upon registration.', array('%user' => $node->name, '%type' => $type), WATCHDOG_NOTICE, l(t('view'), "node/$node->nid"));
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_content_profile_settings().
+ */
+function content_profile_registration_content_profile_settings() {
+  return array(
+    'registration_use' => FALSE,
+    'registration_hide' => array(),
+  );
+}

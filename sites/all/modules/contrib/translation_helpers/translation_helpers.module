@@ -1,0 +1,96 @@
+<?php
+// $Id: translation_helpers.module,v 1.6 2009/08/18 17:10:03 markuspetrux Exp $
+
+/**
+ * @file
+ * Provides methods for other modules to use with translated content.
+ */
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * Manages translation information for nodes.
+ */
+function translation_helpers_nodeapi(&$node, $op, $teaser, $page) {
+  // Only act if we are dealing with a content type supporting translations.
+  if ($op == 'delete' && translation_supported_type($node->type)) {
+    translation_helpers_invoke_translation_change($node);
+  }
+}
+
+/**
+ * Call hook_nodeapi() to respond to a change in source translation.
+ *
+ * Follows logic in translation_remove_from_set().
+ *
+ * Sample implementation:
+ * <code>
+ * function example_nodeapi() {
+ *   switch ($op) {
+ *     case 'translation_change':
+ *       if (isset($node->translation_change)) {
+ *         // If there is only one node remaining, track by nid rather than tnid. Otherwise, use
+ *         // the new tnid.
+ *         $new = $node->translation_change['new_tnid'] == 0 ? $node->translation_change['remaining_nid'] : $node->translation_change['new_tnid'];
+ *         db_query('UPDATE {example} SET id = %d WHERE id = %d', $new, $node->translation_change['old_tnid']);
+ *       }
+ *       break;
+ *   }
+ * }
+ * </code>
+ */
+function translation_helpers_invoke_translation_change($node) {
+  if (isset($node->tnid)) {
+    if (db_result(db_query('SELECT COUNT(*) FROM {node} WHERE tnid = %d', $node->tnid)) == 1) {
+      // There is only one node left in the set.
+      $node->translation_change = array(
+        'old_tnid' => $node->tnid,
+        'new_tnid' => 0,
+        // Determine the remaining former member of the translation set.
+        // May be needed e.g. to reassign existing data from the tnid to this nid.
+        'remaining_nid' => db_result(db_query('SELECT nid FROM {node} WHERE tnid = %d', $node->tnid)),
+      );
+      // Allow other modules to respond to the removal of this translation set.
+      node_invoke_nodeapi($node, 'translation_change');
+    }
+    else {
+      // If the node being removed was the source of the translation set,
+      // we pick a new source - preferably one that is up to date.
+      if ($node->tnid == $node->nid) {
+        $node->translation_change = array(
+          'old_tnid' => $node->tnid,
+          'new_tnid' => db_result(db_query('SELECT nid FROM {node} WHERE tnid = %d ORDER BY translate ASC, nid ASC', $node->tnid)),
+        );
+        // Allow other modules to respond to the changed source for this translation set.
+        node_invoke_nodeapi($node, 'translation_change');
+      }
+    }
+  }
+}
+
+/**
+ * Return the source translation of a node.
+ */
+function translation_helpers_get_source($node) {
+  if (isset($node->tnid) && translation_supported_type($node->type)) {
+    // A node can be its own source.
+    if ($node->nid == $node->tnid) {
+      return $node;
+    }
+    return node_load($node->tnid);
+  }
+  return FALSE;
+}
+
+/**
+ * Return the translation of a node in a given language.
+ */
+function translation_helpers_get_translation($node, $language) {
+  if (isset($node->tnid) && translation_supported_type($node->type)) {
+    $translations = translation_node_get_translations($node->tnid);
+    if (isset($translations[$language])) {
+      return node_load($translations[$language]->nid);
+    }
+  }
+  return FALSE;
+}

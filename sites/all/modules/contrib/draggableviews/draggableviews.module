@@ -1,0 +1,473 @@
+<?php
+// $Id: draggableviews.module,v 1.6.2.18 2009/04/01 08:22:52 sevi Exp $
+
+/**
+ * @file
+ * Draggableviews module provides a style plugin for views.
+ * With this plugin rows become draggable and can be organized in complex structures.
+ */
+
+require_once './'. drupal_get_path('module', 'draggableviews') ."/draggableviews.inc";
+require_once './'. drupal_get_path('module', 'draggableviews') ."/draggableviews_theme.inc";
+
+/**
+ * Display help and module information
+ * 
+ * @param @path
+ *   Which path of the site we're displaying help.
+ * @param arg
+ *   Array that holds the current path as would be returned from arg() function.
+ * @return
+ *   Help text for the path.
+ */
+function draggableviews_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case "admin/help#draggableviews":
+      $output = '<p>'. t("Makes views draggable.") .'</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implementing hook_admin
+ */
+function draggableviews_admin() {
+  $form['draggableviews_repaired_msg'] = array(
+    '#type' => 'textfield',
+    '#title' => t('The message that appears after a broken structure has been repaired'),
+    '#default_value' => variable_get('draggableviews_repaired_msg', 'The structure was broken. It has been repaired.'),
+    '#size' => 50,
+    '#description' => t('Everytime a broken structure has been repaired this message will be shown. Per definition the structure cannot be broken after it has been repaired. Leave blank if you don\'t want to show any message.'),
+    '#required' => FALSE,
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Implementing hook_menu
+ */
+function draggableviews_menu() {
+  $items = array();
+  $items['admin/settings/draggableviews'] = array(
+    'title' => 'DraggableViews',
+    'description' => 'Configure global settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('draggableviews_admin'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Implementing hook_forms
+ */
+function draggableviews_forms() {
+  $args = func_get_args();
+  $form_id = $args[0];
+  if (strpos($form_id, "draggableviews_view_draggabletable_form") === 0) {
+    $forms[$form_id] = array(
+      'callback' => 'draggableviews_view_draggabletable_form',
+    );
+  }
+  return $forms;
+}
+
+/**
+ * Build the form
+ */
+function draggableviews_view_draggabletable_form($form_state, $view) {
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  $form['#submit'][] = 'draggableviews_view_draggabletable_form_submit';
+  // Use pager information and all exposed input data to build the query.
+  $query = 'page='. $_GET['page'];
+  if (isset($view->view->exposed_input)) {
+    foreach ($view->view->exposed_input AS $filter => $data) {
+      if ($filter == 'order') continue;
+      if (is_array($data)) {
+        foreach ($data AS $key1 => $value1) {
+          if (is_array($value1)) {
+            foreach ($value1 AS $key2 => $value2) {
+              $query .= '&'. $filter .'['. $key1 .']['. $key2 .']='. $value2;
+            }
+          }
+          else {
+            $query .= '&'. $filter .'['. $key1 .']='. $value1;
+          }
+        }
+      }
+      else {
+        $query .= '&'. $filter .'='. $data;
+      }
+    }
+  }
+  $form['#redirect'] = array('path' => $_GET['q'], 'query' => $query);
+  return $form;
+}
+
+/**
+ * Implement hook_theme
+ */
+function draggableviews_theme() {
+  $array = array();
+  $array['draggableviews_ui_style_plugin_draggabletable'] = array(
+    'arguments' => array('form' => NULL),
+  );
+
+  $array['draggableviews_view_draggabletable_form_new'] = array(
+    'template' => 'draggableviews-view-draggabletable-form',
+    'preprocess functions' => array(
+      'template_preprocess_draggableviews_view_draggabletable_form',
+    ),
+    'arguments' => array('form' => NULL),
+  );
+
+  // Register theme function for all views.
+  $views = views_get_all_views();
+  foreach ($views AS $view) {
+    foreach (array_keys($view->display) AS $display_id) {
+      $array['draggableviews_view_draggabletable_form_'. $view->vid .'_'. $display_id] = array(
+        'template' => 'draggableviews-view-draggabletable-form',
+        'preprocess functions' => array(
+          'template_preprocess_draggableviews_view_draggabletable_form',
+        ),
+        'arguments' => array('form' => NULL),
+      );
+    }
+  }
+  return $array;
+}
+
+/**
+ * Implementing hook_views_pre_execute
+ * 
+ * We use this hook to extend the view window before it gets executed.
+ * In hook_pre_render we afterwards check for the correctness
+ * and re-execute the view if needed.
+ */
+function draggableviews_views_pre_execute(&$view) {
+  if ($view->style_plugin->definition['handler'] != 'draggableviews_plugin_style_draggabletable') {
+    // This view doesn't use draggable_table style plugin. Nothing to do.
+    return;
+  }
+
+  if (!is_numeric($view->vid)) {
+    // The view hasn't been saved yet. Can't do anything.
+    return;
+  }
+
+  if (isset($view->draggableviews_info)) {
+    // Don't fall in an infinit recursion when the view gets re-executed.
+    return;
+  }
+
+  // Get info array.
+  $info = _draggableviews_info($view);
+
+  if (!isset($info['order'])) {
+    // Nothing to do.
+    return;
+  }
+
+  // Attach the info array to the view object.
+  // We need to use a reference because the info array will change.
+  $view->draggableviews_info = &$info;
+
+  // We want the view to execute the count query. New nodes which should be added to the very end will use this value.
+  $view->get_total_rows = TRUE;
+
+  $info['pager'] = $info['view']->pager;
+
+  if ($info['pager']['items_per_page'] > 0) {
+    // Paging is beeing used. We modifiy some paging settings before the views gets executed.
+
+    // We let views think that the current page is 0, but we also backup the actual value. We
+    // will restore it after finishing all operations (see hook_views_pre_render).
+    $info['globals']['page'] = $_GET['page'];
+    $pager_page_array = isset($_GET['page']) ? explode(',', $_GET['page']) : array();
+    if (!empty($pager_page_array[$info['pager']['element']]) && $pager_page_array[$info['pager']['element']] > 0) {
+      $info['pager']['current_page'] = intval($pager_page_array[$info['pager']['element']]);
+    }
+    else {
+      $info['pager']['current_page'] = 0;
+    }
+    $pager_page_array[$info['pager']['element']] = 0;
+    // Change the _GET variable.
+    $_GET['page'] = implode(',', $pager_page_array);
+
+    if (isset($info['hierarchy'])) {
+      // In order to find hidden parents or child nodes we need to load the entire view.
+      // To induce that the entire view gets loaded we set to items_per_page to 0.
+      $info['view']->pager['items_per_page'] = 0;
+      // Permissions checks cannot be done right now because the window probably must be extended
+      // even if the user doesn't have permissions.
+    }
+    else {
+      // When we deal with simple lists permission checks must be done right now (differently to hierarchies).
+      if (user_access('Allow Reordering') && !$info['locked']) {
+        // We just extend the visible window.
+        $first_index  = ($info['pager']['current_page'] * $info['pager']['items_per_page']);
+        $last_index   = $first_index + $info['pager']['items_per_page'] - 1;
+        // Add extensions.
+        $first_index -= $info['view_window_extensions']['extension_top'];
+        $last_index  += $info['view_window_extensions']['extension_bottom'];
+        if ($first_index < 0) $first_index = 0;
+
+        $info['view']->pager['items_per_page'] = $last_index - $first_index + 1;
+        $info['view']->pager['offset']         = $first_index + $info['pager']['offset'];
+      }
+    }
+  }
+}
+
+/**
+ * Imlpementing hook_views_pre_render
+ * 
+ * We distinguish between two cases A and B:
+ * A) Click sort was used:
+ *   - Renumber the results as they are returned from the view. Simply use ascending numbers. (and re-execute the view).
+ * 
+ * B) The view is just going to be rendered.
+ *   - Check the structure. If it's broken:
+ *   - - Repair the structure (and re-execute the view).
+ *
+ * In both cases extend the visible window if paging is beeing used.
+ */
+function draggableviews_views_pre_render(&$view) {
+  if (!isset($view->draggableviews_info)) {
+    // No info array has been appended. Nothing to do.
+    return;
+  }
+
+  // Initialize info array with the results of the executed view object.
+  $view->draggableviews_info = _draggableviews_info($view, $view->draggableviews_info);
+  $info = &$view->draggableviews_info;
+
+  if ($info['pager']['items_per_page'] > 0 && !$info['hierarchy']) {
+    // The current page of hierarchies cannot be checked here because $views->total_rows will not be
+    // calculated when the entire view gets loaded.
+    if ($info['pager']['current_page'] * $info['pager']['items_per_page'] >= $view->total_rows + $view->pager['offset']) {
+      // The current page is out of range.
+      return;
+    }
+  }
+
+  if ($_GET['order']) {
+    // CASE A) Click sort was used. Assign order values manually.
+
+    _draggableviews_click_sort($info);
+    // The entire view is loaded at the moment. We try to extend the visible window with the suggested
+    // values and reload the view. The calculated range will be returned.
+    $range = _draggableviews_extend_view_window($info, TRUE);
+  }
+  else {
+    // CASE B) Extend view and check structure.
+
+  	if ($info['hierarchy']) {
+  	  // Extend views window and reload view.
+  	  $range = _draggableviews_extend_view_window($info, TRUE);
+  	}
+  	else {
+      // Extend views window, but don't reload view.
+      $range = _draggableviews_extend_view_window($info, FALSE);
+  	}
+
+    if (!_draggableviews_quick_check_structure($info)) {
+      // The structure is broken and has to be repaired. We restore the original page settings now because
+      // the current settings are based on a broken structure.
+      $info['view']->pager = $info['pager'];
+      // Rebuild the view.
+      _draggableviews_rebuild_hierarchy($info);
+      // Try to extend the visible window with the suggested values. The calculated range will be returned.
+      $range = _draggableviews_extend_view_window($info, TRUE);
+
+      if (strlen(variable_get('draggableviews_repaired_msg', 'The structure was broken. It has been repaired.')) > 0) {
+        drupal_set_message(variable_get('draggableviews_repaired_msg', 'The structure was broken. It has been repaired.'));
+      }
+    }
+  }
+
+  if ($info['pager']['items_per_page'] > 0) {
+    global $pager_page_array, $pager_total, $pager_total_items;
+    // The global $pager_total variable was calculated with wrong values because we changed the
+    // global $_GET['page'] and $view->pager['items_per_page'] variable in hook_pre_execute.
+    $pager_total[$info['pager']['element']] = ceil(($info['view']->total_rows + $range['first_index']) / $info['pager']['items_per_page']);
+    // Restore the global variable.
+    $pager_page_array[$info['pager']['element']] = $info['pager']['current_page'];
+    // Restore the _GET variable.
+    $_GET['page'] = $info['globals']['page'];
+  }
+
+  // Calculate depth values. These values will be used for theming.
+  _draggableviews_calculate_depths($info);
+
+  // Finally we set the selectable options of the order field.
+  $info['order']['field']['handler']->set_range($range['first_index'], $range['last_index']);
+}
+
+/**
+ * Implementing hook_submit
+ */
+function draggableviews_view_draggabletable_form_submit($vars) {
+  // Check permissions.
+  if (!user_access('Allow Reordering')) {
+    drupal_set_message(t('You are not allowed to reorder nodes.'), 'error');
+    return;
+  }
+
+  // Check if structure is locked.
+  if ($info['locked']) {
+    drupal_set_message(t('The structure is locked.'), 'error');
+    return;
+  }
+
+  // Gather all needed information.
+  $view    = $vars['#parameters'][2]->view;
+  $results = $view->result;
+  $input   = $vars['submit']['#post'];
+  $info    = $view->draggableviews_info;
+
+  if (!isset($info['order'])) return;
+
+  // Check if structure is locked.
+  if ($info['locked']) {
+    drupal_set_message(t('The structure is locked.'), 'error');
+    return;
+  }
+
+  // Loop through all resulting nodes.
+  foreach ($results AS $row) {
+    // set order values
+    if (isset($info['order']['field'])) {
+      // The input array must have the same structure as the node array.
+      // E.g. because of _draggableviews_get_hierarchy_depth(..).
+      $info['input'][$row->nid]['order'][0] = $input[$info['order']['field']['field_name'] .'_'. $row->nid];
+    }
+    // Set parent values.
+    if (isset($info['hierarchy'])) {
+      $info['input'][$row->nid]['parent'] = $input[$info['hierarchy']['field']['field_name'] .'_'. $row->nid];
+    }
+  }
+
+  _draggableviews_build_hierarchy($info);
+
+  _draggableviews_save_hierarchy($info);
+
+  if (isset($info['hierarchy'])) {
+    // save expanded/collapsed states.
+    global $user;
+    $uid = $info['expand_links']['by_uid'] ? $user->uid : 0;
+
+    foreach ($vars['submit']['#post'] AS $key => $val) {
+      if (ereg('draggableviews_collapsed_', $key)) {
+        $parent_nid = drupal_substr($key, 25);
+        db_query("DELETE FROM {draggableviews_collapsed}
+                  WHERE uid=%d AND parent_nid=%d AND vid=%d",
+                  $uid, $parent_nid, $view->vid);
+
+        db_query("INSERT INTO {draggableviews_collapsed}
+                  (uid, vid, parent_nid, collapsed) VALUES (%d, %d, %d, %d)",
+                  $uid, $view->vid, $parent_nid, $val);
+      }
+    }
+  }
+}
+
+/**
+ * Discover All Implementations For Draggableviews
+ *
+ * @param $filter_handler
+ *   The handler to return.
+ *
+ * @return
+ *   Either the entire array with all handlers or the specified handler entry.
+ */
+function draggableviews_discover_handlers($filter_handler = NULL) {
+  // @todo there's no cache functionality implemented yet.
+  $cache = array();
+  // Get implementation definitions from all modules.
+  foreach (module_implements('draggableviews_handlers') as $module) {
+    $function = $module .'_draggableviews_handlers';
+    $result = $function();
+    if (!is_array($result)) {
+      continue;
+    }
+
+    $path = drupal_get_path('module', $module);
+
+    foreach ($result as $handler => $def) {
+      if (!isset($def['path'])) {
+        $def['path'] = $path;
+      }
+      if (!isset($def['file'])) {
+        $def['file'] = "$handler.inc";
+      }
+      if (!isset($def['handler'])) {
+        $def['handler'] = 'draggableviews_handler_'. $handler;
+      }
+      // Merge the new data.
+      $cache[$handler] = $def;
+    }
+  }
+  
+  if (isset($filter_handler)) {
+    if (isset($cache[$filter_handler])) {
+      return $cache[$filter_handler];
+    }
+    else {
+      return FALSE;
+    }
+  }
+  return $cache;
+}
+
+/**
+ * Get Handlers List
+ *
+ * @return
+ *   A list of all draggableviews handlers.
+ */
+function draggableviews_get_handlers_list() {
+  $handlers = draggableviews_discover_handlers();
+  foreach ($handlers as $handler => $def) {
+    $list[$handler] = $def['title'];
+  }
+  return $list;
+}
+
+/**
+ * Implementing hook_draggableviews_handlers
+ */
+function draggableviews_draggableviews_handlers() {
+  return array(
+    'native' => array(
+      'file' => 'implementations/draggableviews_handler_native.inc',
+      'title' => t('Native'),
+      'description' => 'Storage of structure done by draggableviews',
+      'handler' => 'draggableviews_handler_native',
+    ),
+  );
+}
+
+/**
+ * Implementing hook_perm
+ */
+function draggableviews_perm() {
+  return array('Allow Reordering');
+}
+
+/**
+ * Impleneting hook_views_api
+ */
+function draggableviews_views_api() {
+  return array(
+    'api' => 2.0,
+    'path' => drupal_get_path('module', 'draggableviews') .'/views',
+  );
+}

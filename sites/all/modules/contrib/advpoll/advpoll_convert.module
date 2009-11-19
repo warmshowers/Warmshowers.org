@@ -1,0 +1,123 @@
+<?php
+// $Id: advpoll_convert.module,v 1.1.2.4.2.2 2009/02/15 00:41:54 chriskennedy Exp $
+
+/**
+ * @file
+ * Converts a site's standard Drupal polls into Advanced Poll polls.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function advpoll_convert_help($path, $arg) {
+  switch ($path) {
+    case 'admin/modules#description':
+      return t("Converts a site's standard Drupal polls into Advanced Poll polls.");
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function advpoll_convert_menu() {
+  global $user;
+
+  $items = array();
+
+  $items['admin/content/advpoll-convert'] = array(
+    'title' => 'Advanced Poll Converter',
+    'description' => 'Convert your site\'s standard Drupal polls into Advanced Poll polls.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('advpoll_convert_form'),
+    'access arguments' => array('administer nodes'),
+  );
+
+  return $items;
+}
+
+function advpoll_convert_view() {
+  $output = '';
+  $output .= drupal_get_form('advpoll_convert_form');
+  return $output;
+}
+
+function advpoll_convert_form() {
+  $form = array();
+  $form['note'] = array(
+    '#value' => '<p>'. t('This will convert all standard Drupal polls into Advanced Poll polls.') .'</p><div class="messages warning">'. t('Warning: this action cannot be reversed. Please backup your database before converting.') .'</div>',
+  );
+  $form['convert'] = array(
+    '#type' => 'submit',
+    '#value' => t('Convert'),
+  );
+  return $form;
+}
+
+function advpoll_convert_form_submit($form, &$form_state) {
+  $count = 0;
+  $result = db_query("SELECT n.nid, n.created, p.runtime, p.active FROM {node} n JOIN {poll} p ON n.nid = p.nid WHERE type = 'poll'");
+  while ($poll = db_fetch_object($result)) {
+    _advpoll_convert_node($poll);
+    $count++;
+  }
+  drupal_set_message(format_plural($count, '1 poll successfully converted.', '@count polls successfully converted.'));
+}
+
+/**
+ * Convert a poll.module poll into an advpoll.module poll (binary mode).
+ *
+ * Note: this will permanently delete the old poll.module data.
+ */
+function _advpoll_convert_node($poll) {
+  // Create the Advanced Poll entry.
+  db_query("INSERT INTO {advpoll} (nid, mode, use_list, active, max_choices, algorithm, show_votes, start_date, end_date, writeins, show_writeins, question) VALUES (%d, 'binary', 0, %d, 1, 'plurality', 1, '%s', '%s', 0, 0, '')", $poll->nid, $poll->active, $poll->created, ($poll->runtime ? $poll->created + $poll->runtime : 'NULL'));
+
+  $time = time();
+
+  // Convert the votes.
+  $votes = array();
+  $result = db_query('SELECT nid, uid, chorder, hostname FROM {poll_votes} WHERE nid = %d', $poll->nid);
+  while ($vote = db_fetch_object($result)) {
+    db_query("INSERT INTO {votingapi_vote} (content_type, content_id, value, value_type, tag, uid, timestamp, vote_source) VALUES ('%s', %d, 1, 'option', '%s', %d, %d, '%s')", 'advpoll', $poll->nid, $vote->chorder, $vote->uid, $time, $vote->hostname ? $vote->hostname : '');
+
+    // Keep track of the number of real votes for this choice.
+    if (!isset($votes[$vote->chorder])) {
+      $votes[$vote->chorder] = 0;
+    }
+    $votes[$vote->chorder]++;
+  }
+
+  // Convert the choices.
+  $result = db_query('SELECT chtext, chorder, chvotes FROM {poll_choices} WHERE nid = %d', $poll->nid);
+  while ($choice = db_fetch_object($result)) {
+    db_query("INSERT INTO {advpoll_choices} (nid, label, weight) VALUES (%d, '%s', %d)", $poll->nid, $choice->chtext, $choice->chorder);
+
+    // Get newest choice id.
+    $cid = db_result(db_query("SELECT cid FROM {advpoll_choices} WHERE nid = %d AND label = '%s'", $poll->nid, $choice->chtext));
+
+    // Switch the vote tag from weight to cid.
+    db_query('UPDATE {votingapi_vote} SET tag = %d WHERE content_id = %d AND tag = %d', $cid, $poll->nid, $choice->chorder);
+
+    // Create place-holder votes for any poll.module manual vote counts.
+    while ($choice->chvotes - $votes[$choice->chorder] > 0) {
+      $ip = 'X-'. $poll->nid .'-'. $cid .'-'. $choice->chvotes;
+      db_query("INSERT INTO {votingapi_vote} (content_type, content_id, value, value_type, tag, uid, timestamp, vote_source) VALUES ('%s', %d, 1, 'option', '%s', 0, %d, '%s')", 'advpoll', $poll->nid, $cid, $time, $ip);
+      $choice->chvotes--;
+    }
+  }
+
+  // Change the node type.
+  db_query("UPDATE {node} SET type = 'advpoll_binary' WHERE nid = %d", $poll->nid);
+
+  // Clear the old teaser.
+  db_query("UPDATE {node_revisions} SET teaser = '' WHERE nid = %d", $poll->nid);
+
+  // Recalculate the results.
+  votingapi_recalculate_results('advpoll', $poll->nid);
+
+  // Delete the old poll.module data.
+  db_query('DELETE FROM {poll} WHERE nid = %d', $poll->nid);
+  db_query('DELETE FROM {poll_choices} WHERE nid = %d', $poll->nid);
+  db_query('DELETE FROM {poll_votes} WHERE nid = %d', $poll->nid);
+}

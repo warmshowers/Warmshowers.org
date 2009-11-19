@@ -1,0 +1,90 @@
+<?php
+// $Id: adminrole.module,v 1.2.2.8.2.6 2009/01/07 21:12:03 bevan Exp $
+
+/** @file
+ * adminrole:
+ * This module simply gives a designated role all permissions every time the
+ * modules page is submitted.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function adminrole_help($section) {
+  switch ($section) {
+    case 'admin/user/adminrole':
+      return t('Change which role is an "administrator" role with full permissions');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function adminrole_menu() {
+  $items = array();
+
+  $items['admin/user/adminrole'] = array(
+    'title' => t('Admin Role'),
+    'description' => t('Change which role is an "administrator" role with full permissions'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('adminrole_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/adminrole/update'] = array(
+    'title' => t('Update Admin Role'),
+    'page callback' => 'adminrole_update_perms',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function adminrole_update_perms() {
+  if ($admin_role = variable_get('adminrole_adminrole', 0)) {
+    if ($admin_role == 0) {
+      return;
+    }
+    $perms = array();
+    foreach (module_list(TRUE, FALSE, TRUE) as $module) {
+      if ($permissions = module_invoke($module, 'perm')) {
+        $perms = array_merge($perms, $permissions);
+      }
+    }
+    db_query('DELETE FROM {permission} WHERE rid = %d', $admin_role);
+    if (count($perms)) {
+      db_query("INSERT INTO {permission} (rid, perm) VALUES (%d, '%s')", $admin_role, implode(', ', $perms));
+    }
+    drupal_set_message(t('Admin Permissions Set'));
+  }
+}
+
+function adminrole_admin_settings() {
+  $form = array();
+
+  $u_roles = user_roles();
+  // Removing Authenticated and anonymous roles
+  unset($u_roles[1]);
+  unset($u_roles[2]);
+
+  $u_roles[0] = t('-- Please Select One --');
+  ksort($u_roles);
+
+  $form['adminrole_adminrole'] = array(
+   '#type' => 'select',
+   '#title' => t('Admin Roles'),
+   '#default_value' => variable_get('adminrole_adminrole', 0),
+   '#description' => t("Which role should get all permissions?"),
+   '#options' => $u_roles,
+  );
+
+  return system_settings_form($form);
+}
+
+function adminrole_form_alter(&$form, $form_state, $form_id) {
+  if (in_array($form_id, array('system_modules', 'adminrole_admin_settings'))) {
+     $form['#submit'][] = 'adminrole_update_perms';
+  }
+}

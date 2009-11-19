@@ -1,0 +1,89 @@
+<?php
+// $Id: pathauto.test 552 2009-10-26 21:29:47Z rfay $
+
+/**
+ * @file
+ * Functionality tests for Pathauto.
+ *
+ * @ingroup pathauto
+ */
+
+/**
+ * @todo
+ */
+class PathautoTestCase extends DrupalWebTestCase {
+  private $web_user;
+  private $content_type;
+
+  /**
+   * Implementation of getInfo().
+   */
+  function getInfo() {
+    return array(
+      'name' => t('Pathauto basic tests'),
+      'description' => t('Test basic pathauto functionality.'),
+      'group' => 'Pathauto',
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    parent::setUp('path', 'token', 'pathauto');
+
+    $this->content_type = $this->drupalCreateContentType();
+    $this->web_user = $this->drupalCreateUser(array(
+      'administer pathauto',
+      'create '. $this->content_type->type .' content',
+      'edit own '. $this->content_type->type .' content',
+      'administer url aliases',
+      'create url aliases',
+    ));
+
+    // Set pathauto settings we assume to be as-is in this test.
+    variable_set('pathauto_node_'. $this->content_type->type .'_pattern', 'content/[title-raw]');
+    variable_set('pathauto_separator', '-');
+    variable_set('pathauto_case', '1'); // lowercase
+    variable_set('pathauto_max_length', '100');
+    variable_set('pathauto_max_component_length', '100');
+    variable_set('pathauto_punctuation_underscore', '2'); // no action
+
+    $this->assertTrue(module_exists('pathauto'), t('Pathauto module is loaded.'));
+    $this->assertTrue(module_exists('path'), t('Path module is loaded.'));
+    $this->assertTrue(module_exists('token'), t('Token module is loaded.'));
+  }
+
+  /**
+   * Basic functional testing of Pathauto.
+   */
+  function testPathautoFunctionalTest() {
+    $this->drupalLogin($this->web_user);
+
+    $this->drupalGet('admin/build/path/pathauto');
+    $this->assertRaw(t('General settings'), 'Settings page displayed.', 'Functionality test');
+
+    // Create node for testing.
+    $random_title = $this->randomName(10); // this contains _
+    $expected_alias = 'content/simpletest-title-'. strtolower($random_title);
+    $edit = array(
+      'title' => 'Simpletest title '. $random_title,
+      'body'  => 'Simpletest body '. $this->randomName(10),
+    );
+
+    $this->drupalPost('node/add/'. str_replace('_', '-', $this->content_type->type), $edit, 'Save');
+    $this->assertRaw(t('@type %title has been created.', array('@type' => $this->content_type->name, '%title' => $edit['title'])), 'Test node submitted.', 'Functionality test');
+
+    // Look for alias generated in the form.
+    $node = node_load(array('title' => $edit['title']));
+    $this->drupalGet('node/'. $node->nid .'/edit');
+
+    $this->assertPattern('!<input[^>]+name="path"[^>]+value="'. $expected_alias .'"!', 'Proper automated alias generated.', 'Functionality test');
+    // Look for checkbox.
+    $this->assertPattern('!<input[^>]+name="pathauto_perform_alias"[^>]+checked="checked"!', 'Automated alias turned on.', 'Functionality test');
+
+    // Check whether the alias actually works.
+    $this->drupalGet($expected_alias);
+    $this->assertRaw($edit['title'], 'Node accessible through alias.', 'Functionality test');
+  }
+}

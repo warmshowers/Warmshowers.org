@@ -1,0 +1,241 @@
+<?php
+// $Id: macro.module 505 2009-05-24 18:55:09Z rfay $
+
+/**
+ * @file
+ * Allows administrators to record form sumissions and play back the recordings.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function macro_help($section) {
+  switch ($section) {
+    case 'admin/help#macro':
+      $output = t('Todo: Add help text.');
+    case 'admin/build/macro/export' :
+      return t('This output can be saved to the profile`s .macro file, to be automatically played back upon completed install or used on an import on another site.');
+    case 'admin/build/macro/import' :
+      return t('Insert recorded macro here to be played into your site. All referenced modules needs to be enabled.');
+    case 'admin/build/macro':
+      return t('Configuration settings for the drupal macro engine.');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function macro_menu() {
+  $items = array();
+
+  $items['admin/build/macro'] = array(
+    'title' => 'Macro engine',
+    'description' => 'Configure the Drupal macro engine. Export recorded macros or import previously recorded macros.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('macro_admin_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer macro settings'),
+  );
+  $items['admin/build/macro/export'] = array(
+    'title' => 'Export',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('macro_export_macro'),
+    'access arguments' => array('macro access'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/macro/import'] = array(
+    'title' => 'Import',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('macro_import_macro'),
+    'access arguments' => array('macro access'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/macro/settings'] = array(
+    'title' => 'Configure',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_perm().
+ */
+function macro_perm() {
+  return array('administer macro settings', 'macro access');
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * Optionally record all form submissions, for later use in building distributions
+ */
+function macro_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id != 'macro_import_macro' && variable_get('macro_enabled', FALSE)) {
+    $form['#submit'][] = 'macro_record_macro';
+  }
+  if (variable_get('macro_delete', FALSE)) {
+    variable_set('macro_submissions', array());
+    variable_set('macro_delete', FALSE);
+  }
+}
+
+/**
+ * A form submission handler, that stores the form submissions into the variables table
+ */
+function macro_record_macro($form, &$form_state) {
+  $subs = variable_get('macro_submissions', array());
+  $subs[] = array(
+    'form_id' => $form['form_id']['#value'],
+    'path' => $_GET['q'],
+    'parameters' => $form['#parameters'],
+    'values' => $form_state['values'],
+  );
+  variable_set('macro_submissions', $subs);
+}
+
+
+/**
+ * This recursively runs thru an object and converts it into an array.
+ * This is to be called for form entries as we do not want varexport to treat any element
+ * as an object. If varexport sees an object, it will output stdClass::__set_state, which is
+ * not defined and we cannot define it either. So we recursively cast all objects to arrays.
+ */
+
+function _recursively_convert_objects_to_arrays($entity) {
+  $converted = array ( );
+
+  foreach (((array) $entity) as $key => $value) {
+  	if (is_array($value) || is_object($value)) {
+  		$converted[$key] = _recursively_convert_objects_to_arrays($value);
+  	}
+  	else {
+  		$converted[$key] = $value;
+  	}
+  }
+  
+  return($converted);
+}
+/**
+ * A form callback that displays the macro exported.
+ *
+ * The output of this callback should be saved to the profiles/$profile/macros.inc file, to be
+ * automatically played back upon completed install.
+ * @return a textarea containing the recorded macros
+ */
+function macro_export_macro() {
+  $form['code'] = array(
+    '#type' => 'textarea',
+    '#title' => 'macros exported',
+    '#default_value' => macro_get_macro(),
+    '#rows' => 20,
+  );
+  return $form;
+
+}
+
+/**
+ * The output of this callback should be saved to the profiles/$profile/macros.inc file, to be
+ * automatically played back upon completed install.
+ * @return a code representation of the recorded macro.
+ */
+function macro_get_macro() {
+  $subs = variable_get('macro_submissions', array());
+  $string = '';
+  foreach ($subs as $key => $form) {
+    $string .= "\$macro[$key]['form_id'] = " . var_export($form['form_id'], TRUE) . ";\n";
+    $string .= "\$macro[$key]['path'] = " . var_export($form['path'], TRUE) . ";\n";
+    $string .= "\$macro[$key]['values']  = " . var_export(_recursively_convert_objects_to_arrays((array) $form['values']), TRUE) . ";\n";
+
+    // the form parameters are being used here.
+    array_shift($form['parameters']);
+    $string .= "\$macro[$key]['parameters']  = " . var_export(serialize($form['parameters']), TRUE) . ";\n\n";
+
+  }
+
+  return $string;
+}
+
+/**
+ * A form callback that displays the macro import form.
+ *
+ * @return a form for importing a previously recorded macro
+ */
+function macro_import_macro() {
+  $form['macro'] = array(
+    '#type' => 'textarea',
+    '#title' => 'macro to import',
+    '#rows' => 20,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('play macro'),
+  );
+  return $form;
+}
+
+/**
+ * Implementation of macro_import_macro hook_submit function.
+ *
+ * Plays back the submitted macro.
+ */
+function macro_import_macro_submit($form, &$form_state) {
+  include_once './includes/install.inc';
+  eval($form_state['values']['macro']);
+  drupal_execute_macro($macro);
+}
+
+
+/**
+ * Menu callback for the macro settings form.
+ */
+function macro_admin_settings() {
+
+  $form['settings_general'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Macro settings'),
+    '#collapsible' => TRUE,
+  );
+  $form['settings_general']['macro_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable macro recording'),
+    '#default_value' => variable_get('macro_enabled', FALSE),
+    '#description' => t('Set whether the macro engine will record form submissions.'),
+  );
+  $form['settings_general']['macro_delete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Delete recorded macro'),
+    '#default_value' => variable_get('macro_delete', FALSE),
+    '#description' => t('Set whether to clear previously recorded macro.'),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Attempts to programmatically submit all the forms that have been specified in the $macros collection.
+ */
+function drupal_execute_macro($macro) {
+  foreach ($macro as $key => $data) {
+    // print_r($data);
+    $result = db_query("SELECT file FROM {menu_router} WHERE path = '%s'", $data['path']);
+    while ($router_item = db_fetch_array($result)) {
+      if (!empty($router_item['file'])) {
+        include_once($router_item['file']);
+      }
+    }
+  }
+  
+  foreach ($macro as $key => $data) {
+    $param = unserialize($data['parameters']);
+    $args = array($data['form_id'], array('values' => $data['values']));
+    $args = array_merge($args, $param);
+    call_user_func_array('drupal_execute', $args);
+    if (form_get_errors()) {
+       drupal_set_message(t("An error has occured with macro #%macro_number , form_id %form_id. Please check the errors displayed for more details.", array('%macro_number' => $key, '%form_id' => $data['form_id'])));
+    }
+  }
+}
+
+

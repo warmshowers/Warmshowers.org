@@ -1,0 +1,405 @@
+<?php
+// $Id: advpoll.install,v 1.5.2.20.2.3 2009/03/21 18:32:00 chriskennedy Exp $
+
+/**
+ * @file
+ * Manage database installation and upgrading for advpoll.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function advpoll_install() {
+  // Create database tables.
+  drupal_install_schema('advpoll');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function advpoll_schema() {
+  $schema = array();
+  $schema['advpoll'] = array(
+    'description' => t('Stores the main settings for an advanced poll node.'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t("The advpoll's {node}.nid"),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'quorum' => array(
+        'description' => t('Quorum for the poll, currently unimplemented.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'mode' => array(
+        'description' => t('The type of poll, either ranking of binary.'),
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'use_list' => array(
+        'description' => t('Whether or not an electoral list is being used.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'active' => array(
+        'description' => t('Whether or not the poll is still open for voting.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'max_choices' => array(
+        'description' => t('An upper limit on how many choices can be selected.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'algorithm' => array(
+        'description' => t('Within a given voting mode, the formula used to calculate the poll winner.'),
+        'type' => 'varchar',
+        'length' => 100,
+      ),
+      'show_votes' => array(
+        'description' => t('Whether or not to display votes that have been cast.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'start_date' => array(
+        'description' => t('The date at which voting begins for the poll.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'end_date' => array(
+        'description' => t('The date at which voting ends for the poll.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'writeins' => array(
+        'description' => t('Whether or not to allow write-in votes.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'show_writeins' => array(
+        'description' => t('Whether or not to list write-in votes as possible choices.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'question' => array(
+        'description' => t('Optional text to display as the subject of the poll.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  $schema['advpoll_electoral_list'] = array(
+    'description' => t('Stores the list of eligible votes for polls that use an electoral list.'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('Node id for the relevant advpoll.'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => t('User id who will be given access to vote in an advpoll.'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('nid', 'uid'),
+  );
+
+  $schema['advpoll_choices'] = array(
+    'description' => t('Stores the settings for an individual choice in a poll.'),
+    'fields' => array(
+      'cid' => array(
+        'description' => t('The unique id of the choice.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => t('The choice is assigned to this advpoll node.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'label' => array(
+        'description' => t('A string description of what this choice represents.'),
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'weight' => array(
+        'description' => t('An integer value used to order the display of choices from lowest to highest.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'writein' => array(
+        'description' => t('Whether or not this choice was a write-in vote by a user.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'nid' => array('nid', 'weight'),
+    ),
+    'primary key' => array('cid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function advpoll_uninstall() {
+  // Needs to be included due to _advpoll_list_modes().
+  include_once './'. drupal_get_path('module', 'advpoll') .'/advpoll.module';
+
+  // Remove all advpoll content types and their variables.
+  $variables = array('choices', 'max_choices', 'algorithm', 'runtime', 'writeins', 'show_writeins', 'electoral_list', 'show_votes', 'view_results', 'use_question');
+  foreach (_advpoll_list_modes() as $mode) {
+    node_type_delete('advpoll_'. $mode['name']);
+    foreach ($variables as $variable) {
+      variable_del('advpoll_'. $variable .'_advpoll_'. $mode['name']);
+    }
+  }
+
+  // Remove all votes.
+  db_query("DELETE FROM {votingapi_vote} WHERE content_type = 'advpoll'");
+
+  // Remove all cache data.
+  db_query("DELETE FROM {votingapi_cache} WHERE content_type = 'advpoll'");
+
+  // Remove all advpoll nodes.
+  $result = db_query('SELECT nid FROM {advpoll}');
+  while ($obj = db_fetch_object($result)) {
+    node_delete($obj->nid);
+  }
+
+  // Remove all database tables.
+  drupal_uninstall_schema('advpoll');
+}
+
+/**
+ * Make sure that quorum has a default value of 0.
+ */
+function advpoll_update_1() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      // This was fixed for new installs of pgsql, but not upgrades.
+      db_change_column($ret, 'advpoll', 'quorum', 'quorum', 'integer', array('not null' => TRUE, 'default' => 0));
+      break;
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE quorum quorum int(10) NOT NULL default '0'");
+      break;
+  }
+  return $ret;  
+}
+
+/** 
+ * Migrate old global settings to new per-content-type settings.
+ */
+function advpoll_update_2() {
+  $ret = array();
+  $variables = array();
+  $variables[] = array('name' => 'advpoll_electoral_list', 'old_name' => 'advpoll_default_electoral_list');
+  $variables[] = array('name' => 'advpoll_view_results', 'old_name' => 'advpoll_view_results');
+  $types = node_get_types();
+  foreach ($variables as $variable) {
+    if (!is_null($value = variable_get($variable['old_name'], NULL))) {
+      foreach ($types as $type) {
+        if ($type->module == 'advpoll') {
+          variable_set($variable['name'] .'_'. $type->type, $value);
+        }
+      }
+    }
+    variable_del($variable['old_name']);
+  }
+  return $ret;
+}
+
+/**
+ * Switch date handling from a duration to an enddate.
+ */
+function advpoll_update_3() {
+  $ret = array();
+  
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      // New default '0' instead of NULL for startdate
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE startdate startdate int NOT NULL default '0'");
+      $ret[] = update_sql("UPDATE {advpoll} SET startdate = 0 WHERE startdate IS NULL");
+      // Add the new column.
+      $ret[] = update_sql("ALTER TABLE {advpoll} ADD COLUMN enddate int NOT NULL default '0' AFTER startdate");
+      // Calculate the new value.
+      $ret[] = update_sql("UPDATE {advpoll} SET enddate = startdate + runtime WHERE runtime != 0");
+      // Drop the old column.
+      $ret[] = update_sql("ALTER TABLE {advpoll} DROP COLUMN runtime");
+      break;
+    
+    case 'pgsql':
+      // New default '0' instead of NULL for startdate
+      db_change_column($ret, 'advpoll', 'startdate', 'startdate', 'integer', array('not null' => TRUE, 'default' => '0'));
+      $ret[] = update_sql("UPDATE {advpoll} SET startdate = 0 WHERE startdate IS NULL");
+      // Add the new column.
+      db_add_column($ret, 'advpoll', 'enddate', 'integer', array('not null' => TRUE, 'default' => '0'));
+      // Calculate the new value.
+      $ret[] = update_sql("UPDATE {advpoll} SET enddate = startdate + runtime WHERE runtime != 0");
+      // Drop the old column.
+      db_drop_column($ret, 'advpoll', 'runtime');
+      break;
+  }
+  return $ret;
+}
+
+/**
+ * Add columns for write-in support.
+ */
+function advpoll_update_4() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {advpoll} ADD writeins tinyint NOT NULL default '0'");
+      $ret[] = update_sql("ALTER TABLE {advpoll} ADD show_writeins tinyint NOT NULL default '0'");
+      $ret[] = update_sql("ALTER TABLE {advpoll_choices} ADD writein tinyint NOT NULL default '0'");
+      break;
+    case 'pgsql':
+      db_add_column($ret, 'advpoll', 'writeins', 'smallint', array('default' => 0, 'not null' => TRUE));
+      db_add_column($ret, 'advpoll', 'show_writeins', 'smallint', array('default' => 0, 'not null' => TRUE));
+      db_add_column($ret, 'advpoll_choices', 'writein', 'smallint', array('default' => 0, 'not null' => TRUE));
+      break;    
+  }
+  return $ret;
+}
+
+/**
+ * Conform to Drupal coding standards.
+ */
+function advpoll_update_5() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE uselist use_list tinyint default '0'");
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE startdate start_date int NOT NULL default '0'");
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE enddate end_date int NOT NULL default '0'");
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE maxchoices max_choices int NOT NULL default '0'");
+      $ret[] = update_sql("ALTER TABLE {advpoll} CHANGE showvotes show_votes tinyint NOT NULL default '1'");
+      break;
+    case 'pgsql':
+      db_change_column($ret, 'advpoll', 'uselist', 'use_list', 'smallint', array('default' => '0'));
+      db_change_column($ret, 'advpoll', 'startdate', 'start_date', 'integer', array('not null' => TRUE, 'default' => '0'));
+      db_change_column($ret, 'advpoll', 'enddate', 'end_date', 'integer', array('not null' => TRUE, 'default' => '0'));
+      db_change_column($ret, 'advpoll', 'maxchoices', 'max_choices', 'integer', array('not null' => TRUE, 'default' => '0'));
+      db_change_column($ret, 'advpoll', 'showvotes', 'show_votes', 'smallint', array('not null' => TRUE, 'default' => '1'));
+      break;
+  }
+  // Migrate per-content type variables that changed names.
+  $content_types = array('advpoll_binary', 'advpoll_ranking');
+  $settings = array('maxchoices' => 'max_choices', 'showvotes' => 'show_votes');
+  foreach ($content_types as $type) {
+    foreach ($settings as $old => $new) {
+      $old_name = 'advpoll_'. $old .'_'. $type;
+      if (!is_null($value = variable_get($old_name, NULL))) {
+        variable_set('advpoll_'. $new .'_'. $type, $value);
+        variable_del($old_name);
+      }
+    }
+  }
+  // Update the block name.
+  $ret[] = update_sql("UPDATE {blocks} SET delta = 'latest_poll' WHERE delta = 'mostrecent'");
+  // Update Voting API cache.
+  $ret[] = update_sql("UPDATE {votingapi_cache} SET function = 'view_score' WHERE function = 'viewscore' AND content_type = 'advpoll'");
+  $ret[] = update_sql("UPDATE {votingapi_cache} SET function = 'raw_score' WHERE function = 'rawscore' AND content_type = 'advpoll'");
+
+  return $ret;
+}
+
+/**
+ * Add column for optional question.
+ */
+function advpoll_update_6() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {advpoll} ADD question varchar(255) NOT NULL default ''");
+      break;
+    case 'pgsql':
+      db_add_column($ret, 'advpoll', 'question', 'varchar(255)', array('not null' => TRUE, 'default' => "''"));
+      break;    
+  }
+  return $ret;
+}
+
+/**
+ * Missing conversion code for Drupal 4.7 -> 5 upgrade.
+ *
+ * This will have no effect on an existing Drupal 5 installation.
+ */
+function advpoll_update_7() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {node} SET type = 'advpoll_binary' WHERE type = 'advpoll-binary'");
+  $ret[] = update_sql("UPDATE {node} SET type = 'advpoll_ranking' WHERE type = 'advpoll-ranking'");
+  return $ret;
+}
+
+/**
+ * Refactor the advpoll_choices database table.
+ * 
+ * Rename vote_offset to weight, change it to be NOT NULL & remove its extra
+ * key, and add an auto_increment id to each choice.
+ */
+function advpoll_update_8() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql('ALTER TABLE {advpoll_choices} CHANGE vote_offset weight int NOT NULL');
+      $ret[] = update_sql('ALTER TABLE {advpoll_choices} DROP INDEX vote_offset');
+      $ret[] = update_sql('ALTER TABLE {advpoll_choices} DROP PRIMARY KEY');
+      $ret[] = update_sql('ALTER TABLE {advpoll_choices} ADD cid int unsigned NOT NULL auto_increment PRIMARY KEY FIRST');
+      break;
+    case 'pgsql':
+      db_change_column($ret, 'advpoll_choices', 'vote_offset', 'weight', 'smallint', array('not null' => TRUE));
+      db_add_column($ret, 'advpoll_choices', 'cid', 'serial', array('not null' => TRUE));
+      $ret[] = update_sql('ALTER TABLE {advpoll_choices} ADD PRIMARY KEY (cid)');
+      break;
+  }
+  // Votes should reference the cid rather than the weight of each choice.
+  $result = db_query('SELECT nid, cid, weight FROM {advpoll_choices}');
+  while ($choice = db_fetch_object($result)) {
+    db_query('UPDATE {votingapi_vote} SET tag = %d WHERE content_id = %d AND tag = %d', $choice->cid, $choice->nid, $choice->weight);
+    db_query('UPDATE {votingapi_cache} SET tag = %d WHERE content_id = %d AND tag = %d', $choice->cid, $choice->nid, $choice->weight);
+  }
+  return $ret;
+}
+
+/**
+ * No-op update to clear Voting API cache after fixing http://drupal.org/node/361593
+ */
+function advpoll_update_6000() {
+  return array();
+}

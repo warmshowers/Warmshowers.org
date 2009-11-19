@@ -1,0 +1,231 @@
+<?php
+// $Id: ip2cc.module 539 2009-09-14 11:16:55Z rfay $
+
+/**
+ * @file
+ * Provide APIs for converting IP to Country.
+ *
+ * This module uses the IP-to-Country Database
+ * provided by WebHosting.Info (http://www.webhosting.info),
+ * available from http://ip-to-country.webhosting.info.
+ *
+ * @author Sugree Phatanapherom (http://www.howforge.com)
+ * @author Tom Kirkpatrick (mrfelton), www.kirkdesigns.co.uk
+ */
+
+include_once(drupal_get_path('module', 'ip2cc') .'/ip2cc.inc');
+
+
+/**
+ * Implementation of hook_perm
+ */
+function ip2cc_perm() {
+  return array('administer ip2cc');
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function ip2cc_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#ip2cc':
+      $output .= '<p>'. t('IP to Country provives a simple API for retrieving country related information from a given IP address. As well as providing an API that other modules can use for their purpose, ip2cc is also able to hook into nodes and comments to provide additional information about the poster, such as country code, country flag (icon), network name, and autonomous system number.') .'</p>';
+      $output .= '<p>'. t('Additional data such as Country name, number and iso2 and iso3 country codes are available if the <a href="@countries_api">countries_api</a> module is installed.', array('@countries_api' => url('http://drupal.org/project/countries_api'))) .'</p>';
+      $output .= '<p>'. t("The IP to Country database is provided by <a href='@webhostinginfo'>webhostinginfo</a> and is updated aproximately once a month. To update your ip2cc database, please visit the <a href='@update_page'>ip2cc database update</a> page.", array('@webhostinginfo' => url('http://ip-to-country.webhosting.info'), '@update_page' => url('admin/settings/ip2cc/update'))) .'</p>';
+      return $output;
+    case 'admin/settings/ip2cc':
+      $output = '<p>'. t("The IP to Country database is provided by <a href='@webhostinginfo'>webhostinginfo</a> and is updated aproximately once a month. To update your ip2cc database, follow the following steps:", array('@webhostinginfo' => url('http://ip-to-country.webhosting.info'))) .'</p>';
+      $output .= '<ul><li>'. t('<a href="@download_url">download</a> the ip2cc database', array('@download_url' => url('http://ip-to-country.webhosting.info/downloads/ip-to-country.csv.zip'))) .'</li>';
+      $output .= '<li>'. t('Unzip the file to @module_dir', array('@module_dir' => drupal_get_path('module', 'ip2cc') .'/ip-to-country.csv')) .'</li>';
+      $output .= '<li>'. t('Click the update button below') .'</li>';
+      $output .= '<li>'. t("Wait - the import process can take several minutes.") .'</li></ul>';
+      $output .= '<p><em>'. t("Note: If you are on a UNIX platform, you may run the 'fetch.sh' script provided in the ip2cc module directory which will download and extract unzip the IP to Country database for you.") .'</em></p>';
+      return $output;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function ip2cc_menu() {
+  $items = array();
+  $items['admin/settings/ip2cc'] = array(
+    'title' => 'IP to Country',
+    'description' => 'Update IP to Country.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ip2cc_update_form'),
+    'access arguments' => array('administer ip2cc'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/settings/ip2cc/update'] = array(
+    'title' => 'Update IP to Country',
+    'access arguments' => array('administer ip2cc'),
+    'weight' => -10,
+    'type' => MENU_DEFAULT_LOCAL_TASK
+  );
+  $items['admin/settings/ip2cc/update/ajax'] = array(
+    'title' => 'Update Database',
+    'access arguments' => array('administer ip2cc'),
+    'page callback' => '_ip2cc_update',
+    'type' => MENU_CALLBACK,
+  );
+  $items['ip2cc/get_country/json'] = array(
+    'title' => 'Get country as JSON',
+    'page callback' => 'ip2cc_get_country_json',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function ip2cc_requirements($phase) {
+  $requirements = array();
+  
+  // Retrieve the appropriate localisation function name
+  $t = get_t();
+
+  $requirements['ip2cc_database'] = array(
+    'title' => t('IP to Country: Database'),
+  );
+
+  if (_ip2cc_get_count() == 0) {
+    $requirements['ip2cc_database']['value'] = l('Database missing', 'admin/settings/ip2cc/update');
+    $requirements['ip2cc_database']['description'] = $t("The ip2cc database has not been installed. Please visit the <a href='@update_page'>ip2cc database update</a> page and import the database manually.", array('@update_page' => url('admin/settings/ip2cc/update')));
+    $requirements['ip2cc_database']['severity'] = REQUIREMENT_ERROR;
+  }
+  else if (variable_get('ip2cc_last_update', 0) <= strtotime('2 months ago')) {
+    $requirements['ip2cc_database']['value'] = $t('Out of date');
+    $requirements['ip2cc_database']['description'] = $t("The ip2cc database is more than 2 months old.  Please visit the <a href='@update_page'>ip2cc database update</a> page and follow the directions to update your database.", array('@update_page' => url('admin/settings/ip2cc/update')));
+    $requirements['ip2cc_database']['severity'] = REQUIREMENT_WARNING;
+  }
+  else {
+    $requirements['ip2cc_database']['value'] = $t('Up to date');
+    $requirements['ip2cc_database']['severity'] = REQUIREMENT_OK;
+  }
+  if (!module_exists('countries_api')) {
+    $requirements['ip2cc_countries_api']['title'] = $t('IP to Country: Additional data');
+    $requirements['ip2cc_countries_api']['value'] = $t('Not available');
+    $requirements['ip2cc_countries_api']['description'] = $t('ip2cc can provide aditional country data if you install the <a href="!countries_api_url">countries_api</a> module.', array('!countries_api_url' => url("http://drupal.org/project/countries_api")));
+    $requirements['ip2cc_countries_api']['severity'] = REQUIREMENT_WARNING;
+  }
+  else {
+    $requirements['ip2cc_countries_api']['title'] = $t('IP to Country: Additional data');
+    $requirements['ip2cc_countries_api']['value'] = $t('Additional country data provided by the countries_api module.');
+    $requirements['ip2cc_countries_api']['severity'] = REQUIREMENT_OK;
+  }
+  return $requirements;
+}
+
+
+
+/******************************************************************************
+ * Menu Callbacks                                                             *
+ ******************************************************************************/
+
+/**
+ * IP to Country update.
+ *
+ * @return
+ *   Forms for ip2cc update.
+ */
+function ip2cc_update_form(&$form_state) {
+  drupal_add_js(drupal_get_path('module', 'ip2cc') .'/ip2cc.js', 'module');
+  drupal_add_css(drupal_get_path('module', 'ip2cc') .'/ip2cc.css');
+  
+  $form = array();
+  $update_time = variable_get('ip2cc_last_update', 0);
+
+  if (empty($update_time)) {
+    $message = t('Database not installed');
+  }
+  else {
+    $message = t('Database last updated on ') . date('n/j/Y', $update_time) .' at '. date('H:i:s T', $update_time);
+  }
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Update database'),
+    '#suffix' => '<span id="dbthrobber" class="message">'. $message .'</span>',
+  );
+  return $form;
+}
+
+function ip2cc_update_form_submit($form, &$form_state) {
+  _ip2cc_update();
+}
+
+/**
+ * AJAX callback to update the IP to Country database.
+ *
+ * @return
+ *   JSON object for display by jQuery script
+ */
+function _ip2cc_update() {
+  $js = isset($_COOKIE['has_js']);
+  $result = _ip2cc_batch_insert();
+  
+  if (!$result) {
+    $error = t('Unable to update the IP 2 Country database.');
+  }
+  
+  // If an error was received, set a message and exit.
+  if (isset($error)) {
+   if ($js) {
+      drupal_set_header('Content-Type: text/javascript; charset=utf-8');
+      print drupal_to_js(array(
+        'status' => FALSE,
+        'errorMessage' => $error,
+      ));
+      exit;
+    }
+    else {
+      drupal_set_message($error);
+      return;
+    }
+  }
+
+  // If successful, return data according to the request type.
+  if ($js) {
+    drupal_set_header('Content-Type: text/javascript; charset=utf-8');
+    print drupal_to_js(array(
+      'status'  => TRUE,
+      'count'   => t('@rows rows affected.', array('@rows' => $result)),
+      'message' => t('The IP to Country database has been updated.'),
+    ));
+    exit;
+  }
+  else {
+    drupal_set_message('IP to Country database updated.');
+    drupal_goto('admin/settings/ip2cc/update');
+  }
+}
+
+
+function ip2cc_get_country_json() {
+  $addr = arg(3);
+  if (empty($addr)) {
+    $addr = ip_address();
+  }
+  $country = ip2cc_get_country($addr);
+  print drupal_to_js($country);
+  exit;
+}
+
+function ip2cc_get_country($addr) {
+  $ip = _ip2cc_inet_aton($addr);
+  if ($country = db_fetch_object(db_query("SELECT * FROM {ip2cc} WHERE ip_from <= %s AND ip_to >= %s", $ip, $ip))) {
+    $country->ip = $addr;
+    if (module_exists('countries_api')) {
+      $extra_data = module_invoke('countries_api', 'iso2_get_country', $country->country_code);
+      $country->country_code2 = $extra_data['iso2'];
+      $country->country_code3 = $extra_data['iso3'];
+      $country->country_name = $extra_data['printable_name'];
+      $country->country_number = $extra_data['numcode'];
+    }
+    return $country;
+  }
+  return NULL;
+}
+

@@ -1,0 +1,1156 @@
+<?php
+// $Id: nodewords.module 552 2009-10-26 21:29:47Z rfay $
+
+/**
+ * @file
+ * Assigns META tags to nodes, vocabularies, terms and pages.
+ */
+
+/**
+ * @addtogroup nodewords
+ * @{
+ */
+
+/*****************************************************************************
+ * Public constants.
+ ****************************************************************************/
+
+/**
+ * The types of meta tags the module is able to handle.
+ */
+define('NODEWORDS_META', 0);
+define('NODEWORDS_HTTP_EQUIV', 1);
+define('NODEWORDS_LINK_REL', 2);
+define('NODEWORDS_LINK_REV', 3);
+
+/**
+ * The current API version implemented.
+ */
+define('NODEWORDS_API_VERSION', 1.1);
+
+/*****************************************************************************
+ * Drupal hooks.
+ ****************************************************************************/
+
+/**
+ * Implementation of hook_content_extra_fields().
+ * Allow the meta tags fields to be sorted in the node edit forms.
+ */
+function nodewords_content_extra_fields() {
+  $extras['nodewords'] = array(
+    'label' => t('Nodewords'),
+    'description' => t('Nodewords fieldset.'),
+    'weight' => 10,
+  );
+
+  return $extras;
+}
+
+/**
+ * Implementation of hook_flush_caches().
+ */
+function nodewords_flush_caches() {
+  return array('cache_nodewords');
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function nodewords_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['type']) && isset($form['type']['#value']) && $form_id == $form['type']['#value'] . '_node_form') {
+    if (variable_get('nodewords_edit_metatags' . $form['type']['#value'], TRUE)) {
+      $id = $form['nid']['#value'];
+      if (!empty($form_state['values']['nodewords'])) {
+        $tags = $form_state['values']['nodewords'];
+      }
+      elseif (isset($id) && is_numeric($id)) {
+        $tags = nodewords_load_tags('node', $id);
+      }
+      else {
+        $tags = array();
+      }
+
+      $form['nodewords'] = nodewords_form(
+        'node',
+        $tags,
+        array(
+          'page:permissions:additional' => 'administer nodes',
+        )
+      );
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function nodewords_form_node_type_form_alter(&$form, &$form_state) {
+  if (isset($form['#node_type'])) {
+
+    $form['nodewords'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Nodewords settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+
+    $form['nodewords']['nodewords_edit_metatags'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Allow editing of meta tags'),
+      '#description' => t('If selected, the node edit form will allow the users with the right permissions to edit the meta tags associated with nodes of this content type.'),
+      '#default_value' => variable_get('nodewords_edit_metatags_' . $form['#node_type']->type, TRUE),
+    );
+
+    foreach (nodewords_get_possible_tags() as $name => $info) {
+      $function = $info['tag:function:prefix'] . '_settings_form';
+      $options = array(
+        'parameters' => !empty($info['tag:function:parameters']) ? $info['tag:function:parameters'] : array(),
+      );
+
+      if (function_exists($function)) {
+        $function($form, 'node_type_form', $options);
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function nodewords_form_taxonomy_form_term_alter(&$form, &$form_state) {
+  $bool = (isset($form['tid']['#value']) &&
+    !isset($form_state['confirm_delete']) &&
+    !isset($form_state['confirm_parents'])
+  );
+
+  if ($bool) {
+    $id = $form['tid']['#value'];
+
+    if (!empty($form_state['values']['nodewords'])) {
+      $tags = $form_state['values']['nodewords'];
+    }
+    elseif (isset($id) && is_numeric($id)) {
+      $tags = nodewords_load_tags('term', $id);
+    }
+    else {
+      $tags = array();
+    }
+
+    $form['nodewords'] = nodewords_form(
+      'term',
+      $tags,
+      array(
+        'page:administrative' => TRUE,
+      )
+    );
+
+    $form['submit']['#weight'] = 45;
+    $form['delete']['#weight'] = 50;
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function nodewords_form_taxonomy_form_vocabulary_alter(&$form, &$form_state) {
+  if (isset($form['vid']['#value'])) {
+    $id = $form['vid']['#value'];
+
+    if (!empty($form_state['values']['nodewords'])) {
+      $tags = $form_state['values']['nodewords'];
+    }
+    elseif (isset($id) && is_numeric($id)) {
+      $tags = nodewords_load_tags('vocabulary', $id);
+    }
+    else {
+      $tags = array();
+    }
+
+    $form['nodewords'] = nodewords_form(
+      'vocabulary',
+      $tags,
+      array(
+        'page:administrative' => TRUE,
+      )
+    );
+
+    $form['submit']['#weight'] = 45;
+    $form['delete']['#weight'] = 50;
+  }
+}
+
+/**
+ *  Implemenation of hook_help().
+ */
+function nodewords_help($path, $arg) {
+  switch ($path) {
+    case 'admin/content/nodewords/global':
+      $output = '<p>' . t('On this page you can enter the default values for the meta tags of your site.') . '</p>';
+      break;
+
+    case 'admin/content/nodewords/global/errorpage_403':
+      $output = '<p>' . t('On this page you can enter the meta tags for the access denied error page of your site.') . '</p>';
+      break;
+
+    case 'admin/content/nodewords/global/errorpage_404':
+      $output = '<p>' . t('On this page you can enter the meta tags for the page not found error page of your site.') . '</p>';
+      break;
+
+    case 'admin/content/nodewords/global/frontpage':
+      $output = '<p>' . t('On this page you can enter the meta tags for the front page of your site.') . '</p>';
+      break;
+
+    case 'admin/content/nodewords/global/offline':
+      $output = '<p>' . t('On this page you can enter the meta tags for your site when it is offline.') . '</p>';
+      break;
+
+    case 'admin/content/nodewords/global/other':
+      $output = '<p>' . t('On this page you can enter the meta tags for other pages of your site. <a href="@add_metatags">Add meta tags</a> for a new page.', array('@add_metatags' => url('admin/content/nodewords/global/other/add'))) . '</p>';
+      break;
+
+    case 'admin/content/nodewords/global/tracker':
+      $output = '<p>' . t('On this page you can enter the meta tags for tracker pages of your site.') . '</p>';
+      break;
+
+    default:
+      $output = '';
+      break;
+  }
+
+  return $output;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function nodewords_menu() {
+  $admin_access = array('administer nodewords');
+
+  $items['admin/content/nodewords'] = array(
+    'title' => 'Nodewords',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_settings_form'),
+    'description' => 'Configure HTML meta tags for all the content.',
+    'access arguments' => $admin_access,
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/settings'] = array(
+    'title' => 'Settings',
+    'access arguments' => $admin_access,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -1,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global'] = array(
+    'title' => 'Global meta tags',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_tags_form'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/default'] = array(
+    'title' => 'Default values',
+    'access arguments' => $admin_access,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/frontpage'] = array(
+    'title' => 'Front page',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_tags_form', 'frontpage'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/errorpage_403'] = array(
+    'title' => 'Error 403 page',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_tags_form', 'errorpage', '403'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/errorpage_404'] = array(
+    'title' => 'Error 404 page',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_tags_form', 'errorpage', '404'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/offline'] = array(
+    'title' => 'Offline site',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_tags_form', 'offline'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/tracker'] = array(
+    'title' => 'Tracker pages',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_tags_form', 'tracker'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/other'] = array(
+    'title' => 'Other pages',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_pages_overview'),
+    'access arguments' => $admin_access,
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/other/add'] = array(
+    'title' => 'Add page meta tags',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_pages_edit'),
+    'access arguments' => $admin_access,
+    'type' => MENU_CALLBACK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/other/delete/%nodewords_page'] = array(
+    'title' => 'Delete page meta tags',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_pages_confirm_delete', 6),
+    'access arguments' => $admin_access,
+    'parent' => 'admin/content/nodewords/global/other',
+    'type' => MENU_CALLBACK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  $items['admin/content/nodewords/global/other/edit/%nodewords_page'] = array(
+    'title' => 'Edit page meta tags',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodewords_pages_edit', 6),
+    'access arguments' => $admin_access,
+    'parent' => 'admin/content/nodewords/global/other',
+    'type' => MENU_CALLBACK,
+    'file' => 'nodewords.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_node_operations().
+ */
+function nodewords_node_operations() {
+  $operations = array(
+    'delete_metatags' => array(
+      'label' => t('Delete meta tags'),
+      'callback' => 'nodewords_mass_delete_tags',
+      'callback arguments' => array('type' => 'node'),
+    ),
+  );
+
+  return $operations;
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function nodewords_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'delete':
+      nodewords_delete_tags('node', $node->nid);
+      break;
+
+    case 'insert':
+    case 'update':
+      if (isset($node->nodewords)) {
+        nodewords_save_tags('node', $node->nid, $node->nodewords, TRUE);
+      }
+      break;
+
+    case 'update index':
+      $output = '';
+      $tags_info = nodewords_get_possible_tags();
+
+      foreach ($node->nodewords as $name => $content) {
+        // Avoid the disabled meta tags.
+        if (!isset($info[$name])) {
+          continue;
+        }
+
+        if (!empty($tags_info[$name]['tag:template:index'])) {
+          $output .= strtr($tags_info[$name]['tag:template:index'], '%content', $content);
+        }
+      }
+      return $output;
+
+    case 'load':
+      return array(
+        'nodewords' => nodewords_load_tags('node', $node->nid),
+      );
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function nodewords_perm() {
+  $permissions = array('administer nodewords');
+
+  foreach (nodewords_get_possible_tags() as $name => $info) {
+    if (!empty($info['widget:permission'])) {
+      $permissions[] = $info['widget:permission'];
+    }
+  }
+
+  return $permissions;
+}
+
+/**
+ * Implementation of hook_preprocess_page().
+ */
+function nodewords_preprocess_page(&$variables) {
+  list($type, $ids) = _nodewords_detect_type_and_ids();
+  $variables['head'] .= nodewords_output_tags(nodewords_get_tags($type, $ids));
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+function nodewords_taxonomy($op, $type, $object = NULL) {
+  if ($type == 'term') {
+    $id = $object['tid'];
+  }
+  elseif ($type == 'vocabulary') {
+    $id = $object['vid'];
+  }
+  else {
+    return;
+  }
+
+  switch ($op) {
+    case 'delete':
+      nodewords_delete_tags($type, $id);
+      break;
+
+    case 'insert':
+    case 'update':
+      if (isset($object['nodewords'])) {
+        nodewords_save_tags($type, $id, $object['nodewords'], TRUE);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function nodewords_theme() {
+  return array(
+    'nodewords_pages_overview' => array(
+      'arguments' => array('form' => array()),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function nodewords_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'load':
+      if (variable_get('nodewords_enable_user_metatags', TRUE)) {
+        $account->nodewords = nodewords_load_tags('user', $account->uid);
+      }
+      break;
+
+    case 'delete':
+      nodewords_delete_tags('user', $account->uid);
+      break;
+
+    case 'insert':
+    case 'update':
+      if (isset($edit['nodewords'])) {
+        nodewords_save_tags('user', $account->uid, $edit['nodewords'], TRUE);
+      }
+      break;
+
+    case 'form':
+      if ($category == 'account') {
+        if (variable_get('nodewords_enable_user_metatags', TRUE)) {
+          $tags = nodewords_load_tags('user', $account->uid);
+          $form['nodewords'] = nodewords_form(
+            'user',
+            $tags,
+            array(
+              'page:permissions:additional' => 'administer users',
+            )
+          );
+
+          return $form;
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_user_operations().
+ */
+function nodewords_user_operations() {
+  $operations = array(
+    'delete_metatags' => array(
+      'label' => t('Delete meta tags'),
+      'callback' => 'nodewords_mass_delete_tags',
+      'callback arguments' => array('type' => 'user'),
+    ),
+  );
+
+  return $operations;
+}
+
+/*****************************************************************************
+ * Public functions.
+ ****************************************************************************/
+
+/**
+ * Clear the cache table used by the module.
+ */
+function nodewords_cache_clear($type = '*', $wildcard = TRUE) {
+  cache_clear_all($type, 'cache_nodewords', $wildcard);
+}
+
+/**
+ * Delete tags from table.
+ */
+function nodewords_delete_tags($type, $id) {
+  db_query("DELETE FROM {nodewords} WHERE type = '%s' AND id = '%s'", $type, $id);
+
+  if ($type == 'page') {
+    db_query("DELETE FROM {nodewords_custom} WHERE path = '%s'", $id);
+    nodewords_cache_clear();
+  }
+}
+
+/**
+ * Get the defined meta tags for $type / $id.
+ *
+ * @param $type
+ *     Realm of the object the meta tags are associated with.
+ *     This is one of the following: 'errorpage', 'frontpage', 'offline', 'node',
+ *     'page', 'term', 'tracker', 'vocabulary'.
+ * @param $ids
+ *     ID of the object to get the meta tags from.
+ *     This is one of the following:
+ *     - 'errorpage' => an array containing the HTML error code (403 or 404).
+ *     - 'frontpage' => none.
+ *     - 'offline' => none.
+ *     - 'node' => an array containing the node ID.
+ *     - 'page' => an array containing the page path.
+ *     - 'term' => an array of term IDs.
+ *     - 'frontpage' => none.
+ *     - 'user' => an array containing the user ID.
+ *     - 'vocabulary' => an array of vocabulary IDs.
+ * @param $filtered
+ *   If TRUE, only the meta tags that the user configured for
+ *   output will be returned.
+ *   If FALSE, all meta tags will be returned.
+ *
+ * @return
+ *   An associative array of the defined meta tags.
+ */
+function nodewords_get_tags($type, $ids = array(''), $filtered = TRUE) {
+  if (!is_array($ids)) {
+    $ids = array($ids);
+  }
+
+  // User profiles metatags are not enabled.
+  if ($type == 'user' && !variable_get('nodewords_enable_user_metatags', TRUE)) {
+    $tags = array();
+  }
+  // Load the values from the database
+  elseif (count($ids) == 1 && ($type != 'node' || node_access('view', node_load($ids[0])))) {
+    $tags = nodewords_load_tags($type, $ids[0]);
+  }
+  else {
+    $tags = array();
+  }
+
+  $output_tags = array();
+  $tag_options = array(
+    'default' => nodewords_load_tags('default', ''),
+    'ids' => $ids,
+    'type' => $type,
+  );
+
+  // Prepare the tags.
+  foreach (nodewords_get_possible_tags() as $name => $info) {
+    if (function_exists($function = $info['tag:function:prefix'] . '_prepare')) {
+      $tag_options['parameters'] = !empty($info['tag:function:parameters']) ? $info['tag:function:parameters'] : array();
+
+      $function($output_tags, isset($tags[$name]) ? $tags[$name] : array(), $tag_options);
+    }
+  }
+
+  // Allow third-party modules to alter the meta tags.
+  drupal_alter('nodewords_tags', $output_tags, $tag_options);
+
+  // Filter out tags the user has chosen not to see
+  if ($filtered) {
+    foreach (variable_get('nodewords_head', array()) as $name => $viewable) {
+      if (!$viewable) {
+        unset($output_tags[$name]);
+      }
+    }
+  }
+
+  return $output_tags;
+}
+
+/**
+ * Return the form used to set the meta tags values.
+ *
+ * @param $type
+ *   The object to which the meta tags are associated (node, user, taxonomy
+ *   term, etc...).
+ * @param $tags
+ *   The meta tags array as returned by nodewords_load_tags().
+ *
+ * @return
+ *   An array as requested by the form API.
+ */
+function nodewords_form($type, $tags, $options = array()) {
+  $default_options = array(
+    'page:administrative' => FALSE,
+    'fieldset' => TRUE,
+    'fieldset:title' => t('Nodewords'),
+    'fieldset:weight' => 20,
+  );
+  $edit_tags = variable_get('nodewords_edit', array());
+  $form = array();
+  $options += $default_options;
+  $tag_options = array(
+    'default' => nodewords_load_tags('default', ''),
+    'type' => $type,
+  );
+
+  $tags_info = nodewords_get_possible_tags();
+
+  foreach ($tags_info as $name => $info) {
+    if ($type != 'default' && empty($edit_tags[$name])) {
+      continue;
+    }
+
+    if (!empty($info['tag:context:allowed'])) {
+      if (!in_array($type, $info['tag:context:allowed'])) {
+        continue;
+      }
+    }
+    elseif (!empty($info['tag:context:denied'])) {
+      if (in_array($type, $info['tag:context:denied'])) {
+        continue;
+      }
+    }
+
+    if (!$options['page:administrative'] && ((!empty($options['page:permissions:additional']) && !user_access($options['page:permissions:additional'])) || (!empty($info['widget:permission']) && !user_access($info['widget:permission'])))) {
+      continue;
+    }
+
+    if (function_exists($function = $info['tag:function:prefix'] . '_form')) {
+      $tag_options['parameters'] = !empty($info['tag:function:parameters']) ? $info['tag:function:parameters'] : array();
+
+      $function($form, isset($tags[$name]) ? $tags[$name] : array(), $tag_options);
+    }
+  }
+
+  if (!empty($form)) {
+    _nodewords_cmp_form_fields($form, 0, TRUE);
+    uksort($form, '_nodewords_cmp_form_fields');
+
+    if ($options['fieldset']) {
+      $collapsed = FALSE;
+
+      foreach (element_children($form) as $id) {
+        if ($form[$id]['#type'] == 'fieldset' && !empty($form[$id]['#collapsed'])) {
+          $collapsed = TRUE;
+        }
+      }
+
+      $form['#type'] = 'fieldset';
+      $form['#title'] = $options['fieldset:title'];
+      $form['#tree'] = TRUE;
+      $form['#collapsible'] = TRUE;
+      $form['#collapsed'] = variable_get('nodewords_collapse_fieldset', FALSE) || $collapsed;
+      $form['#weight'] = $options['fieldset:weight'];
+    }
+  }
+
+  return $form;
+}
+
+/**
+ * Return a list of possible output tags.
+ *
+ * @param $remove_disabled
+ *   If TRUE, disabled meta tags will not be returned.
+ *
+ * @return
+ *   An array containing the list of meta tags.
+ */
+function nodewords_get_possible_tags() {
+  if ($cache = cache_get('tags_info', 'cache_nodewords')) {
+    return $cache->data;
+  }
+  else {
+    $tags = array();
+
+    // Allow third-party modules to alter the  meta tags list, or to add new
+    // meta tags.
+    foreach (module_implements('nodewords_tags_info') as $module) {
+      if (module_hook($module, 'nodewords_api')) {
+        $result = module_invoke($module, 'nodewords_api');
+
+        if (isset($result)) {
+          if (is_numeric($result)) {
+            if ($result <> NODEWORDS_API_VERSION) {
+              continue;
+            }
+          }
+          elseif (is_array($result) && isset($result['version'])) {
+            if ($result['version'] <> NODEWORDS_API_VERSION) {
+              continue;
+            }
+          }
+          else {
+            continue;
+          }
+        }
+        else {
+          continue;
+        }
+
+        $result = module_invoke($module, 'nodewords_tags_info');
+
+        if (isset($result) && is_array($result)) {
+          $tags = array_merge($tags, $result);
+        }
+      }
+    }
+
+    cache_set('tags_info', $tags, 'cache_nodewords');
+    return $tags;
+  }
+}
+
+/**
+ * Return the term object matching a term ID. This is a modified version of
+ * taxonomy_get_term() which uses db_rewrite_sql().
+ *
+ * @param $tid
+ *   A term's ID.
+ *
+ * @return
+ *   A term object. Results are statically cached.
+ */
+function nodewords_get_term($tid) {
+  global $user;
+  static $previous_uid = -1, $terms = array();
+
+  if ($user->uid <> $previous_uid) {
+    $terms = array();
+    $previous_uid = $user->uid;
+  }
+
+  if (!isset($terms[$tid])) {
+    $terms[$tid] = db_fetch_object(
+      db_query(
+        db_rewrite_sql('SELECT * FROM {term_data} t WHERE t.tid = %d', 't', 'tid'),
+        $tid
+      )
+    );
+  }
+
+  return $terms[$tid];
+}
+
+/**
+ * Load tags from table.
+ */
+function nodewords_load_tags($type, $id) {
+  $result = db_query("SELECT * FROM {nodewords} WHERE type = '%s' AND id = '%s'", $type, $id);
+  $tags = array();
+  $tags_info = nodewords_get_possible_tags();
+
+  while ($row = db_fetch_object($result)) {
+    if (isset($tags_info[$row->name])) {
+      if ($tags_info[$row->name]['tag:db:type'] != 'string') {
+        $tags[$row->name] = unserialize($row->content);
+      }
+      else {
+        $tags[$row->name]['value'] = $row->content;
+      }
+    }
+  }
+
+  if (empty($tags) && $type == 'term') {
+    return nodewords_load_tags('vocabulary', db_result(db_query('SELECT vid FROM {term_data} WHERE tid = %d', $id)));
+  }
+
+  return $tags;
+}
+
+/**
+ * Delete the nodes meta tags.
+ *
+ * @param $ids
+ *  An array of IDs.
+ * @param $type
+ *  The type of the object associated with the IDs ('node', 'user',
+ *  'error_page', 'page', ...).
+ */
+function nodewords_mass_delete_tags($ids, $type) {
+  db_query("DELETE FROM {nodewords} WHERE id IN (" . db_placeholders($ids, 'varchar') . ") AND type = '%s'",
+    array_merge($ids, array($type))
+  );
+
+  if ($type == 'page') {
+    db_query("DELETE FROM {nodewords_custom} WHERE path IN (" . db_placeholders($ids, 'varchar') . ")",
+      $ids
+    );
+    nodewords_cache_clear();
+  }
+
+  drupal_set_message(t('The update has been performed.'));
+}
+
+/**
+ * Render the meta tag values as HTML.
+ *
+ * @param $tags
+ *   An array of tags (as returned by nodewords_get_tags()).
+ *
+ * @return
+ *   A string containing the HTML output for the META tag.
+ */
+function nodewords_output_tags($tags) {
+  $output = array();
+  $tags_info = nodewords_get_possible_tags();
+
+  foreach ($tags as $name => $content) {
+    if (empty($content)) {
+      continue;
+    }
+
+    $parts = explode(':', $name);
+
+    if (!isset($parts[1])) {
+      $parts[1] = $parts[0];
+    }
+
+    if (isset($tags_info[$parts[0]]['tag:template'][$parts[1]])) {
+      $replace = array(
+        '%name' => check_plain($parts[1]),
+        '%content' => check_plain($content),
+        '%attributes' => empty($tags_info[$parts[0]]['tag:attributes'][$parts[1]]) ? '' : drupal_attributes($tags_info[$parts[0]]['tag:attributes'][$parts[1]]),
+      );
+      $template = $tags_info[$parts[0]]['tag:template'][$parts[1]];
+
+      switch ($template) {
+        case NODEWORDS_META:
+          $template = '<meta name="%name" content="%content"%attributes />';
+          break;
+
+        case NODEWORDS_HTTP_EQUIV:
+          $template = '<meta http-equiv="%name" content="%content"%attributes />';
+          break;
+
+        case NODEWORDS_LINK_REL:
+          $template = '<link rel="%name" href="%content"%attributes />';
+          break;
+
+        case NODEWORDS_LINK_REV:
+          $template = '<link rev="%name" href="%content"%attributes />';
+          break;
+
+        default:
+          if (!is_string($template)) {
+            $template = '';
+          }
+          break;
+      }
+
+      if (!empty($template)) {
+        $output[] = strtr($template, $replace);
+      }
+    }
+  }
+
+  return implode("\n", $output);
+}
+
+/**
+ * This function is used from the menu system when a menu callback path contains
+ * %nodewords_page_load.
+ */
+function nodewords_page_load($pid) {
+  return _nodewords_get_pages_data($pid);
+}
+
+/**
+ * Update or insert tags in the table.
+ */
+function nodewords_save_tags($type, $id, $tags, $log_message = FALSE) {
+  global $user;
+  static $tags_info;
+
+  if (!isset($tags_info)) {
+    $tags_info = nodewords_get_possible_tags();
+  }
+
+  $done = FALSE;
+
+  foreach ($tags as $name => $content) {
+    if (isset($tags_info[$name])) {
+      if ($tags_info[$name]['tag:db:type'] == 'string') {
+        $content = $content['value'];
+      }
+      else {
+        $content = serialize($content);
+      }
+
+      $result = db_fetch_object(db_query("SELECT * FROM {nodewords} WHERE type = '%s' AND id = '%s' AND name = '%s'", $type, $id, $name));
+
+      if ($result === FALSE) {
+        $row = new stdClass();
+        $row->type = $type;
+        $row->id = $id;
+        $row->name = $name;
+        $row->content = $content;
+      }
+      else {
+        $row = $result;
+        $row->content = $content;
+      }
+
+      drupal_write_record('nodewords', $row, $result !== FALSE ? 'mtid' : NULL);
+
+      if (!$done) {
+        watchdog('nodewords', '%name changed the meta tags for %type (%id).', array('%name' => $user->name, '%type' => $type, '%id' => $id));
+        $done = TRUE;
+      }
+    }
+  }
+}
+
+/*
+ * Remove the duplicates from a list of items separated from the separator,
+ * preserving the order in which they appear.
+ * @param $text
+ *   The string containing the list of items concatenated using $separator.
+ * @param $max_items
+ *   The maximum number of items accepted in the returned array.
+ * @param $separator
+ *   The string used to split the string into an array. A space will be appended
+ *   to the string before it is used to create the string from the array of
+ *   unique items found in the string passed as argument.
+ *
+ * @return
+ *   A string containing only unique items present in the string of concatenated
+ *   items.
+ */
+function nodewords_unique($text, $max_items = 0, $separator = ',') {
+  $unique_values = array();
+
+  if (empty($text)) {
+    return '';
+  }
+
+  foreach (array_map('drupal_strtolower', array_filter(array_map('trim', explode($separator, $text)))) as $item) {
+    if (!in_array($item, $unique_values)) {
+      $unique_values[] = $item;
+    }
+  }
+
+  if ($max_items > 0) {
+    $unique_values = array_slice($uniq_values, 0, $max_items);
+  }
+
+  return implode("$separator ", $unique_values);
+}
+
+/*****************************************************************************
+ * Private functions.
+ ****************************************************************************/
+
+/**
+ * Helper function for uksort().
+ * Sort the form fields basing on their titles.
+ */
+function _nodewords_cmp_form_fields($a, $b, $init = FALSE) {
+  static $form;
+
+  if ($init) {
+    $form = $a;
+  }
+  else {
+    return strnatcmp($form[$a]['#title'], $form[$b]['#title']);
+  }
+}
+
+/**
+ * Try to guess the $type and $ids by looking at $_GET['q'].
+ */
+function _nodewords_detect_type_and_ids() {
+  $arg = arg();
+
+  if (variable_get('site_offline', 0) && user_access('administer site configuration')) {
+    return array('offline', array(''));
+  }
+
+  if (!variable_get('nodewords_list_repeat', FALSE) && isset($_REQUEST['page']) && intval($_REQUEST['page']) > 0) {
+    return array('none', array());
+  }
+
+  if (drupal_is_front_page() && variable_get('nodewords_use_frontpage_tags', TRUE)) {
+    return array('frontpage', array(''));
+  }
+
+  $headers = drupal_get_headers();
+
+  if (preg_match('@HTTP/1\.[01]\x20+403@', $headers)) {
+    return array('errorpage', array(403));
+  }
+
+  if (preg_match('@HTTP/1\.[01]\x20+404@', $headers)) {
+    return array('errorpage', array(404));
+  }
+
+  if (!isset($arg[0])) {
+    return array('none', array());
+  }
+
+  switch ($arg[0]) {
+    case 'forum':
+      // Forum paths: forum/$tid , forum/
+      if (!isset($arg[1])) {
+        return array('vocabulary', variable_get('forum_nav_vocabulary', 0));
+      }
+      elseif (is_numeric($arg[1])) {
+        return array('term', $arg[1]);
+      }
+      break;
+
+    case 'image':
+      // Image gallery paths: image/ , image/???/$tid
+      if (!isset($arg[1])) {
+        return array('vocabulary', variable_get('image_gallery_nav_vocabulary', 0));
+      }
+      elseif (isset($arg[2]) && is_numeric($arg[2])) {
+        return array('term', $arg[2]);
+      }
+      break;
+
+    case 'node':
+      // Node paths: node/$nid
+      if (isset($arg[1]) && is_numeric($arg[1])) {
+        $type = db_result(db_query('SELECT type FROM {node} WHERE nid = %d', $arg[1]));
+        if (($type == 'poll' && isset($arg[2]) && in_array($arg[2], array('edit', 'results'))) || (!isset($arg[2]))) {
+          return array('node', $arg[1]);
+        }
+      }
+      break;
+
+    case 'taxonomy':
+      // Taxonomy paths: taxonomy/term/$tid , taxonomy/term/$tid1+$tid2
+      if (isset($arg[1]) && isset($arg[2]) && $arg[1] == 'term') {
+        $ids = preg_split('![+, ]!', $arg[2]);
+        if (count($ids)) {
+          // Verify that $ids contains all numeric values.
+          $result = TRUE;
+          foreach ($ids as $id) {
+            if (!($result = $result && is_numeric($id))) {
+              break;
+            }
+          }
+
+          if ($result) {
+            return array('term', $ids);
+          }
+        }
+      }
+      break;
+
+    case 'taxonomy_menu':
+      // Taxonomy menu paths: taxonomy_menu/$vid, taxonomy_menu/$vid/$tid
+      if (isset($arg[2]) && is_numeric($arg[2])) {
+        return array('term', $arg[2]);
+      }
+      elseif (isset($arg[1]) && is_numeric($arg[1])) {
+        return array('vocabulary', $arg[1]);
+      }
+      break;
+
+    case 'tracker':
+      return array('tracker', array(isset($arg[1]) && is_numeric($arg[1]) ? $arg[1] : -1));
+
+    case 'user':
+      // User page paths: user/$uid.
+      if (isset($arg[1]) && is_numeric($arg[1])) {
+        if (isset($arg[2]) && $arg[2] == 'track') {
+          return array('tracker', array($arg[1]));
+        }
+        return array('user', array($arg[1]));
+      }
+      break;
+  }
+
+  foreach (_nodewords_get_pages_data() as $page) {
+    if (preg_match($page->regexp, $_GET['q'])) {
+      return array('page', array($page->path));
+    }
+  }
+
+  return array('none', array());
+}
+
+/**
+ * Load the page meta tags data from the cache.
+ *
+ * @param $id
+ *   The ID of the page to load; by default the function loads all the custom
+ *   pages data.
+ */
+function _nodewords_get_pages_data($id = NULL) {
+  if ($cache = cache_get('pages', 'cache_nodewords')) {
+    $pages = $cache->data;
+  }
+  else {
+    $pages = array();
+    $result = db_query("SELECT * FROM {nodewords_custom} ORDER BY weight ASC");
+
+    while ($page = db_fetch_object($result)) {
+      $page->regexp = '/^('. preg_replace('/\\\\\*/', '.*', preg_quote($page->path, '/')) .')$/';
+      $page->tags = nodewords_load_tags('page', $page->path);
+
+      $pages[$page->pid] = $page;
+    }
+
+    cache_set('pages', $pages, 'cache_nodewords');
+  }
+
+  return isset($id) ? (isset($pages[$id]) ? $pages[$id] : FALSE) : $pages;
+}
+
+/**
+ * @} End of "addtogroup nodewords".
+ */

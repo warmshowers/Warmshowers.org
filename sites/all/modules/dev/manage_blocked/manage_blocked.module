@@ -1,0 +1,519 @@
+<?php
+/**
+ *
+ * This module is to remind users who have signed up a user account,
+ * responded and gotten it unblocked. It's driven by the cron job and can be
+ * configured under "/admin/user/manage_blocked" .
+ *
+ */
+
+// TODO: Check for code conventions
+// TODO: Check to see the setting on users to make sure that it's set to "admin must authorize acct". Otherwise this makes no sense.
+
+/*Delete the user from the manage blocked table if the user is deleted*/
+function manage_blocked_user($op, &$edit, &$user, $category = NULL) {
+
+  switch($op) {
+    case 'delete':
+      db_query('DELETE FROM {manage_blocked} WHERE uid = %d', $user->uid);
+      break;
+  }
+}
+
+function manage_blocked_menu() {
+
+  $items['admin/user/manage_blocked'] = array(
+	'title' => 'Manage Blocked Users',
+	'description' => 'Manage the notification of blocked users and delete them when necessary',
+	'type' => MENU_NORMAL_ITEM,
+	'page callback' => 'drupal_get_form',
+	'page arguments' => array('manage_blocked_settings'),
+  'access arguments' => array('administer manage_blocked'),
+  );
+
+  $items['admin/user/manage_blocked/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Settings of Manage Blocked, sets reminder frequency and mail details',
+  //'page callback' => 'drupal_get_form',
+  //'page arguments' => array('manage_blocked_settings'),
+    'access arguments' => array('administer manage_blocked'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -1,
+  );
+  $items['admin/user/manage_blocked/delete'] = array(
+  	'title' => 'Delete Blocked Users',
+  	'page callback' => 'manage_blocked_admin',
+  	'page arguments' => array('list'),
+  	'access arguments' => array('administer users'),
+  	'type'=> MENU_LOCAL_TASK,
+  );
+
+  $items['manage-blocked'] = array(
+    'title' => 'Unsubscribe',
+    'page callback' => 'manage_blocked_unsubscribe',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK
+  );
+  // TODO: Add here a report of the current situation (what users have been mailed, etc.)
+  // TODO: Add a way to delete the blocked users
+
+  return $items;
+}
+
+/**
+ * Implementation of hook perm
+ */
+function manage_blocked_perm(){
+  return array("administer manage_blocked");
+}
+
+/**
+ * For the admin/settings/manage_blocked page
+ */
+function manage_blocked_settings(){
+
+
+  $form['frequency']=array('#type' => 'fieldset', '#title'=> t('Reminder frequency'));
+  $form['mail']=array('#type' => 'fieldset', '#title'=> t('Reminder email details'));
+  $form['frequency']['manage_blocked_initial']=array('#type'=>'textfield',
+                                            '#title'=>'Days till initial reminder',
+                                            '#default_value'=>variable_get('manage_blocked_initial', 10),
+                                            '#description' => t('The time span (in days) between the user registering and the initial reminder being sent'),
+  );
+  $form['frequency']['manage_blocked_frequency']=array('#type' => 'textfield',
+                                            '#title' => 'Days between reminders',
+                                            '#default_value' => variable_get('manage_blocked_frequency', 14),
+                                            '#description' => t('The time (in days) between subsequent reminders.'),
+  );
+
+  $form['frequency']['manage_blocked_total']=array('#type' => 'textfield',
+                                            '#title' => 'Total number of reminders',
+                                            '#default_value' => variable_get('manage_blocked_total', 3),
+                                            '#description' => t('Total number of reminders to send before giving up, you can\'t win \'em all!')
+  );
+
+  $form['mail']['manage_blocked_subject']=array('#type' => 'textfield',
+                                            '#title' => 'Email subject',
+                                            '#default_value' => variable_get('manage_blocked_subject', 'Account details for %username at %site'),
+                                            '#description' => t('The subject of the message with variables %site, %username'),
+                                            '#weight'=>-10
+
+  );
+  $form['mail']['manage_blocked_msg']=array('#type' => 'textarea',
+                                            '#title' => 'Email body',
+                                            '#default_value' => variable_get('manage_blocked_msg', '%username,
+
+This is a reminder from %site. You have registered for a user account but have not yet responded to the welcome email to validate your email address.  To fully activate your account, please reply to this email and say a little about yourself.
+
+
+
+--  %site team
+
+
+You can stop receiving these reminder emails by either activating your account, or using the unsubscribe link below:
+
+%unsubscribe_url'
+  ),
+                                            '#description' => t('Customize the body of the email. Valid variables are %site, %username, %login_uri, %edit_url, %unsubscribe_url (A URL allowing users to opt out of recieving the reminder emails)'),
+                                            '#weight'=>-8
+  );
+
+  return system_settings_form($form);
+}
+
+
+/**
+ *  Implementation of hook_cron.
+ */
+function manage_blocked_cron(){
+
+  //Remove users who have been unblocked from the reminder table...
+  $result=db_query("DELETE mb.* FROM {manage_blocked} mb,{users} u WHERE mb.uid=u.uid AND status=1 and u.uid>0");
+
+  $first_wait=variable_get('manage_blocked_initial', 10);
+  $period=variable_get('manage_blocked_frequency', 14);
+  $total_messages=variable_get('manage_blocked_total', 3);
+  $num_msgs_per_cron=variable_get('manage_blocked_msgs_per_cron',10); // throttle
+
+  // For testing, use a fudge value that can test for the future
+  // Set this to number of days in the future. Normal use, set to 0
+  $fudge=0;
+  $fudgesql = "SET @fudgedate=$fudge;";
+  $result=db_query($fudgesql);
+
+  // TODO: change to db_query_range, the proper way to do it.
+  //Pick up users that are due for a reminder and who haven't opted out
+  $sql =
+   "SELECT u.uid, u.name, u.mail, u.pass, u.status,u.access, from_unixtime(u.created) created,
+   DATEDIFF(adddate(now(),@fudgedate),from_unixtime(u.created)) days_since_created,
+   mb.msg_cnt, datediff(adddate(now(),@fudgedate),
+  from_unixtime(mb.last_reminder)) days_since_reminder
+  FROM {users} u
+  LEFT JOIN {manage_blocked} mb
+  ON mb.uid=u.uid
+  WHERE  u.status=0 and u.uid>0
+  AND (
+      -- Either this user is not yet in the table and the first_wait is up
+      (mb.uid is null
+      and datediff(adddate(now(),@fudgedate),from_unixtime(u.created)) >= %d)
+                OR
+      -- Or the user is there and has received a msg but is due for another
+      (mb.msg_cnt>0
+       AND datediff(adddate(now(),@fudgedate),from_unixtime(mb.last_reminder)) >= %d)
+       AND mb.msg_cnt < %d
+      )
+
+      ORDER BY u.created asc LIMIT %d";
+
+  $result=db_query($sql,
+  $first_wait, $period, $total_messages,$num_msgs_per_cron);
+
+  while($row=db_fetch_object($result)){
+
+    $account = user_load(array('uid'=>$row->uid));
+    manage_blocked_send_email($account);
+    db_query("REPLACE INTO {manage_blocked} SET uid=%d,msg_cnt=%d,last_reminder=unix_timestamp(adddate(now(),@fudgedate))",$row->uid,intval($row->msg_cnt)+1);
+    $msgs[] = $row->uid;
+  }
+
+  if ($nummsgs = sizeof($msgs)) {
+    foreach($msgs as $uid) {
+      $url = url("user/$uid");
+      $fullmsg .= "<a href='$url'>$uid</a>, ";
+    }
+    watchdog('manage_blocked',"$nummsgs reminder msgs to $fullmsg");
+  }
+
+}
+
+/**
+ * Produce the URL for users to "just say no"
+ */
+function manage_blocked_unsubscribe_url($user){
+  return url("manage-blocked/". $user->uid . "/". md5($user->uid . $user->pass), array('absolute' => TRUE));
+}
+
+/**
+ * URL to for editing the user (for activating)
+ * @param $user
+ * @return URL
+ */
+function manage_blocked_edit_url($user){
+  $url = url("user/{$user->uid}/edit", array('absolute' => TRUE));
+  return $url;
+}
+
+/**
+ * This user does not want us spamming them any more!
+ */
+function manage_blocked_unsubscribe($uid,$hash){
+  $account = user_load(array('uid'=>$uid));
+  $tryhash = md5($uid.$account->pass);
+  if ($hash==md5($uid.$account->pass)){
+    db_query("UPDATE {manage_blocked} SET msg_cnt=-1 WHERE uid=%d",$uid);
+    $output .= t("Thank you, @user, you will not receive any more notifications",array('@user'=>$account->name));
+    drupal_set_message(t('Blocked user notification emails successfully cancelled'));
+    watchdog('manage_blocked', "User %uid (%name) opted out of blocked user notification emails",array('%uid'=>$account->uid, '%name'=>$account->name),WATCHDOG_NOTICE);
+  }
+  else{
+    drupal_set_message (t("invalid URL"));
+    $output .= t("Sorry, Unable to utilize the URL you provided");
+  }
+  return $output;
+}
+
+/**
+ * Sends the email out.
+ *
+ * If you're debugging this using cron.php and you don't finish the run, you need to
+ * kill the cron semaphores each time:
+ *   delete from variable where name like "cron_%";
+ *   truncate cache;
+ */
+function manage_blocked_send_email($user){
+
+  $variables = array('%site' => variable_get('site_name',""),
+                     '%username' => $user->name,
+                     '%user_mail' => $user->mail,
+                     '%uid' => $user->uid,
+                     '%login_uri'=>url('user', array('query' => null, 'fragment' => null, 'absolute' => TRUE)),
+                     '%unsubscribe_url'=>manage_blocked_unsubscribe_url($user),
+                     '%edit_url' => manage_blocked_edit_url($user),
+  );
+
+  $from = variable_get('site_mail', ini_get('sendmail_from'));
+
+  if ($non_translatable_string = variable_get('manage_blocked_subject', FALSE)) {
+    $subject = strtr($non_translatable_string, $variables);
+  }
+  else {
+    $subject = t('Account details for !username at !site',$variables);
+  }
+
+  if ($non_translatable_string= variable_get('manage_blocked_msg',FALSE)){
+    $body=strtr($non_translatable_string,$variables);
+  }
+  else{
+    $body = t("Hello %username,
+
+This is a reminder from %site. You have registered for a user account but have not yet validated your email address.  You'll need to respond to this email to get access to the site.
+
+--  %site team
+
+
+You can stop receiving these reminder emails by either activating your account, or using the unsubscribe link below:
+
+%unsubscribe_url", $variables);
+  }
+
+
+  $email = str_replace(array("\r\n", "\n", "\r", ";", ","), '', $user->mail);
+  $headers = array(
+    'X-Mailer' => 'Drupal manage_blocked module',
+  );
+
+  if(!valid_email_address($email)){
+    watchdog("manage_blocked", "Invalid email address %mail for user uid %id. Not sending mail",array('%mail'=>$email, '%id'=>$user->uid),WATCHDOG_WARNING);
+    return;
+  }
+  module_invoke_all('manage_blocked_email', $email, $subject, $body, $from);
+  $account = array(); // Set this as needed
+  $language = user_preferred_language($account);
+  $object = array(); // Replace this as needed
+  $context['subject'] = $subject;
+  $context['body'] = $body;
+  $context['from'] = $from;
+  $context['headers'] = $headers;
+  $params = array('context' => $context);
+  drupal_mail('manage_blocked', 'manage_blocked_email', $email, $language, $params, $from);
+}
+
+/**
+ * Implementation of hook_mail - gets called when drupal_mail() is called
+ * @param $key   -- Just a key to the message type
+ * @param $message  -- The message itself
+ * @param $params  -- 'body' has body; 'headers' has headers
+ * @return unknown_type
+ *
+ * @see hook_mail()
+ */
+function manage_blocked_mail($key, &$message, $params) {
+  if ($key == "manage_blocked_email") {
+    $message['subject'] = $params['context']['subject'];
+    $message['body'][] = $params['context']['body'];
+    $message['headers'] = array_merge($message['headers'], $params['context']['headers']);
+  }
+
+}
+
+
+function manage_blocked_admin($callback_arg = '') {
+  $op = isset($_POST['op']) ? $_POST['op'] : $callback_arg;
+
+  switch ($op) {
+    default:
+      if ($_POST['accounts'] && $_POST['operation'] == 'delete') {
+        $output = drupal_get_form('manage_blocked_multiple_delete_confirm');
+      }
+      else {
+        $output .= drupal_get_form('manage_blocked_delete_accounts');
+      }
+  }
+  return $output;
+}
+
+function manage_blocked_delete_accounts() {
+  // $filter = user_build_filter_query();
+  $numdays=30;
+  $filter = "and DATEDIFF(NOW(), from_unixtime(u.created)) > $numdays ";
+
+
+  $header = array(
+  array(),
+  array('data' => t('Username'), 'field' => 'u.name'),
+  array('data' => t('Status'), 'field' => 'u.status'),
+  array('data' => t('Member for'), 'field' => 'u.created', 'sort' => 'asc'),
+  array('data' => t('Last Reminder'), 'field' => 'mb.last_reminder'),
+  array('data' => t('Num Reminders Sent'), 'field' => 'mb.msg_cnt'),
+  t('Operations')
+  );
+
+  $sql = 'SELECT DISTINCT u.uid, u.name, u.status, u.created, mb.last_reminder, mb.msg_cnt
+  			FROM {users} u left join {manage_blocked} mb
+  			on u.uid=mb.uid
+  			WHERE u.uid != 0  and u.status=0 ' . $filter ;
+  $sql .= tablesort_sql($header);
+  $result = pager_query($sql, 500, 0, NULL);
+
+  $form['options'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Delete blocked users more than @numdays days old',array('@numdays'=>$numdays)),
+    '#prefix' => '<div class="container-inline">',
+    '#suffix' => '</div>',
+  );
+  //  $options = array();
+  //  foreach (module_invoke_all('user_operations') as $operation => $array) {
+  //    $options[$operation] = $array['label'];
+  //  }
+    /*
+     *
+     DOESN'T SEEM TO BE USED
+     $form['options']['operation'] = array(
+     '#type' => 'select',
+     '#options' => $options,
+     '#default_value' => 'unblock',
+     );*/
+  $form['options']['operation'] = array(
+  	'#type' => 'hidden',
+  	'#default_value' => 'delete',
+  );
+  $form['options']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Delete'),
+  );
+
+  $destination = drupal_get_destination();
+
+  $status = array(t('blocked'), t('active'));
+  $roles = user_roles(1);
+
+  while ($account = db_fetch_object($result)) {
+    $accounts[$account->uid] = '';
+    $form['name'][$account->uid] = array('#value' => theme('username', $account));
+    $form['status'][$account->uid] =  array('#value' => $status[$account->status]);
+    $form['member_for'][$account->uid] = array('#value' => format_interval(time() - $account->created));
+    $form['last_reminder'][$account->uid] =  array('#value' => $account->last_reminder ? t('@time ago', array('@time' => format_interval(time() - $account->last_reminder))) : t('never'));
+
+    $msg_cnt = $account->msg_cnt;
+    if ($msg_cnt == null) {
+      $msg_cnt=0;
+    }
+    if ($msg_cnt == -1) {
+      $msg_cnt=t("opted out");
+    }
+    $form['msg_cnt'][$account->uid] =  array('#value' => $msg_cnt);
+    $form['operations'][$account->uid] = array('#value' => l(t('edit'), "user/$account->uid/edit", array('query' => $destination)));
+  }
+  $form['accounts'] = array(
+    '#type' => 'checkboxes',
+    '#options' => $accounts,
+    '#default_value' => 'checked',
+    '#attributes' => array('checked' => 'checked'),
+  );
+  $form['pager'] = array('#value' => theme('pager', NULL, 50, 0));
+  //  $form['#submit'] = array('user_admin_account_submit');
+  //  $form['#validate'] = array('user_admin_account_validate');
+  return $form;
+}
+
+/**
+ * Theme user administration overview.
+ */
+function theme_manage_blocked_delete_accounts($form) {
+  // Overview table:
+  $header = array(
+  theme('table_select_header_cell'),
+  array('data' => t('Username'), 'field' => 'u.name'),
+  array('data' => t('Status'), 'field' => 'u.status'),
+  array('data' => t('Member for'), 'field' => 'u.created', 'sort' => 'asc'),
+  array('data' => t('Last Reminder'), 'field' => 'mb.last_reminder'),
+  array('data' => t('Num Reminders Sent'), 'field' => 'mb.msg_cnt'),
+
+  t('Operations')
+  );
+
+  $output = drupal_render($form['options']);
+  if (isset($form['name']) && is_array($form['name'])) {
+    foreach (element_children($form['name']) as $key) {
+      $rows[] = array(
+      drupal_render($form['accounts'][$key]),
+      drupal_render($form['name'][$key]),
+      drupal_render($form['status'][$key]),
+      drupal_render($form['member_for'][$key]),
+      drupal_render($form['last_reminder'][$key]),
+      drupal_render($form['msg_cnt'][$key]),
+      drupal_render($form['operations'][$key]),
+      );
+    }
+  }
+  else  {
+    $rows[] = array(array('data' => t('No users found.'), 'colspan' => '8'));
+  }
+
+  $output .= theme('table', $header, $rows);
+  if ($form['pager']['#value']) {
+    $output .= drupal_render($form['pager']);
+  }
+
+  $output .= drupal_render($form);
+
+  return $output;
+}
+/*
+ * New theme registry needed for Drupal 6 - Russo
+ */
+function manage_blocked_theme(){
+  return array(
+    				'manage_blocked_delete_accounts' =>
+  array(
+      					'arguments' => array('form' => NULL)
+  )
+  );
+}
+
+/**
+ * Submit the user administration update form.
+ */
+function manage_blocked_delete_accounts_submit($form, &$form_state) {
+  $operations = module_invoke_all('user_operations');
+  $operation = $operations[$form_state['values']['operation']];
+  // Filter out unchecked accounts.
+  $accounts = array_filter($form_state['values']['accounts']);
+  if ($function = $operation['callback']) {
+    // Add in callback arguments if present.
+    if (isset($operation['callback arguments'])) {
+      $args = array_merge(array($accounts), $operation['callback arguments']);
+    }
+    else {
+      $args = array($accounts);
+    }
+    call_user_func_array($function, $args);
+
+    cache_clear_all('*', 'cache_menu', TRUE);
+    drupal_set_message(t('The update has been performed.'));
+  }
+}
+
+function manage_blocked_delete_accounts_validate($form, &$form_state) {
+  $form_state['values']['accounts'] = array_filter($form_state['values']['accounts']);
+  if (count($form_state['values']['accounts']) == 0) {
+    form_set_error('', t('No users selected.'));
+  }
+}
+
+function manage_blocked_multiple_delete_confirm() {
+  $edit = $_POST;
+
+  $form['accounts'] = array('#prefix' => '<ul>', '#suffix' => '</ul>', '#tree' => TRUE);
+  // array_filter returns only elements with TRUE values
+  foreach (array_filter($edit['accounts']) as $uid => $value) {
+    $user = db_result(db_query('SELECT name FROM {users} WHERE uid = %d', $uid));
+    $form['accounts'][$uid] = array('#type' => 'hidden', '#value' => $uid, '#prefix' => '<li>', '#suffix' => check_plain($user) ."</li>\n");
+  }
+  $form['operation'] = array('#type' => 'hidden', '#value' => 'delete');
+
+  return confirm_form($form,
+  t('Are you sure you want to delete these users?'),
+                      'admin/user/manage_blocked/delete', t('This action cannot be undone.'),
+  t('Delete all'), t('Cancel'));
+}
+
+function manage_blocked_multiple_delete_confirm_submit($form, &$form_state) {
+  if ($form_state['values']['confirm']) {
+    foreach ($form_state['values']['accounts'] as $uid => $value) {
+      user_delete($form_state['values'], $uid);
+    }
+    drupal_set_message(t('The users have been deleted.'));
+  }
+  return 'admin/user/manage_blocked/delete';
+}
