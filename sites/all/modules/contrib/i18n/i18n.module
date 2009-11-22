@@ -1,5 +1,5 @@
 <?php
-// $Id: i18n.module,v 1.41.2.34 2009/06/12 11:33:15 jareyero Exp $
+// $Id: i18n.module,v 1.41.2.40 2009/11/03 10:46:25 jareyero Exp $
 
 /**
  * @file
@@ -18,6 +18,7 @@ define('LANGUAGE_SUPPORT_NONE', 0);
 define('LANGUAGE_SUPPORT_NORMAL', 1);
 define('LANGUAGE_SUPPORT_EXTENDED', 2);
 define('LANGUAGE_SUPPORT_EXTENDED_NOT_DISPLAYED', 3);
+
 /**
  * Implementation of hook_init().
  *
@@ -84,7 +85,7 @@ function i18n_menu() {
     'file' => 'i18n.admin.inc',
     'type' => MENU_LOCAL_TASK,
     'weight' => 10,
-  );  
+  );
   $items['admin/settings/language/i18n/configure'] = array(
     'title' => 'Multilingual system',
     'description' => 'Configure extended options for multilingual content and translations.',
@@ -119,62 +120,16 @@ function i18n_menu_alter(&$items) {
 /**
  * Implementation of hook_nodeapi().
  */
-/*
-function i18n_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
-  if (variable_get("i18n_node_$node->type", 0)) {
-    switch ($op) {
-      case 'load':
-        return db_fetch_array(db_query("SELECT trid, language, status AS i18n_status FROM {i18n_node} WHERE nid=%d", $node->nid));
+function i18n_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  global $language;
 
-      case 'insert':
-      case 'update':
-        db_query("DELETE FROM {i18n_node} WHERE nid=%d",$node->nid);
-        if ($node->language){
-          // Assign a trid from the beginning
-          db_query("INSERT INTO {i18n_node} (nid, trid, language, status) VALUES(%d, '%d', '%s', '%d')", $node->nid, $node->trid, $node->language, $node->i18n_status);
-        }
-        // Handle menu items. Fixes duplication issue and language for menu items which happens when editing nodes in languages other than current.
-        if (isset($node->menu) && !$node->menu['delete'] && $node->menu['title']) {
-          $item = $node->menu;
-          $item['path'] = ($item['path']) ? $item['path'] : "node/$node->nid";
-          $item['type'] = $item['type'] | MENU_MODIFIED_BY_ADMIN;
-          if ($item['mid']) {
-            // Update menu item.
-            db_query("UPDATE {menu} SET pid = %d, path = '%s', title = '%s', description = '%s', weight = %d, type = %d, language = '%s' WHERE mid = %d", $item['pid'], $item['path'], $item['title'], $item['description'], $item['weight'], $item['type'], $node->language, $item['mid']);
-            drupal_set_message(t('The menu item %title has been updated with node language.', array('%title' => $item['title'])));
-          }
-          elseif (SAVED_NEW == menu_save_item($item)) {
-            // Creating new menu item with node language.
-            db_query("UPDATE {menu} SET language = '%s' WHERE mid = %d", $node->language, $item['mid']);
-            drupal_set_message(t('The menu item %title has been added with node language.',  array('%title' => $item['title'])));
-          }
-          menu_rebuild();
-          unset($node->menu); // Avoid further processing by menu module.
-        }
-        // Pathauto integration. Dynamic replacement of variables to allow different patterns per language.
-        if (module_exists('path') && module_exists('pathauto')) {
-          // Language for pathauto variables is either node language or default language.
-          $language = $node->language ? $node->language : i18n_default_language();
-          if ($language != i18n_get_lang()) {
-            i18n_variable_init($language, 'pathauto_node');
-          }
-        }
-        break;
-
-      case 'delete':
-        db_query('DELETE FROM {i18n_node} WHERE nid=%d', $node->nid);
-        break;
-
-      case 'prepare':
-        // Book pages, set the right language nodes and outlines.
-        if (arg(3) == 'parent' && is_numeric(arg(4)) && ($parent = node_load(arg(4))) && $parent->language) {
-          $node->language = $parent->language;
-          i18n_selection_mode('node', $parent->language);
-        }
-        break;
-      }
+  if (variable_get('language_content_type_' . $node->type, 0)) {
+    // Set current language for new nodes if option enabled
+    if ($op == 'prepare' && empty($node->nid) && empty($node->language) && variable_get('i18n_newnode_current_' . $node->type, 0)) {
+      $node->language = $language->language;
+    }
   }
-}*/
+}
 
 /**
  * Implementation of hook_alter_translation_link().
@@ -289,7 +244,7 @@ function i18n_textfield_process($element) {
     if ($node_edit || $node_translate) {
       $node_language = $node_edit ? $node->language : $_GET['language'];
       // Only needed if the node language is different from the interface one.
-      if ($node->language != $language->language) {
+      if ($node_language != $language->language) {
         $languages = language_list();
         if (isset($languages[$node_language])) {
           drupal_add_js(drupal_get_path('module', 'i18n') . '/i18n.js');
@@ -347,6 +302,7 @@ function i18n_node_get_lang($nid, $default = '') {
 function i18n_node_language_list($node, $translate = FALSE) {
   // Check if the node module manages its own language list.
   $languages = node_invoke($node, 'language_list', $translate);
+
   if (!$languages) {
     if (variable_get('i18n_node_'. $node->type, 0) >= LANGUAGE_SUPPORT_EXTENDED) {
       $languages = locale_language_list('name', TRUE); // All defined languages
@@ -360,7 +316,14 @@ function i18n_node_language_list($node, $translate = FALSE) {
         unset($languages[$langcode]);
       }
     }
-    $languages = array('' => t('Language neutral')) + $languages;
+    // Language may be locked for this node type, restrict options to current one
+    if (variable_get('i18n_lock_node_' . $node->type, 0) && !empty($node->language) && !empty($languages[$node->language])) {
+      $languages = array($node->language => $languages[$node->language]);
+    }
+    // Check language required for this type (no language neutral)
+    elseif (!variable_get('i18n_required_node_' . $node->type, 0)) {
+      $languages = array('' => t('Language neutral')) + $languages;
+    }
   }
 
   return $languages;
@@ -536,15 +499,55 @@ function i18n_exit() {
  * This is the place to add language fields to all forms.
  */
 function i18n_form_alter(&$form, $form_state, $form_id) {
+  global $language;
+
   switch ($form_id) {
     case 'node_type_form':
+      $disabled = !variable_get('language_content_type_'. $form['#node_type']->type, 0);
+      $form['i18n'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Multilanguage options'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#description' => t('Extended multilingual options provided by Internationalization module.'),
+        '#disabled' => $disabled,
+      );
+      // Add disabled message
+      if ($disabled) {
+        $form['i18n']['#description'] .= ' <em>' . t('These will be available only when you enable Multilingual support in Workflow settings above.') . '</em>';
+      }
+      // Some settings about node languages
+      $form['i18n']['options'] = array(
+        '#title' => t('Options for node language'),
+        '#type' => 'fieldset',
+        '#disabled' => $disabled,
+      );
+      $form['i18n']['options']['i18n_newnode_current'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Set current language as default for new content.'),
+        '#default_value' => variable_get('i18n_newnode_current_' . $form['#node_type']->type, 0),
+        '#disabled' => $disabled,
+      );
+      $form['i18n']['options']['i18n_required_node'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Require language (Do not allow Language Neutral).'),
+        '#default_value' => variable_get('i18n_required_node_' . $form['#node_type']->type, 0),
+        '#disabled' => $disabled,
+      );
+      $form['i18n']['options']['i18n_lock_node'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Lock language (Cannot be changed).'),
+        '#default_value' => variable_get('i18n_lock_node_' . $form['#node_type']->type, 0),
+        '#disabled' => $disabled,
+      );
       // Add extended language support option to content type form.
-      $form['workflow']['i18n_node'] = array(
+      $form['i18n']['i18n_node'] = array(
         '#type' => 'radios',
         '#title' => t('Extended language support'),
         '#default_value' => variable_get('i18n_node_'. $form['#node_type']->type, LANGUAGE_SUPPORT_NORMAL),
         '#options' => _i18n_content_language_options(),
-        '#description' => t('If enabled, all defined languages will be allowed for this content type in addition to only enabled ones. This is useful to have more languages for content than for the interface.')
+        '#description' => t('If enabled, all defined languages will be allowed for this content type in addition to only enabled ones. This is useful to have more languages for content than for the interface.'),
+        '#disabled' => $disabled,
       );
       break;
 
@@ -552,13 +555,14 @@ function i18n_form_alter(&$form, $form_state, $form_id) {
       // Extensions for node edit forms
       if (isset($form['#id']) && $form['#id'] == 'node-form') {
         if (isset($form['#node']->type)) {
-          // Set language to empty for not multilingual nodes when creating
-          if (!isset($form['#node']->nid) && !variable_get('language_content_type_'. $form['#node']->type, 0)) {
-            $form['language'] = array('#type' => 'value', '#value' => '');
+          if (variable_get('language_content_type_'. $form['#node']->type, 0)) {
+            if (!empty($form['language']['#options'])) {
+              $form['language']['#options'] = i18n_node_language_list($form['#node'], TRUE);
+            }
           }
-          // Extended language, add all languages to the list
-          if (!empty($form['language']['#options']) && variable_get('language_content_type_'. $form['#node']->type, 0)) {
-            $form['language']['#options'] = i18n_node_language_list($form['#node'], TRUE);
+          elseif (!isset($form['#node']->nid)) {
+            // Set language to empty for not multilingual nodes when creating
+            $form['language'] = array('#type' => 'value', '#value' => '');
           }
         }
       }
@@ -668,7 +672,7 @@ function i18n_variable_init($langcode = NULL, $prefix = '') {
     }
     $variables = _i18n_variable_init($langcode, $prefix);
     foreach ($i18n_variables as $name) {
-      $i18n_conf[$name] = isset($variables[$name]) ? $variables[$name] : (isset($conf[$name]) ? $conf[$name] : '');
+      $i18n_conf[$name] = isset($variables[$name]) ? $variables[$name] : (isset($conf[$name]) ? $conf[$name] : NULL);
     }
 
     $conf = array_merge($conf, $i18n_conf);
@@ -735,10 +739,10 @@ function _i18n_variable_exit() {
     $refresh = FALSE;
     // Rewritten because array_diff_assoc may fail with array variables.
     foreach ($i18n_conf as $name => $value) {
-      if ($value != $conf[$name]) {
+      if (isset($conf[$name]) && $value != $conf[$name]) {
         $refresh = TRUE;
         $i18n_conf[$name] = $conf[$name];
-        db_query("DELETE FROM {i18n_variable} WHERE name='%s' AND language='%s'", $name, $lang );
+        db_query("DELETE FROM {i18n_variable} WHERE name='%s' AND language='%s'", $name, $lang);
         db_query("INSERT INTO {i18n_variable} (language, name, value) VALUES('%s', '%s', '%s')", $lang, $name, serialize($conf[$name]));
       }
     }

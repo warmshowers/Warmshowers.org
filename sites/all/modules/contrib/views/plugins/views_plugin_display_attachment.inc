@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display_attachment.inc 527 2009-07-19 20:34:17Z rfay $
+// $Id: views_plugin_display_attachment.inc,v 1.6 2009/06/26 00:23:42 merlinofchaos Exp $
 /**
  * @file
  * Contains the attachment display plugin.
@@ -154,7 +154,7 @@ class views_plugin_display_attachment extends views_plugin_display {
    * Perform any necessary changes to the form values prior to storage.
    * There is no need for this function to actually store the data.
    */
-  function options_submit($form, &$form_state) {
+  function options_submit(&$form, &$form_state) {
     // It is very important to call the parent function here:
     parent::options_submit($form, $form_state);
     switch ($form_state['section']) {
@@ -174,6 +174,10 @@ class views_plugin_display_attachment extends views_plugin_display {
     $displays = $this->get_option('displays');
 
     if (empty($displays[$display_id])) {
+      return;
+    }
+
+    if (!$this->access()) {
       return;
     }
 

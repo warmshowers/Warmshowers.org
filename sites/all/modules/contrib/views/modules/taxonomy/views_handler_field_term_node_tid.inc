@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_term_node_tid.inc,v 1.3 2009/04/07 22:02:40 merlinofchaos Exp $
+// $Id: views_handler_field_term_node_tid.inc,v 1.4 2009/07/01 23:07:14 merlinofchaos Exp $
 
 /**
  * Field handler for terms.
@@ -82,17 +82,38 @@ class views_handler_field_term_node_tid extends views_handler_field_prerender_li
         $voc = " AND td.vid IN (" . implode(', ', array_keys(array_filter($this->options['vids']))) . ")";
       }
 
-      $result = db_query("SELECT tn.vid AS node_vid, td.* FROM {term_data} td INNER JOIN {term_node} tn ON td.tid = tn.tid WHERE tn.vid IN (" . implode(', ', $vids) . ")$voc ORDER BY td.weight, td.name");
+      $result = db_query("SELECT tn.vid AS node_vid, td.*, v.name as vocabulary FROM {term_data} td INNER JOIN {term_node} tn ON td.tid = tn.tid INNER JOIN {vocabulary} v ON v.vid = td.vid WHERE tn.vid IN (" . implode(', ', $vids) . ")$voc ORDER BY td.weight, td.name");
 
       while ($term = db_fetch_object($result)) {
-        if (empty($this->options['link_to_taxonomy'])) {
-          $this->items[$term->node_vid][$term->tid] = check_plain($term->name);
-        }
-        else {
-          $this->items[$term->node_vid][$term->tid] = l($term->name, taxonomy_term_path($term));
+        $this->items[$term->node_vid][$term->tid]['name'] = check_plain($term->name);
+        $this->items[$term->node_vid][$term->tid]['tid'] = $term->tid;
+        $this->items[$term->node_vid][$term->tid]['vid'] = $term->vid;
+        $this->items[$term->node_vid][$term->tid]['vocabulary'] = check_plain($term->vocabulary);
+        
+        if (!empty($this->options['link_to_taxonomy'])) {
+          $this->items[$term->node_vid][$term->tid]['make_link'] = TRUE;
+          $this->items[$term->node_vid][$term->tid]['path'] = taxonomy_term_path($term);
         }
       }
     }
+  }
+
+  function render_item($count, $item) {
+    return $item['name'];
+  }
+
+  function document_self_tokens(&$tokens) {
+    $tokens['[' . $this->options['id'] . '-tid' . ']'] = t('The taxonomy term ID for the term.');
+    $tokens['[' . $this->options['id'] . '-name' . ']'] = t('The taxonomy term name for the term.');
+    $tokens['[' . $this->options['id'] . '-vid' . ']'] = t('The vocabulary ID for the vocabulary the term belongs to.');
+    $tokens['[' . $this->options['id'] . '-vocabulary' . ']'] = t('The name for the vocabulary the term belongs to.');
+  }
+
+  function add_self_tokens(&$tokens, $item) {
+    $tokens['[' . $this->options['id'] . '-tid' . ']'] = $item['tid'];
+    $tokens['[' . $this->options['id'] . '-name' . ']'] = $item['name'];
+    $tokens['[' . $this->options['id'] . '-vid' . ']'] = $item['vid'];
+    $tokens['[' . $this->options['id'] . '-vocabulary' . ']'] = $item['vocabulary'];
   }
 }
 

@@ -1,5 +1,5 @@
 <?php
-// $Id: content.diff.inc 539 2009-09-14 11:16:55Z rfay $
+// $Id: content.diff.inc,v 1.2.2.6 2009/08/03 20:49:29 markuspetrux Exp $
 
 /**
  * @file hook_diff() implementations for CCK (especially fields).

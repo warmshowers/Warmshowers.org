@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_numeric.inc,v 1.5 2009/04/07 22:59:14 merlinofchaos Exp $
+// $Id: views_handler_field_numeric.inc,v 1.6 2009/07/02 00:13:12 merlinofchaos Exp $
 /**
  * Render a field as a numeric value
  *
@@ -85,6 +85,12 @@ class views_handler_field_numeric extends views_handler_field {
         $value .= $this->options['decimal'] . substr($remainder, 2);
       }
     }
+
+    // Check to see if hiding should happen before adding prefix and suffix.
+    if ($this->options['hide_empty'] && empty($value) && ($value !== 0 || $this->options['empty_zero'])) {
+      return '';
+    }
+
     return check_plain($this->options['prefix'] . $value . $this->options['suffix']);
   }
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_argument_default.inc 527 2009-07-19 20:34:17Z rfay $
+// $Id: views_plugin_argument_default.inc,v 1.2 2009/06/01 23:34:55 merlinofchaos Exp $
 /**
  * @file
  * Contains the fixed argument default plugin.

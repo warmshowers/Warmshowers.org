@@ -1,5 +1,5 @@
 <?php
-//$Id: node.views_convert.inc 530 2009-07-19 23:14:54Z rfay $
+//$Id: node.views_convert.inc,v 1.7 2009/06/30 19:14:27 merlinofchaos Exp $
 
 /**
  * @file
@@ -61,16 +61,9 @@ function node_views_convert($display, $type, &$view, $field, $id = NULL) {
       switch ($field['tablename']) {
         case 'node':
           switch ($field['field']) {
-            case 'status':
-            case 'promote':
-            case 'sticky':
-            case 'moderate':
-              $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
-              break;
             case 'type':
               $operators = array('OR' => 'in', 'NOR' => 'not in');
               $view->set_item_option($display, 'filter', $id, 'operator', $operators[$field['operator']]);
-              $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
               break;
             case 'anon':
               $item = $view->get_item($display, 'filter', $id);
@@ -98,7 +91,6 @@ function node_views_convert($display, $type, &$view, $field, $id = NULL) {
             case 'title':
               $item = $view->get_item($display, 'filter', $id);
               $item['operator'] = $field['operator'];
-              $item['value'] = $field['value'];
               $item['case'] = FALSE;
               $view->set_item($display, 'filter', $id, $item);
               break;
@@ -106,8 +98,10 @@ function node_views_convert($display, $type, &$view, $field, $id = NULL) {
             case 'changed':
               $item = $view->get_item($display, 'filter', $id);
               $item['operator'] = $field['operator'];
-              $item['value']['type'] = $field['value'] == 'now' ? 'offset' : 'date';
-              $item['value']['value'] = $field['value'];
+              $item['value'] = array(
+                'type' => $field['value'] == 'now' ? 'offset' : 'date',
+                'value' => $field['value'],
+              );
               if (!empty($field['options'])) {
                 $item['value']['value'] = intval($field['options']) .' seconds';
               }
@@ -116,7 +110,6 @@ function node_views_convert($display, $type, &$view, $field, $id = NULL) {
             case 'body':
               $item = $view->get_item($display, 'filter', $id);
               $item['operator'] = $field['operator'];
-              $item['value'] = $field['value'];
               $item['case'] = FALSE;
               $item['table'] = 'node_revisions';
               $view->set_item($display, 'filter', $id, $item);

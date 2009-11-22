@@ -1,5 +1,5 @@
 <?php
-// $Id: profile.views_convert.inc,v 1.1 2009/06/03 19:06:05 merlinofchaos Exp $
+// $Id: profile.views_convert.inc,v 1.2 2009/06/30 19:14:27 merlinofchaos Exp $
 
 /**
  * @file
@@ -29,12 +29,9 @@ function profile_views_convert($display, $type, &$view, $field, $id = NULL) {
           case 'selection':
             $operators = array('AND' => 'in', 'OR' => 'in', 'NOR' => 'not in');
             $view->set_item_option($display, 'filter', $id, 'operator', $operators[$field['operator']]);
-          case 'checkbox':
-            $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
             break;
           default:
             $view->set_item_option($display, 'filter', $id, 'operator', $field['operator']);
-            $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
             break;
         }
       }

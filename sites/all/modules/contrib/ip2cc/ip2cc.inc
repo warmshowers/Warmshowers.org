@@ -1,5 +1,5 @@
 <?php
-// $Id: ip2cc.inc,v 1.1.2.3 2009/08/09 15:16:22 mrfelton Exp $
+// $Id: ip2cc.inc,v 1.1.2.4 2009/09/27 09:55:28 mrfelton Exp $
 
 /**
  * @file
@@ -22,9 +22,9 @@ function _ip2cc_batch_insert() {
     db_query("DELETE FROM {ip2cc}");
     $count = 0;
     while ($line = fgets($fd)) {
-      if (preg_match('/^"([0-9]+)","([0-9]+)","(.{2})","(.{3})","(.*)"$/', $line, $matches)) {
-        $count++;
+      if (preg_match('/^"([0-9]+)","([0-9]+)","(.{2})","(.{3})","(.*)"$/', trim($line), $matches)) {
         db_query("INSERT INTO {ip2cc} VALUES('%s', '%s', '%s', 'Unknown', 0)", $matches[1], $matches[2], $matches[3]);
+        $count++;
       }
     }
     fclose($fd);

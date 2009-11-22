@@ -1,4 +1,4 @@
-// $Id: ajax.js,v 1.25 2009/03/24 23:03:32 merlinofchaos Exp $
+// $Id: ajax.js,v 1.26 2009/07/26 15:07:25 merlinofchaos Exp $
 /**
  * @file ajax_admin.js
  *
@@ -55,8 +55,8 @@ Drupal.Views.Ajax.ajaxResponse = function(data) {
       var ajax_title = Drupal.settings.views.ajax.title;
     
       // Bind a click to the button to set the value for the button.
-      $('input[type=submit]', ajax_area).unbind('click');
-      $('input[type=submit]', ajax_area).click(function() {
+      $('input[type=submit], button', ajax_area).unbind('click');
+      $('input[type=submit], button', ajax_area).click(function() {
         $('form', ajax_area).append('<input type="hidden" name="' 
           + $(this).attr('name') + '" value="' + $(this).val() + '">');
         $(this).after('<span class="views-throbbing">&nbsp</span>');
@@ -163,8 +163,8 @@ Drupal.Views.Ajax.previewResponse = function(data) {
     // if a URL was supplied, bind the form to it.
     if (url) {   
       // Bind a click to the button to set the value for the button.
-      $('input[type=submit]', ajax_area).unbind('click');
-      $('input[type=submit]', ajax_area).click(function() {
+      $('input[type=submit], button', ajax_area).unbind('click');
+      $('input[type=submit], button', ajax_area).click(function() {
         $('form', ajax_area).append('<input type="hidden" name="' 
           + $(this).attr('name') + '" value="' + $(this).val() + '">');
         $(this).after('<span class="views-throbbing">&nbsp</span>');
@@ -193,7 +193,7 @@ Drupal.Views.updatePreviewForm = function() {
   var url = $(this).attr('action');
   url = url.replace('nojs', 'ajax');
 
-  $('input[type=submit]', this).after('<span class="views-throbbing">&nbsp</span>');
+  $('input[type=submit], button', this).after('<span class="views-throbbing">&nbsp</span>');
   $(this).ajaxSubmit({
     url: url,
     data: '',
@@ -210,7 +210,7 @@ Drupal.Views.updatePreviewFilterForm = function() {
   var url = $(this).attr('action');
   url = url.replace('nojs', 'ajax');
 
-  $('input[type=submit]', this).after('<span class="views-throbbing">&nbsp</span>');
+  $('input[type=submit], button', this).after('<span class="views-throbbing">&nbsp</span>');
   $('input[name=q]', this).remove(); // remove 'q' for live preview.
   $(this).ajaxSubmit({
     url: url,

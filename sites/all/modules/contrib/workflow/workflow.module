@@ -1,5 +1,5 @@
 <?php
-// $Id: workflow.module,v 1.83 2009/01/01 21:09:16 jvandyk Exp $
+// $Id: workflow.module,v 1.83.2.2 2009/10/23 15:02:38 jvandyk Exp $
 
 /**
  * @file
@@ -394,7 +394,7 @@ function workflow_node_form(&$form, $form_state, $title, $name, $current, $choic
       '#description' => t('A comment to put in the workflow log.'),
       '#default_value' => $comment,
       '#rows' => 2,
-    );      
+    );
   }
 }
 
@@ -455,8 +455,12 @@ function workflow_form_alter(&$form, $form_state, $form_id) {
       );
     }
 
+    $timestamp = NULL;
+    $comment = '';
+    $name = '';
+
     // See if scheduling information is present.
-    if ($node->_workflow_scheduled_timestamp && $node->_workflow_scheduled_sid) {
+    if (isset($node->_workflow_scheduled_timestamp) && isset($node->_workflow_scheduled_sid)) {
       // The default value should be the upcoming sid.
       $current = $node->_workflow_scheduled_sid;
       $timestamp = $node->_workflow_scheduled_timestamp;
@@ -481,7 +485,7 @@ function workflow_form_alter(&$form, $form_state, $form_id) {
  *   A comment for the node's workflow history.
  * @param $force
  *   If set to TRUE, workflow permissions will be ignored.
- * 
+ *
  * @return int
  *   ID of new state.
  */
@@ -708,9 +712,14 @@ function workflow_field_choices($node) {
  *   The ID of the current state.
  */
 function workflow_node_current_state($node) {
-  $sid = db_result(db_query('SELECT sid FROM {workflow_node} WHERE nid = %d', $node->nid));
+  $sid = FALSE;
 
-  if (!$sid) {
+  // There is no nid when creating a node.
+  if (!empty($node->nid)) {
+    $sid = db_result(db_query('SELECT sid FROM {workflow_node} WHERE nid = %d', $node->nid));
+  }
+
+  if (!$sid && !empty($node->type)) {
     // No current state. Use creation state.
     $wid = workflow_get_workflow_for_type($node->type);
     $sid = _workflow_creation_state($wid);
@@ -970,7 +979,7 @@ function workflow_get_all() {
   $workflows = array();
   $result = db_query("SELECT wid, name FROM {workflows} ORDER BY name ASC");
   while ($data = db_fetch_object($result)) {
-    $workflows[$data->wid] = $data->name;
+    $workflows[$data->wid] = check_plain(t($data->name));
   }
   return $workflows;
 }
@@ -984,7 +993,7 @@ function workflow_get_all() {
 function workflow_create($name) {
   $workflow = array(
     'name' => $name,
-    'options' => serialize(array('comment_log_node' => 1, 'comment_log_tab' => 1)), 
+    'options' => serialize(array('comment_log_node' => 1, 'comment_log_tab' => 1)),
   );
   drupal_write_record('workflows', $workflow);
   workflow_state_save(array(
@@ -1058,13 +1067,13 @@ function workflow_get_states($wid = NULL) {
   if (isset($wid)) {
     $result = db_query("SELECT sid, state FROM {workflow_states} WHERE wid = %d AND status = 1 ORDER BY weight, sid", $wid);
     while ($data = db_fetch_object($result)) {
-      $states[$data->sid] = $data->state;
+      $states[$data->sid] = check_plain(t($data->state));
     }
   }
   else {
     $result = db_query("SELECT ws.sid, ws.state, w.name FROM {workflow_states} ws INNER JOIN {workflows} w ON ws.wid = w.wid WHERE status = 1 ORDER BY sid");
     while ($data = db_fetch_object($result)) {
-      $states[$data->sid] = $data->name .': '. $data->state;
+      $states[$data->sid] = check_plain(t($data->name)) .': '. check_plain(t($data->state));
     }
   }
 
@@ -1234,7 +1243,7 @@ function workflow_allowable_transitions($sid, $dir = 'to', $roles = 'ALL') {
     if ($roles == 'ALL'  // Superuser.
       || $sid == $t->state_id // Include current state for same-state transitions.
       || workflow_transition_allowed($t->tid, $roles)) {
-      $transitions[$t->state_id] = $t->state_name;
+      $transitions[$t->state_id] = check_plain(t($t->state_name));
     }
   }
 
@@ -1335,7 +1344,7 @@ function _workflow_write_history($node, $sid, $comment) {
 
 /**
  * Get a list of roles.
- * 
+ *
  * @return
  *   Array of role names keyed by role ID, including the 'author' role.
  */
@@ -1345,7 +1354,7 @@ function workflow_get_roles() {
     $result = db_query('SELECT * FROM {role} ORDER BY name');
     $roles = array('author' => 'author');
     while ($data = db_fetch_object($result)) {
-      $roles[$data->rid] = $data->name;
+      $roles[$data->rid] = check_plain($data->name);
     }
   }
   return $roles;
@@ -1357,7 +1366,7 @@ function workflow_get_roles() {
 function workflow_cron() {
   $clear_cache = FALSE;
 
-  // If the time now is greater than the time to execute a 
+  // If the time now is greater than the time to execute a
   // transition, do it.
   $nodes = db_query('SELECT * FROM {workflow_scheduled_transition} s WHERE s.scheduled > 0 AND s.scheduled < %d', time());
 
@@ -1393,7 +1402,7 @@ function workflow_cron() {
  */
 function workflow_action_info_alter(&$info) {
   foreach (array_keys($info) as $key) {
-    // Modify each action's hooks declaration, changing it to say 
+    // Modify each action's hooks declaration, changing it to say
     // that the action supports any hook.
     $info[$key]['hooks'] = 'any';
   }
@@ -1434,7 +1443,7 @@ function workflow_hook_info() {
 
 /**
  * Implementation of hook_menu_alter().
- * 
+ *
  * Work around loss of menu local task inheritance in Drupal 6.2.
  */
 function workflow_menu_alter(&$callbacks) {

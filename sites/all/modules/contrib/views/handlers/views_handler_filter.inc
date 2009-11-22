@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter.inc 530 2009-07-19 23:14:54Z rfay $
+// $Id: views_handler_filter.inc,v 1.10 2009/06/26 00:23:42 merlinofchaos Exp $
 /**
  * @defgroup views_filter_handlers Views' filter handlers
  * @{
@@ -589,7 +589,7 @@ class views_handler_filter extends views_handler {
  * A special handler to take the place of missing or broken handlers.
  */
 class views_handler_filter_broken extends views_handler_filter {
-  function ui_name() {
+  function ui_name($short = FALSE) {
     return t('Broken/missing handler');
   }
 

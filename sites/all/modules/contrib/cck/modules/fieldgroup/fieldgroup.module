@@ -1,5 +1,5 @@
 <?php
-// $Id: fieldgroup.module 539 2009-09-14 11:16:55Z rfay $
+// $Id: fieldgroup.module,v 1.79.2.51 2009/08/14 12:17:49 markuspetrux Exp $
 
 /**
  * @file
@@ -95,7 +95,7 @@ function fieldgroup_content_fieldapi($op, $field) {
   switch ($op) {
     case 'delete instance':
       db_query("DELETE FROM {". fieldgroup_fields_tablename() ."} WHERE field_name = '%s' AND type_name = '%s'", $field['field_name'], $field['type_name']);
-      cache_clear_all('fieldgroup_data', content_cache_tablename());
+      cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
       break;
   }
 }
@@ -215,13 +215,14 @@ function fieldgroup_remove_group_submit($form, &$form_state) {
   $form_state['redirect'] = 'admin/content/node-type/'. $content_type['url_str'] .'/fields';
 }
 
-/*
+/**
  * Returns all groups for a content type
  */
 function fieldgroup_groups($content_type = '', $sorted = FALSE, $reset = FALSE) {
+  global $language;
   static $groups, $groups_sorted;
   if (!isset($groups) || $reset) {
-    if ($cached = cache_get('fieldgroup_data', content_cache_tablename())) {
+    if ($cached = cache_get('fieldgroup_data:'. $language->language, content_cache_tablename())) {
       $data = $cached->data;
       $groups = $data['groups'];
       $groups_sorted = $data['groups_sorted'];
@@ -233,6 +234,18 @@ function fieldgroup_groups($content_type = '', $sorted = FALSE, $reset = FALSE) 
       while ($group = db_fetch_array($result)) {
         $group['settings'] = unserialize($group['settings']);
         $group['fields'] = array();
+
+        // Allow external modules to translate field group strings.
+        $group_strings = array(
+          'label' => $group['label'],
+          'form_description' => $group['settings']['form']['description'],
+          'display_description' => $group['settings']['display']['description'],
+        );
+        drupal_alter('content_fieldgroup_strings', $group_strings, $group['type_name'], $group['group_name']);
+        $group['label'] = $group_strings['label'];
+        $group['settings']['form']['description'] = $group_strings['form_description'];
+        $group['settings']['display']['description'] = $group_strings['display_description'];
+
         $groups[$group['type_name']][$group['group_name']] = $group;
         $groups_sorted[$group['type_name']][] = &$groups[$group['type_name']][$group['group_name']];
       }
@@ -242,9 +255,18 @@ function fieldgroup_groups($content_type = '', $sorted = FALSE, $reset = FALSE) 
  "INNER JOIN {". content_instance_tablename() ."} nfi ON nfi.field_name = ngf.field_name AND nfi.type_name = ngf.type_name ".
  "WHERE nfi.widget_active = 1 ORDER BY nfi.weight");
       while ($field = db_fetch_array($result)) {
+        // Allow external modules to translate field strings.
+        $field_strings = array(
+          'widget_label' => $field['label'],
+          'widget_description' => $field['description'],
+        );
+        drupal_alter('content_field_strings', $field_strings, $field['type_name'], $field['field_name']);
+        $field['label'] = $field_strings['widget_label'];
+        $field['description'] = $field_strings['widget_description'];
+
         $groups[$field['type_name']][$field['group_name']]['fields'][$field['field_name']] = $field;
       }
-      cache_set('fieldgroup_data', array('groups' => $groups, 'groups_sorted' => $groups_sorted), content_cache_tablename());
+      cache_set('fieldgroup_data:'. $language->language, array('groups' => $groups, 'groups_sorted' => $groups_sorted), content_cache_tablename());
     }
   }
   if (empty($content_type)) {
@@ -473,7 +495,7 @@ function fieldgroup_field_overview_form_submit($form, &$form_state) {
     }
   }
 
-  cache_clear_all('fieldgroup_data', content_cache_tablename());
+  cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
 }
 
 function field_group_default_settings($group_type) {
@@ -735,7 +757,7 @@ function fieldgroup_node_type($op, $info) {
     // update the tables
     db_query("UPDATE {". fieldgroup_tablename() ."} SET type_name='%s' WHERE type_name='%s'", array($info->type, $info->old_type));
     db_query("UPDATE {". fieldgroup_fields_tablename() ."} SET type_name='%s' WHERE type_name='%s'", array($info->type, $info->old_type));
-    cache_clear_all('fieldgroup_data', content_cache_tablename());
+    cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
   }
   elseif ($op == 'delete') {
     db_query("DELETE FROM {". fieldgroup_tablename() ."} WHERE type_name = '%s'", $info->type);
@@ -786,14 +808,14 @@ function fieldgroup_save_group($type_name, $group) {
     // Accept group name from programmed submissions if valid.
     db_query("INSERT INTO {". fieldgroup_tablename() ."} (group_type, type_name, group_name, label, settings, weight)".
       " VALUES ('%s', '%s', '%s', '%s', '%s', %d)", $group['group_type'], $type_name, $group['group_name'], $group['label'], serialize($group['settings']), $group['weight']);
-    cache_clear_all('fieldgroup_data', content_cache_tablename());
+    cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
     return SAVED_NEW;
   }
   else {
     db_query("UPDATE {". fieldgroup_tablename() ."} SET group_type = '%s', label = '%s', settings = '%s', weight = %d ".
              "WHERE type_name = '%s' AND group_name = '%s'",
              $group['group_type'], $group['label'], serialize($group['settings']), $group['weight'], $type_name, $group['group_name']);
-    cache_clear_all('fieldgroup_data', content_cache_tablename());
+    cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
     return SAVED_UPDATED;
   }
 }
@@ -811,14 +833,14 @@ function fieldgroup_update_fields($form_values) {
     else {
       db_query("DELETE FROM {". fieldgroup_fields_tablename() ."} WHERE type_name = '%s' AND field_name = '%s'", $form_values['type_name'], $form_values['field_name']);
     }
-    cache_clear_all('fieldgroup_data', content_cache_tablename());
+    cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
   }
 }
 
 function fieldgroup_delete($content_type, $group_name) {
   db_query("DELETE FROM {". fieldgroup_tablename() ."} WHERE  type_name = '%s' AND group_name = '%s'", $content_type, $group_name);
   db_query("DELETE FROM {". fieldgroup_fields_tablename() ."} WHERE  type_name = '%s' AND group_name = '%s'", $content_type, $group_name);
-  cache_clear_all('fieldgroup_data', content_cache_tablename());
+  cache_clear_all('fieldgroup_data:', content_cache_tablename(), TRUE);
 }
 
 /**

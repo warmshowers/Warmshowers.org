@@ -1,5 +1,5 @@
 <?php
-// $Id: search.views_convert.inc,v 1.1 2009/04/07 23:24:55 merlinofchaos Exp $
+// $Id: search.views_convert.inc,v 1.2 2009/06/30 19:14:27 merlinofchaos Exp $
 
 /**
  * @file
@@ -13,11 +13,8 @@ function search_views_convert($display, $type, &$view, $field, $id = NULL) {
         case 'temp_search_results':
           switch ($field['field']) {
             case 'word':
-              $item = $view->get_item($display, 'filter', $id);
-              $item['table'] = 'search_index';
-              $item['field'] = 'keys';
-              $item['value'] = $field['value'];
-              $view->set_item($display, 'filter', $id, $item);
+              $view->set_item_option($display, 'filter', $id, 'table', 'search_index');
+              $view->set_item_option($display, 'filter', $id, 'field', 'keys');
               break;
           }
           break;

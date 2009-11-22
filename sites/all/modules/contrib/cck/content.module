@@ -1,5 +1,5 @@
 <?php
-// $Id: content.module 539 2009-09-14 11:16:55Z rfay $
+// $Id: content.module,v 1.301.2.118 2009/08/30 14:16:55 markuspetrux Exp $
 /**
  * @file
  * Allows administrators to associate custom fields to content types.
@@ -1393,6 +1393,7 @@ function _content_get_formatter($formatter_name, $field_type) {
  *   If TRUE, clear the cache and fetch the information from the database again.
  */
 function _content_type_info($reset = FALSE) {
+  global $language;
   static $info;
 
   if ($reset || !isset($info)) {
@@ -1407,7 +1408,7 @@ function _content_type_info($reset = FALSE) {
       return array();
     }
 
-    if (!$reset && $cached = cache_get('content_type_info', content_cache_tablename())) {
+    if (!$reset && $cached = cache_get('content_type_info:'. $language->language, content_cache_tablename())) {
       $info = $cached->data;
     }
     else {
@@ -1474,9 +1475,19 @@ function _content_type_info($reset = FALSE) {
         $type['tables'] = array();
         if ($fields = content_field_instance_read(array('type_name' => $type_name))) {
           foreach ($fields as $field) {
-            $type['fields'][$field['field_name']] = $field;
             $db_info = content_database_info($field);
             $type['tables'][$db_info['table']] = $db_info['table'];
+
+            // Allow external modules to translate field strings.
+            $field_strings = array(
+              'widget_label' => $field['widget']['label'],
+              'widget_description' => $field['widget']['description'],
+            );
+            drupal_alter('content_field_strings', $field_strings, $field['type_name'], $field['field_name']);
+            $field['widget']['label'] = $field_strings['widget_label'];
+            $field['widget']['description'] = $field_strings['widget_description'];
+
+            $type['fields'][$field['field_name']] = $field;
             // This means that content_fields($field_name) (no type name)
             // returns the last instance loaded.
             $info['fields'][$field['field_name']] = $field;
@@ -1503,7 +1514,7 @@ function _content_type_info($reset = FALSE) {
         $info['content types'][$type_name] = $type;
       }
 
-      cache_set('content_type_info', $info, content_cache_tablename());
+      cache_set('content_type_info:'. $language->language, $info, content_cache_tablename());
     }
   }
   return $info;
@@ -1631,32 +1642,66 @@ function content_transpose_array_rows_cols($array) {
 }
 
 /**
+ * Helper function to flatten an array of allowed values.
+ *
+ * @param $array
+ *   A single or multidimensional array.
+ * @return
+ *   A flattened array.
+ */
+function content_array_flatten($array) {
+  $result = array();
+  if (is_array($array)) {
+    foreach ($array as $key => $value) {
+      if (is_array($value)) {
+        $result += content_array_flatten($value);
+      }
+      else {
+        $result[$key] = $value;
+      }
+    }
+  }
+  return $result;
+}
+
+/**
  *  Create an array of the allowed values for this field.
  *
  *  Used by number and text fields, expects to find either
  *  PHP code that will return the correct value, or a string
  *  with keys and labels separated with '|' and with each
  *  new value on its own line.
+ *
+ * @param $field
+ *   The field whose allowed values are requested.
+ * @param $flatten
+ *   Optional. Use TRUE to return a flattened array (default).
+ *   FALSE can be used to support optgroups for select widgets
+ *   when allowed values list is generated using PHP code.
  */
-function content_allowed_values($field) {
+function content_allowed_values($field, $flatten = TRUE) {
   static $allowed_values;
 
-  if (isset($allowed_values[$field['field_name']])) {
-    return $allowed_values[$field['field_name']];
+  $cid = $field['field_name'] .':'. ($flatten ? '1' : '0');
+  if (isset($allowed_values[$cid])) {
+    return $allowed_values[$cid];
   }
 
-  $allowed_values[$field['field_name']] = array();
+  $allowed_values[$cid] = array();
 
   if (isset($field['allowed_values_php'])) {
     ob_start();
     $result = eval($field['allowed_values_php']);
     if (is_array($result)) {
-      $allowed_values[$field['field_name']] = $result;
+      if ($flatten) {
+        $result = content_array_flatten($result);
+      }
+      $allowed_values[$cid] = $result;
     }
     ob_end_clean();
   }
 
-  if (empty($allowed_values[$field['field_name']]) && isset($field['allowed_values'])) {
+  if (empty($allowed_values[$cid]) && isset($field['allowed_values'])) {
     $list = explode("\n", $field['allowed_values']);
     $list = array_map('trim', $list);
     $list = array_filter($list, 'strlen');
@@ -1665,14 +1710,16 @@ function content_allowed_values($field) {
       $opt = content_filter_xss($opt);
       if (strpos($opt, '|') !== FALSE) {
         list($key, $value) = explode('|', $opt);
-        $allowed_values[$field['field_name']][$key] = (isset($value) && $value !=='') ? $value : $key;
+        $allowed_values[$cid][$key] = (isset($value) && $value !=='') ? $value : $key;
       }
       else {
-        $allowed_values[$field['field_name']][$opt] = $opt;
+        $allowed_values[$cid][$opt] = $opt;
       }
     }
+    // Allow external modules to translate allowed values list.
+    drupal_alter('content_allowed_values', $allowed_values[$cid], $field);
   }
-  return $allowed_values[$field['field_name']];
+  return $allowed_values[$cid];
 }
 
 /**
@@ -2055,6 +2102,7 @@ function content_table_schema($field = NULL) {
  *
  * @todo: May we remove this funcion when implemented by Drupal core itself?
  * @link http://drupal.org/node/360854
+ * @link http://dev.mysql.com/doc/refman/5.0/en/extended-show.html
  *
  * @param $table
  *   Name of the table.
@@ -2066,10 +2114,22 @@ function content_table_schema($field = NULL) {
 function content_db_index_exists($table, $name) {
   global $db_type;
   if ($db_type == 'mysql' || $db_type == 'mysqli') {
+    if (version_compare(db_version(), '5.0.3') < 0) {
+      // Earlier versions of MySQL don't support a WHERE clause for SHOW.
+      $result = db_query('SHOW INDEX FROM {'. $table .'}');
+      while ($row = db_fetch_array($result)) {
+        if ($row['Key_name'] == $name) {
+          return TRUE;
+        }
+      }
+      return FALSE;
+    }
     return (bool)db_result(db_query("SHOW INDEX FROM {". $table ."} WHERE key_name = '$name'"));
   }
   elseif ($db_type == 'pgsql') {
-    return (bool)db_result(db_query("SELECT COUNT(indexname) FROM pg_indexes WHERE indexname = '$name'"));
+    // Note that the index names in Schema API for PostgreSQL are prefixed by
+    // the table name and suffixed by '_idx'.
+    return (bool)db_result(db_query("SELECT COUNT(indexname) FROM pg_indexes WHERE indexname = '{". $table ."}_{$name}_idx'"));
   }
   return FALSE;
 }

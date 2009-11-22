@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.views.inc,v 1.32 2009/04/08 06:38:41 merlinofchaos Exp $
+// $Id: comment.views.inc,v 1.33 2009/09/15 16:48:51 merlinofchaos Exp $
 /**
  * @file
  * Provide views data and handlers for comment.module
@@ -117,6 +117,44 @@ function comment_views_data() {
       'handler' => 'views_handler_field_url',
       'click sortable' => TRUE,
     ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_string',
+    ),
+  );
+
+  // hostname
+  $data['comments']['hostname'] = array(
+    'title' => t('Hostname'),
+    'help' => t('Hostname of user that posted the comment.'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+     ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_string',
+    ),
+  );
+
+  // mail
+  $data['comments']['mail'] = array(
+    'title' => t('Mail'),
+    'help' => t('Email of user that posted the comment. Will be empty if the author is a registered user.'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+     ),
     'filter' => array(
       'handler' => 'views_handler_filter_string',
     ),

@@ -1,10 +1,20 @@
 <?php
-// $Id: views_handler_field_node_new_comments.inc,v 1.6 2009/04/07 23:02:07 merlinofchaos Exp $
+// $Id: views_handler_field_node_new_comments.inc,v 1.7 2009/07/02 00:13:12 merlinofchaos Exp $
 
 /**
  * Field handler to display the number of new comments
  */
 class views_handler_field_node_new_comments extends views_handler_field_numeric {
+  function init(&$view, $options) {
+    parent::init($view, $options);
+    
+    // translate an older setting:
+    if (!empty($options['no_empty'])) {
+      $this->options['hide_empty'] = TRUE;
+      unset($this->options['no_empty']);
+    }
+  }
+
   function construct() {
     parent::construct();
     $this->additional_fields = array('nid' => 'nid', 'type' => 'type');
@@ -14,7 +24,6 @@ class views_handler_field_node_new_comments extends views_handler_field_numeric 
     $options = parent::option_definition();
 
     $options['link_to_comment'] = array('default' => TRUE);
-    $options['no_empty'] = array('default' => TRUE);
 
     return $options;
   }
@@ -26,11 +35,6 @@ class views_handler_field_node_new_comments extends views_handler_field_numeric 
       '#description' => t('This will override any other link you have set.'),
       '#type' => 'checkbox',
       '#default_value' => $this->options['link_to_comment'],
-    );
-    $form['no_empty'] = array(
-      '#title' => t('Display nothing if no new comments'),
-      '#type' => 'checkbox',
-      '#default_value' => $this->options['no_empty'],
     );
   }
 
@@ -85,7 +89,7 @@ class views_handler_field_node_new_comments extends views_handler_field_numeric 
   }
 
   function render($values) {
-    if (!empty($values->{$this->field_alias}) || empty($this->options['no_empty'])) {
+    if (!empty($values->{$this->field_alias})) {
       return $this->render_link(parent::render($values), $values);
     }
     else {

@@ -1,5 +1,5 @@
 <?php
-// $Id: i18nmenu.module,v 1.2.2.12 2009/02/18 12:42:12 jareyero Exp $
+// $Id: i18nmenu.module,v 1.2.2.17 2009/11/05 17:33:35 jareyero Exp $
 
 /**
  * @file
@@ -16,11 +16,9 @@ function i18nmenu_locale($op = 'groups', $group = NULL) {
   switch ($op) {
     case 'groups':
       return array('menu' => t('Menu'));
-
-    case 'refresh':
-      if ($group == 'menu') {
-        return i18nmenu_locale_refresh();
-      }
+    case 'info':
+      $info['menu']['refresh callback'] = 'i18nmenu_locale_refresh';
+      return $info;
   }
 }
 
@@ -34,6 +32,7 @@ function i18nmenu_locale_refresh() {
     $tree = menu_tree_all_data($name);
     i18nmenu_localize_tree($tree, TRUE);
   }
+  return TRUE; // Meaning it completed with no issues
 }
 
 /**
@@ -136,6 +135,65 @@ function i18nmenu_localize_tree(&$tree, $update = FALSE) {
 }
 
 /**
+ * Return an array of localized links for a navigation menu.
+ */
+function i18nmenu_menu_navigation_links($menu_name, $level = 0) {
+  // Don't even bother querying the menu table if no menu is specified.
+  if (empty($menu_name)) {
+    return array();
+  }
+
+  // Get the menu hierarchy for the current page.
+  $tree = menu_tree_page_data($menu_name);
+  i18nmenu_localize_tree($tree);
+
+  // Go down the active trail until the right level is reached.
+  while ($level-- > 0 && $tree) {
+    // Loop through the current level's items until we find one that is in trail.
+    while ($item = array_shift($tree)) {
+      if ($item['link']['in_active_trail']) {
+        // If the item is in the active trail, we continue in the subtree.
+        $tree = empty($item['below']) ? array() : $item['below'];
+        break;
+      }
+    }
+  }
+
+  // Create a single level of links.
+  $links = array();
+  foreach ($tree as $item) {
+    if (!$item['link']['hidden']) {
+      $class = '';
+      $l = $item['link']['localized_options'];
+      $l['href'] = $item['link']['href'];
+      $l['title'] = $item['link']['title'];
+      if ($item['link']['in_active_trail']) {
+        $class = ' active-trail';
+      }
+      // Keyed with the unique mlid to generate classes in theme_links().
+      $links['menu-'. $item['link']['mlid'] . $class] = $l;
+    }
+  }
+  return $links;
+}
+
+/**
+ * Replace standard primary and secondary links.
+ */
+function i18nmenu_preprocess_page(&$vars) {
+  $vars['primary_links'] = i18nmenu_menu_navigation_links(variable_get('menu_primary_links_source', 'primary-links'));
+
+  // If the secondary menu source is set as the primary menu, we display the
+  // second level of the primary menu.
+  if (variable_get('menu_secondary_links_source', 'secondary-links') == variable_get('menu_primary_links_source', 'primary-links')) {
+    $vars['secondary_links'] = i18nmenu_menu_navigation_links(variable_get('menu_primary_links_source', 'primary-links'), 1);
+  }
+  else {
+    $vars['secondary_links'] = i18nmenu_menu_navigation_links(variable_get('menu_secondary_links_source', 'secondary-links'), 0);
+  }
+}
+
+/**
  * Optionally insert/update and return a localized menu item title.
  */
 function _i18nmenu_get_item($link, $update = FALSE) {
@@ -183,7 +241,21 @@ function i18nmenu_form_menu_edit_item_alter(&$form, $form_state) {
     '#options' => array('' => t('All languages')) + locale_language_list('name'),
     '#default_value' => $language,
   );
+  array_unshift($form['#validate'], 'i18nmenu_menu_item_prepare_normal_path');
   $form['#submit'][] = 'i18nmenu_menu_item_update';
+}
+
+/**
+ * Normal path should be checked with menu item's language to avoid
+ * troubles when a node and it's translation has the same url alias.
+ */
+function i18nmenu_menu_item_prepare_normal_path($form, &$form_state) {
+  $item = &$form_state['values']['menu'];
+  $normal_path = drupal_get_normal_path($item['link_path'], $item['language']);
+  if ($item['link_path'] != $normal_path) {
+    drupal_set_message(t('The menu system stores system paths only, but will use the URL alias for display. %link_path has been stored as %normal_path', array('%link_path' => $item['link_path'], '%normal_path' => $normal_path)));
+    $item['link_path'] = $normal_path;
+  }
 }
 
 /**
@@ -242,12 +314,12 @@ function i18nmenu_item_delete_submit($form, &$form_state) {
 function i18nmenu_form_alter(&$form, &$form_state, $form_id) {
   if (isset($form['type']) && isset($form['#node']) && $form['type']['#value'] .'_node_form' == $form_id) {
     $node = $form['#node'];
-    
+
     // Do nothing if the node already has a menu.
     if (!empty($node->menu['mlid'])) {
       return;
     }
-    
+
     // Find the translation source node.  If creating a new node,
     // translation_source is set.  Otherwise, node_load the tnid.
     // New translation.
@@ -262,7 +334,7 @@ function i18nmenu_form_alter(&$form, &$form_state, $form_id) {
     else {
       return;
     }
-    
+
     // Prepare the tnode so the menu item will be available.
     node_object_prepare($tnode);
 
@@ -271,10 +343,10 @@ function i18nmenu_form_alter(&$form, &$form_state, $form_id) {
       $form['menu']['link_title']['#default_value'] = $tnode->menu['link_title'];
       $form['menu']['weight']['#default_value'] = $tnode->menu['weight'];
       $form['menu']['parent']['#default_value'] = $tnode->menu['menu_name'] .':'. $tnode->menu['plid'];
-      
+
       // Set menu language to node language.
       $form['menu']['language'] = array('#type' => 'value', '#value' => $node->language);
-      
+
       // Customized must be set to 1 to save language.
       $form['menu']['customized'] = array('#type' => 'value', '#value' => 1);
     }
@@ -310,7 +382,7 @@ function i18nmenu_nodeapi(&$node, $op) {
       }
       break;
     case 'prepare translation':
-      if (!$node->menu->mlid && !empty($node->translation_source)) {
+      if (empty($node->menu['mlid']) && !empty($node->translation_source)) {
         $tnode = $node->translation_source;
         // Prepare the tnode so the menu item will be available.
         node_object_prepare($tnode);

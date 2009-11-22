@@ -1,5 +1,5 @@
 <?php
-// $Id: userreference.install 539 2009-09-14 11:16:55Z rfay $
+// $Id: userreference.install,v 1.23.2.9 2009/08/11 20:39:33 markuspetrux Exp $
 
 /**
  * @file
@@ -110,6 +110,42 @@ function userreference_update_6001(&$sandbox) {
 
   $sandbox['progress']++;
   $ret['#finished'] = $sandbox['progress'] / count($sandbox['fields']);
+
+  return $ret;
+}
+
+/**
+ * Convert 'referenceable_status' option from array to integer to match the
+ * change in the field settings form where the element has been changed from
+ * a checkboxes element (array) to a radios element (integer).
+ *
+ * Reference: @link http://drupal.org/node/416134 @endlink
+ */
+function userreference_update_6002() {
+  $ret = array();
+
+  $result = db_query("SELECT field_name, global_settings FROM {". content_field_tablename() ."} WHERE type = 'userreference'");
+  while ($userreference = db_fetch_object($result)) {
+    $global_settings = unserialize($userreference->global_settings);
+
+    if (isset($global_settings['referenceable_status']) && is_array($global_settings['referenceable_status'])) {
+      $referenceable_status = array_filter($global_settings['referenceable_status']);
+      $global_settings['referenceable_status'] = (!empty($referenceable_status) ? 1 : '');
+
+      // We can't use update_sql() here because of curly braces in serialized
+      // array.
+      db_query("UPDATE {". content_field_tablename() ."} SET global_settings = '%s' WHERE field_name = '%s'", serialize($global_settings), $userreference->field_name);
+      $ret[] = array(
+        'success' => TRUE,
+        'query' => t("The 'referenceable_status' option for %field has been fixed.", array('%field' => $userreference->field_name)),
+      );
+    }
+  }
+
+  // Rebuild content caches only if necessary.
+  if (!empty($ret)) {
+    content_clear_type_cache();
+  }
 
   return $ret;
 }

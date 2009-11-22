@@ -1,5 +1,5 @@
 <?php
-// $Id: workflow.admin.inc,v 1.7 2009/01/01 20:33:20 jvandyk Exp $
+// $Id: workflow.admin.inc,v 1.7.2.1 2009/10/23 15:02:38 jvandyk Exp $
 
 /**
  * @file
@@ -132,7 +132,7 @@ function workflow_permissions($wid) {
 
   while ($data = db_fetch_object($result)) {
     foreach (explode(',', $data->roles) as $role) {
-      $all[$role]['transitions'][] = array($data->state_name, WORKFLOW_ARROW, $data->target_state_name);
+      $all[$role]['transitions'][] = array(check_plain(t($data->state_name)), WORKFLOW_ARROW, check_plain(t($data->target_state_name)));
     }
   }
 
@@ -248,9 +248,9 @@ function theme_workflow_edit_form($form) {
     foreach ($states as $state_id => $name) {
       // Don't allow transition TO (creation).
       if ($name != t('(creation)')) {
-        $header[] = array('data' => t($name));
+        $header[] = array('data' => check_plain(t($name)));
       }
-      $row = array(array('data' => $name));
+      $row = array(array('data' => check_plain(t($name))));
       foreach ($states as $nested_state_id => $nested_name) {
         if ($nested_name == t('(creation)')) {
           // Don't allow transition TO (creation).
@@ -466,7 +466,7 @@ function workflow_transition_grid_form($wid) {
           $tid = workflow_get_transition_id($from, $to);
           $form[$from][$to][$rid] = array(
             '#type' => 'checkbox',
-            '#title' => $role_name,
+            '#title' => check_plain($role_name),
             '#default_value' => $tid ? workflow_transition_allowed($tid, $rid) : FALSE);
         }
       }
@@ -507,12 +507,12 @@ function workflow_overview() {
       unset($links['workflow_overview_actions']);
     }
 
-    $row[] = array($name, theme('links', $links));
+    $row[] = array(check_plain(t($name)), theme('links', $links));
     $subrows = array();
 
     foreach ($states as $sid => $state_name) {
       $state_links = array();
-      if (!workflow_is_system_state(t($state_name))) {
+      if (!workflow_is_system_state(check_plain(t($state_name)))) {
         $state_links = array(
           'workflow_overview_edit_state' => array(
             'title' => t('Edit'),
@@ -526,7 +526,7 @@ function workflow_overview() {
       }
       // Allow modules to insert state operations.
       $state_links = array_merge($state_links, module_invoke_all('workflow_operations', 'state', $wid, $sid));
-      $subrows[] = array(t($state_name), theme('links', $state_links));
+      $subrows[] = array(check_plain(t($state_name)), theme('links', $state_links));
       unset($state_links);
     }
 
@@ -643,7 +643,7 @@ function workflow_types_form() {
   foreach (node_get_types('names') as $type => $name) {
     $form[$type]['workflow'] = array(
       '#type' => 'select',
-      '#title' => $name,
+      '#title' => check_plain($name),
       '#options' => $workflows,
       '#default_value' => isset($type_map[$type]) ? $type_map[$type] : 0
     );
@@ -687,6 +687,6 @@ function theme_workflow_types_form($form) {
 function workflow_types_form_submit($form, &$form_state) {
   workflow_types_save($form_state['values']);
   drupal_set_message(t('The workflow mapping was saved.'));
-  menu_rebuild(); 
+  menu_rebuild();
   $form_state['redirect'] = 'admin/build/workflow';
 }

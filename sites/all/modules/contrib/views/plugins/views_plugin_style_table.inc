@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_style_table.inc,v 1.5 2008/10/15 22:25:36 merlinofchaos Exp $
+// $Id: views_plugin_style_table.inc,v 1.7 2009/06/30 22:07:42 merlinofchaos Exp $
 /**
  * @file
  * Contains the table style plugin.
@@ -28,10 +28,27 @@ class views_plugin_style_table extends views_plugin_style {
    * Determine if we should provide sorting based upon $_GET inputs.
    */
   function build_sort() {
+    if (!isset($_GET['order']) && $this->options['default'] == -1) {
+      return TRUE;
+    }
+
+    // If a sort we don't know anything about gets through, exit gracefully.
+    if (isset($_GET['order']) && empty($this->view->field[$_GET['order']])) {
+      return TRUE;
+    }
+
+    // Let the builder know whether or not we're overriding the default sorts.
+    return empty($this->options['override']);
+  }
+
+  /**
+   * Add our actual sort criteria
+   */
+  function build_sort_post() {
     if (!isset($_GET['order'])) {
       // check for a 'default' clicksort. If there isn't one, exit gracefully.
       if (empty($this->options['default'])) {
-        return TRUE;
+        return;
       }
       $sort = $this->options['default'];
       $this->order = !empty($this->options['order']) ? $this->options['order'] : 'asc';
@@ -44,7 +61,7 @@ class views_plugin_style_table extends views_plugin_style {
 
     // If a sort we don't know anything about gets through, exit gracefully.
     if (empty($this->view->field[$sort])) {
-      return TRUE;
+      return;
     }
 
     // Ensure $this->order is valid.
@@ -57,9 +74,6 @@ class views_plugin_style_table extends views_plugin_style {
 
     // Tell the field to click sort.
     $this->view->field[$sort]->click_sort($this->order);
-
-    // Let the builder know whether or not we're overriding the default sorts.
-    return empty($this->options['override']);
   }
 
   /**

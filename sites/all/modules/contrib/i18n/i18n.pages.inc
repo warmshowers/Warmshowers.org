@@ -1,5 +1,5 @@
 <?php
-// $Id: i18n.pages.inc,v 1.1.2.2 2009/04/27 14:22:28 jareyero Exp $
+// $Id: i18n.pages.inc,v 1.1.2.5 2009/09/21 23:11:33 jareyero Exp $
 
 /**
  * @file
@@ -10,7 +10,7 @@
  * Overview page for a node's translations.
  *
  * Replacement for Drupal core translation module's pages
- * 
+ *
  * @param $node
  *   Node object.
  */
@@ -68,7 +68,7 @@ function i18n_translation_node_overview($node) {
 
 /**
  * Form to select existing nodes as translation
- * 
+ *
  * This one uses autocomplete fields for all languages
  */
 function i18n_node_select_translation($form_state, $node, $translations) {
@@ -78,7 +78,7 @@ function i18n_node_select_translation($form_state, $node, $translations) {
     '#title' => t('Select translations for %title', array('%title' => $node->title)),
     '#tree' => TRUE,
     '#theme' => 'i18n_node_select_translation',
-    '#description' => t('Alternatively, you can select existing nodes as translations of this one or remove nodes from this translation set. Only nodes that have the right language and don\'t belong to other translation set will be available here.')
+    '#description' => t("Alternatively, you can select existing nodes as translations of this one or remove nodes from this translation set. Only nodes that have the right language and don't belong to other translation set will be available here.")
   );
   foreach (language_list() as $language) {
     if ($language->language != $node->language) {
@@ -154,7 +154,7 @@ function i18n_node_select_translation_submit($form, &$form_state) {
 /**
  * Node title autocomplete callback
  */
-function i18n_node_autocomplete($type, $language, $string = '') {  
+function i18n_node_autocomplete($type, $language, $string = '') {
   $params = array('type' => $type, 'language' => $language, 'tnid' => 0);
   $matches = array();
   foreach (_i18n_node_references($string, 'contains', $params) as $id => $row) {
@@ -178,7 +178,7 @@ function i18n_node_nid2autocomplete($nid) {
 
 /**
  * Reverse mapping from node title to nid
- * 
+ *
  * We also handle autocomplete values (title [nid:x]) and validate the form
  */
 function i18n_node_autocomplete2nid($name, $field = NULL, $type, $language) {
@@ -205,19 +205,19 @@ function i18n_node_autocomplete2nid($name, $field = NULL, $type, $language) {
       }
     }
   }
-  return !empty($nid) ? $nid : NULL;  
+  return !empty($nid) ? $nid : NULL;
 }
 
 /**
  * Find node title matches.
- * 
+ *
  * @param $string
  *   String to match against node title
  * @param $match
  *   Match mode: 'contains', 'equals', 'starts_with'
  * @param $params
  *   Other query arguments: type, language or numeric ones
- * 
+ *
  * Some code from CCK's nodereference.module
  */
 function _i18n_node_references($string, $match = 'contains', $params = array(), $limit = 10) {
@@ -248,11 +248,11 @@ function _i18n_node_references($string, $match = 'contains', $params = array(), 
   $references = array();
   while ($node = db_fetch_object($result)) {
     $references[$node->nid] = array(
-      'title' => check_plain($node->title),
+      'title' => $node->title,
       'rendered' => check_plain($node->title),
     );
   }
-  return $references; 
+  return $references;
 }
 
 /**
@@ -261,14 +261,16 @@ function _i18n_node_references($string, $match = 'contains', $params = array(), 
  */
 function theme_i18n_node_select_translation(&$elements) {
   $output = '';
-  $rows = array();
-  foreach (element_children($elements['nid']) as $lang) {
-    $rows[] = array(
-      drupal_render($elements['language'][$lang]),
-      drupal_render($elements['node'][$lang]),
-    );
+  if (isset($elements['nid'])) {
+    $rows = array();
+    foreach (element_children($elements['nid']) as $lang) {
+      $rows[] = array(
+        drupal_render($elements['language'][$lang]),
+        drupal_render($elements['node'][$lang]),
+      );
+    }
+    $output .= theme('table', array(), $rows);
+    $output .= drupal_render($elements);
   }
-  $output .= theme('table', array(), $rows);
-  $output .= drupal_render($elements);
   return $output;
 }

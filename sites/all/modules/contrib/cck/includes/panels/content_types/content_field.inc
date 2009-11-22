@@ -1,5 +1,5 @@
 <?php
-// $Id: content_field.inc,v 1.1.2.9 2009/07/18 01:18:07 markuspetrux Exp $
+// $Id: content_field.inc,v 1.1.2.10 2009/09/29 06:52:35 markuspetrux Exp $
 
 /**
  * @file
@@ -151,6 +151,12 @@ function content_content_field_content_type_edit_form(&$form, &$form_state) {
 
   // Extract the field name from the panels content type subtype.
   $field_name = $form_state['subtype_name'];
+
+  // Previous versions of CCK included the content type as part of the subtype.
+  // This allows those to continue to sort of work.
+  if (strpos($field_name, ':') !== FALSE) {
+    list($content_type, $field_name) = explode(':', $field_name, 2);
+  }
 
   // Get all the information about our field.
   $field = content_fields($field_name);

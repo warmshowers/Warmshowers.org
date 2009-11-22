@@ -1,5 +1,5 @@
 <?php
-//$Id: comment.views_convert.inc,v 1.3 2009/06/02 20:31:00 merlinofchaos Exp $
+//$Id: comment.views_convert.inc,v 1.4 2009/06/30 19:14:27 merlinofchaos Exp $
 
 /**
  * @file
@@ -82,26 +82,20 @@ function comment_views_convert($display, $type, &$view, $field, $id = NULL) {
       break;
     case 'filter':
       switch ($field['tablename']) {
-        case 'comments':
-          switch ($field['field']) {
-            case 'status':
-              $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
-              break;
-          }
-          break;
         case 'node_comment_statistics':
           switch ($field['field']) {
             case 'comment_count':
               $view->set_item_option($display, 'filter', $id, 'operator', $field['operator']);
-              $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
               break;
             case 'last_changed':
               $field['field'] = 'last_updated';
             case 'last_comment_timestamp':
               $item = $view->get_item($display, 'filter', $id);
               $item['operator'] = $field['operator'];
-              $item['value']['type'] = $field['value'] == 'now' ? 'offset' : 'date';
-              $item['value']['value'] = $field['value'];
+              $item['value'] = array(
+                'type' => $field['value'] == 'now' ? 'offset' : 'date',
+                'value' => $field['value'],
+              );
               if (!empty($field['options'])) {
                 $item['value']['value'] = intval($field['options']) .' seconds';
               }

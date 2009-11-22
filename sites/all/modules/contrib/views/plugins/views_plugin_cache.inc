@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_cache.inc,v 1.2 2009/06/03 23:39:52 merlinofchaos Exp $
+// $Id: views_plugin_cache.inc,v 1.5 2009/06/24 02:45:01 merlinofchaos Exp $
 
 /**
  * The base plugin to handle caching.
@@ -135,6 +135,28 @@ class views_plugin_cache extends views_plugin {
   }
 
   /**
+   * Post process any rendered data.
+   *
+   * This can be valuable to be able to cache a view and still have some level of
+   * dynamic output. In an ideal world, the actual output will include HTML
+   * comment based tokens, and then the post process can replace those tokens.
+   *
+   * Example usage. If it is known that the view is a node view and that the
+   * primary field will be a nid, you can do something like this:
+   *
+   * <!--post-FIELD-NID-->
+   *
+   * And then in the post render, create an array with the text that should
+   * go there:
+   *
+   * strtr($output, array('<!--post-FIELD-1-->', 'output for FIELD of nid 1');
+   *
+   * All of the cached result data will be available in $view->result, as well,
+   * so all ids used in the query should be discoverable.
+   */
+  function post_render(&$output) { }
+
+  /**
    * Start caching javascript, css and other out of band info.
    *
    * This takes a snapshot of the current system state so that we don't
@@ -229,6 +251,7 @@ class views_plugin_cache extends views_plugin {
       $key_data = array(
         'build_info' => $this->view->build_info,
         'roles' => array_keys($user->roles),
+        'super-user' => $user->uid == 1, // special caching for super user.
       );
       foreach (array('exposed_info', 'page', 'sort', 'order') as $key) {
         if (isset($_GET[$key])) {
@@ -248,6 +271,7 @@ class views_plugin_cache extends views_plugin {
       $key_data = array(
         'result' => $this->view->result,
         'roles' => array_keys($user->roles),
+        'super-user' => $user->uid == 1, // special caching for super user.
       );
 
       $this->_output_key = $this->view->name . ':' . $this->display->id . ':output:' . md5(serialize($key_data));

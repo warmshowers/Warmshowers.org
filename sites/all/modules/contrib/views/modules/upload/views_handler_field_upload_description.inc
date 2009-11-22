@@ -1,10 +1,10 @@
 <?php
-// $Id: views_handler_field_upload_description.inc,v 1.3 2009/01/30 00:01:42 merlinofchaos Exp $
+// $Id: views_handler_field_upload_description.inc,v 1.5 2009/09/15 22:15:31 merlinofchaos Exp $
 
 /**
  * Field handler to provide a list of roles.
  */
-class views_handler_field_upload_description extends views_handler_field_prerender_list {
+class views_handler_field_upload_description extends views_handler_field {
   function init(&$view, &$options) {
     parent::init($view, $options);
     if (!empty($options['link_to_file'])) {
@@ -43,7 +43,6 @@ class views_handler_field_upload_description extends views_handler_field_prerend
     }
 
     if ($fids) {
-      // Support "only listed files" option.
       $result = db_query("SELECT f.fid, f.filepath FROM {files} f WHERE f.fid IN (" . implode(', ', $fids) . ")");
       while ($file = db_fetch_object($result)) {
         $this->items[$file->fid] = $file;
@@ -65,6 +64,9 @@ class views_handler_field_upload_description extends views_handler_field_prerend
       $values = $this->items[$value->{$this->aliases['fid']}];
       $this->options['alter']['make_link'] = TRUE;
       $this->options['alter']['path'] = file_create_url($values->filepath);
+    }
+    else {
+      $this->options['alter']['make_link'] = FALSE;
     }
     return $data;
   }

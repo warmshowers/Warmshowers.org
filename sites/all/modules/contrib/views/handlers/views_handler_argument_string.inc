@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument_string.inc,v 1.4 2009/01/07 21:30:31 merlinofchaos Exp $
+// $Id: views_handler_argument_string.inc,v 1.5 2009/06/25 21:58:17 merlinofchaos Exp $
 
 /**
  * Basic argument handler to implement string arguments that may have length
@@ -72,7 +72,7 @@ class views_handler_argument_string extends views_handler_argument {
     $form['path_case'] = array(
       '#type' => 'select',
       '#title' => t('Case in path'),
-      '#description' => t('When printing url paths, how to transform the of the argument. Do not use this unless with Postgres as it uses case sensitive comparisons.'),
+      '#description' => t('When printing url paths, how to transform the case of the argument. Do not use this unless with Postgres as it uses case sensitive comparisons.'),
       '#options' => array(
         'none' => t('No transform'),
         'upper' => t('Upper case'),

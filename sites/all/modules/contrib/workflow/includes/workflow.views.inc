@@ -1,5 +1,5 @@
 <?php
-// $Id: workflow.views.inc,v 1.1 2008/09/18 02:49:25 jvandyk Exp $
+// $Id: workflow.views.inc,v 1.1.2.1 2009/06/05 21:37:23 jvandyk Exp $
 /**
  * @file
  * Provide views data and handler information for workflow.module.
@@ -32,7 +32,7 @@ function workflow_views_data() {
     'title' => t('State weight'), // Appears in views UI.
     'help' => t('The weight of the current workflow state that the node is in.'),
     'sort' => array(
-      'handler' => 'views_handler_sort_numeric',
+      'handler' => 'views_handler_sort',
     ),
   );
 

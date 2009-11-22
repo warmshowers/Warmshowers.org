@@ -1,5 +1,5 @@
 <?php
-// $Id: view.inc 527 2009-07-19 20:34:17Z rfay $
+// $Id: view.inc,v 1.167 2009/09/15 17:57:11 merlinofchaos Exp $
 /**
  * @file view.inc
  * Provides the view object type and associated methods.
@@ -99,6 +99,13 @@ class view extends views_db_object {
     if (empty($items_per_page)) {
       $this->pager['use_pager'] = FALSE;
     }
+  }
+
+  /**
+   * Change/Set the current page for the pager.
+   */
+  function set_current_page($page) {
+    $this->pager['current_page'] = $page;
   }
 
   /**
@@ -591,6 +598,7 @@ class view extends views_db_object {
     // Arguments can, in fact, cause this whole thing to abort.
     if (!$this->_build_arguments()) {
       $this->build_time = views_microtime() - $start;
+      $this->attach_displays();
       return $this->built;
     }
 
@@ -612,6 +620,8 @@ class view extends views_db_object {
       if ($this->style_plugin->build_sort()) {
         $this->_build('sort');
       }
+      // allow the plugin to build second sorts as well.
+      $this->style_plugin->build_sort_post();
     }
 
     // Allow display handler to affect the query:
@@ -787,6 +797,8 @@ class view extends views_db_object {
       return;
     }
 
+    init_theme();
+
     $start = views_microtime();
     if (!empty($this->live_preview) && variable_get('views_show_additional_queries', FALSE)) {
       $this->start_query_capture();
@@ -818,6 +830,12 @@ class view extends views_db_object {
         $function($this);
       }
 
+      // Let the theme play too, because pre render is a very themey thing.
+      $function = $GLOBALS['theme'] . '_views_pre_render';
+      if (function_exists($function)) {
+        $function($this, $this->display_handler->output, $cache);
+      }
+
       // Give field handlers the opportunity to perform additional queries
       // using the entire resultset prior to rendering.
       if ($this->style_plugin->uses_fields()) {
@@ -831,6 +849,22 @@ class view extends views_db_object {
       if ($cache) {
         $cache->cache_set('output');
       }
+    }
+
+    if ($cache) {
+      $cache->post_render($this->display_handler->output);
+    }
+
+    // Let modules modify the view output after it is rendered.
+    foreach (module_implements('views_post_render') as $module) {
+      $function = $module . '_views_post_render';
+      $function($this, $this->display_handler->output, $cache);
+    }
+
+    // Let the theme play too, because post render is a very themey thing.
+    $function = $GLOBALS['theme'] . '_views_post_render';
+    if (function_exists($function)) {
+      $function($this, $this->display_handler->output, $cache);
     }
 
     if (!empty($this->live_preview) && variable_get('views_show_additional_queries', FALSE)) {

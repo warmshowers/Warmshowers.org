@@ -1,5 +1,5 @@
 <?php
-// $Id: admin.inc 527 2009-07-19 20:34:17Z rfay $
+// $Id: admin.inc,v 1.161.2.1 2009/11/02 20:09:51 merlinofchaos Exp $
 /**
  * @file admin.inc
  * Provides the Views' administrative interface.
@@ -398,7 +398,7 @@ function views_ui_preview($js, $view) {
           if ($queries) {
             $queries .= "\n";
           }
-          $queries .= t('[@time ms]', array('@time' => intval($query[1] * 100000) / 100)) . ' ' . $query[0];
+          $queries .= t('[@time ms]', array('@time' => intval($query[1] * 100000) / 100)) . ' ' . check_plain($query[0]);
         }
 
         $rows[] = array('<strong>' . t('Other queries') . '</strong>', '<pre>' . $queries . '</pre>');
@@ -912,7 +912,7 @@ function views_ui_edit_view_form_submit($form, &$form_state) {
   }
 
   $form_state['view']->save();
-  drupal_set_message(t('The view has been saved.'));
+  drupal_set_message(t('The view %name has been saved.', array('%name' => $form_state['view']->name)));
 
   // Make sure menu items get rebuilt as neces
   menu_rebuild();

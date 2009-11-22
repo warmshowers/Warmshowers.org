@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.views.inc 530 2009-07-19 23:14:54Z rfay $
+// $Id: taxonomy.views.inc,v 1.57 2009/07/01 06:13:49 merlinofchaos Exp $
 /**
  * @file
  *
@@ -98,7 +98,6 @@ function taxonomy_views_data() {
     'field' => array(
       'handler' => 'views_handler_field_numeric',
       'click sortable' => TRUE,
-      'skip base' => array('node', 'node_revision'),
     ),
     'sort' => array(
       'handler' => 'views_handler_sort',
@@ -308,6 +307,17 @@ function taxonomy_views_data() {
  * Implementation of hook_views_data_alter().
  */
 function taxonomy_views_data_alter(&$data) {
+  $data['node']['term_node_tid'] = array(
+    'group' => t('Taxonomy'),
+    'title' => t('Related terms'),
+    'help' => t('Relate nodes to taxonomy terms, specifiying which vocabulary or vocabularies to use. This relationship will cause duplicated records if there are multiple terms.'),
+    'relationship' => array(
+      'handler' => 'views_handler_relationship_node_term_data',
+      'label' => t('term'),
+      'base' => 'term_data',
+    ),
+  );
+
   $data['node']['term_node_tid_depth'] = array(
     'group' => t('Taxonomy'),
     'title' => t('Term ID (with depth)'),
@@ -371,6 +381,9 @@ function taxonomy_views_handlers() {
       ),
       'views_handler_filter_term_node_tid_depth' => array(
         'parent' => 'views_handler_filter_term_node_tid',
+      ),
+      'views_handler_relationship_node_term_data' => array(
+        'parent' => 'views_handler_relationship',
       ),
     ),
   );

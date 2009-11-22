@@ -1,4 +1,4 @@
-// $Id: dependent.js 530 2009-07-19 23:14:54Z rfay $
+// $Id: dependent.js,v 1.9 2009/09/15 17:32:20 merlinofchaos Exp $
 /**
  * @file dependent.js
  *
@@ -81,6 +81,9 @@ Drupal.Views.dependent.autoAttach = function() {
 
       Drupal.Views.dependent.activeTriggers.push(trigger_id);
 
+      if (jQuery(trigger_id).attr('type') == 'checkbox') {
+        $(trigger_id).parent().addClass('hidden-options');
+      }
 
       var getValue = function(item, trigger) {
         if (item.substring(0, 6) == 'radio:') {
@@ -90,6 +93,14 @@ Drupal.Views.dependent.autoAttach = function() {
           switch (jQuery(trigger).attr('type')) {
             case 'checkbox':
               var val = jQuery(trigger).attr('checked') || 0;
+              
+              if (val) {
+                $(trigger).parent().removeClass('hidden-options').addClass('expanded-options');
+              }
+              else {
+                $(trigger).parent().removeClass('expanded-options').addClass('hidden-options');
+              }
+              
               break;
             default:
               var val = jQuery(trigger).val();
@@ -137,6 +148,7 @@ Drupal.Views.dependent.autoAttach = function() {
             if (Drupal.settings.viewsAjax.formRelationships[id].num <= len) {
               // Show if the element if criteria is matched
               object.show(0);
+              object.addClass('dependent-options');
             }
             else {
               // Otherwise hide

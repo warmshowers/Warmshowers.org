@@ -1,4 +1,4 @@
-// $Id: tabs.js 530 2009-07-19 23:14:54Z rfay $
+// $Id: tabs.js,v 1.4 2009/06/02 17:12:13 merlinofchaos Exp $
 
 /**
  * @file tabs.js

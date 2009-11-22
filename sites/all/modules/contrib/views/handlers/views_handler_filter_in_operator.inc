@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_in_operator.inc 530 2009-07-19 23:14:54Z rfay $
+// $Id: views_handler_filter_in_operator.inc,v 1.12 2009/09/25 00:29:43 merlinofchaos Exp $
 /**
  * Simple filter to handle matching of multiple options selectable via checkboxes
  *
@@ -173,11 +173,6 @@ class views_handler_filter_in_operator extends views_handler_filter {
     }
 
     if ($which == 'all' || $which == 'value') {
-      if ($this->value_form_type == 'checkboxes') {
-        foreach ($options as $key => $option) {
-          $options[$key] = check_plain($option);
-        }
-      }
       $form['value'] = array(
         '#type' => $this->value_form_type,
         '#title' => $this->value_title,
@@ -191,18 +186,27 @@ class views_handler_filter_in_operator extends views_handler_filter {
         $form_state['input'][$identifier] = $default_value;
       }
 
+      $process = array();
+      if ($this->value_form_type == 'checkboxes') {
+        // If this form element will use checkboxes in the UI, we need to
+        // check_plain() all the options ourselves since FAPI is inconsistent
+        // about this. However, instead of directly doing that to the #options
+        // right now, we define a #process callback since we might change our
+        // mind later and convert this into a 'select' form element, which
+        // would lead to double-escaping the options.
+        $process[] = 'views_process_check_options';
+      }
       if ($which == 'all') {
-        $process = array();
-        if ($this->value_form_type == 'checkboxes' || $this->value_form_type == 'radios') {
+        if (empty($form_state['exposed']) && ($this->value_form_type == 'checkboxes' || $this->value_form_type == 'radios')) {
           $process[] = "expand_$this->value_form_type";
           $form['value']['#prefix'] = '<div id="edit-options-value-wrapper">';
           $form['value']['#suffix'] = '</div>';
         }
         $process[] = 'views_process_dependency';
-        $form['value'] += array(
-          '#process' => $process,
-          '#dependency' => array($source => $this->operator_values(1)),
-        );
+        $form['value']['#dependency'] = array($source => $this->operator_values(1));
+      }
+      if (!empty($process)) {
+        $form['value']['#process'] = $process;
       }
     }
   }

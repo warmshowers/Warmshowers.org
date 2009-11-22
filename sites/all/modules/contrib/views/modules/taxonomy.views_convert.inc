@@ -1,5 +1,5 @@
 <?php
-//$Id: taxonomy.views_convert.inc,v 1.3 2009/06/02 20:31:00 merlinofchaos Exp $
+//$Id: taxonomy.views_convert.inc,v 1.4 2009/06/30 19:14:27 merlinofchaos Exp $
 
 /**
  * @file
@@ -56,7 +56,6 @@ function taxonomy_views_convert($display, $type, &$view, $field, $id = NULL) {
             }
             $item['operator'] = $operators[$field['operator']];
             $item['type'] = 'select';
-            $item['value'] = $field['value'];
             $view->set_item($display, 'filter', $id, $item);
             break;
         }
@@ -66,7 +65,6 @@ function taxonomy_views_convert($display, $type, &$view, $field, $id = NULL) {
           case 'vid':
             $operators = array('AND' => 'in', 'OR' => 'in', 'NOR' => 'not in');
             $view->set_item_option($display, 'filter', $id, 'operator', $operators[$field['operator']]);
-            $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
             break;
         }
       }

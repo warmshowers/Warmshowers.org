@@ -1,5 +1,5 @@
 <?php
-// $Id: i18nstrings.module,v 1.8.2.31 2009/01/19 19:05:12 jareyero Exp $
+// $Id: i18nstrings.module,v 1.8.2.33 2009/11/03 17:53:24 jareyero Exp $
 
 /**
  * @file
@@ -161,10 +161,10 @@ function tt($name, $string, $langcode = NULL, $update = FALSE) {
  * Get configurable string,
  *
  * The difference with tt() is that it doesn't use a default string, it will be retrieved too.
- * 
+ *
  * This is used for source texts that we don't have stored anywhere else. I.e. for the content
  * types help text (i18ncontent module) there's no way we can override the default (configurable) help text
- * so what we do is to make it blank in the configuration (so node module doesn't display it) 
+ * so what we do is to make it blank in the configuration (so node module doesn't display it)
  * and then we provide that help text for *all* languages, out from the locales tables.
  *
  * As the original language string will be stored in locales too so it should be only used when updating.
@@ -290,7 +290,7 @@ function i18nstrings_to($context, &$object, $properties = array(), $langcode = N
  */
 function i18nstrings_update_string($context, $string) {
   $context = i18nstrings_context($context, $string);
-  
+
   if ($string) {
     $status = i18nstrings_add_string($context, $string);
   }
@@ -328,7 +328,7 @@ function i18nstrings_update_translation($context, $langcode, $translation) {
  *
  * It will also add data into i18n_strings table for faster retrieval and indexing of groups of strings.
  * Some string context doesn't have a numeric oid (I.e. content types), it will be set to zero.
- * 
+ *
  * This function checks for already existing string without context for this textgroup and updates it accordingly.
  * It is intended for backwards compatibility, using already created strings.
  *
@@ -336,7 +336,7 @@ function i18nstrings_update_translation($context, $langcode, $translation) {
  *   Textgroup and location glued with ':'
  * @param $string
  *   Source string (string in default language)
- * 
+ *
  * @return
  *   Update status.
  */
@@ -427,7 +427,7 @@ function i18nstrings_get_source($context, $string = NULL) {
  */
 function i18nstrings_get_string($context, $langcode) {
   $context = i18nstrings_context($context);
-  
+
   if ($translation = i18nstrings_cache($context, $langcode)) {
     return $translation;
   }
@@ -766,28 +766,61 @@ function i18nstrings_title_callback($name, $string, $callback = NULL) {
 
 /**
  * Refresh all user defined strings for a given text group
- * 
+ *
  * @param $group
  *   Text group to refresh
  * @param $delete
- *   Optional, delete existing (but not refresed, strings and translations) 
+ *   Optional, delete existing (but not refresed, strings and translations)
+ * @return Boolean
+ *   True if the strings have been refreshed successfully. False otherwise.
  */
 function i18nstrings_refresh_group($group, $delete = FALSE) {
+  // Check for the refresh callback
+  $refresh_callback = i18nstrings_group_info($group, 'refresh callback');
+  if (!$refresh_callback) {
+    return FALSE;
+  }
   // Delete data from i18n_strings so it is recreated
   db_query("DELETE FROM {i18n_strings} WHERE lid IN (SELECT lid FROM {locales_source} WHERE textgroup = '%s')", $group);
-  
-  module_invoke_all('locale', 'refresh', $group);
-  
+
+  $result = call_user_func($refresh_callback);
+
   // Now delete all source strings that were not refreshed
-  if ($delete) {
+  if ($result && $delete) {
     $result = db_query("SELECT s.* FROM {locales_source} s LEFT JOIN {i18n_strings} i ON s.lid = i.lid WHERE s.textgroup = '%s' AND i.lid IS NULL", $group);
-    while ($source = db_fetch_object($result)) {    
+    while ($source = db_fetch_object($result)) {
       db_query("DELETE FROM {locales_target} WHERE lid = %d", $source->lid);
-      db_query("DELETE FROM {locales_source} WHERE lid = %d", $source->lid);    
+      db_query("DELETE FROM {locales_source} WHERE lid = %d", $source->lid);
     }
   }
-  
+
   cache_clear_all('locale:'. $group .':', 'cache', TRUE);
+  return $result;
+}
+
+/**
+ * Get refresh callback for a text group
+ * 
+ * @param $group
+ * 
+ * @return callback
+ */
+function i18nstrings_group_info($group = NULL, $property = NULL) {
+  static $info;
+  
+  if (!isset($callbacks)) {
+    $info = module_invoke_all('locale', 'info');
+  }
+
+  if ($group && $property) {
+    return isset($info[$group][$property]) ? $info[$group][$property] : NULL;
+  }
+  elseif ($group) {
+    return isset($info[$group]) ? $info[$group] : array();
+  }
+  else {
+    return $info;
+  }
 }
 
 /*** l10n client related functions ***/
@@ -797,7 +830,7 @@ function i18nstrings_refresh_group($group, $delete = FALSE) {
  */
 function i18nstrings_save_string() {
   global $user, $language;
-  
+
   if (user_access('use on-page translation')) {
     $textgroup = !empty($_POST['textgroup']) ? $_POST['textgroup'] : 'default';
     // Default textgroup will be handled by l10n_client module
@@ -811,10 +844,10 @@ function i18nstrings_save_string() {
 }
 
 /**
- * Import translation for a given textgroup 
- * 
+ * Import translation for a given textgroup
+ *
  * This will update multiple strings if there are duplicated ones
- * 
+ *
  * @param $langcode
  *   Language code to import string into.
  * @param $source
@@ -830,7 +863,7 @@ function i18nstrings_save_string() {
  */
 function i18nstrings_save_translation($langcode, $source, $translation, $textgroup) {
   include_once 'includes/locale.inc';
-  
+
   if (locale_string_is_safe($translation)) {
     $result = db_query("SELECT lid FROM {locales_source} WHERE source = '%s' AND textgroup = '%s'", $source, $textgroup);
     $count = 0;

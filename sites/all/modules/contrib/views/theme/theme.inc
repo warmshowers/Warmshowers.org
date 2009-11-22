@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc 527 2009-07-19 20:34:17Z rfay $
+// $Id: theme.inc,v 1.84.2.2 2009/10/23 21:37:49 merlinofchaos Exp $
 
 /**
  * @file theme.inc
@@ -109,12 +109,12 @@ function template_preprocess_views_view(&$vars) {
 
     drupal_alter('views_admin_links', $vars['admin_links_raw'], $view);
     $vars['admin_links'] = theme('links', $vars['admin_links_raw']);
-    views_add_css('views');
   }
   else {
     $vars['admin_links'] = '';
     $vars['admin_links_raw'] = array();
   }
+  views_add_css('views');
 
   // Our JavaScript needs to have some means to find the HTML belonging to this
   // view.
@@ -167,8 +167,9 @@ function template_preprocess_views_view_fields(&$vars) {
   $vars['fields'] = array(); // ensure it's at least an empty array.
   foreach ($view->field as $id => $field) {
     // render this even if set to exclude so it can be used elsewhere.
-    $field_output = $view->field[$id]->theme($vars['row']);
-    if (empty($field->options['exclude'])) {
+    $field_output = $view->style_plugin->get_field($view->row_index, $id);
+    $empty = $field_output !== 0 && empty($field_output);
+    if (empty($field->options['exclude']) && (!$empty || empty($field->options['hide_empty']))) {
       $object = new stdClass();
 
       $object->content = $field_output;
@@ -280,7 +281,8 @@ function template_preprocess_views_view_table(&$vars) {
   // However, the template also needs to use for the rendered fields.  We
   // therefore swap the raw data out to a new variable and reset $vars['rows']
   // so that it can get rebuilt.
-  $result   = $vars['rows'];
+  // Store rows so that they may be used by further preprocess functions.
+  $result   = $vars['result'] = $vars['rows'];
   $vars['rows'] = array();
 
   $options  = $view->style_plugin->options;
@@ -299,13 +301,7 @@ function template_preprocess_views_view_table(&$vars) {
 
   // Fields must be rendered in order as of Views 2.3, so we will pre-render
   // everything.
-  $renders = array();
-  $keys = array_keys($view->field);
-  foreach ($result as $count => $row) {
-    foreach ($keys as $id) {
-      $renders[$count][$id] = $view->field[$id]->theme($row);
-    }
-  }
+  $renders = $handler->render_fields($result);
 
   foreach ($columns as $field => $column) {
     // render the header labels
@@ -347,19 +343,20 @@ function template_preprocess_views_view_table(&$vars) {
       if (!empty($fields[$field]) && empty($fields[$field]->options['exclude'])) {
         $field_output = $renders[$num][$field];
 
+        if (!isset($vars['rows'][$num][$column])) {
+          $vars['rows'][$num][$column] = '';
+        }
+
         // Don't bother with separators and stuff if the field does not show up.
-        if (empty($field_output) && !empty($vars['rows'][$num][$column])) {
+        if ($field_output === '') {
           continue;
         }
 
         // Place the field into the column, along with an optional separator.
-        if (!empty($vars['rows'][$num][$column])) {
+        if ($vars['rows'][$num][$column] !== '') {
           if (!empty($options['info'][$column]['separator'])) {
             $vars['rows'][$num][$column] .= filter_xss_admin($options['info'][$column]['separator']);
           }
-        }
-        else {
-          $vars['rows'][$num][$column] = '';
         }
 
         $vars['rows'][$num][$column] .= $field_output;
@@ -370,6 +367,9 @@ function template_preprocess_views_view_table(&$vars) {
   foreach ($vars['rows'] as $num => $row) {
     $vars['row_classes'][$num][] = ($num % 2 == 0) ? 'odd' : 'even';
   }
+
+  $vars['row_classes'][0][] = 'views-row-first';
+  $vars['row_classes'][count($vars['row_classes']) - 1][] = 'views-row-last';
 
   $vars['class'] = 'views-table';
   if (!empty($options['sticky'])) {
@@ -393,14 +393,21 @@ function template_preprocess_views_view_grid(&$vars) {
 
   if ($options['alignment'] == 'horizontal') {
     $row = array();
+    $row_count = 0;
     foreach ($vars['rows'] as $count => $item) {
       $row[] = $item;
+      $row_count++;
       if (($count + 1) % $columns == 0) {
         $rows[] = $row;
         $row = array();
+        $row_count = 0;
       }
     }
     if ($row) {
+      // Fill up the last line.
+      for ($i = 0; $i < ($columns - $row_count); $i++) {
+        $row[] = '';
+      }
       $rows[] = $row;
     }
   }
@@ -422,6 +429,12 @@ function template_preprocess_views_view_grid(&$vars) {
         $row = 0;
         $col++;
         $remainders--;
+      }
+    }
+    for ($i = 0; $i < count($rows[0]); $i++) {
+      // This should be string so that's okay :)
+      if (!isset($rows[count($rows) - 1][$i])) {
+        $rows[count($rows) - 1][$i] = '';
       }
     }
   }

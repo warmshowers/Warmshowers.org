@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument.inc 530 2009-07-19 23:14:54Z rfay $
+// $Id: views_handler_argument.inc,v 1.9 2009/06/26 00:23:42 merlinofchaos Exp $
 
 /**
  * @defgroup views_argument_handlers Handlers for arguments
@@ -750,7 +750,7 @@ class views_handler_argument extends views_handler {
  * @ingroup views_argument_handlers
  */
 class views_handler_argument_broken extends views_handler_argument {
-  function ui_name() {
+  function ui_name($short = FALSE) {
     return t('Broken/missing handler');
   }
 

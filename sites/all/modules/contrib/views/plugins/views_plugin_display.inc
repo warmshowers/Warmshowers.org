@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display.inc 527 2009-07-19 20:34:17Z rfay $
+// $Id: views_plugin_display.inc,v 1.27.2.1 2009/10/28 02:11:17 merlinofchaos Exp $
 /**
  * @file
  * Contains the base display plugin.
@@ -935,7 +935,7 @@ class views_plugin_display extends views_plugin {
           $form['markup'] = array(
             '#prefix' => '<div class="form-item description">',
             '#suffix' => '</div>',
-            '#value' => t('You may also adjust the !settings for the currently selected style by clicking on the icon.', array('!settings' => $this->option_link(t('settings'), 'access_options'))),
+            '#value' => t('You may also adjust the !settings for the currently selected access restriction by clicking on the icon.', array('!settings' => $this->option_link(t('settings'), 'access_options'))),
           );
         }
 
@@ -977,7 +977,7 @@ class views_plugin_display extends views_plugin {
           $form['markup'] = array(
             '#prefix' => '<div class="form-item description">',
             '#suffix' => '</div>',
-            '#value' => t('You may also adjust the !settings for the currently selected style by clicking on the icon.', array('!settings' => $this->option_link(t('settings'), 'cache_options'))),
+            '#value' => t('You may also adjust the !settings for the currently selected cache mechanism by clicking on the icon.', array('!settings' => $this->option_link(t('settings'), 'cache_options'))),
           );
         }
         break;
@@ -1387,7 +1387,7 @@ class views_plugin_display extends views_plugin {
   /**
    * Validate the options form.
    */
-  function options_validate($form, &$form_state) {
+  function options_validate(&$form, &$form_state) {
     switch ($form_state['section']) {
       case 'style_options':
         $style = TRUE;
@@ -1650,7 +1650,7 @@ class views_plugin_display extends views_plugin {
    * Render the 'more' link
    */
   function render_more_link() {
-    if ($this->use_more() && $this->view->total_rows > $this->view->pager['items_per_page']) {
+    if ($this->use_more() && (!isset($this->view->total_rows) || $this->view->total_rows > $this->view->pager['items_per_page'])) {
       $path = $this->get_path();
       if ($path) {
         $path = $this->view->get_url(NULL, $path);
@@ -1828,15 +1828,10 @@ class views_plugin_display extends views_plugin {
 
     // Validate handlers
     foreach (views_object_types() as $type => $info) {
-      $plural = $info['plural'];
-      // Skip handlers which are defaulted as there is no point in
-      // validating them again.
-      if (!$this->is_defaulted($plural)) {
-        foreach ($this->get_handlers($type) as $handler) {
-          $result = $handler->validate();
-          if (!empty($result) && is_array($result)) {
-            $errors = array_merge($errors, $result);
-          }
+      foreach ($this->get_handlers($type) as $handler) {
+        $result = $handler->validate();
+        if (!empty($result) && is_array($result)) {
+          $errors = array_merge($errors, $result);
         }
       }
     }

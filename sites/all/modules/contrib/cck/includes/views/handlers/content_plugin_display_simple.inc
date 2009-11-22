@@ -1,5 +1,5 @@
 <?php
-// $Id: content_plugin_display_simple.inc 539 2009-09-14 11:16:55Z rfay $
+// $Id: content_plugin_display_simple.inc,v 1.1.2.4 2009/06/23 13:19:12 yched Exp $
 
 /**
  * @file

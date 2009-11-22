@@ -1,5 +1,5 @@
 <?php
-//$Id: upload.views_convert.inc,v 1.3 2009/06/02 20:31:00 merlinofchaos Exp $
+//$Id: upload.views_convert.inc,v 1.4 2009/06/30 19:14:27 merlinofchaos Exp $
 
 /**
  * @file
@@ -64,14 +64,10 @@ function upload_views_convert($display, $type, &$view, $field, $id = NULL) {
         case 'file_revisions':
           switch ($field['field']) {
             case 'fid':
-              $item = $view->get_item($display, 'filter', $id);
-              $item['value'] = $field['value'];
-              $item['table'] = 'node';
-              $item['field'] = 'upload_fid';
-              $view->set_item($display, 'filter', $id, $item);
+              $view->set_item_option($display, 'filter', $id, 'table', 'node');
+              $view->set_item_option($display, 'filter', $id, 'field', 'upload_fid');
               break;
             case 'list':
-              $view->set_item_option($display, 'filter', $id, 'value', $field['value']);
               $view->set_item_option($display, 'filter', $id, 'table', 'upload');
               break;
           }
@@ -82,17 +78,14 @@ function upload_views_convert($display, $type, &$view, $field, $id = NULL) {
             case 'filemime':
               $item = $view->get_item($display, 'filter', $id);
               $item['operator'] = $field['operator'];
-              $item['value'] = $field['value'];
               $item['case'] = FALSE;
               $item['relationship'] = $view->add_item($display, 'relationship', 'node', 'upload_fid', array(), 'node_upload_fid');
               $view->set_item($display, 'filter', $id, $item);
               break;
             case 'filesize':
-              $item = $view->get_item($display, 'filter', $id);
-              $item['operator'] = $field['operator'];
-              $item['value'] = $field['value'];
-              $item['relationship'] = $view->add_item($display, 'relationship', 'node', 'upload_fid', array(), 'node_upload_fid');
-              $view->set_item($display, 'filter', $id, $item);
+              $relationship = $view->add_item($display, 'relationship', 'node', 'upload_fid', array(), 'node_upload_fid');
+              $view->set_item_option($display, 'filter', $id, 'relationship', $relationship);
+              $view->set_item_option($display, 'filter', $id, 'operator', $field['operator']);
               break;
           }
           break;

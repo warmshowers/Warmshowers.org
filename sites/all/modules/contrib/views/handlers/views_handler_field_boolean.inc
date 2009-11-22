@@ -1,8 +1,8 @@
 <?php
-// $Id: views_handler_field_boolean.inc,v 1.2 2009/01/30 00:01:41 merlinofchaos Exp $
+// $Id: views_handler_field_boolean.inc,v 1.3 2009/06/25 21:49:17 merlinofchaos Exp $
 
 /**
- * A handler to provide proper displays for dates.
+ * A handler to provide proper displays for booleans.
  *
  * Allows for display of true/false, yes/no, on/off.
  *

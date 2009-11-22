@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_history_user_timestamp.inc 530 2009-07-19 23:14:54Z rfay $
+// $Id: views_handler_filter_history_user_timestamp.inc,v 1.3 2009/06/24 01:17:28 merlinofchaos Exp $
 /**
  * Filter for new content
  */
@@ -38,7 +38,7 @@ class views_handler_filter_history_user_timestamp extends views_handler_filter {
     }
 
     // Don't filter if we're exposed and the checkbox isn't selected.
-    if (empty($this->value)) {
+    if ((!empty($this->options['exposed'])) && empty($this->value)) {
       return;
     }
 

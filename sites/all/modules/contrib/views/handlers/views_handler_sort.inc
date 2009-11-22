@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_sort.inc,v 1.1 2008/09/03 19:21:28 merlinofchaos Exp $
+// $Id: views_handler_sort.inc,v 1.2 2009/06/26 00:23:42 merlinofchaos Exp $
 /**
  * @defgroup views_sort_handlers Views' sort handlers
  * @{
@@ -62,7 +62,7 @@ class views_handler_sort extends views_handler {
  * A special handler to take the place of missing or broken handlers.
  */
 class views_handler_sort_broken extends views_handler_sort {
-  function ui_name() {
+  function ui_name($short = FALSE) {
     return t('Broken/missing handler');
   }
 

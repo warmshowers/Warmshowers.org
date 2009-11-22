@@ -1,5 +1,5 @@
 <?php
-// $Id: views-view.tpl.php 527 2009-07-19 20:34:17Z rfay $
+// $Id: views-view.tpl.php,v 1.13 2009/06/02 19:30:44 merlinofchaos Exp $
 /**
  * @file views-view.tpl.php
  * Main view template

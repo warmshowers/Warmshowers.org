@@ -1,5 +1,5 @@
 <?php
-// $Id: content-field.tpl.php,v 1.1.2.5 2008/11/03 12:46:27 yched Exp $
+// $Id: content-field.tpl.php,v 1.1.2.6 2009/09/11 09:20:37 markuspetrux Exp $
 
 /**
  * @file content-field.tpl.php
@@ -22,7 +22,7 @@
  * Each $item in $items contains:
  * - 'view' - the themed view for that item
  *
- * @see template_preprocess_field()
+ * @see template_preprocess_content_field()
  */
 ?>
 <?php if (!$field_empty) : ?>

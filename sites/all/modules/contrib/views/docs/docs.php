@@ -1,5 +1,5 @@
 <?php
-// $Id: docs.php 530 2009-07-19 23:14:54Z rfay $
+// $Id: docs.php,v 1.16 2009/06/17 18:25:02 merlinofchaos Exp $
 /**
  * @file
  * This file contains no working PHP code; it exists to provide additional documentation
@@ -574,9 +574,37 @@ function hook_views_pre_execute(&$view) {
  *
  * Adding output to the view cam be accomplished by placing text on
  * $view->attachment_before and $view->attachment_after
+ *
+ * This hook can be utilized by themes.
  */
 function hook_views_pre_render(&$view) {
   // example code here
+}
+
+/**
+ * Post process any rendered data.
+ *
+ * This can be valuable to be able to cache a view and still have some level of
+ * dynamic output. In an ideal world, the actual output will include HTML
+ * comment based tokens, and then the post process can replace those tokens.
+ *
+ * Example usage. If it is known that the view is a node view and that the
+ * primary field will be a nid, you can do something like this:
+ *
+ * <!--post-FIELD-NID-->
+ *
+ * And then in the post render, create an array with the text that should
+ * go there:
+ *
+ * strtr($output, array('<!--post-FIELD-1-->', 'output for FIELD of nid 1');
+ *
+ * All of the cached result data will be available in $view->result, as well,
+ * so all ids used in the query should be discoverable.
+ *
+ * This hook can be utilized by themes.
+ */
+function hook_views_post_render(&$view, &$output, &$cache) {
+
 }
 
 /**

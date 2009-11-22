@@ -1,5 +1,5 @@
 <?php
-// $Id: workflow.pages.inc,v 1.2 2008/10/29 03:13:55 jvandyk Exp $
+// $Id: workflow.pages.inc,v 1.2.2.2 2009/10/30 02:43:01 jvandyk Exp $
 
 /**
  * @file
@@ -15,12 +15,12 @@ function workflow_tab_page($node = NULL) {
   $states_per_page = variable_get('workflow_states_per_page', 20);
   $result = db_query("SELECT sid, state FROM {workflow_states} WHERE status = 1 ORDER BY sid");
   while ($data = db_fetch_object($result)) {
-    $states[$data->sid] = $data->state;
+    $states[$data->sid] = check_plain(t($data->state));
   }
   $deleted_states = array();
   $result = db_query("SELECT sid, state FROM {workflow_states} WHERE status = 0 ORDER BY sid");
   while ($data = db_fetch_object($result)) {
-    $deleted_states[$data->sid] = $data->state;
+    $deleted_states[$data->sid] = check_plain(t($data->state));
   }
   $current = workflow_node_current_state($node);
 
@@ -45,7 +45,7 @@ function workflow_tab_page($node = NULL) {
     }
     else {
       // Regular state.
-      $state_name = check_plain($states[$history->sid]);
+      $state_name = check_plain(t($states[$history->sid]));
     }
 
     if (isset($deleted_states[$history->old_sid])) {
@@ -53,7 +53,7 @@ function workflow_tab_page($node = NULL) {
       $footer_needed = TRUE;
     }
     else {
-      $old_state_name = check_plain($states[$history->old_sid]);
+      $old_state_name = check_plain(t($states[$history->old_sid]));
     }
     $rows[] = theme('workflow_history_table_row', $history, $old_state_name, $state_name);
   }
@@ -64,6 +64,9 @@ function workflow_tab_page($node = NULL) {
 
 /*
  * Theme one workflow history table row.
+ *
+ * $old_state_name and $state_name must be run through check_plain(t()) prior
+ * to calling this theme function.
  */
 function theme_workflow_history_table_row($history, $old_state_name, $state_name) {
   return array(
@@ -90,14 +93,14 @@ function theme_workflow_history_table($rows, $footer) {
  * Theme the current state in the workflow history table.
  */
 function theme_workflow_current_state($state_name) {
-  return '<strong>'. check_plain($state_name) .'</strong>';
+  return '<strong>'. check_plain(t($state_name)) .'</strong>';
 }
 
 /**
  * Theme a deleted state in the workflow history table.
  */
 function theme_workflow_deleted_state($state_name) {
-  return check_plain($state_name) .'*';
+  return check_plain(t($state_name)) .'*';
 }
 
 /**
@@ -124,7 +127,7 @@ function workflow_tab_form($form_state, &$node, $wid, $states, $current) {
     $wid = workflow_get_workflow_for_type($node->type);
     $workflow = workflow_load($wid);
     $form['#wf'] = $workflow;
-    $name = check_plain($workflow->name);
+    $name = check_plain((t($workflow->name)));
     // See if scheduling information is present.
     if ($node->_workflow_scheduled_timestamp && $node->_workflow_scheduled_sid) {
       global $user;

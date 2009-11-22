@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field_node.inc 530 2009-07-19 23:14:54Z rfay $
+// $Id: views_handler_field_node.inc,v 1.7 2009/09/21 22:12:21 merlinofchaos Exp $
 /**
  * @file
  * Contains the basic 'node' field handler.
@@ -15,6 +15,9 @@ class views_handler_field_node extends views_handler_field {
   function construct() {
     parent::construct();
     $this->additional_fields['nid'] = 'nid';
+    if (module_exists('translation')) {
+      $this->additional_fields['language'] = array('table' => 'node', 'field' => 'language');
+    }
   }
 
   function option_definition() {
@@ -45,7 +48,12 @@ class views_handler_field_node extends views_handler_field {
     if (!empty($this->options['link_to_node']) && $data !== NULL && $data !== '') {
       $this->options['alter']['make_link'] = TRUE;
       $this->options['alter']['path'] = "node/" . $values->{$this->aliases['nid']};
-      $this->options['alter']['alt'] = check_plain($data);
+      if (isset($this->aliases['language'])) {
+        $languages = language_list();
+        if (isset($languages[$values->{$this->aliases['language']}])) {
+          $this->options['alter']['language'] = $languages[$values->{$this->aliases['language']}];
+        }
+      }
     }
     return $data;
   }

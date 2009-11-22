@@ -1,5 +1,5 @@
 <?php
-// $Id: base.inc,v 1.2 2008/06/06 19:29:03 merlinofchaos Exp $
+// $Id: base.inc,v 1.3 2009/06/25 22:15:39 merlinofchaos Exp $
 /**
  * @file
  *
@@ -91,7 +91,7 @@ class views_object {
           $storage[$key] = array();
         }
 
-        $this->unpack_options($storage[$key], $value, isset($definition[$key]) ? $definition[$key] : array());
+        $this->unpack_options($storage[$key], $value, isset($definition[$key]['contains']) ? $definition[$key]['contains'] : array());
       }
       else if (!empty($definition[$key]['translatable']) && !empty($value)) {
         $storage[$key] = t($value);

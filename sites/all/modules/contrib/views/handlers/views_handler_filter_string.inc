@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_string.inc,v 1.7 2009/01/27 20:40:29 merlinofchaos Exp $
+// $Id: views_handler_filter_string.inc,v 1.8 2009/09/15 16:25:55 merlinofchaos Exp $
 
 /**
  * Basic textfield filter to handle string filtering commands
@@ -60,10 +60,22 @@ class views_handler_filter_string extends views_handler_filter {
         'method' => 'op_starts',
         'values' => 1,
       ),
+      'not_starts' => array(
+        'title' => t('Does not start with'),
+        'short' => t('not_begins'),
+        'method' => 'op_not_starts',
+        'values' => 1,
+      ),
       'ends' => array(
         'title' => t('Ends with'),
         'short' => t('ends'),
         'method' => 'op_ends',
+        'values' => 1,
+      ),
+      'not_ends' => array(
+        'title' => t('Does not end with'),
+        'short' => t('not_ends'),
+        'method' => 'op_not_ends',
         'values' => 1,
       ),
       'not' => array(
@@ -261,8 +273,16 @@ class views_handler_filter_string extends views_handler_filter {
     $this->query->add_where($this->options['group'], "$upper(%s) LIKE $upper('%s%%')", $field, $this->value);
   }
 
+  function op_not_starts($field, $upper) {
+    $this->query->add_where($this->options['group'], "$upper(%s) NOT LIKE $upper('%s%%')", $field, $this->value);
+  }
+
   function op_ends($field, $upper) {
     $this->query->add_where($this->options['group'], "$upper(%s) LIKE $upper('%%%s')", $field, $this->value);
+  }
+
+  function op_not_ends($field, $upper) {
+    $this->query->add_where($this->options['group'], "$upper(%s) NOT LIKE $upper('%%%s')", $field, $this->value);
   }
 
   function op_not($field, $upper) {

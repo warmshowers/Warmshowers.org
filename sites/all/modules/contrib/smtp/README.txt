@@ -1,4 +1,4 @@
-// $Id: README.txt 505 2009-05-24 18:55:09Z rfay $
+// $Id: README.txt,v 1.11 2008/07/06 13:49:15 oadaeh Exp $
 
 SMTP Authentication Support module for Drupal 6.x.
 This module adds SMTP functionality to Drupal.

@@ -1,5 +1,5 @@
 <?php
-// $Id: content_plugin_style_php_array_ac.inc,v 1.1.2.2 2008/10/04 13:14:21 karens Exp $
+// $Id: content_plugin_style_php_array_ac.inc,v 1.1.2.3 2009/11/04 15:31:28 markuspetrux Exp $
 
 /**
  * @file
@@ -18,14 +18,17 @@ class content_plugin_style_php_array_ac extends views_plugin_style {
 
     // TODO : We don't display grouping info for now.
     // Could be useful for select widget, though.
+    $this->view->row_index = 0;
     foreach ($sets as $title => $records) {
       foreach ($records as $label => $row) {
         $results[$row->{$base_field}] = array(
           'title' => $row->{$title_field_alias},
           'rendered' => $this->row_plugin->render($row),
         );
+        $this->view->row_index++;
       }
     }
+    unset($this->view->row_index);
     return $results;
   }
 }

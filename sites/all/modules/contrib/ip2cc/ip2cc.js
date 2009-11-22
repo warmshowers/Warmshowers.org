@@ -9,7 +9,12 @@ if (Drupal.jsEnabled) {
     $('#ip2cc-update-form #edit-submit').click(function(){
       var databaseUpdated = function(data) {
         var result = Drupal.parseJson(data);
-        $('#dbthrobber').removeClass('working').html(result['message'] + '  ' + result['count']).addClass('completed');
+        $('#dbthrobber').removeClass('working');
+        if (result['count']) {
+          $('#dbthrobber').html(result['message'] + '  ' + result['count']).addClass('completed');
+        } else {
+          $('#dbthrobber').html(result['message']).addClass('message');
+        }
       }
       $('#dbthrobber').removeClass('message completed').addClass('working').html('Working...');
       $.get(Drupal.settings.basePath + 'admin/settings/ip2cc/update/ajax', null, databaseUpdated);
