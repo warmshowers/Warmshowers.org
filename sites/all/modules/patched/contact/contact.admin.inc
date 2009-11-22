@@ -1,5 +1,5 @@
 <?php
-// $Id: contact.admin.inc 505 2009-05-24 18:55:09Z rfay $
+// $Id: contact.admin.inc,v 1.3 2007/11/09 07:55:13 dries Exp $
 
 /**
  * @file
