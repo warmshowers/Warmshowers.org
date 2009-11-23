@@ -117,11 +117,23 @@ if ($GLOBALS['user']->uid != $account->uid) {
 
 $output .= "</fieldset>";
 
-$output .= '<fieldset><legend><b>' . t('Actions and Markings') . '</b></legend>' . $profile['flags'] . "</fieldset>";
-
-$output .= '</div>';
+$output .= '<fieldset><legend><b>' . t('Actions and Markings') . '</b></legend>' . $profile['flags'];
+$flag = flag_get_flag('responsive_member') or die('no "responsive_member" flag');
+$count = $flag->get_count($account->uid);
+if ($count) {
+  $output .= '<div class="num-responsive">' . t("%num members have marked %name as responsive", array('%num' => $count, '%name' => $account->name)) . "</div>";
+}
+$flag = flag_get_flag('unresponsive_member') or die('no "unresponsive_member" flag');
+$count = $flag->get_count($account->uid);
+if ($count) {
+  $output .= '<div class="num-unresponsive">' . t("%num members have marked %name as unresponsive", array('%num' => $count, '%name' => $account->name)) . "</div>";
+}
+$output .= '</fieldset></div>';
 
 $output .= "</div>";
+
+
+
 print $output;
 
 function _output_with_tag($tag, $item, $closing="") {
