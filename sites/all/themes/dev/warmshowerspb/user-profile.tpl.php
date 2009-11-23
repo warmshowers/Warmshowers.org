@@ -47,13 +47,14 @@ if (user_access('administer user profiles') || user_is_current($account) || !$ac
   $output .= "</fieldset>";
 }
 unset($fields['Location']);
-/*
- $output .= _item_output_html(t("History"), $profile); //$fields[t("History")]
- unset ($fields[t("History")]);
- */
-//$output .= '<fieldset><legend><b>'. t('History') .'</b></legend>';
+
+// Add last login time
+$account->content['summary']['last_login'] = array(
+  '#printed' => TRUE,
+  '#title' => t("Last login was"),
+  '#value' => format_interval(time() - $account->login) . " " . t("ago"),
+);
 $output .= _item_output_html(t('History'), $account->content['summary']);
-//$output .= "</fieldset>";
 
 $output .= '<div class="profile">';
 
@@ -159,7 +160,7 @@ function _item_output_html($category, $items) {
   }
   if ($items) {
     foreach ($items as $item) {
-      if ($item['#printed'] === true) {
+      if ($item['#printed'] === TRUE) {
         if (isset($item['#title'])) {
           $output .= "<b>". $item['#title'] .':</b><br /> ' . $item['#value'] . "<br /><br />";
         }
