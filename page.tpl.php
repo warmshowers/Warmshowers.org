@@ -21,7 +21,11 @@
           <?php print $linked_logo_img; ?>
         <?php endif; ?>
         <?php if ($linked_site_name): ?>
-          <h1 id="site-name" class=""><?php print $linked_site_name; ?></h1>
+          <?php if ($title): ?>
+            <h2 id="site-name" class=""><?php print $linked_site_name; ?></h2>
+          <?php else: ?>
+            <h1 id="site-name" class=""><?php print $linked_site_name; ?></h1>
+          <?php endif; ?>
         <?php endif; ?>
       </div><!-- /#branding -->
 
