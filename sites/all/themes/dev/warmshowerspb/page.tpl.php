@@ -6,8 +6,9 @@ function warmshowerspb_welcome_page_pics() {
   $numboxes = 4; // Number of boxes on the page
   $count = 0;
   $cache_timeout = 30 * 60;   // Number of seconds before we dump cache
+  $anon = $GLOBALS['user']->uid ? "loggedin" : "anon";
 
-  if ($cache = cache_get('warmshowerspb_header_pictures')) {
+  if ($cache = cache_get("warmshowerspb_header_pictures.$anon")) {
     $html = $cache->data;
   } else {
     $imagecache_enabled = module_exists('imagecache');
@@ -41,7 +42,7 @@ function warmshowerspb_welcome_page_pics() {
      $html .= "</ul>";
 
      // Cache this html
-     cache_set('warmshowerspb_header_pictures',$html,'cache', time() + $cache_timeout);
+     cache_set("warmshowerspb_header_pictures.$anon",$html,'cache', time() + $cache_timeout);
   }
   return $html;
 }
