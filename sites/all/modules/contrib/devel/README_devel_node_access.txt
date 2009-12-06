@@ -15,7 +15,13 @@ already been created.
 
 Provides a block which shows all node_access entries for the nodes
 shown on a given page.  This gives developers a quick check to see
-that grants are provided as they should be.  This block auto-enables to the footer region. You may move it as desired.
+that grants are provided as they should be.  This block auto-enables
+to the footer region. You may move it as desired. If you enable DBA
+Debug Mode on the Devel Settings page, you will get more information.
+
+Provides a second block that shows and explains the CRUD access rights
+of the 10 most recently active users. This block is disabled by default
+because it has a huge overhead.
 
 If Views module is installed, allows browsing of nodes by realm,
 including those nodes not in the node_access table (NULL realm).
@@ -35,7 +41,9 @@ Things I'd like to see but haven't had time to do:
   of grants.  I personally use node_access only for view grants so I'm
   not sure exactly what else it should show.
 
-AUTHOR
-======
+STAFF
+=====
 
-Dave Cohen AKA yogadex on drupal.org
+Original author: Dave Cohen AKA yogadex on drupal.org
+Current maintainer: Hans Salvisberg AKA salvis on drupal.org
+
