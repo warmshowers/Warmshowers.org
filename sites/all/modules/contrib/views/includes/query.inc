@@ -1,5 +1,5 @@
 <?php
-// $Id: query.inc,v 1.50 2009/10/05 22:49:03 merlinofchaos Exp $
+// $Id: query.inc,v 1.50.2.4 2009/12/02 22:59:18 dww Exp $
 /**
  * @file query.inc
  * Defines the query object which is the underlying layer in a View.
@@ -116,19 +116,7 @@ class views_query {
    */
   function set_distinct($value = TRUE) {
     if (!(isset($this->no_distinct) && $value)) {
-      // Hack in a check to see if node_access is going to add its own DISTINCT
-      // and break this query.
-      // See http://drupal.org/node/284392 for the core bug.
-      //
-      // We want to bypass views distinct code if this bug will be triggered so
-      // if the base table is node and there is a node access module, bypass
-      // views distinct code.
-      if ($this->base_table != 'node' || !node_access_view_all_nodes()) {
-        $this->distinct = FALSE;
-      }
-      else {
-        $this->distinct = $value;
-      }
+      $this->distinct = $value;
     }
   }
 
@@ -221,6 +209,12 @@ class views_query {
       'table' => $join->table,
       'base' => $base,
     );
+
+    $this->tables[$this->base_table][$alias] = array(
+      'count' => 1,
+      'alias' => $alias,
+    );
+
     return $alias;
   }
 

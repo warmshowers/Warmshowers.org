@@ -1,5 +1,5 @@
 <?php
-// $Id: admin.inc,v 1.161.2.1 2009/11/02 20:09:51 merlinofchaos Exp $
+// $Id: admin.inc,v 1.161.2.3 2009/11/20 22:04:22 merlinofchaos Exp $
 /**
  * @file admin.inc
  * Provides the Views' administrative interface.
@@ -1556,7 +1556,7 @@ function views_ui_add_form_to_stack($key, &$view, $display_id, $args, $top = FAL
  * and $display_id, so we have a couple of ajax forms that we don't
  * use with this system.
  */
-function views_ui_ajax_form($js, $key, &$view, $display_id) {
+function views_ui_ajax_form($js, $key, $view, $display_id) {
   $form = views_ui_ajax_forms($key);
   if (empty($form)) {
     return drupal_not_found();
@@ -2029,7 +2029,7 @@ function views_ui_rearrange_form(&$form_state) {
     $form[$id] = array('#tree' => TRUE);
     $form[$id]['weight'] = array(
       '#type' => 'weight',
-      '#delta' => 25,
+      '#delta' => 200,
       '#default_value' => ++$count,
     );
     $handler = views_get_handler($field['table'], $field['field'], $type);

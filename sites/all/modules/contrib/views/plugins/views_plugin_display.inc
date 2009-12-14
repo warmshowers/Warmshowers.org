@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display.inc,v 1.27.2.1 2009/10/28 02:11:17 merlinofchaos Exp $
+// $Id: views_plugin_display.inc,v 1.27.2.6 2009/11/30 19:05:47 merlinofchaos Exp $
 /**
  * @file
  * Contains the base display plugin.
@@ -120,11 +120,28 @@ class views_plugin_display extends views_plugin {
   }
 
   /**
+   * Does the display render the pager if it has it enabled?
+   */
+  function render_pager() {
+    return $this->use_pager();
+  }
+
+  /**
    * Does the display have a more link enabled?
    */
   function use_more() {
     if (!empty($this->definition['use more'])) {
       return $this->get_option('use_more');
+    }
+    return FALSE;
+  }
+
+  /**
+   * Should the enabled display more link be shown when no more items?
+   */
+  function use_more_always() {
+    if (!empty($this->definition['use more'])) {
+      return $this->get_option('use_more_always');
     }
     return FALSE;
   }
@@ -166,7 +183,7 @@ class views_plugin_display extends views_plugin {
       'use_ajax' => array('use_ajax'),
       'items_per_page' => array('items_per_page', 'offset', 'use_pager', 'pager_element'),
       'use_pager' => array('items_per_page', 'offset', 'use_pager', 'pager_element'),
-      'use_more' => array('use_more', 'use_more_text'),
+      'use_more' => array('use_more', 'use_more_always', 'use_more_text'),
       'link_display' => array('link_display'),
       'distinct' => array('distinct'),
       'exposed_block' => array('exposed_block'),
@@ -240,6 +257,7 @@ class views_plugin_display extends views_plugin {
           'use_pager' => TRUE,
           'pager_element'  => TRUE,
           'use_more' => TRUE,
+          'use_more_always' => TRUE,
           'use_more_text' => TRUE,
           'distinct' => TRUE,
           'exposed_block' => TRUE,
@@ -335,6 +353,9 @@ class views_plugin_display extends views_plugin {
         'default' => 0,
       ),
       'use_more' => array(
+        'default' => FALSE,
+      ),
+      'use_more_always' => array(
         'default' => FALSE,
       ),
       'use_more_text' => array(
@@ -898,6 +919,12 @@ class views_plugin_display extends views_plugin {
           '#description' => t("This will add a more link to the bottom of this view, which will link to the page view. If you have more than one page view, the link will point to the display specified in 'Link display' above."),
           '#default_value' => $this->get_option('use_more'),
         );
+        $form['use_more_always'] = array(
+          '#type' => 'checkbox',
+          '#title' => t('Always display more link'),
+          '#description' => t("This will display the more link even if there are no more items to display."),
+          '#default_value' => $this->get_option('use_more_always'),
+        );
         $form['#title'] .= t('Text to use for the more link.');
         $form['use_more_text'] = array(
           '#type' => 'textfield',
@@ -946,6 +973,7 @@ class views_plugin_display extends views_plugin {
         $form['#title'] .= t('Access options');
         if ($plugin) {
           $form['#help_topic'] = $plugin->definition['help topic'];
+          $form['#help_module'] = $plugin->definition['module'];
 
           $form['access_options'] = array(
             '#tree' => TRUE,
@@ -987,6 +1015,7 @@ class views_plugin_display extends views_plugin {
         $form['#title'] .= t('Caching options');
         if ($plugin) {
           $form['#help_topic'] = $plugin->definition['help topic'];
+          $form['#help_module'] = $plugin->definition['module'];
 
           $form['cache_options'] = array(
             '#tree' => TRUE,
@@ -1080,6 +1109,7 @@ class views_plugin_display extends views_plugin {
         if ($plugin) {
           if (isset($plugin->definition['help topic'])) {
             $form['#help_topic'] = $plugin->definition['help topic'];
+            $form['#help_module'] = $plugin->definition['module'];
           }
           $form[$form_state['section']] = array(
             '#tree' => TRUE,
@@ -1490,6 +1520,7 @@ class views_plugin_display extends views_plugin {
         break;
       case 'use_more':
         $this->set_option($section, intval($form_state['values'][$section]));
+        $this->set_option('use_more_always', intval($form_state['values']['use_more_always']));
         $this->set_option('use_more_text', $form_state['values']['use_more_text']);
       case 'distinct':
         $this->set_option($section, $form_state['values'][$section]);
@@ -1650,7 +1681,7 @@ class views_plugin_display extends views_plugin {
    * Render the 'more' link
    */
   function render_more_link() {
-    if ($this->use_more() && (!isset($this->view->total_rows) || $this->view->total_rows > $this->view->pager['items_per_page'])) {
+    if ($this->use_more() && ($this->use_more_always() || !isset($this->view->total_rows) || $this->view->total_rows > $this->view->pager['items_per_page'])) {
       $path = $this->get_path();
       if ($path) {
         $path = $this->view->get_url(NULL, $path);
@@ -1837,6 +1868,22 @@ class views_plugin_display extends views_plugin {
     }
 
     return $errors;
+  }
+
+  /**
+   * Check if the provided identifier is unique.
+   */
+  function is_identifier_unique($id, $identifier) {
+    foreach (views_object_types() as $type => $info) {
+      foreach ($this->get_handlers($type) as $key => $handler) {
+        if ($handler->can_expose() && $handler->is_exposed()) {
+          if ($id != $key && $identifier == $handler->options['expose']['identifier']) {
+            return FALSE;
+          }
+        }
+      }
+    }
+    return TRUE;
   }
 
   /**

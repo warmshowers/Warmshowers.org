@@ -1,5 +1,5 @@
 <?php
-// $Id: node.views.inc,v 1.97 2009/09/15 21:54:58 merlinofchaos Exp $
+// $Id: node.views.inc,v 1.97.2.1 2009/11/02 23:25:14 merlinofchaos Exp $
 /**
  * @file
  * Provide views data and handlers for node.module
@@ -405,7 +405,7 @@ function node_views_data() {
     'relationship' => array(
       'handler' => 'views_handler_relationship',
       'base' => 'users',
-      'field' => 'uid',
+      'base field' => 'uid',
       'label' => t('user'),
     ),
   );

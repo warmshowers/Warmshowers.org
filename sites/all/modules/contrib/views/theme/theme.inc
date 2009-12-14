@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.84.2.2 2009/10/23 21:37:49 merlinofchaos Exp $
+// $Id: theme.inc,v 1.84.2.4 2009/11/30 19:05:47 merlinofchaos Exp $
 
 /**
  * @file theme.inc
@@ -79,7 +79,7 @@ function template_preprocess_views_view(&$vars) {
   $vars['pager']      = '';
 
   $exposed_input = isset($view->exposed_data_raw) ? $view->exposed_data_raw : NULL;
-  if (!empty($view->pager['use_pager'])) {
+  if ($view->display_handler->render_pager()) {
     $pager_type = ($view->pager['use_pager'] === 'mini' ? 'views_mini_pager' : 'pager');
     $pager_theme = views_theme_functions($pager_type, $view, $view->display_handler->display);
     $vars['pager']    = theme($pager_theme, $exposed_input, $view->pager['items_per_page'], $view->pager['element']);
@@ -572,6 +572,7 @@ function template_preprocess_views_exposed_form(&$vars) {
     // set up defaults so that there's always something there.
     $widget->label = $widget->operator = $widget->widget = NULL;
 
+    $widget->id = $form[$info['value']]['#id'];
     if (!empty($info['label'])) {
       $widget->label = $info['label'];
     }

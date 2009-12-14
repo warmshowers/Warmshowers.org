@@ -1,5 +1,5 @@
 <?php
-// $Id: plugins.inc,v 1.156.2.1 2009/10/28 02:11:16 merlinofchaos Exp $
+// $Id: plugins.inc,v 1.156.2.2 2009/11/30 23:55:33 merlinofchaos Exp $
 /**
  * @file plugins.inc
  * Built in plugins for Views output handling.
@@ -337,6 +337,9 @@ function views_discover_plugins() {
       }
     }
   }
+
+  // Let other modules modify the plugins.
+  drupal_alter('views_plugins', $cache);
   return $cache;
 }
 

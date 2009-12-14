@@ -1,4 +1,4 @@
-// $Id: ajax_view.js,v 1.19 2009/07/26 15:07:25 merlinofchaos Exp $
+// $Id: ajax_view.js,v 1.19.2.2 2009/11/30 22:47:05 merlinofchaos Exp $
 
 /**
  * @file ajaxView.js
@@ -29,7 +29,7 @@ Drupal.Views.Ajax.ajaxViewResponse = function(target, response) {
     $view = $newView;
     Drupal.attachBehaviors($view.parent());
   }
- 
+
   if (response.messages) {
     // Show any messages (but first remove old ones, if there are any).
     $view.find('.views-messages').remove().end().prepend(response.messages);
@@ -37,7 +37,7 @@ Drupal.Views.Ajax.ajaxViewResponse = function(target, response) {
 };
 
 /**
- * Ajax behavior for views. 
+ * Ajax behavior for views.
  */
 Drupal.behaviors.ViewsAjaxView = function() {
   if (Drupal.settings && Drupal.settings.views && Drupal.settings.views.ajaxViews) {
@@ -110,15 +110,16 @@ Drupal.behaviors.ViewsAjaxView = function() {
             // Process pager, tablesort, and attachment summary links.
             .find('ul.pager > li > a, th.views-field a, .attachment .views-summary a')
             .each(function () {
-              var viewData = {};
+              var viewData = { 'js': 1 };
               // Construct an object using the settings defaults and then overriding
               // with data specific to the link.
               $.extend(
                 viewData,
-                settings,
                 Drupal.Views.parseQueryString($(this).attr('href')),
                 // Extract argument data from the URL.
-                Drupal.Views.parseViewArgs($(this).attr('href'), settings.view_base_path)
+                Drupal.Views.parseViewArgs($(this).attr('href'), settings.view_base_path),
+                // Settings must be used last to avoid sending url aliases to the server.
+                settings
               );
               $(this).click(function () {
                 $(this).addClass('views-throbbing');

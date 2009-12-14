@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter.inc,v 1.10 2009/06/26 00:23:42 merlinofchaos Exp $
+// $Id: views_handler_filter.inc,v 1.10.2.2 2009/11/30 20:07:28 merlinofchaos Exp $
 /**
  * @defgroup views_filter_handlers Views' filter handlers
  * @{
@@ -363,6 +363,10 @@ class views_handler_filter extends views_handler {
     if (!empty($form_state['values']['options']['expose']['identifier']) && $form_state['values']['options']['expose']['identifier'] == 'value') {
       form_error($form['expose']['identifier'], t('This identifier is not allowed.'));
     }
+    
+    if (!$this->view->display_handler->is_identifier_unique($form_state['id'], $form_state['values']['options']['expose']['identifier'])) {
+      form_error($form['expose']['identifier'], t('This identifier is used by another handler.'));
+    }
   }
 
   /**
@@ -462,7 +466,7 @@ class views_handler_filter extends views_handler {
     }
 
     if ($type == 'value' && !empty($this->options['expose']['optional']) && $form['#type'] == 'select' && empty($form['#multiple'])) {
-      $any_label = variable_get('views_exposed_filter_any_label', 'old_any') == 'old_any' ? t('<Any>') : t('- Any -');
+      $any_label = variable_get('views_exposed_filter_any_label', 'old_any') == 'old_any' ? '<Any>' : t('- Any -');
       $form['#options'] = array('All' => $any_label) + $form['#options'];
       $form['#default_value'] = 'All';
     }

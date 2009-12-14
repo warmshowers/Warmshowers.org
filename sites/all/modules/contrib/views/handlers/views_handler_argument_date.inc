@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument_date.inc,v 1.3 2009/03/24 22:28:26 merlinofchaos Exp $
+// $Id: views_handler_argument_date.inc,v 1.3.4.1 2009/11/18 20:40:54 merlinofchaos Exp $
 /**
  * Abstract argument handler for dates.
  *
@@ -60,8 +60,8 @@ class views_handler_argument_date extends views_handler_argument_formula {
         return date($this->arg_format, $node->changed);
       }
     }
-    else {
-      return parent::get_default_argument($raw);
-    }
+
+    return parent::get_default_argument($raw);
+
   }
 }

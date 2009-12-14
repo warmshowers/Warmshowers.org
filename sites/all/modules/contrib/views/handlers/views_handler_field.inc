@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_field.inc,v 1.33 2009/09/24 23:28:30 merlinofchaos Exp $
+// $Id: views_handler_field.inc,v 1.33.2.1 2009/11/02 23:31:17 merlinofchaos Exp $
 /**
  * @defgroup views_field_handlers Views' field handlers
  * @{
@@ -488,7 +488,7 @@ class views_handler_field extends views_handler {
    * each item to be handled individually.
    */
   function render_text($alter) {
-    $value = $this->last_render;
+    $value = trim($this->last_render);
     if ($this->options['hide_empty'] && empty($value) && ($value !== 0 || $this->options['empty_zero'])) {
       return '';
     }

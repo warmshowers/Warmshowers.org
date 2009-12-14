@@ -1,5 +1,5 @@
 <?php
-// $Id: comment.views.inc,v 1.33 2009/09/15 16:48:51 merlinofchaos Exp $
+// $Id: comment.views.inc,v 1.33.2.3 2009/12/02 21:51:40 merlinofchaos Exp $
 /**
  * @file
  * Provide views data and handlers for comment.module
@@ -236,14 +236,6 @@ function comment_views_data() {
     ),
   );
 
-  $data['comments']['node_link'] = array(
-    'field' => array(
-      'title' => t('Node link'),
-      'help' => t('Display the standard comment link used on regular nodes.'),
-      'handler' => 'views_handler_field_comment_node_link',
-    ),
-  );  
-
   $data['comments']['thread'] = array(
     'field' => array(
       'title' => t('Depth'),
@@ -262,7 +254,7 @@ function comment_views_data() {
     'help' => t('The node the comment is a reply to.'),
     'relationship' => array(
       'base' => 'node',
-      'field' => 'nid',
+      'base field' => 'nid',
       'handler' => 'views_handler_relationship',
       'label' => t('Node'),
     ),
@@ -273,7 +265,7 @@ function comment_views_data() {
     'help' => t("The User ID of the comment's author."),
     'relationship' => array(
       'base' => 'users',
-      'field' => 'uid',
+      'base field' => 'uid',
       'handler' => 'views_handler_relationship',
       'label' => t('User'),
     ),
@@ -289,7 +281,7 @@ function comment_views_data() {
       'title' => t('Parent comment'),
       'help' => t('The parent comment.'),
       'base' => 'comments',
-      'field' => 'cid',
+      'base field' => 'cid',
       'handler' => 'views_handler_relationship',
       'label' => t('Parent comment'),
     ),
@@ -305,7 +297,7 @@ function comment_views_data() {
   $data['node_comment_statistics']['table']['join'] = array(
     //...to the node table
     'node' => array(
-      'type' => 'INNER',      
+      'type' => 'INNER',
       'left_field' => 'nid',
       'field' => 'nid',
      ),
@@ -389,6 +381,14 @@ function comment_views_data_alter(&$data) {
     'help' => t('The number of new comments on the node.'),
     'field' => array(
       'handler' => 'views_handler_field_node_new_comments',
+    ),
+  );
+
+  $data['node']['comments_link'] = array(
+    'field' => array(
+      'title' => t('Add comment link'),
+      'help' => t('Display the standard add comment link used on regular nodes, which will only display if the viewing user has access to add a comment.'),
+      'handler' => 'views_handler_field_comment_node_link',
     ),
   );
 
@@ -548,7 +548,7 @@ function template_preprocess_views_view_row_comment(&$vars) {
   // Put the view on the node so we can retrieve it in the preprocess.
   $node->view = &$view;
 
-  $links = '';
+  $links = array();
   if (!empty($options['links'])) {
     $links = module_invoke_all('link', 'comment', $comment, 0);
     drupal_alter('link', $links, $node);
