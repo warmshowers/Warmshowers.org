@@ -1,5 +1,5 @@
 <?php
-// $Id: database.mysql.inc 544 2009-09-16 21:44:11Z rfay $
+// $Id: database.mysql.inc,v 1.89.2.1 2009/07/21 08:52:29 goba Exp $
 
 /**
  * @file

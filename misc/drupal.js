@@ -1,4 +1,4 @@
-// $Id: drupal.js 544 2009-09-16 21:44:11Z rfay $
+// $Id: drupal.js,v 1.41.2.4 2009/07/21 08:59:10 goba Exp $
 
 var Drupal = Drupal || { 'settings': {}, 'behaviors': {}, 'themes': {}, 'locale': {} };
 

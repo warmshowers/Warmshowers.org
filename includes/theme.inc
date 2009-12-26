@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc 528 2009-07-19 20:35:39Z rfay $
+// $Id: theme.inc,v 1.415.2.24 2009/06/18 12:04:04 goba Exp $
 
 /**
  * @file

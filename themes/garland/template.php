@@ -1,5 +1,5 @@
 <?php
-// $Id: template.php 544 2009-09-16 21:44:11Z rfay $
+// $Id: template.php,v 1.16.2.2 2009/08/10 11:32:54 goba Exp $
 
 /**
  * Sets the body-tag class attribute.

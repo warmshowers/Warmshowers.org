@@ -1,5 +1,5 @@
 <?php
-// $Id: openid.inc 544 2009-09-16 21:44:11Z rfay $
+// $Id: openid.inc,v 1.8.2.2 2009/12/16 17:54:55 goba Exp $
 
 /**
  * @file
@@ -75,7 +75,7 @@ function openid_redirect_form(&$form_state, $url, $message) {
  */
 function _openid_is_xri($identifier) {
   // Strip the xri:// scheme from the identifier if present.
-  if (stripos($identifier, 'xri://') !== FALSE) {
+  if (strpos(strtolower($identifier), 'xri://') !== FALSE) {
     $identifier = substr($identifier, 6);
   }
 

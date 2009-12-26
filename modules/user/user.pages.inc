@@ -1,5 +1,5 @@
 <?php
-// $Id: user.pages.inc 544 2009-09-16 21:44:11Z rfay $
+// $Id: user.pages.inc,v 1.11.2.2 2009/09/16 17:54:20 goba Exp $
 
 /**
  * @file
