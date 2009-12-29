@@ -11,11 +11,14 @@
 /**
  * Implementation of hook_init().
  *
- * Add css and javascript for this project.
+ * Add css and javascript for this project if the user has enabled it.
  */
 function translatablecomments_init() {
-  drupal_add_css(drupal_get_path('module', 'translatablecomments') .'/translatablecomments.css');
-  translatablecomments_install_js();
+  global $user;
+  if ($user->show_auto_translation) {
+    drupal_add_css(drupal_get_path('module', 'translatablecomments') .'/translatablecomments.css');
+    translatablecomments_install_js();
+  }
 }
 
 /**
@@ -32,14 +35,67 @@ function translatablecomments_menu() {
 }
 
 /**
+ * Implementation of hook_block.
+ *
+ * Provides a single block that allows the user to turn on translation helps.
+ */
+function translatablecomments_block($op = 'list', $delta = '', $edit = array()) {
+  // The $op parameter determines what piece of information is being requested.
+  switch ($op) {
+    case 'list':
+      $blocks['configure-auto-translation'] = array(
+        'configure-auto-translation' => t('Configure Auto Translation'),
+      );
+      return $blocks;
+    case 'view':
+      switch ($delta) {
+        case 'configure-auto-translation':
+          global $user;
+          if ($user->uid > 0) {
+            $block['subject'] = t('Automatic Translation');
+            $block['content'] = drupal_get_form('translatablecomments_auto_trans_config');
+          }
+          break;
+      }
+      return $block;
+  }
+}
+
+/**
+ * The form that provides configuration of translation.
+ */
+function translatablecomments_auto_trans_config(&$form_state) {
+  global $user;
+  $form['show_auto_translation'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Show automatic translation helpers"),
+    '#default_value' => $user->show_auto_translation,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Set"),
+  );
+  return $form;
+}
+
+
+function translatablecomments_auto_trans_config_submit($form, &$form_state) {
+  global $user;
+  user_save($user, array('show_auto_translation' => $form_state['values']['show_auto_translation']));
+}
+
+
+/**
  * Admin configuration form for translatablecomments.
  */
 function translatablecomments_admin(&$form_state) {
-  $form['translatablecomments_translate_classes'] = array(
+  //TODO: Add what *not* to translate.
+  //TODO: add translation of the entire page?
+  $form['translatablecomments_translate_selectors'] = array(
     '#type' => 'textfield',
     '#title' => t('CSS Selector for regions to be translated'),
     '#description' => t('Enter a valid css selector for the items to be translated. For example, ".comment .content" would allow translation of comment bodies.'),
-    '#default_value' => variable_get('translatablecomments_translate_classes', '.comment .content'),
+    '#default_value' => variable_get('translatablecomments_translate_selectors', '.comment .content'),
   );
   $form['translatablecomments_auto_translate'] = array(
     '#type' => 'checkbox',
@@ -62,7 +118,7 @@ function translatablecomments_install_js() {
   drupal_add_js("$path/js/jquery.translate.js");
 
   $settings = array(
-    'translate_classes' => variable_get('translatablecomments_translate_classes', '.comment .content'),
+    'translate_selectors' => variable_get('translatablecomments_translate_selectors', '.comment .content'),
     'auto_translate' => variable_get('translatablecomments_auto_translate', FALSE),
     'my_language_code' => substr($GLOBALS['language']->language, 0, 2),
     'my_language_name' => $GLOBALS['language']->name,
