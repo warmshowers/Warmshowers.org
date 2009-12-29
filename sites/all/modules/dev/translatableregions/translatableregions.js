@@ -4,16 +4,16 @@
  * Javascript to support translatable regions on the page.
  * 
  * Primarily uses the jquery.translate plugin.
- * Adapted from translatablecomments module by Dave Trainer.
+ * Adapted from translatableregions module by Dave Trainer.
  */
-Drupal.behaviors.translatablecomments = function (context) {
+Drupal.behaviors.translatableregions = function (context) {
   var link = $("<a />").attr("href", "#").attr("class","translator");
   var wrapper = $("<span></span>").attr("class","translator");
   var languages = ["it", "ja", "nl", "pt", "fr", "de", "es", "en"];
-  var translate_selectors = Drupal.settings.translatablecomments.translate_selectors;
-  var auto_translate = Drupal.settings.translatablecomments.auto_translate;
-  var my_language_code = Drupal.settings.translatablecomments.my_language_code;
-  var my_language_name = Drupal.settings.translatablecomments.my_language_name;
+  var translate_selectors = Drupal.settings.translatableregions.translate_selectors;
+  var auto_translate = Drupal.settings.translatableregions.auto_translate;
+  var my_language_code = Drupal.settings.translatableregions.my_language_code;
+  var my_language_name = Drupal.settings.translatableregions.my_language_name;
   var browser_language;
   if (navigator.userLanguage) // Explorer
     browser_language = navigator.userLanguage;
