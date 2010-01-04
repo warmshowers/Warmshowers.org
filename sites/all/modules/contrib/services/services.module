@@ -1,0 +1,863 @@
+<?php
+// $Id: services.module,v 1.8.2.88.2.14 2009/12/11 14:32:42 heyrocker Exp $
+
+/**
+ * @file
+ *  Provides a generic but powerful API for exposing web services.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function services_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#services':
+      return '<p>'. t('Visit the <a href="@handbook_url">Services Handbook</a> for help and information.', array('@handbook_url' => 'http://drupal.org/node/109782')) .'</p>';
+
+    case 'admin/build/services':
+    case 'admin/build/services/browse':
+      $output = '<p>'. t('Services are collections of methods available to remote applications. They are defined in modules, and may be accessed in a number of ways through server modules. Visit the <a href="@handbook_url">Services Handbook</a> for help and information.', array('@handbook_url' => 'http://drupal.org/node/109782')) .'</p>';
+      $output .= '<p>'. t('All enabled services and methods are shown. Click on any method to view information or test.') .'</p>';      return $output;
+
+    case 'admin/build/services/keys':
+      return t('An API key is required to allow an application to access Drupal remotely.');
+
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function services_perm() {
+  return array('administer services');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function services_menu() {
+  $items['admin/build/services'] = array(
+    'title'             => 'Services',
+    'description'       => 'Allows external applications to communicate with Drupal.',
+    'access arguments'  => array('administer services'),
+    'page callback'     => 'services_admin_browse_index',
+    'file'              => 'services_admin_browse.inc',
+  );
+  $items['admin/build/services/browse'] = array(
+    'title'             => 'Browse',
+    'description'       => 'Browse and test available remote services.',
+    'type'              => MENU_DEFAULT_LOCAL_TASK,
+    'weight'            => -10,
+  );
+  $items['admin/build/services/browse/%services_method'] = array(
+    'title'             => 'Services',
+    'description'       => 'Calls a Services method.',
+    'page callback'     => 'services_admin_browse_method',
+    'page arguments'    => array(4),
+    'access arguments'  => array('administer services'),
+    'type'              => MENU_LOCAL_TASK,
+    'file'              => 'services_admin_browse.inc',
+  );
+
+  $items['admin/build/services/settings'] = array(
+    'title'             => 'Settings',
+    'description'       => 'Configure service settings.',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('services_admin_settings'),
+    'access arguments'  => array('administer services'),
+    'type'              => MENU_LOCAL_TASK,
+    'file'              => 'services_admin_browse.inc',
+  );
+  $items['admin/build/services/settings/general'] = array(
+    'title'             => 'General',
+    'description'       => 'Configure service settings.',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('services_admin_settings'),
+    'access arguments'  => array('administer services'),
+    'type'              => MENU_DEFAULT_LOCAL_TASK,
+    'weight'            => -10,
+    'file'              => 'services_admin_browse.inc',
+  );
+  $items['admin/services/ahah/security-options'] = array(
+    'file'              => 'services_admin_browse.inc',
+    'page callback'     => '_services_ahah_security_options',
+    'access arguments'  => array('administer services'),
+    'type'              => MENU_CALLBACK,
+  );
+  $items['crossdomain.xml'] = array(
+    'access callback'   => 'services_access_menu',
+    'page callback'     => 'services_crossdomain_xml',
+    'type'              => MENU_CALLBACK,
+  );
+  $items['services/%'] = array(
+    'title'             => 'Services',
+    'access callback'   => 'services_access_menu',
+    'page callback'     => 'services_server',
+    'page arguments'    => array(1),
+    'type'              => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function services_theme() {
+  return array(
+    'services_admin_browse_test' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Callback for server endpoint
+ */
+function services_server($server_path = NULL) {
+  // Find which module the server is part of
+  foreach (module_implements('server_info') as $module) {
+    $info = module_invoke($module, 'server_info');
+    services_strip_hashes($info);
+
+    if ($info['path'] == $server_path) {
+
+      // call the server
+      services_set_server_info($module);
+      print module_invoke($module, 'server');
+
+      // Do not let this output
+      module_invoke_all('exit');
+      exit;
+    }
+  }
+  // return 404 if the server doesn't exist
+  drupal_not_found();
+}
+
+/**
+ * Callback for crossdomain.xml
+ */
+function services_crossdomain_xml() {
+  global $base_url;
+  $output = '<!DOCTYPE cross-domain-policy SYSTEM "http://www.macromedia.com/xml/dtds/cross-domain-policy.dtd">'."\n";
+  $output .= '<cross-domain-policy>'."\n";
+  $output .= '  <allow-access-from domain="'. check_plain($_SERVER['HTTP_HOST']) .'" />'."\n";
+  $output .= '  <allow-access-from domain="*.'. check_plain($_SERVER['HTTP_HOST']) .'" />'."\n";
+  $keys = (function_exists('services_keyauth_get_keys')) ? services_keyauth_get_keys() : array();
+
+  foreach ($keys as $key) {
+    if (!empty($key->domain)) {
+      $output .= '  <allow-access-from domain="'. check_plain($key->domain) .'" />'."\n";
+      $output .= '  <allow-access-from domain="*.'. check_plain($key->domain) .'" />'."\n";
+    }
+  }
+
+  $output .= '</cross-domain-policy>';
+
+  services_xml_output($output);
+}
+
+/**
+ * Helper function for sending xml output. This method outputs a xml
+ * processing instruction and the necessary headers and then exits.
+ *
+ * @param string $xml
+ * @return void
+ */
+function services_xml_output($xml) {
+  $xml = '<?xml version="1.0"?>'."\n". $xml;
+  header('Connection: close');
+  header('Content-Length: '. drupal_strlen($xml));
+  header('Content-Type: text/xml');
+  header('Date: '. date('r'));
+  echo $xml;
+  exit;
+}
+
+/**
+ * Sets information about which server implementation that is used for the
+ * call.
+ *
+ * @param string $module
+ *  The server module that's handling the call.
+ * @return object
+ *  Server info object.
+ */
+function services_set_server_info($module) {
+  $server_info = new stdClass();
+  $server_info->module = $module;
+  $server_info->drupal_path = getcwd();
+  return services_get_server_info($server_info);
+}
+
+/**
+ * Returns or sets the server info object.
+ *
+ * @param object $server_info
+ *  Optional. Pass a object to set the server info object. Omit to just
+ *  retrieve the server info.
+ * @return object
+ *  Server info object.
+ */
+function services_get_server_info($server_info = NULL) {
+  static $info;
+  if (!$info && $server_info) {
+    $info = $server_info;
+  }
+  return $info;
+}
+
+ /**
+  * Prepare an error message for returning to the server.
+  *
+  * @param string $message
+  *   The error message.
+  * @param int $code
+  *   Optional. A error code, these should map as closely to the applicable
+  *   http error codes as closely as possible.
+  * @param Exception $exception
+  *   Optional. The exception was thrown (if any) when the error occured.
+  * @return mixed
+  */
+function services_error($message, $code = 0, $exception = NULL) {
+  $server_info = services_get_server_info();
+
+  // Allow external modules to log this error
+  module_invoke_all('services_error', $message, $code, $exception);
+
+  // Look for custom error handling function.
+  // Should be defined in each server module.
+  if ($server_info && module_hook($server_info->module, 'server_error')) {
+    return module_invoke($server_info->module, 'server_error', $message, $code, $exception);
+  }
+
+  // No custom error handling function found.
+  return $message;
+}
+
+/**
+ * Gets information about a authentication module.
+ * If a property name is passed the value of the property will be returned,
+ * otherwise the whole information array will be returned.
+ *
+ * @param string $property
+ *  Optional. The name of a single property to get. Defaults to null.
+ * @param string $module
+ *  Optional. The module to get info forDefaults to the current authentication module.
+ * @return mixed
+ *  The information array or property value, or FALSE if the information or property wasn't found
+ */
+function services_auth_info($property = NULL, $module = NULL) {
+  static $info = array();
+  // Default the module param to the current auth module
+  $module = $module ? $module : variable_get('services_auth_module', '');
+
+  if (!isset($info[$module])) {
+    if (!empty($module) && module_exists($module) && is_callable($module .'_authentication_info')) {
+      $info[$module] = call_user_func($module .'_authentication_info');
+    }
+    else {
+      $info[$module] = FALSE;
+    }
+  }
+
+  // If a property was requested it should be returned
+  if ($property) {
+    return isset($info[$module][$property]) ? $info[$module][$property] : FALSE;
+  }
+
+  // Return the info array
+  return $info[$module];
+}
+
+/**
+ * Invokes a method for the configured authentication module.
+ *
+ * @param string $method
+ *  The method to call.
+ * @param mixed $arg1
+ *  Optional. First argument.
+ * @param mixed $arg2
+ *  Optional. Second argument.
+ * @param mixed $arg3
+ *  Optional. Third argument.
+ * @return mixed
+ */
+function services_auth_invoke($method, &$arg1 = NULL, &$arg2 = NULL, &$arg3 = NULL) {
+  $module = variable_get('services_auth_module', '');
+  // Get information about the current auth module
+  $func = services_auth_info($method, $module);
+  if ($func) {
+    if ($file = services_auth_info('file')) {
+      require_once(drupal_get_path('module', $module) .'/'. $file);
+    }
+
+    if (is_callable($func)) {
+      $args = func_get_args();
+      // Replace method name and arg1 with reference to $arg1 and $arg2.
+      array_splice($args, 0, 3, array(&$arg1, &$arg2, &$arg3));
+      return call_user_func_array($func, $args);
+    }
+  }
+  else{
+    return TRUE;
+  }
+}
+
+/**
+ * Invokes a method for the given authentication module.
+ *
+ * @param string $module
+ *  The authentication module to call the method for.
+ * @param string $method
+ *  The method to call.
+ * @param mixed $arg1
+ *  Optional. First argument.
+ * @param mixed $arg2
+ *  Optional. Second argument.
+ * @param mixed $arg3
+ *  Optional. Third argument.
+ * @return mixed
+ */
+function services_auth_invoke_custom($module, $method, &$arg1 = NULL, &$arg2 = NULL, &$arg3 = NULL) {
+  // Get information about the auth module
+  $func = services_auth_info($method, $module);
+  if ($func) {
+    if ($file = services_auth_info('file', $module)) {
+      require_once(drupal_get_path('module', $module) .'/'. $file);
+    }
+
+    if (is_callable($func)) {
+      $args = func_get_args();
+      // Replace module and method name and arg1 with reference to $arg1 and $arg2.
+      array_splice($args, 0, 4, array(&$arg1, &$arg2, &$arg3));
+      return call_user_func_array($func, $args);
+    }
+  }
+  else{
+    return TRUE;
+  }
+}
+
+/**
+ * Invokes a services method.
+ *
+ * @param mixed $method_name
+ *  The method name or a method definition array.
+ * @param array $args
+ *  Optional. An array containing arguments for the method. These arguments are not
+ *  matched by name but by position.
+ * @param bool $browsing
+ *  Optional. Whether the call was made by the services browser or not.
+ * @return mixed
+ */
+function services_method_call($method_name, $args = array(), $browsing = FALSE) {
+  // Allow external modules to log the results of this service call
+  module_invoke_all('services_method_call', $method_name, $args, $browsing);
+
+  if (is_array($method_name) && isset($method_name['callback'])) {
+    $method = $method_name;
+  }
+  else {
+    $method = services_method_get($method_name);
+  }
+
+  // Check that method exists.
+  if (empty($method)) {
+    return services_error(t('Method %name does not exist', array('%name' => $method_name)), 406);
+  }
+
+  // Check for missing args
+  $hash_parameters = array();
+  foreach ($method['args'] as $key => $arg) {
+    if (!$arg['optional']) {
+      if (!isset($args[$key]) && !is_array($args[$key]) && !is_bool($args[$key])) {
+        return services_error(t('Missing required arguments.'), 406);
+      }
+    }
+  }
+
+  // Check authentication
+  if ($method['auth'] && $auth_error = services_auth_invoke('authenticate_call', $method, $method_name, $args)) {
+    if ($browsing) {
+      drupal_set_message(t('Authentication failed: !message', array('!message' => $auth_error)), 'error');
+    }
+    else {
+      return services_error($auth_error, 401);
+    }
+  }
+
+  // Load the proper file.
+  if ($file = $method['file']) {
+    // Initialize file name if not given.
+    $file += array('file name' => '');
+    module_load_include($file['file'], $file['module'], $file['file name']);
+  }
+
+  // Construct access arguments array
+  if (isset($method['access arguments'])) {
+    $access_arguments = $method['access arguments'];
+    if (isset($method['access arguments append']) && $method['access arguments append']) {
+      $access_arguments[] = $args;
+    }
+  }
+  else {
+    // Just use the arguments array if no access arguments have been specified
+    $access_arguments = $args;
+  }
+
+  // Call default or custom access callback
+  if (call_user_func_array($method['access callback'], $access_arguments) != TRUE) {
+    return services_error(t('Access denied'), 401);
+  }
+
+  // Change working directory to drupal root to call drupal function,
+  // then change it back to server module root to handle return.
+  $server_root = getcwd();
+  $server_info = services_get_server_info();
+  if ($server_info) {
+    chdir($server_info->drupal_path);
+  }
+  $result = call_user_func_array($method['callback'], $args);
+  if ($server_info) {
+    chdir($server_root);
+  }
+
+  // Allow external modules to log the results of this service call
+  module_invoke_all('services_method_call_results', $method_name, $args, $browsing, $result);
+
+  return $result;
+}
+
+/**
+ * Registers a callback for formatting resource uri's.
+ * Use parameterless call to get the current formatter callback.
+ *
+ * @param mixed $callback
+ *  Optional. The callaback to register for uri formatting. No changes are made
+ *  if this parameter is omitted or NULL.
+ * @return mixed
+ *  Returns the registered callback for resource uri formatting
+ */
+function services_resource_uri_formatter($callback = NULL) {
+  static $formatter;
+
+  if ($callback !== NULL) {
+    $formatter = $callback;
+  }
+
+  return $formatter;
+}
+
+/**
+ * Formats a resource uri using the formatter registered through
+ * services_resource_uri_formatter().
+ *
+ * @param array $path
+ *  An array of strings containing the component parts of the path to the resource.
+ * @return string
+ *  Returns the formatted resource uri, or NULL if no formatter has been registered.
+ */
+function services_resource_uri($path) {
+  $formatter = services_resource_uri_formatter();
+  if ($formatter) {
+    return call_user_func($formatter, $path);
+  }
+  return NULL;
+}
+
+/**
+ * Gets all resource definitions.
+ *
+ * @return array
+ *  An array containing all resources.
+ */
+function services_get_all_resources($include_services = TRUE, $reset = FALSE) {
+  $cache_key = 'services:resources'. ($include_services?'_with_services':'');
+
+  if (!$reset && ($cache = cache_get($cache_key)) && isset($cache->data)) {
+    return $cache->data;
+  }
+  else {
+    $resources = module_invoke_all('service_resource');
+    drupal_alter('service_resources', $resources);
+    services_strip_hashes($resources);
+
+    $controllers = array();
+    services_process_resources($resources, $controllers);
+
+    foreach ($controllers as &$controller) {
+      if (!isset($controller['access callback'])) {
+        $controller['access callback'] = 'services_access_menu';
+      }
+
+      if (!isset($controller['auth'])) {
+        $controller['auth'] = TRUE;
+      }
+
+      if (!isset($controller['key'])) {
+        $controller['key'] = TRUE;
+      }
+    }
+
+    drupal_alter('service_resources_post_processing', $resources);
+    services_auth_invoke('alter_methods', $controllers);
+
+    if ($include_services) {
+      $services = services_get_all(FALSE);
+
+      // Include the file that has the necessary functions for translating
+      // methods to resources.
+      if (!empty($services)) {
+        module_load_include('inc', 'services', 'services.resource-translation');
+        $resources = array_merge(_services_services_as_resources($services), $resources);
+      }
+    }
+
+    cache_set($cache_key, $resources);
+    return $resources;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function services_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'system_modules') {
+    // Add our own submit hook to clear cache
+    $form['#submit'][] = 'services_system_modules_submit';
+  }
+}
+
+/**
+ * Submit handler for the system_modules form that clears the services cache.
+ */
+function services_system_modules_submit($form, &$form_state) {
+  // Reset services cache
+  services_get_all(TRUE, TRUE);
+}
+
+/**
+ * Processes the passed resources and adds all the controllers to the
+ * controller array.
+ *
+ * @param array $resources
+ *  The resources that should be processed.
+ * @param string $controllers
+ *  An array (passed by reference) that will be populated with the controllers
+ *  of the passed resources.
+ * @param string $path
+ *  Optional. Deprecated.
+ */
+function services_process_resources(&$resources, &$controllers, $path=array()) {
+  foreach ($resources as $name => &$resource) {
+    if (drupal_substr($name, 0, 1) != '#') {
+      _services_process_resource(array_merge($path, array($name)), $resource, $controllers);
+    }
+  }
+}
+
+/**
+ * Processes a single resource and adds it's controllers to the controllers
+ * array.
+ *
+ * @param string $name
+ *  The name of the resource.
+ * @param array $resource
+ *  The resource definition.
+ * @param array $controllers
+ *  An array (passed by reference) that will be populated with the controllers
+ *  of the passed resources.
+ * @return void
+ */
+function _services_process_resource($name, &$resource, &$controllers) {
+  $path = join($name, '/');
+  $resource['name'] = $path;
+
+  $keys = array('retrieve', 'create', 'update', 'delete');
+  foreach ($keys as $key) {
+    if (isset($resource[$key])) {
+      $controllers[$path .'/'. $key] = &$resource[$key];
+    }
+  }
+
+  if (isset($resource['index'])) {
+    $controllers[$path .'/index'] = &$resource['index'];
+  }
+
+  if (isset($resource['relationships'])) {
+    foreach ($resource['relationships'] as $relname => $rel) {
+      // Run some inheritance logic
+      if (isset($resource['retrieve'])) {
+        if (empty($rel['args']) || $rel['args'][0]['name'] !== $resource['retrieve']['args'][0]['name']) {
+          array_unshift($rel['args'], $resource['retrieve']['args'][0]);
+        }
+        $resource['relationships'][$relname] = array_merge($resource['retrieve'], $rel);
+      }
+      $controllers[$path .'/relationship/'. $relname] = &$resource['relationships'][$relname];
+    }
+  }
+
+  if (isset($resource['actions'])) {
+    foreach ($resource['actions'] as $actname => $act) {
+      // Run some inheritance logic
+      if (isset($resource['update'])) {
+        $up = $resource['update'];
+        unset($up['args']);
+        $resource['actions'][$actname] = array_merge($up, $act);
+      }
+      $controllers[$path .'/action/'. $actname] = &$resource['actions'][$actname];
+    }
+  }
+
+  if (isset($resource['targeted actions'])) {
+    foreach ($resource['targeted actions'] as $actname => $act) {
+      // Run some inheritance logic
+      if (isset($resource['update'])) {
+        if (empty($act['args']) || $act['args'][0]['name'] !== $resource['update']['args'][0]['name']) {
+          array_unshift($act['args'], $resource['update']['args'][0]);
+        }
+        $resource['targeted actions'][$actname] = array_merge($resource['update'], $act);
+      }
+      $controllers[$path .'/targeted_action/'. $actname] = &$resource['actions'][$actname];
+    }
+  }
+}
+
+/**
+ * Should be removed. This code doesn't seem to be used anywhere.
+ *
+ * @param string $perm
+ *  The permission to check for.
+ * @return bool
+ */
+function services_delegate_access($perm) {
+  return services_auth_invoke('delegate_access', $perm);
+}
+
+/**
+ * Gets all service definitions
+ *
+ * @param bool $include_resources
+ *   Optional. When TRUE resource-based service definitions will be translated to
+ *   the appropriat method callas and included in the service listing.
+ *   Defaults to TRUE.
+ * @return array
+ *   An array containing all services and thir methods
+ */
+function services_get_all($include_resources = TRUE, $reset = FALSE) {
+  $cache_key = 'services:methods'. ($include_resources?'_with_resources':'');
+
+  if (!$reset && ($cache = cache_get($cache_key)) && isset($cache->data)) {
+    return $cache->data;
+  }
+  else {
+    $methods = module_invoke_all('service');
+    services_strip_hashes($methods);
+
+    foreach ($methods as $key => $method) {
+
+      if (!isset($methods[$key]['access callback'])) {
+        $methods[$key]['access callback'] = 'services_access_menu';
+      }
+
+      if (!isset($methods[$key]['args'])) {
+        $methods[$key]['args'] = array();
+      }
+
+      // set defaults for args
+      foreach ($methods[$key]['args'] as $arg_key => $arg) {
+        if (is_array($arg)) {
+          if (!isset($arg['optional'])) {
+            $methods[$key]['args'][$arg_key]['optional'] = FALSE;
+          }
+        }
+        else {
+          $arr_arg = array();
+          $arr_arg['name'] = t('unnamed');
+          $arr_arg['type'] = $arg;
+          $arr_arg['description'] = t('No description given.');
+          $arr_arg['optional'] = FALSE;
+          $methods[$key]['args'][$arg_key] = $arr_arg;
+        }
+      }
+      reset($methods[$key]['args']);
+    }
+
+    // Allow auth module to alter the methods
+    services_auth_invoke('alter_methods', $methods);
+
+    // Add resources if wanted
+    if ($include_resources) {
+      $resources = services_get_all_resources(FALSE, $reset);
+
+      // Include the file that has the necessary functions for translating
+      // resources to method calls.
+      if (!empty($resources)) {
+        module_load_include('inc', 'services', 'services.resource-translation');
+
+        // Translate all resources
+        foreach ($resources as $name => $def) {
+          foreach (_services_resource_as_services($def) as $method) {
+            $methods[] = $method;
+          }
+        }
+      }
+    }
+
+    cache_set($cache_key, $methods);
+    return $methods;
+  }
+}
+
+/**
+ * Menu wildcard loader for browsing Service methods.
+ */
+function services_method_load($method) {
+  $method = services_method_get($method);
+  return isset($method) ? $method : FALSE;
+}
+
+/**
+ * Get's the definition of a method.
+ *
+ * @param string $method_name
+ *  The name of the method to get the definition for.
+ * @return array
+ *  The method definition.
+ */
+function services_method_get($method_name) {
+  static $method_cache;
+  if (!isset($method_cache[$method_name])) {
+    foreach (services_get_all() as $method) {
+      if ($method_name == $method['method']) {
+        $method_cache[$method_name] = $method;
+        break;
+      }
+    }
+  }
+  return $method_cache[$method_name];
+}
+
+/**
+ * Cleanup function to remove unnecessary hashes from service definitions.
+ *
+ * @param array $array
+ *  A service definition or an array of service definitions.
+ * @return void
+ */
+function services_strip_hashes(&$array) {
+  foreach ($array as $key => $value) {
+    if (is_array($value)) {
+      services_strip_hashes($array[$key]);
+    }
+    if (strpos($key, '#') === 0) {
+      $array[substr($key, 1)] = $array[$key];
+      unset($array[$key]);
+    }
+  }
+}
+
+/**
+ * Creates an object that only contains the specified attributes from the node
+ * object.
+ *
+ * @param object $node
+ *  The node to get the attributes.
+ * @param array $fields
+ *  An array containing the names of the attributes to get.
+ * @return object
+ *  An object with the specified attributes.
+ */
+function services_node_load($node, $fields = array()) {
+  if (!isset($node->nid)) {
+    return NULL;
+  }
+
+  // Loop through and get only requested fields
+  if (count($fields) > 0) {
+    foreach ($fields as $field) {
+      $val->{$field} = $node->{$field};
+    }
+  }
+  else {
+    $val = $node;
+  }
+
+  return $val;
+}
+
+/**
+ * Backup current session data and import user session.
+ */
+function services_session_load($sessid) {
+  global $user;
+
+  // If user's session is already loaded, just return current user's data
+  if ($user->sid == $sessid) {
+    return $user;
+  }
+
+  // Make backup of current user and session data
+  $backup = $user;
+  $backup->session = session_encode();
+
+  // Empty current session data
+  $_SESSION = array();
+
+  // Some client/servers, like XMLRPC, do not handle cookies, so imitate it to make sess_read() function try to look for user,
+  // instead of just loading anonymous user :).
+  if (!isset($_COOKIE[session_name()])) $_COOKIE[session_name()] = $sessid;
+
+  // Load session data
+  session_id($sessid);
+  sess_read($sessid);
+
+  // Check if it really loaded user and, for additional security, if user was logged from the same IP. If not, then revert automatically.
+  if ($user->sid != $sessid) {
+    services_session_unload($backup);
+    return NULL;
+  }
+
+  // Prevent saving of this impersonation in case of unexpected failure.
+  session_save_session(FALSE);
+
+  return $backup;
+}
+
+/**
+ * Revert to previously backuped session.
+ */
+function services_session_unload($backup) {
+  global $user;
+
+  // No point in reverting if it's the same user's data
+  if ($user->sid == $backup->sid) {
+    return;
+  }
+
+  // Some client/servers, like XMLRPC, do not handle cookies, so imitate it to make sess_read() function try to look for user,
+  // instead of just loading anonymous user :).
+  if (!isset($_COOKIE[session_name()])) $_COOKIE[session_name()] = $backup->sessid;
+
+  // Save current session data
+  sess_write($user->sid, session_encode());
+
+  // Empty current session data
+  $_SESSION = array();
+
+  // Revert to previous user and session data
+  $user = $backup;
+  session_id($backup->sessid);
+  session_decode($user->session);
+
+  session_save_session(TRUE);
+}
+
+/**
+ * Return true so as services menu callbacks work
+ */
+function services_access_menu() {
+  return TRUE;
+}
