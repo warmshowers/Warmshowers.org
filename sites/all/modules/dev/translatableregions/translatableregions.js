@@ -30,7 +30,9 @@ Drupal.behaviors.translatableregions = function (context) {
   // If auto_translate, we'll just translate the block no matter what.
   if (auto_translate) {
     $(translate_selectors).each(function (i) {
-      $(this).translate(my_language_code);
+      // TODO: Handle the mapping of browser language to Google's languages. 
+      // They aren't all the same. Portuguese is the biggest example.
+      $(this).translate(browser_language);
       $.translate.getBranding().appendTo($(this)).prepend(Drupal.t("Translation") + " ");
     });
   } 
@@ -39,7 +41,7 @@ Drupal.behaviors.translatableregions = function (context) {
     $.translate(function(){ //when the Google Language API is loaded
       var languages = $.translate.getLanguages(true);
       for (var key in languages) {
-        if (languages[key] == browser_language) {
+        if (languages[key].substr(0,2) == browser_language) {
           // Capitalize so that it will match the name in the select.
           browser_language_name = key.charAt(0)+key.substring(1).toLowerCase();
           break;
