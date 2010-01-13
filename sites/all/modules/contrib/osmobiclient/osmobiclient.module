@@ -1,0 +1,349 @@
+<?php
+// $Id: osmobiclient.module,v 1.10 2010/01/13 15:02:45 tdrycker Exp $
+/**
+ * @file
+ * The osmobiclient module helps you in moblizing your website together with the OSMOBI service
+ *
+ * 
+ * @author Tom Deryckere (Tom.Deryckere@siruna.com), 
+ * @author Nico Goeminne (Nico.Goeminne@siruna.com),
+ * @author Heiko Desruelle
+ */ 
+
+/****************
+ * Drupal Hooks *
+ ****************/
+require_once('osmobiLib/OsmobiLib.php');
+/**
+ * Configuration page of the osmobiclient module
+ * The configuration page shows a key that must be entered in the osmobi offering site.
+ * The key is generated at installation time and set in the 'osmobiclient_secret_key' variable.
+ */  
+function osmobiclient_configuration() {
+  global  $base_url;
+  $theme = osmobiclient_check_theme();
+    if ($theme['installed']) {
+      if ($theme['enabled']) { 
+        $output .= '<div class="ok">' . t('The OSMOBI theme is successfully installed!') . '</div>';
+        $output .= '<p> Your Drupal OSMOBI module is correctly installed and does not need more configuration</p>';
+        
+      } 
+      else {
+        $output .= '<div class="error">' . t('The OSMOBI theme is installed but not enabled. Enable the the OSMOBI theme !config', array('!config' => l('here', 'admin/build/themes' ))) . '</div>';
+      }
+  } 
+  else {
+    $output .= '<div class="error">' . t('The OSMOBI theme is not installed but required to work with OSMOBI. Please !download and enable the OSMOBI theme first!', array('!download' =>  l('download', 'http://drupal.org/project/osmobi-mobile', array('attributes' => array('target' => '_blank'))))) .'</div>';
+  }
+   $output .= OsmobiLib::getGeneralInstructions();
+  $output .= '<h3>' . t('Osmobi status') . '</h3>';
+  if (variable_get('osmobiclient_service_enabled', FALSE)) {
+   $output .= '<p>' . t('Your site is currently made mobile by OSMOBI.') . '</p>';
+  } 
+  else {
+    $output .= '<p>' . t('Your site is not yet launched by OSMOBI. Go to !osmobi to start mobilizing now', array('!osmobi' => l('OSMOBI', 'http://www.osmobi.com'))) . '</p>';
+  }
+  $output .= '<h3>' . t('Help &amp; Support') . '</h3>';
+  $output .= '<p>' . t('For support and documentation, please visit our !help.', array('!help' => l('Help & Support pages', 'http://osmobi.zendesk.com'))) . '</p>';
+  $output .= '<h3>System information</h3>';
+  $output .= 'When possible copy this information when submitting a support ticket';
+  $system_info = OsmobiLib::getSystemInfo();
+  
+  $output .= '<textarea readonly="true" cols="100" rows="'. count($system_info) . '">';
+  foreach ($system_info as $name => $value) {
+    $output .= $name . ': ' . $value . "\n";
+  }
+  $output .= '</textarea>';
+  return $output;
+}
+
+/**
+* Implementation of the hook_help($section)
+*/ 
+function osmobiclient_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#osmobiclient':
+      $output .= '<p>'. t('The OSMOBI module helps in Mobilizing your website. For more information take a look at our !guide', array('!guide', l('Getting Started guides', 'http://osmobi.zendesk.com/forums/74140/entries'))) .'<p>';
+  }
+  return $output;
+}
+  
+  /**
+ * Implementation of hook_perm().
+ */
+function osmobiclient_perm() {
+  return array('configure osmobiclient');
+}
+
+/**
+ * Implementation of the hook_menu()
+ */
+function osmobiclient_menu() {
+  // service endpoint registration and access 
+  $items['osmobiclient/services'] = array(
+    'title' => 'osmobiclient service endpoint',
+    'page callback' => 'osmobiclient_service_call',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK_ITEM,
+  );
+  // service configuration settings
+  $items['admin/settings/osmobiclient'] = array(
+    'title' => 'OSMOBI mobilization', 
+    'access arguments' => array('configure osmobiclient'),
+    'page callback' => 'osmobiclient_configuration',
+    'type' => MENU_NORMAL_ITEM,
+    'description' => t('The OSMOBI module integrates Drupal with the !osmobi mobilization service.', array('!osmobi' => 'http://wwww.osmobi.com')),
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_boot() 
+ * hook_boot() is responsible for redirection and theme switching
+ */   
+function osmobiclient_boot() {
+  //check which version and do updates if needed:
+  $version = osmobiclient_variable_get(OSMOBICLIENT_VERSION, '');
+  if ($version = '') {
+    osmobiclient_variable_set(OSMOBICLIENT_VERSION, '1.6.2');
+  }
+  OsmobiLib::userCall();
+}
+
+/**
+ * Switch the theme
+ */
+function osmobiclient_switch_theme() {
+  global $conf;  
+    $theme = osmobiclient_check_theme();
+    if ($theme['enabled']) {
+      $conf['theme_default'] = 'osmobi_mobile';
+   }
+}
+// redirect user
+function osmobiclient_redirect() {
+   $url = osmobiclient_get_redirect_url();
+   osmobiclient_goto($url);
+}
+/**************************
+ * Service Implementation *
+ **************************/
+ 
+/**
+ * Services dispatcher, dispatches service request to the correct service handler method.
+ */  
+function osmobiclient_service_call() {
+ // Get the parameters
+  $method = OsmobiLib::getRequestParameter('method');
+  $hash   = OsmobiLib::getRequestParameter('hash');
+  // Check if the call is complete
+  $call = OsmobiLib::serviceCall($method, $hash);
+  //Call the implementation
+  $method     = $call['method'];
+  $arguments   = $call['arguments'];
+  $method($arguments);
+}
+
+/**
+ * Function osmobiclient.wcm.isValidInstall
+ *
+ * osmobiclient/services?method=osmobiclient.wcm.isValidInstall&hash=123
+ *
+ */
+function osmobiclient_wcm_isValidInstall() {
+  global $base_url;
+  $theme_status = osmobiclient_check_theme();
+  OsmobiLib::isValidInstall($base_url, $theme_status);
+}
+
+/**
+ * Function osmobiclient.wcm.themes.getOriginalThemeInfo
+ *
+ * osmobiclient/services?method=osmobiclient.wcm.themes.getOriginalThemeInfo&hash=123
+ *
+ * This method returns information in XML format about the original theme,
+ * suchs as its name, its collors and its images
+ */
+function osmobiclient_wcm_themes_getOriginalThemeInfo() {
+  global $base_url; 
+  // retrive all the stylesheets
+  // retrieve a list of stylesheets from drupal api
+  $stylesheets = osmobiclient_retrieve_stylesheet_paths();
+  // retrieve a list of stylesheets available form the theme's folder
+  $theme_paths = osmobiclient_retrieve_paths();
+  $stylesheets2 = OsmobiLib::retrieveStylesheets($theme_paths);
+  $stylesheets = array_merge($stylesheets, $stylesheets2);
+  // extract the colors out of the stylesheets
+  $theme_colors = OsmobiLib::retrieveColors($stylesheets); 
+  // get the images
+  $theme_images = OsmobiLib::retrieveImages($theme_paths, $base_url); 
+  $theme_name = variable_get('theme_default', '');
+  OsmobiLib::getOriginalThemeInfo($theme_name, $theme_colors, $theme_images);
+}
+
+/**
+ * Function osmobiclient.wcm.url.setMobileURL
+ *
+ * This function enables/disables redirection to the osmobiclient platform
+ */
+function osmobiclient_wcm_url_setMobileURL() {
+  $url = str_replace('%2F', '/', $_GET['url']); 
+  OsmobiLib::setMobileURL($url);
+}
+
+/******************
+ * Help functions *
+ ******************/
+
+/* General functions */
+
+/**
+ * Function for Redirecting (replacement of drupal_goto since the function is not available yet)
+ */ 
+function osmobiclient_goto($path = '', $query = NULL, $fragment = NULL, $http_response_code = 302) {
+  $url = $path;
+  // Make the given path or URL absolute
+  if (!preg_match('/^[a-z]+:\/\//', $url)) {
+    global $base_url;
+    $url = $base_url .'/'. $url;
+  }
+  $url .= (empty($query)    ? '' : '?'. $query);
+  $url .= (empty($fragment) ? '' : '#'. $fragment);
+  // Remove newlines from the URL to avoid header injection attacks.
+  $url = str_replace(array("\n", "\r"), '', $url);
+  // Before the redirect, allow modules to react to the end of the page request.
+  bootstrap_invoke_all('exit');
+  // Even though session_write_close() is registered as a shutdown function, we
+  // need all session data written to the database before redirecting.
+  session_write_close();
+  header('Location: '. $url, TRUE, $http_response_code);
+  // The "Location" header sends a REDIRECT status code to the http
+  // daemon. In some cases this can go wrong, so we make sure none
+  // of the code below the drupal_goto() call gets executed when we redirect.
+  exit();
+}
+
+/* Help functions for handling colors and images */
+
+/**
+ * Function for retrieval of stylesheets of the active theme
+ *
+ * Both color picker modules and non-color pickers themes are provided.
+ */ 
+function osmobiclient_retrieve_stylesheet_paths() {
+  // initializes the global variable with the active's theme info
+  init_theme();
+  global $theme_info, $base_theme_info;
+  $stylesheets = array();
+  if (variable_get('color_' . $theme_info->name . '_stylesheets', FALSE)) {
+    $stylesheets = variable_get('color_' . $theme_info->name . '_stylesheets', '');
+  }
+  else {
+    // see http://www.w3.org/TR/CSS21/media.html for more information (We should possibly add 'handheld' as well)
+    $stylesheets = $theme_info->info['stylesheets']['all'];
+    if (isset($theme_info->info['base theme'])) {
+      $stylesheets = array_merge($stylesheets, $base_theme_info[0]->info['stylesheets']['all']);
+    }
+  }
+  return $stylesheets;
+}
+
+/**
+ * Function to retreive all paths of the active theme, including those of
+ * the base themes.
+ */
+function osmobiclient_retrieve_paths() {
+  $paths = array();
+  // initializes the global variable with the active's theme info
+  init_theme();
+  global $theme_path, $base_theme_info;
+  $paths[$theme_path] = $theme_path;
+  foreach ($base_theme_info as $base) {
+    $path = dirname($base->filename);
+    $paths[$path] = $path;
+   
+  }
+  return $paths;
+}
+
+
+/**
+ * Creation of the redirect url. Special care to create the correct url that will 
+ * cause the Global Redirect module not to redirect!  
+ */ 
+function osmobiclient_get_redirect_url() {
+  include_once './includes/bootstrap.inc';
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+  if (function_exists('globalredirect_init')) {
+    globalredirect_init(); // make sure that we are redirected to the correct url structure
+  }
+  $url = variable_get(OSMOBICLIENT_MOBILE_URL, 'http://www.osmobi.com');
+  $url = explode('%253F%253F', $url);
+  /**
+   * Url can be of the following forms:
+   *  - http://domain/path?args -> clean url enabled
+   *  => redirection must be http://transcodemain/path%253F%253Fsiruna_params?args
+   *  
+   *  - http://domain?q=path&args -> no clean urls
+   *  =>redirection must be http://transcodedomain%253F%253Fsiruna_params?q=path&args
+   * @var unknown_type
+   */
+  $query_string = '';
+  if (variable_get('clean_url', 0)) {
+    $query_string = drupal_query_string_encode($_GET, array('q')); // get all query params except for the path
+    $path = url($_GET['q']);
+    if ($path != '' && $path != '/' &&   !drupal_is_front_page()) { // when no path is specified don't append.
+      //When we are at the frontpage, discard paths, since Global Redirect will redirect 
+      $url[0] = preg_replace('{/$}', '', $url[0]) . $path ;
+    }
+    else {
+      //$url[0] = preg_replace('{/$}', '', $url[0]);
+    }
+  } 
+  else {
+    $query_string = drupal_query_string_encode($_GET);
+  }
+  if($query_string != '') {
+    return implode('%253F%253F', $url) . '?' . $query_string;
+  }
+  else {
+    return implode('%253F%253F', $url);
+  }
+}
+
+/**
+ * Helper function to check if the osmobi theme is correctly installed and enabled
+ * 
+ * return array('available' => boolean, 'enabled' => boolean)  
+ */ 
+function osmobiclient_check_theme() {
+  // Make sure that all themes are available in the db. So we can create the correct feedback data
+  include_once './includes/theme.inc';
+  if (function_exists('system_theme_data')) {
+    system_theme_data(); 
+  }
+  $themes = list_themes();
+  if (!array_key_exists('osmobi_mobile', $themes)) {
+    return array('installed' => 0, 'enabled' => 0);  
+  }
+  else {
+   $theme = $themes['osmobi_mobile'];
+   return array('installed' => 1, 'enabled' => $theme->status);
+  }
+}
+
+/**
+ * Function to retrieve the CMS type
+ * @return the CMS type
+ */
+function osmobiclient_get_cms() {
+  return 'drupal-' . VERSION;
+}
+
+function osmobiclient_variable_set($name, $value) {
+  variable_set($name, $value);
+}
+
+function osmobiclient_variable_get($name, $default = '') {
+  return variable_get($name, $default);
+}
