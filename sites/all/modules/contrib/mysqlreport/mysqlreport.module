@@ -1,0 +1,1248 @@
+<?php
+// $Id
+
+define('MYSQLREPORT_DEBUG', FALSE) ;
+
+class mysqlreport_version
+{
+	public $major ;
+	public $minor ;
+	public $patch ;
+	
+	public function __construct(
+		$theMajor = 0,
+		$theMinor = 0,
+		$thePatch = 0) {
+		$this->major = $theMajor ;
+		$this->minor = $theMinor ;
+		$this->patch = $thePatch ;
+	}
+	
+	public function __toString() {
+  	return sprintf('%02d%02d%02d', $this->major, $this->minor, $this->patch) ;
+  }
+  
+  public function checkVersion(
+  	$theDesiredVersion,
+  	$theOperation = '==') {
+  	$c = $this->__toString() ;
+  	$d = $theDesiredVersion->__toString() ;
+  	
+  	$xxx = 'return $c' . $theOperation . '$d ;' ;
+
+   	return eval($xxx) ;
+  }
+}
+
+function mysqlreport_admin_settings()
+{
+	$form = array() ;
+
+	$i = variable_get('mysqlreport_number_of_COM_status', 3) ;
+
+  $form['mysqlreport_number_of_COM_status'] = 
+  	array(
+	    '#type' => 'textfield',
+	    '#title' => t('Number of COM variables to display'),
+	    '#description' => t('0 => display all COM variables'),
+	    '#size' => 5,
+	    '#maxlength' => 5,
+	    '#required' => TRUE,
+	    '#default_value' => variable_get('mysqlreport_number_of_COM_status', 3),
+	  );
+
+	return system_settings_form($form) ;
+}
+
+function mysqlreport_menu()
+{
+	$items = array() ;
+	
+	$items['admin/reports/mysqlreport'] =
+		array(
+			'type' => MENU_NORMAL_ITEM,
+			'title' => t('View MySQL Report'),
+			'description' => t('View MySQL Report'),
+			'page callback' => '_mysqlreport_page',
+			'page arguments' => array(),
+			'access arguments' => array('view mysqlreport'),
+		) ;
+		
+	$items['admin/settings/mysqlreport'] =
+		array(
+			'type' => MENU_NORMAL_ITEM,
+			'title' => t('MySQL Report'),
+			'description' => t('Set MySQL defaults'),
+			'page callback' => 'drupal_get_form',
+			'page arguments' => array('mysqlreport_admin_settings'),
+			'access arguments' => array('administer site configuration'),
+		) ;
+
+	return $items ;
+}
+
+function mysqlreport_perm() {
+  return array(
+    'view mysqlreport',
+  );
+}
+
+function &_mysqlreport_get_innodb(
+	&$theStatistics,
+	&$theVariables,
+	&$theVersion)
+{
+	$innodb = new stdClass() ;
+	
+	if ($theVersion->checkVersion(new mysqlreport_version(5, 0, 2), '<')) {
+		return innodb ;
+	}
+	
+	$innodb->bufferPoolUsed =
+		( $theStatistics->Innodb_buffer_pool_pages_total - $theStatistics->Innodb_buffer_pool_pages_free ) *
+		$theStatistics->Innodb_page_size ;
+
+	$innodb->bufferPoolTotal =
+		$theStatistics->Innodb_buffer_pool_pages_total * $theStatistics->Innodb_page_size ;
+
+	$innodb->bufferPoolReadRatio =
+		$theStatistics->Innodb_buffer_pool_read_requests != 0 ? 
+			( 1.0 - ( $theStatistics->Innodb_buffer_pool_reads / $theStatistics->Innodb_buffer_pool_read_requests ) ) : 
+			0 ;
+			
+	return $innodb ;
+}
+
+function &_mysqlreport_get_myisam(
+	&$theStatus,
+	&$theVariables)
+{
+	$myisam = new stdClass() ;
+	
+	$myisam->questions = $theStatus->Questions ;
+	
+	$myisam->keyReadRatio =
+		$theStatus->Key_read_requests ?
+			( 1.0 - ( $theStatus->Key_reads / $theStatus->Key_read_requests ) ) * 100.0 : 
+			0 ;
+
+	$myisam->keyWriteRatio =
+		$theStatus->Key_write_requests ?
+			( 1.0 - ( $theStatus->Key_writes / $theStatus->Key_write_requests ) ) * 100.0 : 
+			0 ;
+
+	$myisam->keyCacheBlockSize =
+		isset($theVariables->key_cache_block_size) ?
+			$theVariables->key_cache_block_size :
+			1024 ;
+
+	$myisam->keyBufferUsed =
+		$theStatus->Key_blocks_used * $myisam->keyCacheBlockSize ;
+
+	$myisam->keyBufferUsage =
+		isset($theStatus->Key_blocks_unused) ?
+			$theVariables->key_buffer_size - ( $theStatus->Key_blocks_unused * $myisam->keyCacheBlockSize ) :
+			-1 ;
+
+	// Data Manipulation Statements: http://dev.mysql.com/doc/refman/5.0/en/data-manipulation.html
+	
+	$myisam->DMS =
+		array(
+			'SELECT' => $theStatus->Com_select,
+			'INSERT' => $theStatus->Com_insert + $theStatus->Com_insert_select,
+      'REPLACE' => $theStatus->Com_replace + $theStatus->Com_replace_select,
+      'UPDATE' => $theStatus->Com_update + ( isset($theStatus->Com_update_multi) ? $theStatus->Com_update_multi : 0 ),
+      'DELETE' => $theStatus->Com_delete + ( isset($theStatus->Com_delete_multi) ? $theStatus->Com_delete_multi : 0 ),
+			) ;
+			
+	$myisam->DMS['DMS'] = array_sum($myisam->DMS) ;
+	
+	arsort($myisam->DMS);
+
+	$myisam->slowQueryTime = $theVariables->long_query_time ;
+
+	return $myisam ;
+}
+
+function _mysqlreport_make_short(
+	$number,
+	$kb = FALSE,
+	$d = 2)
+{
+	
+	$n = 0 ;
+
+	$xxx= array() ;
+	
+	if ($kb) { 
+		$xxx = array('b','Kb','Mb','Gb','Tb') ;
+  	while ($number > 1023) { 
+   		$number /= 1024; $n++; 
+   	}; 
+  } else { 
+		$xxx = array('','K','M','G','T') ;
+   	while ($number > 999) { 
+   		$number /= 1000; $n++; 
+   	}; 
+  }
+
+  $short = sprintf("%.${d}f%s", $number, $xxx[$n]) ;
+
+  if (preg_match('/^(.+)\.00$/', $short, $matches)) {
+  	return $matches[1] ; // Convert 12.00 to 12, but not 12.00kb to 12kb
+  }
+
+  return $short;
+}
+
+function _mysqlreport_page() {
+	$output = array() ;
+	
+	$version = _mysqlreport_version() ;
+	
+	$status = _mysqlreport_status($version) ;
+	$variables = _mysqlreport_variables() ;
+	
+	$uptime = _mysqlreport_uptime($status->Uptime) ;
+			
+	$myisam = _mysqlreport_get_myisam($status, $variables) ;
+	
+	$innodb = _mysqlreport_get_innodb($status, $variables, $version) ;
+	
+	$output = 
+		_mysqlreport_write_mysql_time(
+			$version,
+			$uptime) ;
+			
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_key_buff_max(
+				$variables,
+				$myisam)) ;
+				
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_key_buff_usage(
+				$variables,
+				$myisam)) ;
+				
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_key_ratios(
+				$myisam)) ;
+				
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_questions(
+				$status,
+				$myisam)) ;
+				
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_DTQ(
+				$status,
+				$variables,
+				$myisam)) ;
+				
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_slow_DMS(
+				$status,
+				$variables,
+				$myisam)) ;
+
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_DMS(
+				$status,
+				$myisam)) ;
+
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_COM(
+				$status,
+				$myisam)) ;
+
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_select_and_sort(
+				$status)) ;
+
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_qcache(
+				$status,
+				$variables)) ;
+
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_report_end(
+				$status,
+				$variables)) ;
+
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_threads_aborted_bytes(
+				$status,
+				$variables)) ;
+				
+	$output = 
+		array_merge(
+			$output,
+			_mysqlreport_write_InnoDB(
+				$status,
+				$variables,
+				$innodb,
+				$version)) ;
+	
+	$xxx = '' ;
+	
+	foreach ($output as $v) {
+		if (substr($v, 0, 1) == '_') {
+			$xxx .= "\n" ;
+		}
+		
+		$xxx .= $v . "\n" ;
+	}
+	return '<pre>' . $xxx . "</pre>" ;
+}
+
+function &_mysqlreport_status(
+	$theVersion)
+{
+	$v = new stdClass() ;
+	
+	if ($theVersion->checkVersion(new mysqlreport_version(5, 0, 2), '<')) {
+		$query = "show status" ;
+	} else {
+		$query = "show global status" ;
+	}
+
+	$query = db_query($query) ;
+	
+	while ($row = db_fetch_object($query)) {
+		$xxx = $row->Variable_name ;
+		
+		$v->$xxx = $row->Value ;
+	}
+	
+	return $v ;
+}
+
+function _mysqlreport_toPercentage(
+	$theFraction,
+	$theInteger = FALSE)
+{
+	if ($theInteger) {
+		return (int) $theFraction * 100 ;
+	}
+	
+	return floatval($theFraction * 100) ;
+}
+
+function &_mysqlreport_uptime($theUptime) {
+	$days = (int)( $theUptime / 86400 ) ;
+	$theUptime %= 86400 ;
+	
+	$hours = (int)( $theUptime / 3600 ) ;
+	$theUptime %= 3600 ;
+	
+	$minutes = (int)( $theUptime / 60 ) ;
+	$seconds = $theUptime % 60 ;
+	
+	$xxx = sprintf('%d days %02d:%02d:%02d', $days, $hours, $minutes, $seconds) ;
+	
+	return $xxx ;
+}
+
+// Write COM report in descending order by values
+ 
+function &_mysqlreport_write_COM(
+	&$theStatus,
+	&$theMyisam)
+{
+	$output = array() ;
+	
+	$format_1 = 'Com_        %9s  %6.2f/s          %6.2f' ;
+	$format_2 = '  %-11s %7s  %6.2f/s          %6.2f' ;
+	
+	$output[] =
+		sprintf(
+			$format_1,
+			_mysqlreport_make_short($theStatus->DTQ['Com_']),
+			_mysqlreport_make_short($theStatus->DTQ['Com_'] / $theStatus->Uptime),
+			_mysqlreport_toPercentage($theStatus->DTQ['Com_'] / $theMyisam->DMS['DMS'])) ;
+
+	$i = variable_get('mysqlreport_number_of_COM_status', 3) ;
+
+	foreach ($theStatus->COM as $k => $v) {
+		$output[] =
+			sprintf(
+				$format_2,
+				$k,
+				_mysqlreport_make_short($v),
+				($v / $theStatus->Uptime),
+				_mysqlreport_toPercentage($v / $theMyisam->questions)) ;
+				
+		if (--$i == 0) {
+			return $output ;
+		}
+	}
+	
+	return $output ;
+}
+
+// Write DMS report in descending order by values
+
+function &_mysqlreport_write_DMS(
+	&$theStatus,
+	&$theMyisam)
+{
+	$output = array() ;
+
+	$format_dms = '%-10s  %9s  %6.2f/s          %6.2f' ;
+	$format = '  %-8s  %9s  %6.2f/s          %6.2f        %6.2f' ;
+	
+	foreach ($theMyisam->DMS as $k => $v) {
+		if ($k == 'DMS') {
+			$output[] =
+				sprintf(
+					$format_dms,
+					$k,
+					_mysqlreport_make_short($v),
+					_mysqlreport_toPercentage($v / $theStatus->Uptime),
+					_mysqlreport_toPercentage($v / $theMyisam->questions)) ;
+		} else {
+			$output[] =
+				sprintf(
+					$format,
+					$k,
+					_mysqlreport_make_short($v),
+					_mysqlreport_toPercentage($v / $theStatus->Uptime),
+					_mysqlreport_toPercentage($v / $theMyisam->questions),
+					_mysqlreport_toPercentage($v / $theMyisam->DMS['DMS'])) ;
+		}
+	}
+	
+	return $output ;
+}
+
+// Write DTQ report in descending order by values
+
+function &_mysqlreport_write_DTQ(
+	$theStatus,
+	$theVariables,
+	$theMyisam) 
+{
+	/*
+	 * format string is name, value, value, label, percentage
+	 */
+	
+	$dtq_format = '  %-8s  %9s  %6.2f/s  %7s %6.2f' ;
+	
+  /*
+   * Calculate the Total Com values
+   */
+  
+  $theStatus->DTQ['Com_'] = 0 ;
+  $theStatus->COM = array() ;
+
+	$xxx = get_object_vars($theStatus) ;
+	foreach (array_keys($xxx) as $k) {
+		if (preg_match('/^Com_(.*)/', $k, $matches)) {
+			$theStatus->COM[$matches[1]] = $xxx[$k] ;
+		}
+	}
+	
+	arsort($theStatus->COM) ;
+	
+  unset($theStatus->COM{'select'}) ;
+  unset($theStatus->COM{'insert'}) ;
+  unset($theStatus->COM{'insert_select'}) ;
+  unset($theStatus->COM{'replace'}) ;
+  unset($theStatus->COM{'replace_select'}) ;
+  unset($theStatus->COM{'update'}) ;
+  unset($theStatus->COM{'update_multi'}) ;
+  unset($theStatus->COM{'delete'}) ;
+  unset($theStatus->COM{'delete_multi'}) ;
+
+	$theStatus->DTQ['Com_'] = array_sum($theStatus->COM) ;
+
+	$theStatus->DTQ['DMS'] = $theMyisam->DMS['DMS'] ;
+	
+	if ($theStatus->Qcache_hits != 0) {
+		$theStatus->DTQ['QC Hits'] = $theStatus->Qcache_hits ;
+	}
+
+	$theStatus->DTQ['COM_QUIT'] = ( $theStatus->Connections - 2 ) - (int)( $theStatus->Aborted_clients / 2 ) ;
+	
+	$xxx = array_sum($theStatus->DTQ);
+
+	if ($theMyisam->questions != $xxx) {
+		if ($theMyisam->questions > $xxx) {
+			$theStatus->DTQ['+Unknown'] = abs($theMyisam->questions - $xxx) ;
+		} else {
+			$theStatus->DTQ['-Unknown'] = abs($theMyisam->questions - $xxx) ;
+		}
+	}
+	
+	arsort($theStatus->DTQ) ;
+	
+	$first = TRUE ;
+	
+	foreach ($theStatus->DTQ as $k => $v) {
+		$output[] =
+			sprintf(
+				$dtq_format,
+				$k,
+				_mysqlreport_make_short($v),
+				($v / $theStatus->Uptime),
+				($first ? '%Total:' : ''),
+				_mysqlreport_toPercentage($v / $theMyisam->questions)) ;
+		$first = FALSE ;
+	}
+
+	return $output ;
+}
+
+function &_mysqlreport_write_InnoDB(
+	&$theStatus,
+	&$theVariables,
+	&$theInnodb,
+	&$theVersion)
+{
+	$output = array() ;
+	
+	if ($theVersion->checkVersion(new mysqlreport_version(5, 0, 2), '<')) {
+		return $output ;
+	}
+	
+	if (!property_exists($theStatus, 'Innodb_page_size')) {
+		return $output ;
+	}
+
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'idb_bp_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">InnoDB Buffer Pool</a> __________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Usage         %7s of %7s  %%Used: %6.2f",
+			_mysqlreport_make_short($theInnodb->bufferPoolUsed, TRUE),
+			_mysqlreport_make_short($theInnodb->bufferPoolTotal, TRUE),
+			_mysqlreport_toPercentage($theInnodb->bufferPoolUsed / $theInnodb->bufferPoolTotal)) ;
+			
+	$output[] =
+		sprintf(
+			"Read hit      %6.2f%%",
+			_mysqlreport_toPercentage($theInnodb->bufferPoolReadRatio)) ;
+
+	$output[] = 'Pages' ;
+	
+	$output[] =
+		sprintf(
+			"  Free      %9s            %%Total: %6.2f",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_pages_free),
+			_mysqlreport_toPercentage($theStatus->Innodb_buffer_pool_pages_free / $theStatus->Innodb_buffer_pool_pages_total)) ;
+			
+	$output[] =
+		sprintf(
+			"  Data      %9s                    %6.2f %%Drty: %6.2f",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_pages_data),
+			_mysqlreport_toPercentage($theStatus->Innodb_buffer_pool_pages_data / $theStatus->Innodb_buffer_pool_pages_total),
+			_mysqlreport_toPercentage($theStatus->Innodb_buffer_pool_pages_dirty / $theStatus->Innodb_buffer_pool_pages_data)) ;
+			
+	$output[] =
+		sprintf(
+			"  Misc      %9s                    %6.2f",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_pages_misc),
+			_mysqlreport_toPercentage($theStatus->Innodb_buffer_pool_pages_misc / $theStatus->Innodb_buffer_pool_pages_total)) ;
+			
+	$output[] =
+		sprintf(
+			"  Latched   %9s                    %6.2f",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_pages_latched),
+			_mysqlreport_toPercentage($theStatus->Innodb_buffer_pool_pages_latched / $theStatus->Innodb_buffer_pool_pages_total)) ;
+			
+	$output[] =
+		sprintf(
+			"Reads       %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_read_requests),
+			( $theStatus->Innodb_buffer_pool_read_requests / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  From file %9s  %6.2f/s          %6.2f",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_reads),
+			( $theStatus->Innodb_buffer_pool_reads / $theStatus->Uptime ),
+			_mysqlreport_toPercentage($theStatus->Innodb_buffer_pool_reads / $theStatus->Innodb_buffer_pool_read_requests)) ;
+			
+	$output[] =
+		sprintf(
+			"  Ahead Rnd %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_read_ahead_rnd),
+			( $theStatus->Innodb_buffer_pool_read_ahead_rnd / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Ahead Sql %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_read_ahead_seq),
+			( $theStatus->Innodb_buffer_pool_read_ahead_seq / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"Writes      %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_write_requests),
+			( $theStatus->Innodb_buffer_pool_write_requests / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"Flushes     %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_pages_flushed),
+			( $theStatus->Innodb_buffer_pool_pages_flushed / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"Wait Free   %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_buffer_pool_wait_free),
+			( $theStatus->Innodb_buffer_pool_wait_free / $theStatus->Uptime )) ;
+			
+	if ($theVersion->checkVersion(new mysqlreport_version(5, 0, 3), '>=')) {
+		$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'idb_lock_report')) ;
+	
+		$output[] = 
+			sprintf(
+				'__ <a target="_blank" href="%s">InnoDB Lock</a> _________________________________________________________',
+				$xxx) ;
+		
+		$output[] =
+			sprintf(
+				"Waits       %9s  %6.2f/s",
+				_mysqlreport_make_short($theStatus->Innodb_row_lock_waits),
+				( $theStatus->Innodb_row_lock_waits / $theStatus->Uptime )) ;
+		
+		$output[] =
+			sprintf(
+				"Waits       %9s  %6.2f/s",
+				_mysqlreport_make_short($theStatus->Innodb_row_lock_waits),
+				( $theStatus->Innodb_row_lock_waits / $theStatus->Uptime )) ;
+		
+		$output[] =
+			sprintf(
+				"Current     %9d",
+				$theStatus->Innodb_row_lock_current_waits) ;
+		
+		$output[] = 'Time acquiring' ;
+		
+		$output[] =
+			sprintf(
+				"  Total     %9d ms",
+				$theStatus->Innodb_row_lock_time) ;
+		
+		$output[] =
+			sprintf(
+				"  Average   %9d ms",
+				$theStatus->Innodb_row_lock_time_avg) ;
+		
+		$output[] =
+			sprintf(
+				"  Max       %9d ms",
+				$theStatus->Innodb_row_lock_time_max) ;
+	}
+	
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'idb_dpr_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">InnoDB Data, Pages, Rows</a> ____________________________________________',
+			$xxx) ;
+	
+	$output[] = 'Data' ;
+	
+	$output[] =
+		sprintf(
+			"  Reads     %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_data_reads),
+			( $theStatus->Innodb_data_reads / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Writes    %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_data_writes),
+			( $theStatus->Innodb_data_writes / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  fsync     %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_data_fsyncs),
+			( $theStatus->Innodb_data_fsyncs / $theStatus->Uptime )) ;
+			
+	$output[] = '  Pending' ;
+	
+	$output[] =
+		sprintf(
+			"    Reads   %9s",
+			_mysqlreport_make_short($theStatus->Innodb_data_pending_reads)) ;
+			
+	$output[] =
+		sprintf(
+			"    Writes  %9s",
+			_mysqlreport_make_short($theStatus->Innodb_data_pending_fsyncs)) ;
+			
+	$output[] =
+		sprintf(
+			"    fsync   %9s",
+			_mysqlreport_make_short($theStatus->Innodb_data_pending_writes)) ;
+
+	$output[] = 'Pages' ;
+	
+	$output[] =
+		sprintf(
+			"  Created   %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_pages_created),
+			( $theStatus->Innodb_pages_created / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Read      %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_pages_read),
+			( $theStatus->Innodb_pages_read / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Written   %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_pages_written),
+			( $theStatus->Innodb_pages_written / $theStatus->Uptime )) ;
+			
+	$output[] = 'Rows' ;
+	
+	$output[] =
+		sprintf(
+			"  Deleted   %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_rows_deleted),
+			( $theStatus->Innodb_rows_deleted / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Inserted  %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_rows_inserted),
+			( $theStatus->Innodb_rows_inserted / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Read      %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_rows_read),
+			( $theStatus->Innodb_rows_read / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"  Updated   %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Innodb_rows_updated),
+			( $theStatus->Innodb_rows_updated / $theStatus->Uptime )) ;
+			
+	return $output ;
+}
+
+function &_mysqlreport_write_key_buff_max(
+	&$theVariables,
+	&$theMyisam)
+{
+	$output = array() ;
+	
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'key_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Key</a> _________________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			'Buffer used    % 7s of % 7s %%Used: %6.2f',
+			_mysqlreport_make_short($theMyisam->keyBufferUsed, TRUE),
+			_mysqlreport_make_short($theVariables->key_buffer_size, TRUE),
+			_mysqlreport_toPercentage($theMyisam->keyBufferUsed / $theVariables->key_buffer_size)) ;
+	
+	return $output ;
+}
+
+function &_mysqlreport_write_key_buff_usage(
+	&$theVariables,
+	&$theMyisam)
+{
+	$output = array() ;
+	
+	if ($theMyisam->keyBufferUsage == -1) {
+		return $output ;
+	}
+	
+	$output[] =
+		sprintf(
+			'  Current      % 7s            %%Usage: %6.2f',
+			_mysqlreport_make_short($theMyisam->keyBufferUsage, TRUE),
+			_mysqlreport_toPercentage($theMyisam->keyBufferUsage / $theVariables->key_buffer_size)) ;
+	
+	return $output ;
+}
+
+function &_mysqlreport_write_key_ratios(
+	&$theMyisam)
+{
+	$output = array() ;
+	
+	$output[] =
+		sprintf(
+			'Write hit      %6.2f%%',
+			$theMyisam->keyWriteRatio) ;
+			
+	$output[] =
+		sprintf(
+			'Read hit       %6.2f%%',
+			$theMyisam->keyReadRatio) ;
+			
+	return $output ;
+}
+
+function &_mysqlreport_write_mysql_time(
+	$theVersion,
+	$theUptime)
+{
+	$output = array() ;
+	
+	$date = date('d-M-Y H:m:s') ;
+
+	$xxx = sprintf('%d.%d.%d', $theVersion->major, $theVersion->minor, $theVersion->patch) ;
+	
+	$header = 
+		sprintf(
+			'MySQL %-16s uptime %-12s %24s',
+			$xxx,
+			$theUptime,
+			$date) ;
+	
+	$output[] = $header ;
+	
+	return $output ;
+}
+
+function _mysqlreport_write_qcache(
+	&$theStatus,
+	&$theVariables)
+{
+	$output = array() ;
+	
+	if ((!property_exists($theVariables, 'query_cache_size')) ||
+			($theVariables->query_cache_size == 0))
+	{
+		return $output ;
+	}
+	
+	$qcMemoryUsed = $theVariables->query_cache_size - $theStatus->Qcache_free_memory ;
+	
+	$qcHitsPerInsert =
+		$theStatus->Qcache_hits / ($theStatus->Qcache_inserts != 0 ? $theStatus->Qcache_inserts : 1) ;
+		
+	$qcInsertsPerPrune =
+			$theStatus->Qcache_inserts / ($theStatus->Qcache_lowmem_prunes != 0 ? $theStatus->Qcache_lowmem_prunes : 1) ;
+			
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'qc_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Query Cache</a> _________________________________________________________',
+			$xxx) ;
+
+	$output[] =
+		sprintf(
+			"Memory usage  %7s of %7s  %%Used: %6.2f",
+			_mysqlreport_make_short($qcMemoryUsed, TRUE),
+			_mysqlreport_make_short($theVariables->query_cache_size, TRUE),
+			_mysqlreport_toPercentage($qcMemoryUsed / $theVariables->query_cache_size)) ;
+		
+	$output[] =
+		sprintf(
+			"Block Fragmnt %6.2f%%",
+			_mysqlreport_toPercentage($theStatus->Qcache_free_blocks / $theStatus->Qcache_total_blocks)) ;
+		
+	$output[] =
+		sprintf(
+			"Hits          %7s   %5.2f/s",
+			_mysqlreport_make_short($theStatus->Qcache_hits),
+			($theStatus->Qcache_hits / $theStatus->Uptime)) ;
+		
+	$output[] =
+		sprintf(
+			"Inserts       %7s   %5.2f/s",
+			_mysqlreport_make_short($theStatus->Qcache_inserts),
+			($theStatus->Qcache_inserts / $theStatus->Uptime)) ;
+		
+	$output[] =
+		sprintf(
+			"Insrt:Prune %7s:1   %5.2f/s",
+			_mysqlreport_make_short($qcInsertsPerPrune),
+			( ( $theStatus->Qcache_inserts - $theStatus->Qcache_lowmem_prunes ) / $theStatus->Uptime )) ;
+		
+	$output[] =
+		sprintf(
+			"Hit:Insert  %7s:1   %5.2f/s",
+			_mysqlreport_make_short($qcHitsPerInsert),
+			( $qcHitsPerInsert / $theStatus->Uptime )) ;
+		
+	return $output ;
+}
+
+function &_mysqlreport_write_questions(
+	&$theStatus,
+	&$theMyisam)
+{
+	$output = array() ;
+	
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'questions_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Questions</a> ___________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Total       %9s  %6.2f/s",
+			_mysqlreport_make_short($theMyisam->questions),
+			floatval($theMyisam->questions) / floatval($theStatus->Uptime)) ;
+			
+	return $output ;
+}
+
+function &_mysqlreport_write_report_end(
+	&$theStatus,
+	&$theVariables)
+{
+	$output = array() ;
+	
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'tl_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Table Locks</a> _________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Waited      %9s  %6.2f/s  %%Total: %6.2f",
+			_mysqlreport_make_short($theStatus->Table_locks_waited),
+			( $theStatus->Table_locks_waited / $theStatus->Uptime ),
+			_mysqlreport_toPercentage($theStatus->Table_locks_waited / ( $theStatus->Table_locks_waited + $theStatus->Table_locks_immediate))) ;
+			
+	$output[] =
+		sprintf(
+			"Immediate   %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Table_locks_immediate),
+			( $theStatus->Table_locks_immediate / $theStatus->Uptime )) ;
+
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'tables_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Tables</a> ______________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Open        %9d of %4d    %%Cache: %6.2f",
+			$theStatus->Open_tables,
+			$theVariables->table_cache,
+			_mysqlreport_toPercentage( $theStatus->Open_tables / $theVariables->table_cache )) ;
+
+	$output[] =
+		sprintf(
+			"Opened      %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Opened_tables),
+			( $theStatus->Opened_tables / $theStatus->Uptime )) ;
+			
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'conn_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Connections</a> _________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Max used    %9d of %4d      %%Max: %6.2f",
+			$theStatus->Max_used_connections,
+			$theVariables->max_connections,
+			_mysqlreport_toPercentage($theStatus->Max_used_connections / $theVariables->max_connections)) ;
+			
+	$output[] =
+		sprintf(
+			"Total       %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Connections),
+			( $theStatus->Connections / $theStatus->Uptime )) ;
+
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'temp_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Created Temp</a> ________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Disk table  %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Created_tmp_disk_tables),
+			( $theStatus->Created_tmp_disk_tables / $theStatus->Uptime )) ;
+
+	$output[] =
+		sprintf(
+			"Table       %9s  %6.2f/s    Size: %6s",
+			_mysqlreport_make_short($theStatus->Created_tmp_tables),
+			( $theStatus->Created_tmp_tables / $theStatus->Uptime ),
+			_mysqlreport_make_short($theVariables->tmp_table_size, TRUE, 1)) ;
+
+	$output[] =
+		sprintf(
+			"File        %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Created_tmp_files),
+			( $theStatus->Created_tmp_files / $theStatus->Uptime )) ;
+
+	return $output ;
+}
+
+function &_mysqlreport_write_select_and_sort(
+	&$theStatistics)
+{
+	$output = array() ;
+	
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'sas_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">SELECT and Sort</a> _____________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Scan          %7s   %5.2f/s %%SELECT: %6.2f",
+			_mysqlreport_make_short($theStatistics->Select_scan),
+			($theStatistics->Select_scan / $theStatistics->Uptime),
+			_mysqlreport_toPercentage($theStatistics->Select_scan / $theStatistics->Com_select)) ;
+			
+	$output[] =
+		sprintf(
+			"Range         %7s   %5.2f/s          %6.2f",
+			_mysqlreport_make_short($theStatistics->Select_range),
+			($theStatistics->Select_range / $theStatistics->Uptime),
+			_mysqlreport_toPercentage($theStatistics->Select_range / $theStatistics->Com_select)) ;
+			
+	$output[] =
+		sprintf(
+			"Full join     %7s   %5.2f/s          %6.2f",
+			_mysqlreport_make_short($theStatistics->Select_full_join),
+			($theStatistics->Select_full_join / $theStatistics->Uptime),
+			_mysqlreport_toPercentage($theStatistics->Select_full_join / $theStatistics->Com_select)) ;
+			
+	$output[] =
+		sprintf(
+			"Range check   %7s   %5.2f/s          %6.2f",
+			_mysqlreport_make_short($theStatistics->Select_range_check),
+			($theStatistics->Select_range_check / $theStatistics->Uptime),
+			_mysqlreport_toPercentage($theStatistics->Select_range_check / $theStatistics->Com_select)) ;
+			
+	$output[] =
+		sprintf(
+			"Full rng join %7s   %5.2f/s          %6.2f",
+			_mysqlreport_make_short($theStatistics->Select_full_range_join),
+			($theStatistics->Select_full_range_join / $theStatistics->Uptime),
+			_mysqlreport_toPercentage($theStatistics->Select_full_range_join / $theStatistics->Com_select)) ;
+			
+	$output[] =
+		sprintf(
+			"Sort scan     %7s   %5.2f/s",
+			_mysqlreport_make_short($theStatistics->Sort_scan),
+			($theStatistics->Sort_scan / $theStatistics->Uptime)) ;
+			
+	$output[] =
+		sprintf(
+			"Sort range    %7s   %5.2f/s",
+			_mysqlreport_make_short($theStatistics->Sort_range),
+			($theStatistics->Sort_range / $theStatistics->Uptime)) ;
+			
+	$output[] =
+		sprintf(
+			"Sort mrg pass %7s   %5.2f/s",
+			_mysqlreport_make_short($theStatistics->Sort_merge_passes),
+			($theStatistics->Sort_merge_passes / $theStatistics->Uptime)) ;
+			
+	return $output ;
+}
+
+function &_mysqlreport_write_slow_DMS(
+	&$theStatistics,
+	&$theVariables,
+	&$theMyisam)
+{
+	$output = array() ;
+	
+	$output[] =
+		sprintf(
+			"Slow %-8s %7s  %6.2f/s          %6.2f  %%DMS: %6.2f  Log: %s",
+			sprintf('%ds', $theMyisam->slowQueryTime),
+			_mysqlreport_make_short($theStatistics->Slow_queries),
+			$theStatistics->Slow_queries / $theStatistics->Uptime,
+			_mysqlreport_toPercentage($theStatistics->Slow_queries / $theMyisam->questions),
+			_mysqlreport_toPercentage($theStatistics->Slow_queries / $theMyisam->DMS['DMS']),
+			$theVariables->log_slow_queries) ;
+			
+	return $output ;
+}
+
+function _mysqlreport_write_threads_aborted_bytes(
+	&$theStatus,
+	&$theVariables)
+{
+	$output = array() ;
+	
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'thd_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Threads</a> _____________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Running     %9d of %4d",
+			$theStatus->Threads_running,
+			$theStatus->Threads_connected) ;
+			
+	$output[] =
+		sprintf(
+			"Cached      %9d of %4d      %%Hit: %6.2f",
+			$theStatus->Threads_cached,
+			$theVariables->thread_cache_size,
+			_mysqlreport_toPercentage(1.0 - ( $theStatus->Threads_created / $theStatus->Connections ))) ;
+			
+	$output[] =
+		sprintf(
+			"Created     %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Threads_created),
+			( $theStatus->Threads_created / $theStatus->Uptime )) ;
+			
+	$output[] =
+		sprintf(
+			"Slow        %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Slow_launch_threads),
+			( $theStatus->Slow_launch_threads / $theStatus->Uptime )) ;
+						
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'thd_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Aborted</a> _____________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Clients     %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Aborted_clients),
+			( $theStatus->Aborted_clients / $theStatus->Uptime )) ;
+						
+	$output[] =
+		sprintf(
+			"Connects    %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Aborted_connects),
+			( $theStatus->Aborted_connects / $theStatus->Uptime )) ;
+
+	$xxx = url(drupal_get_path('module', 'mysqlreport') . '/mysqlreportguide.html', array('fragment' => 'thd_report')) ;
+
+	$output[] = 
+		sprintf(
+			'__ <a target="_blank" href="%s">Bytes</a> _______________________________________________________________',
+			$xxx) ;
+	
+	$output[] =
+		sprintf(
+			"Sent        %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Bytes_sent, TRUE),
+			( $theStatus->Bytes_sent / $theStatus->Uptime )) ;
+
+	$output[] =
+		sprintf(
+			"Received    %9s  %6.2f/s",
+			_mysqlreport_make_short($theStatus->Bytes_received, TRUE),
+			( $theStatus->Bytes_received / $theStatus->Uptime )) ;
+
+	return $output ;
+}
+
+function &_mysqlreport_version() {
+	$v = db_fetch_object(db_query("SHOW VARIABLES LIKE 'VERSION'")) ;
+	
+	$v = $v->Value ;
+	
+	preg_match('/(\d{1,2})\.(\d{1,2})\.(\d{1,2})/', $v, $matches) ;
+	
+	array_shift($matches);
+
+	$v = new mysqlreport_version($matches[0], $matches[1], $matches[2]) ;
+	
+	return $v ;
+}
+
+function &_mysqlreport_variables()
+{
+	$v = new stdClass() ;
+	
+	$query = db_query("show variables") ;
+
+	while ($row = db_fetch_object($query)) {
+		$xxx = $row->Variable_name ;
+		
+		$v->$xxx = $row->Value ;
+	}
+	
+	return $v ;
+}
+
+if (MYSQLREPORT_DEBUG) {
+	/*
+	 * Set up to run Drupal's database code from a script external to
+	 * Drupal.
+	 */
+	
+	error_reporting(E_ALL);
+	
+	if (stripos($_SERVER['argv'][0],'mysqlreport') === FALSE) {
+		$basepath = getcwd() ;
+	} else {
+		$basepath = dirname($_SERVER['argv'][0]) ;
+	}
+	
+	$drupal_path = $basepath . str_repeat('/..', 4) ;
+	$cdir = getcwd();
+	chdir($drupal_path);
+	
+	include('./includes/bootstrap.inc');
+	
+	drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
+	
+	chdir($cdir);
+	
+	_mysqlreport_page() ;
+}
+?>
