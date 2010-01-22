@@ -1,0 +1,1 @@
+Enabling this module will disable the Drupal password strength checker upon new user registrations.
