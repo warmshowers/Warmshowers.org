@@ -1,0 +1,324 @@
+<?php
+// $Id: login_one_time.module,v 1.2.2.4 2010/02/04 23:41:34 danielb Exp $
+
+/**
+ * @file
+ * The Login one time module
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function login_one_time_perm() {
+  return array('send link to login one time');
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function login_one_time_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'view':
+      if (user_access('send link to login one time')) {
+        $account->content['login_one_time'] = array(
+          '#title' => t('One-time login'),
+          '#type' => 'item',
+          '#value' => login_one_time_button($account),
+          '#weight' => 10,
+        );
+      }
+      break;
+  }
+}
+
+/**
+ * Call this function to get the ball rolling.
+ */
+function login_one_time_button($account = NULL, $path = NULL) {
+  if (user_access('send link to login one time')) {
+    global $user;
+    if (!$account) {
+      $account = $user;
+    }
+    return drupal_get_form('login_one_time_button_form', $account, $path);
+  }
+  return NULL;
+}
+
+/**
+ * Form to send a one-time login link
+ */
+function login_one_time_button_form($form_state, $account, $path = NULL) {
+
+  $form = array();
+  $form['#redirect'] = FALSE;
+  $form['account'] = array(
+    '#type' => 'value', 
+    '#value' => $account->uid,
+  );
+  $form['path'] = array(
+    '#type' => 'value', 
+    '#value' => $path,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit', 
+    '#value' => t('Send one-time login link to !username', array('!username' => $account->name)),
+  );
+  if ($form_state['storage']['done']) {
+    $form['submit']['#disabled'] = TRUE;
+  }
+  return $form;
+}
+
+/**
+ * Submit function for the form to send a one-time login link
+ */
+function login_one_time_button_form_submit($form, &$form_state) {
+  $values = &$form_state['values'];
+  $account = user_load($values['account']);
+  $result = login_one_time_send_mail($account, $values['path']);
+  if ($result) {
+    $form_state['storage']['done'] = TRUE;
+    drupal_set_message(t("A one-time login link has been sent to !username.", array('!username' => $account->name)));
+  }
+  else {
+    drupal_set_message(t("There was a problem sending the one-time login link.", 'error'));
+  }
+}
+
+/**
+ * Generate and send a one-time link button for the $account
+ */
+function login_one_time_send_mail($account, $path = NULL) {
+  return login_one_time_mail_notify('login_one_time', $account, $path);
+}
+
+/**
+ * Generate a one-time link for the $account
+ */
+function login_one_time_get_link($account, $path = NULL) {
+  if (!$path) {
+    $path = drupal_get_path_alias($_GET['q']);
+  }
+  $timestamp = time();
+  return url("login_one_time/" . $account->uid . "/" . $timestamp . "/". 
+    login_one_time_get_hash($account->pass, $timestamp, $account->login) . "/" . $path, array('absolute' => TRUE));
+}
+
+/**
+ * Generate a one-time password hash
+ */
+function login_one_time_get_hash($password, $timestamp, $login) {
+  return md5($timestamp . $password . $login);
+}
+
+/**
+ * Create email settings as part of user admin settings
+ */
+function login_one_time_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'user_admin_settings') {
+    $email_token_help = t('Available variables are:') .' !username, !site, !password, !uri, !uri_brief, !mailto, !date, !login_uri, !edit_uri, !login_url.';
+    $form['email']['login_one_time'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Login one time email'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#description' => t('Customize login one time e-mail messages sent to users.') .' '. $email_token_help,
+    );
+    $form['email']['login_one_time']['login_one_time_subject'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Subject'),
+      '#default_value' => login_one_time_mail_text('login_one_time_subject'),
+      '#maxlength' => 180,
+    );
+    $form['email']['login_one_time']['login_one_time_body'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Body'),
+      '#default_value' => login_one_time_mail_text('login_one_time_body'),
+      '#rows' => 12,
+    );
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function login_one_time_menu() {
+  $items = array();
+
+  $items['login_one_time/%/%/%'] = array(
+    'title' => 'Reset password',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('login_one_time_page', 1, 2, 3),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Returns a mail string for a variable name.
+ *
+ * Used by user_mail() and the settings forms to retrieve strings.
+ */
+function login_one_time_mail_text($key, $path = NULL, $language = NULL, $variables = array()) {
+  $langcode = isset($language) ? $language->language : NULL;
+
+  if ($admin_setting = variable_get($key, FALSE)) {
+    // An admin setting overrides the default string.
+    return strtr($admin_setting, $variables);
+  }
+  else {
+    // No override, return default string.
+    switch ($key) {
+      case 'login_one_time_subject':
+        return t('One-time login link for !username at !site', $variables, $langcode);
+      case 'login_one_time_body':
+        return t("!username,\n\nA request to give you a one-time login for your account has been made at !site.\n\nYou may now log in to !uri_brief by clicking on this link or copying and pasting it in your browser:\n\n!login_url\n\nThis is a one-time login, so it can be used only once.  It expires in two weeks and nothing will happen if it's not used.", $variables, $langcode);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_mail().
+ */
+function login_one_time_mail($key, &$message, $params) {
+  $language = $message['language'];
+  $path = &$params['path'];
+  $variables = login_one_time_mail_tokens($params['account'], $language, $path);
+  $message['subject'] .= login_one_time_mail_text($key .'_subject', $path, $language, $variables);
+  $message['body'][] = login_one_time_mail_text($key .'_body', $path, $language, $variables);
+}
+
+/**
+ * Return an array of token to value mappings for user e-mail messages.
+ *
+ * @param $account
+ *  The user object of the account being notified.  Must contain at
+ *  least the fields 'uid', 'name', and 'mail'.
+ * @param $language
+ *  Language object to generate the tokens with.
+ * @return
+ *  Array of mappings from token names to values (for use with strtr()).
+ */
+function login_one_time_mail_tokens($account, $language, $path = NULL) {
+  global $base_url;
+  $tokens = array(
+    '!username' => $account->name,
+    '!site' => variable_get('site_name', 'Drupal'),
+    '!login_url' => login_one_time_get_link($account, $path),
+    '!uri' => $base_url,
+    '!uri_brief' => preg_replace('!^https?://!', '', $base_url),
+    '!mailto' => $account->mail,
+    '!date' => format_date(time(), 'medium', '', NULL, $language->language),
+    '!login_uri' => url('user', array('absolute' => TRUE, 'language' => $language)),
+    '!edit_uri' => url('user/'. $account->uid .'/edit', array('absolute' => TRUE, 'language' => $language)),
+  );
+  if (!empty($account->password)) {
+    $tokens['!password'] = $account->password;
+  }
+  return $tokens;
+}
+
+/**
+ * Menu callback; process one time login link and redirects to the user page on success.
+ */
+function login_one_time_page(&$form_state, $uid, $timestamp, $hashed_pass) {
+  global $user;
+
+  // Check if the user is already logged in. The back button is often the culprit here.
+  if ($user->uid) {
+    drupal_set_message(t('It is not necessary to use this link to login anymore. You are already logged in.'));
+
+    $action = login_one_time_get_action_path();
+    if (!empty($action)) {
+      drupal_goto($action);
+    }
+    else {
+      drupal_goto();
+    }
+  }
+  else {
+    // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
+    $timeout = 86400*14;
+    $current = time();
+    // Some redundant checks for extra security ?
+    if ($timestamp < $current && $account = user_load(array('uid' => $uid, 'status' => 1)) ) {
+      // Deny one-time login to blocked accounts.
+      if (drupal_is_denied('user', $account->name) || drupal_is_denied('mail', $account->mail)) {
+        drupal_set_message(t('You have tried to use a one-time login for an account which has been blocked.'), 'error');
+        drupal_goto();
+      }
+
+      // No time out for first time login.
+      if ($account->login && $current - $timestamp > $timeout && $timeout) {
+        drupal_set_message(t('You have tried to use a one-time login link that has expired. Please use the log in form to supply your username and password.'));
+        drupal_goto('user/login');
+      }
+      else if ($account->uid && $timestamp > $account->login && $timestamp < $current && $hashed_pass == user_pass_rehash($account->pass, $timestamp, $account->login)) {
+
+        $action = login_one_time_get_action_path();
+
+        if ($action) {
+          watchdog('user', 'User %name used one-time login link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
+          // Set the new user.
+          $user = $account;
+          // user_authenticate_finalize() also updates the login timestamp of the
+          // user, which invalidates further use of the one-time login link.
+          user_authenticate_finalize($form_state['values']);
+          drupal_set_message(t('You have just used your one-time login link.'));
+          drupal_goto($action);
+        }
+
+      }
+      else {
+        drupal_set_message(t('You have tried to use a one-time login link which has been used. Please use the log in form to supply your username and password.'));
+        drupal_goto('user/login');
+      }
+    }
+    else {
+      // Deny access, no more clues.
+      // Everything will be in the watchdog's URL for the administrator to check.
+      drupal_access_denied();
+    }
+  }
+}
+
+/**
+ * Get the action path for redirect.
+ */
+function login_one_time_get_action_path() {
+   $path_array = array();
+   $query_bits = explode("/", $_GET['q']);
+   for ($i = 4; $i < count($query_bits); $i++) {
+     $path_array[] = $query_bits[$i];
+   }
+   return implode('/', $path_array);
+}
+
+/**
+ * Conditionally create and send a notification email when a certain
+ * operation happens on the given user account.
+ *
+ * @see user_mail_tokens()
+ * @see drupal_mail()
+ *
+ * @param $op
+ *  The operation being performed on the account.
+ *
+ * @param $account
+ *  The user object of the account being notified.  Must contain at
+ *  least the fields 'uid', 'name', and 'mail'.
+ * @param $language
+ *  Optional language to use for the notification, overriding account language.
+ * @return
+ *  The return value from drupal_mail_send(), if ends up being called.
+ */
+function login_one_time_mail_notify($op, $account, $path, $language = NULL) {
+  $params['account'] = $account;
+  $params['path'] = $path;
+  $language = $language ? $language : user_preferred_language($account);
+  $mail = drupal_mail('login_one_time', $op, $account->mail, $language, $params);
+  return empty($mail) ? NULL : $mail['result'];
+}
