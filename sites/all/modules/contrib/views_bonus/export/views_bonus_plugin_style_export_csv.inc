@@ -1,5 +1,5 @@
 <?php
-// $Id: views_bonus_plugin_style_export_csv.inc,v 1.7 2009/05/09 20:52:10 neclimdul Exp $
+// $Id: views_bonus_plugin_style_export_csv.inc,v 1.9 2009/10/06 05:21:13 neclimdul Exp $
 /**
  * @file
  * Plugin include file for export style plugin.
@@ -11,6 +11,9 @@
  * @ingroup views_style_plugins
  */
 class views_bonus_plugin_style_export_csv extends views_bonus_plugin_style_export {
+  var $feed_text = 'CSV';
+  var $feed_file = 'view-%view.csv';
+
   /**
    * Initialize plugin.
    *
@@ -19,6 +22,8 @@ class views_bonus_plugin_style_export_csv extends views_bonus_plugin_style_expor
   function init(&$view, &$display, $options = NULL) {
     parent::init($view, $display, $options = NULL);
     $this->feed_image = drupal_get_path('module', 'views_bonus_export') . '/images/csv.png';
+    $this->feed_file = 'view-%view.csv';
+    $this->feed_text = 'CSV';
   }
 
   /**
@@ -30,10 +35,6 @@ class views_bonus_plugin_style_export_csv extends views_bonus_plugin_style_expor
   function option_definition() {
     $options = parent::option_definition();
 
-    $options['filename'] = array(
-      'default' => 'view-%view.csv',
-      'translatable' => FALSE,
-    );
     $options['quote'] = array(
       'default' => TRUE,
       'translatable' => TRUE,
@@ -61,17 +62,11 @@ class views_bonus_plugin_style_export_csv extends views_bonus_plugin_style_expor
    * None.
    */
   function options_form(&$form, &$form_state) {
-    $form['filename'] = array(
-      '#type' => 'textfield',
-      '#title' => t('CSV filename'),
-      '#default_value' => $this->options['filename'],
-      '#description' => t('The filename that will be suggested to the browser for downloading purposes. %view will be replaced with the view name.'),
-      '#process' => array('views_process_dependency'),
-      '#dependency' => array('edit-style-options-override' => array(FALSE)),
-    );
+    parent::options_form($form, $form_state);
+
     $form['seperator'] = array(
       '#type' => 'textfield',
-      '#title' => t('Seperator'),
+      '#title' => t('Separator'),
       '#default_value' => !empty($this->options['seperator']) ? $this->options['seperator'] : ',',
       '#description' => t('This is the seperator that is used to seperate fields. CSV implies comma seperated fields so this should not be changed unless you have specific requirements'),
     );
