@@ -1,5 +1,5 @@
 <?php
-// $Id: i18ntaxonomy.pages.inc,v 1.1.2.7 2008/10/03 11:32:22 hass Exp $
+// $Id: i18ntaxonomy.pages.inc,v 1.1.2.8 2010/03/03 17:39:24 jareyero Exp $
 
 /**
  * @file
@@ -23,7 +23,7 @@ function i18ntaxonomy_term_page($str_tids = '', $depth = 0, $op = 'page') {
     while ($term = db_fetch_object($result)) {
       $tids[] = $term->tid;
       if (i18ntaxonomy_vocabulary($term->vid) == I18N_TAXONOMY_LOCALIZE) {
-        $names[] = tt("taxonomy:term:$term->tid:name", $term->name);
+        $names[] = i18nstrings("taxonomy:term:$term->tid:name", $term->name);
       }
       else {
         $names[] = $term->name;
@@ -102,7 +102,7 @@ function theme_taxonomy_term_page($tids, $result) {
   if (count($tids) == 1) {
     $term = taxonomy_get_term($tids[0]);
     if (i18ntaxonomy_vocabulary($term->vid) == I18N_TAXONOMY_LOCALIZE) {
-      $description = tt('taxonomy:term:'. $term->tid .':description', $term->description);
+      $description = i18nstrings('taxonomy:term:'. $term->tid .':description', $term->description);
     }
     else {
       $description = $term->description;
@@ -124,7 +124,7 @@ function theme_taxonomy_term_page($tids, $result) {
 /**
  * Helper function for autocompletion.
  *
- * @ TODO Optimized localization. We cannot just tt() huge lists of terms.
+ * @ TODO Optimized localization. We cannot just i18nstrings() huge lists of terms.
  */
 function i18ntaxonomy_autocomplete($vid, $string = '') {
   // The user enters a comma-separated list of tags. We only autocomplete the last tag.

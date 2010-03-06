@@ -1,5 +1,5 @@
 <?php
-// $Id: i18nblocks.module,v 1.7.2.18 2009/11/05 17:33:35 jareyero Exp $
+// $Id: i18nblocks.module,v 1.7.2.19 2010/03/03 17:39:24 jareyero Exp $
 
 /**
  * @file
@@ -12,7 +12,6 @@
 
 // Tag for localizable block, cannot be any language.
 define('I18N_BLOCK_LOCALIZE', '__LOCALIZE__');
-
 // Block type: localizable
 define('I18N_BLOCK_LOCALIZABLE', 1);
 // Block type: block with language
@@ -92,7 +91,30 @@ function i18nblocks_locale($op = 'groups', $group = NULL) {
   switch ($op) {
     case 'groups':
       return array('blocks' => t('Blocks'));
+    case 'info':
+      $info['blocks']['refresh callback'] = 'i18nblocks_locale_refresh';
+      $info['blocks']['format'] = TRUE;
+      return $info;
   }
+}
+
+/**
+ * Refresh all strings
+ */
+function i18nblocks_locale_refresh() {
+  $result = db_query("SELECT b.bid, b.module, b.delta, b.title, bx.body, bx.format, i.ibid, i.language FROM {blocks} b LEFT JOIN {boxes} bx ON b.bid = bx.bid LEFT JOIN {i18n_blocks} i ON b.module = i.module AND b.delta = i.delta");
+  while ($block = db_fetch_object($result)) {
+    // Custom blocks that have i18n data
+    if ($block->ibid && !$block->language) {
+      i18nstrings_update("blocks:block:$block->ibid:title", $block->title);
+      i18nstrings_update("blocks:block:$block->ibid:content", $block->body, $block->format);      
+    }
+    // Regular customized title for any other block
+    if (!$block->ibid && $block->title && $block->title != '<none>') {
+      i18nstrings_update("blocks:$block->module:$block->bid:title", $block->title);
+    }
+  }
+  return TRUE; // Meaning it completed with no issues
 }
 
 /**
@@ -231,8 +253,8 @@ function i18nblocks_save($block) {
   if (!$block['language']) {
     // We use ibid property instead of block's delta as block id for strings
     $delta = $block['ibid'];
-    tt("blocks:block:$delta:title", $block['title'], NULL, TRUE);
-    tt("blocks:block:$delta:content", $block['body'], NULL, TRUE);
+    i18nstrings_update("blocks:block:$delta:title", $block['title']);
+    i18nstrings_update("blocks:block:$delta:content", $block['body'], $block['format']);
   }
 }
 
@@ -254,12 +276,12 @@ function i18nblocks_get_block($delta, $language) {
     // Override the default title.
     if ($meta->title) {
       // Check plain here to allow module generated titles to keep any markup.
-      $block['subject'] = $meta->title == '<none>' ? '' : check_plain(tt("blocks:block:$delta:title", $meta->title, $language));
+      $block['subject'] = $meta->title == '<none>' ? '' : check_plain(i18nstrings("blocks:block:$delta:title", $meta->title, $language));
     }
     elseif (!empty($block['subject'])) {
-      $block['subject'] = tt("blocks:block:$delta:title", $block['subject'], $language);
+      $block['subject'] = i18nstrings("blocks:block:$delta:title", $block['subject'], $language);
     }
-    $block['content'] = tt("blocks:block:$delta:content", $block['content'], $language);
+    $block['content'] = i18nstrings("blocks:block:$delta:content", $block['content'], $language);
     return $block;
   }
 }
@@ -277,12 +299,12 @@ function i18nblocks_translate_block($block, $info) {
   $bid = $info->ibid;
   if ($block->title) {
     // Check plain here to allow module generated titles to keep any markup.
-    $block->subject = $block->title == '<none>' ? '' : check_plain(tt("blocks:block:$bid:title", $block->title));
+    $block->subject = $block->title == '<none>' ? '' : check_plain(i18nstrings("blocks:block:$bid:title", $block->title));
   }
   elseif (!empty($block->subject)) {
-    $block->subject = tt("blocks:block:$bid:title", $block->subject);
+    $block->subject = i18nstrings("blocks:block:$bid:title", $block->subject);
   }
-  $block->content = tt("blocks:block:$bid:content", $block->content);
+  $block->content = i18nstrings("blocks:block:$bid:content", $block->content);
   return $block;
 }
 
@@ -339,7 +361,7 @@ function i18nblocks_theme_blocks($region) {
         // user customized title
         if ($block->title && $block->title != '<none>') {
           // Check plain here to allow module generated titles to keep any markup.
-          $block->subject = check_plain(tt("blocks:{$block->module}:{$block->bid}:title", $block->title));
+          $block->subject = check_plain(i18nstrings("blocks:{$block->module}:{$block->bid}:title", $block->title));
         }
       }
       // Finally, render the block using standard theming.

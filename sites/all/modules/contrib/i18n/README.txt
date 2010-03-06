@@ -1,4 +1,4 @@
-// $Id: README.txt,v 1.18.2.4 2009/01/25 17:33:09 jareyero Exp $
+// $Id: README.txt,v 1.18.2.5 2009/11/24 15:53:44 jareyero Exp $
 
 README.txt
 ==========
@@ -13,6 +13,11 @@ This is a collection of modules providing multilingual features.
 These modules will build onto Drupal 6 core features enabling a full multilingual site
 
 Up to date documentation will be kept on-line at http://drupal.org/node/133977
+
+SimpleTest:
+-----------
+Tests for this module will run on SimpleTest 6.x-2.8 (old version).
+About this see http://drupal.org/node/584596
 
 Additional Support
 =================

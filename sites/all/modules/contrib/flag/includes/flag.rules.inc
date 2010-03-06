@@ -1,5 +1,5 @@
 <?php
-// $Id: flag.rules.inc,v 1.1.2.1 2009/03/14 06:06:14 quicksketch Exp $
+// $Id: flag.rules.inc,v 1.1.2.2 2009/05/06 23:37:47 quicksketch Exp $
 
 /**
  * @file flag.rules.inc
@@ -18,7 +18,7 @@ function flag_rules_data_type_info() {
       'savable' => TRUE,
       'identifiable' => TRUE,
       'use_input_form' => TRUE,
-      'module' => 'Node',
+      'module' => 'Flag',
     ),
   );
 }
@@ -148,7 +148,7 @@ function flag_rules_action_info() {
         'cutoff_size' => array(
           'type' => 'number',
           'label' => t('Flag queue size'),
-          'description' => t('The maximum number of objects to keep in the queue. Newly flagged objects will be kept; older ones will be removed. Tip: by typing "1" here you implement a <a href="@singleton-wikipedia">singleton</a>.', array('@singleton-wikipedia' => 'http://en.wikipedia.org/wiki/Singleton_pattern')),
+          'description' => t('The maximum number of objects to keep in the queue. Newly flagged objects will be kept; older ones will be removed. Tip: by typing "1" here you implement a singleton.'),
         ),
       ),
       'module' => 'Flag',

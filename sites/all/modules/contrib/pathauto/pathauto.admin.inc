@@ -1,5 +1,5 @@
 <?php
-// $Id: pathauto.admin.inc,v 1.10.2.1 2008/06/24 16:07:51 greggles Exp $
+// $Id: pathauto.admin.inc,v 1.10.2.3 2010/02/20 18:27:45 davereid Exp $
 
 /**
  * @file
@@ -140,8 +140,10 @@ function pathauto_admin_settings() {
 
   $form['general']['pathauto_ignore_words'] = array(
     '#type' => 'textarea',
-    '#title' => t('Strings to Remove'), '#default_value' => variable_get('pathauto_ignore_words', implode(',', $ignore_words)),
+    '#title' => t('Strings to Remove'),
+    '#default_value' => variable_get('pathauto_ignore_words', implode(',', $ignore_words)),
     '#description' => t('Words to strip out of the URL alias, separated by commas. Do not place punctuation in here and do not use WYSIWYG editors on this field.'),
+    '#wysiwyg' => FALSE,
   );
 
   $form['punctuation'] = array(
@@ -154,11 +156,19 @@ function pathauto_admin_settings() {
 
   $punctuation = pathauto_punctuation_chars();
   foreach ($punctuation as $name => $details) {
-    $form['punctuation']['pathauto_punctuation_'. $name ] = array(
+    $details['default'] = 0;
+    if ($details['value'] == variable_get('pathauto_separator', '-')) {
+      $details['default'] = 1;
+    }
+    $form['punctuation']['pathauto_punctuation_'. $name] = array(
       '#type' => 'select',
       '#title' => $details['name'],
-      '#default_value' => variable_get('pathauto_punctuation_'. $name, 0),
-      '#options' => array('0' => t('Remove'), '1' => t('Replace by separator'), '2' => t('No action (do not replace)')),
+      '#default_value' => variable_get('pathauto_punctuation_'. $name, $details['default']),
+      '#options' => array(
+        '0' => t('Remove'),
+        '1' => t('Replace by separator'),
+        '2' => t('No action (do not replace)'),
+      ),
     );
   }
 

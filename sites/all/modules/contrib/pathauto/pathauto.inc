@@ -1,5 +1,5 @@
 <?php
-// $Id: pathauto.inc 552 2009-10-26 21:29:47Z rfay $
+// $Id: pathauto.inc,v 1.45.2.10 2010/02/20 03:05:19 davereid Exp $
 
 /**
  * @file
@@ -7,50 +7,6 @@
  *
  * @ingroup pathauto
  */
-
-/**
- * Matches Unicode character classes.
- *
- * See: http://www.unicode.org/Public/UNIDATA/UCD.html#General_Category_Values
- *
- * The index only contains the following character classes:
- *   Lu  Letter, Uppercase
- *   Ll  Letter, Lowercase
- *   Lt  Letter, Titlecase
- *   Lo  Letter, Other
- *   Nd  Number, Decimal Digit
- *   No  Number, Other
- *
- * Copied from search.module's PREG_CLASS_SEARCH_EXCLUDE.
- */
-define('PREG_CLASS_ALNUM',
-'\x{0}-\x{2f}\x{3a}-\x{40}\x{5b}-\x{60}\x{7b}-\x{bf}\x{d7}\x{f7}\x{2b0}-'.
-'\x{385}\x{387}\x{3f6}\x{482}-\x{489}\x{559}-\x{55f}\x{589}-\x{5c7}\x{5f3}-'.
-'\x{61f}\x{640}\x{64b}-\x{65e}\x{66a}-\x{66d}\x{670}\x{6d4}\x{6d6}-\x{6ed}'.
-'\x{6fd}\x{6fe}\x{700}-\x{70f}\x{711}\x{730}-\x{74a}\x{7a6}-\x{7b0}\x{901}-'.
-'\x{903}\x{93c}\x{93e}-\x{94d}\x{951}-\x{954}\x{962}-\x{965}\x{970}\x{981}-'.
-'\x{983}\x{9bc}\x{9be}-\x{9cd}\x{9d7}\x{9e2}\x{9e3}\x{9f2}-\x{a03}\x{a3c}-'.
-'\x{a4d}\x{a70}\x{a71}\x{a81}-\x{a83}\x{abc}\x{abe}-\x{acd}\x{ae2}\x{ae3}'.
-'\x{af1}-\x{b03}\x{b3c}\x{b3e}-\x{b57}\x{b70}\x{b82}\x{bbe}-\x{bd7}\x{bf0}-'.
-'\x{c03}\x{c3e}-\x{c56}\x{c82}\x{c83}\x{cbc}\x{cbe}-\x{cd6}\x{d02}\x{d03}'.
-'\x{d3e}-\x{d57}\x{d82}\x{d83}\x{dca}-\x{df4}\x{e31}\x{e34}-\x{e3f}\x{e46}-'.
-'\x{e4f}\x{e5a}\x{e5b}\x{eb1}\x{eb4}-\x{ebc}\x{ec6}-\x{ecd}\x{f01}-\x{f1f}'.
-'\x{f2a}-\x{f3f}\x{f71}-\x{f87}\x{f90}-\x{fd1}\x{102c}-\x{1039}\x{104a}-'.
-'\x{104f}\x{1056}-\x{1059}\x{10fb}\x{10fc}\x{135f}-\x{137c}\x{1390}-\x{1399}'.
-'\x{166d}\x{166e}\x{1680}\x{169b}\x{169c}\x{16eb}-\x{16f0}\x{1712}-\x{1714}'.
-'\x{1732}-\x{1736}\x{1752}\x{1753}\x{1772}\x{1773}\x{17b4}-\x{17db}\x{17dd}'.
-'\x{17f0}-\x{180e}\x{1843}\x{18a9}\x{1920}-\x{1945}\x{19b0}-\x{19c0}\x{19c8}'.
-'\x{19c9}\x{19de}-\x{19ff}\x{1a17}-\x{1a1f}\x{1d2c}-\x{1d61}\x{1d78}\x{1d9b}-'.
-'\x{1dc3}\x{1fbd}\x{1fbf}-\x{1fc1}\x{1fcd}-\x{1fcf}\x{1fdd}-\x{1fdf}\x{1fed}-'.
-'\x{1fef}\x{1ffd}-\x{2070}\x{2074}-\x{207e}\x{2080}-\x{2101}\x{2103}-\x{2106}'.
-'\x{2108}\x{2109}\x{2114}\x{2116}-\x{2118}\x{211e}-\x{2123}\x{2125}\x{2127}'.
-'\x{2129}\x{212e}\x{2132}\x{213a}\x{213b}\x{2140}-\x{2144}\x{214a}-\x{2b13}'.
-'\x{2ce5}-\x{2cff}\x{2d6f}\x{2e00}-\x{3005}\x{3007}-\x{303b}\x{303d}-\x{303f}'.
-'\x{3099}-\x{309e}\x{30a0}\x{30fb}-\x{30fe}\x{3190}-\x{319f}\x{31c0}-\x{31cf}'.
-'\x{3200}-\x{33ff}\x{4dc0}-\x{4dff}\x{a015}\x{a490}-\x{a716}\x{a802}\x{a806}'.
-'\x{a80b}\x{a823}-\x{a82b}\x{d800}-\x{f8ff}\x{fb1e}\x{fb29}\x{fd3e}\x{fd3f}'.
-'\x{fdfc}-\x{fe6b}\x{feff}-\x{ff0f}\x{ff1a}-\x{ff20}\x{ff3b}-\x{ff40}\x{ff5b}-'.
-'\x{ff65}\x{ff70}\x{ff9e}\x{ff9f}\x{ffe0}-\x{fffd}');
 
 /**
  * Check to see if there is already an alias pointing to a different item.
@@ -66,14 +22,14 @@ define('PREG_CLASS_ALNUM',
  */
 function _pathauto_alias_exists($alias, $src, $language = '') {
   $alias_pid = db_result(db_query_range("SELECT pid FROM {url_alias} WHERE dst = '%s' AND src <> '%s' AND language = '%s'", array($alias, $src, $language), 0, 1));
-  if (function_exists('path_redirect_delete')) {
+  if (function_exists('path_redirect_delete_multiple')) {
     // Delete from path_redirect the exact same alias to the same node.
-    path_redirect_delete(array('path' => $alias, 'redirect' => $src));
+    path_redirect_delete_multiple(NULL, array('source' => $alias, 'redirect' => $src));
 
     // If there still is this alias used in path_redirect, then create a different alias
-    $redirect_rid = db_result(db_query_range("SELECT rid FROM {path_redirect} WHERE path = '%s'", $alias, 0, 1));
+    $redirects = path_redirect_load_multiple(NULL, array('source' => $alias));
   }
-  if ($alias_pid || !empty($redirect_rid)) {
+  if ($alias_pid || !empty($redirects)) {
     return TRUE;
   }
   else {
@@ -190,28 +146,79 @@ function pathauto_cleanstring($string, $clean_slash = TRUE) {
   // Always replace whitespace with the separator.
   $output = preg_replace('/\s+/', $separator, $output);
 
-  // In preparation for pattern matching,
-  // escape the separator if and only if it is not alphanumeric.
-  if (isset($separator)) {
-    if (preg_match('/^[^'. PREG_CLASS_ALNUM .']+$/uD', $separator)) {
-      $seppattern = $separator;
-    }
-    else {
-      $seppattern = '\\'. $separator;
-    }
-    // Trim any leading or trailing separators (note the need to
-    $output = preg_replace("/^$seppattern+|$seppattern+$/", '', $output);
-
-    // Replace trailing separators around slashes.
-    $output = preg_replace("/$seppattern\/|\/$seppattern/", "/", $output);
-
-    // Replace multiple separators with a single one
-    $output = preg_replace("/$seppattern+/", "$separator", $output);
-  }
+  // Trim duplicates and remove trailing and leading separators.
+  $output = _pathauto_clean_separators($output, $separator);
 
   // Enforce the maximum component length
   $maxlength = min(variable_get('pathauto_max_component_length', 100), 128);
   $output = drupal_substr($output, 0, $maxlength);
+
+  return $output;
+}
+
+/**
+ * Clean path separators from a given string.
+ *
+ * Trims duplicates and strips leading and trailing separators.
+ *
+ * @param $string
+ *   The string to clean path separators from.
+ * @param $separator
+ *   The path separator to use when cleaning.
+ * @return
+ *   The cleaned version of the string.
+ *
+ * @see pathauto_cleanstring()
+ * @see pathauto_clean_alias()
+ */
+function _pathauto_clean_separators($string, $separator = NULL) {
+  $output = $string;
+
+  // Clean duplicate or trailing separators.
+  if (isset($separator) && strlen($separator)) {
+    // Escape the separator.
+    $seppattern = preg_quote($separator, '/');
+
+    // Trim any leading or trailing separators.
+    $output = preg_replace("/^$seppattern+|$seppattern+$/", '', $output);
+
+    // Replace trailing separators around slashes.
+    $output = preg_replace("/$seppattern+\/|\/$seppattern+/", "/", $output);
+
+    // Replace multiple separators with a single one.
+    $output = preg_replace("/$seppattern+/", $separator, $output);
+  }
+
+  // Optionally convert to lower case.
+  if (variable_get('pathauto_case', 1)) {
+    $output = drupal_strtolower($output);
+  }
+
+  return $output;
+}
+
+/**
+ * Clean up an alias.
+ *
+ * This strips leading and trailing separators from the alias, and invokes
+ * hook_pathauto_clean_alias() for other modules to have their chance.
+ *
+ * @param $alias
+ *   A path alias to clean.
+ * @param $clean_slash
+ *   Whether to clean slashes from the alias..
+ * @return
+ *   The cleaned alias.
+ */
+function pathauto_clean_alias($alias) {
+  $output = $alias;
+  $separator = variable_get('pathauto_separator', '-');
+
+  // Trim duplicates and remove trailing and leading separators.
+  $output = _pathauto_clean_separators($output, $separator);
+
+  // Give other modules a chance to clean this alias.
+  module_invoke_all('pathauto_clean_alias', $output);
 
   return $output;
 }
@@ -230,6 +237,8 @@ function pathauto_cleanstring($string, $clean_slash = TRUE) {
  *   actual values to be substituted into the pattern (e.g., $node->title).
  * @param $src
  *   The "real" URI of the content to be aliased (e.g., "node/$node->nid").
+ * @param $entity_id
+ *   The entity ID (node ID, user ID, etc.).
  * @param $type
  *   For modules which provided pattern items in hook_pathauto(),
  *   the relevant identifier for the specific item to be aliased
@@ -287,13 +296,8 @@ function pathauto_create_alias($module, $op, $placeholders, $src, $entity_id, $t
     $old_alias = $update_data['old_alias'];
   }
 
-  // Replace the placeholders with the values provided by the module,
-  // and optionally lower-case the result
+  // Replace the placeholders with the values provided by the module.
   $alias = str_replace($placeholders['tokens'], $placeholders['values'], $pattern);
-
-  if (variable_get('pathauto_case', 1)) {
-    $alias = drupal_strtolower($alias);
-  }
 
   // Two or more slashes should be collapsed into one
   $alias = preg_replace('/\/+/', '/', $alias);
@@ -301,7 +305,11 @@ function pathauto_create_alias($module, $op, $placeholders, $src, $entity_id, $t
   // Trim any leading or trailing slashes
   $alias = preg_replace('/^\/|\/+$/', '', $alias);
 
-  $maxlength = min(variable_get('pathauto_max_length', 100), 128);
+  // Clean the alias.
+  $alias = pathauto_clean_alias($alias);
+
+  // Enforce the maximum length.
+  $maxlength = min(variable_get('pathauto_max_length', 100), _pathauto_get_schema_alias_maxlength());
   $alias = drupal_substr($alias, 0, $maxlength);
 
   // If the alias already exists, generate a new, hopefully unique, variant
@@ -373,6 +381,10 @@ function _pathauto_path_is_callback($path) {
  *   The internal path.
  * @param $dst
  *   The visible externally used path.
+ * @param $entity_type
+ *   The entity type (node, user, etc.).
+ * @param $entity_id
+ *   The entity ID (node ID, user ID, etc.).
  * @param $pid
  *   If the item is currently aliased, the pid for that item.
  * @param $verbose
@@ -405,7 +417,7 @@ function _pathauto_set_alias($src, $dst, $entity_type, $entity_id, $pid = NULL, 
     if (variable_get('pathauto_update_action', 2) == 3 && function_exists('path_redirect_save')) {
       if (!empty($old_alias)) {
         $redirect = array(
-          'path' => $old_alias,
+          'source' => $old_alias,
           'redirect' => $src,
         );
         path_redirect_save($redirect);
@@ -515,4 +527,19 @@ function pathauto_punctuation_chars() {
   $punctuation['back_slash']         = array('value' => '\\', 'name' => t('Back slash \\'));
 
   return $punctuation;
+}
+
+/**
+ * Fetch the maximum length of the {url_alias}.dst field from the schema.
+ *
+ * @return
+ *   An integer of the maximum url alias length allowed by the database.
+ */
+function _pathauto_get_schema_alias_maxlength() {
+  static $maxlength;
+  if (!isset($maxlength)) {
+    $schema = drupal_get_schema('url_alias');
+    $maxlength = $schema['fields']['dst']['length'];
+  }
+  return $maxlength;
 }

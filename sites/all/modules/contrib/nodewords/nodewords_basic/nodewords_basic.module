@@ -1,5 +1,5 @@
 <?php
-// $Id: nodewords_basic.module,v 1.1.2.47 2009/12/07 22:35:02 kiam Exp $
+// $Id: nodewords_basic.module,v 1.1.2.54 2009/12/30 20:02:22 kiam Exp $
 
 /**
  * @file
@@ -11,12 +11,8 @@
  * @{
  */
 
-/*****************************************************************************
- * Drupal hooks.
- ****************************************************************************/
-
 /**
- * Implementation of hook_node_type().
+ * Implements hook_node_type().
  */
 function nodewords_basic_node_type($op, $info) {
   if ($op == 'delete') {
@@ -25,16 +21,16 @@ function nodewords_basic_node_type($op, $info) {
 }
 
 /**
- * Implementation of hook_nodewords_api().
+ * Implements hook_nodewords_api().
  */
 function nodewords_basic_nodewords_api() {
   return array(
-    'version' => 1.1,
+    'version' => '1.9',
   );
 }
 
 /**
- * Implementation of hook_nodewords_tags_info().
+ * Implements hook_nodewords_tags_info().
  */
 function nodewords_basic_nodewords_tags_info() {
   $tags = array(
@@ -120,7 +116,7 @@ function nodewords_basic_nodewords_tags_info() {
 }
 
 /**
- * Implementation of hook_perm().
+ * Implements hook_perm().
  */
 function nodewords_basic_perm() {
   return array(
@@ -133,10 +129,6 @@ function nodewords_basic_perm() {
     'edit meta tag ROBOTS',
   );
 }
-
-/*****************************************************************************
- * Meta tags implementation functions.
- ****************************************************************************/
 
 /**
  * Set the form fields used to implement the options for the meta tag.
@@ -180,6 +172,16 @@ function nodewords_basic_canonical_form(&$form, $content, $options) {
     '#size' => 60,
     '#maxlength' => variable_get('nodewords_max_size', 350),
   );
+}
+
+function nodewords_basic_canonical_form_validate($element, &$form_state) {
+  if (!empty($element['#value'])) {
+    $canonical_url = trim($element['#value'], '/');
+
+    if (!empty($canonical_url) && !valid_url(drupal_urlencode($canonical_url))) {
+      form_error($element, t('Canonical URL must be a relative URL.'));
+    }
+  }
 }
 
 /**
@@ -242,18 +244,10 @@ function nodewords_basic_canonical_prepare(&$tags, $content, $options) {
   $base_url = rtrim(variable_get('nodewords_base_url', ''), '/');
   $options = array(
     'absolute' => TRUE,
-    'base_url' => $base_url,
+    'base_url' => empty($base_url) ? NULL : $base_url,
   );
 
-  $tags['canonical'] = !empty($content['value']) ? check_url(url(drupal_get_path_alias($content['value']), $options)) : '';
-}
-
-function nodewords_basic_canonical_form_validate($element, &$form_state) {
-  $canonical_url = trim($element['#value'], '/');
-
-  if (!empty($canonical_url) && !valid_url($canonical_url)) {
-    form_error($element, t('Canonical URL must be a relative URL.'));
-  }
+  $tags['canonical'] = !empty($content['value']) ? check_url(url($content['value'], $options)) : '';
 }
 
 function nodewords_basic_canonical_settings_form(&$form, $form_id, $options) {
@@ -270,9 +264,10 @@ function nodewords_basic_canonical_settings_form(&$form, $form_id, $options) {
 }
 
 function nodewords_basic_canonical_settings_form_validate($element, &$form_state) {
-  $base_url = rtrim($element['#value'], '/');
-
-  if (!empty($base_url) && !valid_url($base_url, TRUE)) {
+  if (!empty($element['#value']) && !($base_url = rtrim($element['#value'], '/'))) {
+    form_error($element, t('Invalid base URL.'));
+  }
+  elseif (!empty($base_url) && !valid_url($base_url, TRUE)) {
     form_error($element, t('Invalid base URL.'));
   }
 }
@@ -327,28 +322,26 @@ function nodewords_basic_description_prepare(&$tags, $content, $options) {
   switch ($options['type']) {
     case NODEWORDS_TYPE_NODE:
       $bool = (
-        empty($content['value']) &&
         count($options['ids']) == 1 &&
-        ($node = node_load($options['ids'][0])) &&
-        variable_get('nodewords_basic_use_teaser_' . $node->type, variable_get('nodewords_basic_use_teaser', FALSE)) &&
-        !empty($node->teaser)
+        ($node = node_load($options['ids'][0]))
       );
 
       if ($bool) {
-        $content['value'] = nodewords_metatag_from_teaser($node->teaser,
-          $node->format
-        );
+        $content['value'] = nodewords_metatag_from_node_content($node, $content['value']);
       }
       break;
 
     case NODEWORDS_TYPE_TERM:
-      if (empty($content['value']) && count($options['ids']) == 1) {
-        $term = nodewords_get_term($options['ids'][0]);
-        if ($term) {
-          $content['value'] = $term->description;
-        }
+      $bool = (
+        empty($content['value']) &&
+        count($options['ids']) == 1 &&
+        ($term = nodewords_get_term($options['ids'][0]))
+      );
+
+      if ($bool) {
+        $content['value'] = $term->description;
       }
-        break;
+      break;
 
     case NODEWORDS_TYPE_VOCABULARY:
       // TODO: probably we have to do a db_rewrite_sql() query here so access is restricted
@@ -365,28 +358,6 @@ function nodewords_basic_description_prepare(&$tags, $content, $options) {
   }
 
   $tags['description'] = empty($content['value']) ? (!empty($options['default']['description']['value']) ? $options['default']['description']['value'] : '') : $content['value'];
-}
-
-function nodewords_basic_description_settings_form(&$form, $form_id, $options) {
-  switch ($form_id) {
-    case 'nodewords_settings_form':
-      $form['metatags_creation']['node_teaser']['nodewords_basic_use_teaser'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Use the node teaser if the description meta tag is not set'),
-        '#description' => t('Using the node teaser to populate the meta tag DESCRIPTION can cause problems with some content types; rather than enabling this option globally, it would be better to enable it separately for each content type (when it has been verified that enabling it for a specific content type does not create problems). This option is overwritten from the similar option for the content type.'),
-        '#default_value' => variable_get('nodewords_basic_use_teaser', FALSE),
-      );
-      break;
-
-    case 'node_type_form':
-      $form['nodewords']['nodewords_basic_use_teaser'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Use the node teaser if the description meta tag is not set'),
-        '#description' => t('Using the node teaser to populate the meta tag DESCRIPTION can cause problems with some content types; before to enable the option permanently, verify it does not create problems when used with the content type.'),
-        '#default_value' => variable_get('nodewords_basic_use_teaser_' . $form['#node_type']->type, variable_get('nodewords_basic_use_teaser', FALSE)),
-      );
-      break;
-  }
 }
 
 /**
@@ -406,6 +377,15 @@ function nodewords_basic_keywords_form(&$form, $content, $options) {
     '#element_validate' => array('nodewords_basic_keywords_form_validate'),
     '#maxlength' => variable_get('nodewords_max_size', 350),
   );
+}
+
+/**
+ * Validate the values passed as keywords.
+ */
+function nodewords_basic_keywords_form_validate($element, &$form_state) {
+  if (trim($element['#value']) == ',') {
+    form_error($element, t('The meta tag KEYWORDS value must be a comma separated list of words.'));
+  }
 }
 
 /**
@@ -445,15 +425,6 @@ function nodewords_basic_keywords_prepare(&$tags, $content, $options) {
   }
 
   $tags['keywords'] = nodewords_unique($value);
-}
-
-/**
- * Validate the values passed as keywords.
- */
-function nodewords_basic_keywords_form_validate($element, &$form_state) {
-  if (trim($element['#value']) == ',') {
-    form_error($element, t('The meta tag KEYWORDS value must be a comma separated list of words.'));
-  }
 }
 
 function nodewords_basic_keywords_settings_form(&$form, $form_id, $options) {

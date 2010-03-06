@@ -1,5 +1,5 @@
 <?php
-// $Id: flag_handler_field_ops.inc,v 1.1.2.5 2008/12/03 14:10:00 mooffie Exp $
+// $Id: flag_handler_field_ops.inc,v 1.1.2.6 2010/01/08 04:48:43 quicksketch Exp $
 
 /**
  * @file
@@ -39,9 +39,10 @@ class flag_handler_field_ops extends views_handler_field {
     }
   }
 
-  function options(&$options) {
-    parent::options($options);
-    $options['link_type'] = '';
+  function option_definition() {
+    $options = parent::option_definition();
+    $options['link_type'] = array('default' => '');
+    return $options;
   }
 
   function options_form(&$form, &$form_state) {

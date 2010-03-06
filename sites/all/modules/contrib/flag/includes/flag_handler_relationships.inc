@@ -1,5 +1,5 @@
 <?php
-// $Id: flag_handler_relationships.inc,v 1.1.2.8 2008/12/03 14:10:00 mooffie Exp $
+// $Id: flag_handler_relationships.inc,v 1.1.2.9 2009/04/26 21:35:12 quicksketch Exp $
 
 /**
  * @file
@@ -43,7 +43,7 @@ class flag_handler_relationship_content extends views_handler_relationship {
     if (!$form['flag']['#options']) {
       $form = array(
         'error' => array(
-          '#value' => '<p class="error">' . t('No %type flags exist. You must first <a href="@create-url">create a %type flag</a> before being able to use one.', array('%type' => $content_type, '@create-url' => url('admin/build/flags'))) . '</p>',
+          '#value' => '<p class="error">' . t('No %type flags exist. You must first <a href="@create-url">create a %type flag</a> before being able to use this relationship type.', array('%type' => $content_type, '@create-url' => url('admin/build/flags'))) . '</p>',
         ),
       );
       $form_state['no flags exist'] = TRUE;

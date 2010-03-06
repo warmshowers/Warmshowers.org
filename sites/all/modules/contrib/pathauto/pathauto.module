@@ -1,5 +1,5 @@
 <?php
-// $Id: pathauto.module 552 2009-10-26 21:29:47Z rfay $
+// $Id: pathauto.module,v 1.118.2.19 2010/02/19 23:11:29 davereid Exp $
 
 /**
  * @defgroup pathauto Pathauto: Automatically generates aliases for content
@@ -98,20 +98,13 @@ function pathauto_token_values($type, $object = NULL) {
           // Get the bookpathalias token
           $values['bookpathalias'] = '';
           // We're on a node and it's a book and it has a parent? Get the book path alias.
-          if (module_exists('book') && !empty($object->book['menu_name'])) {
-            for ($i = 1; $i < 10; $i++) {
-              $second_child = $i + 2;
-              if ($object->book["p$second_child"] === 0) {
-                $parent_node = db_result(db_query('SELECT link_path FROM {menu_links} WHERE mlid = %d', $object->book["p$i"]));
-                break;
-              }
-            }
-            $values['bookpathalias'] = drupal_get_path_alias($parent_node);
+          if (module_exists('book') && !empty($object->book['plid']) && $parent = book_link_load($object->book['plid'])) {
+            $values['bookpathalias'] = drupal_get_path_alias($parent['href']);
           }
 
           // Get taxonomy related data.
           $vid = db_result(db_query_range("SELECT t.vid FROM {term_node} r INNER JOIN {term_data} t ON r.tid = t.tid INNER JOIN {vocabulary} v ON t.vid = v.vid WHERE r.vid = %d ORDER BY v.weight, t.weight, t.name", $object->vid, 0, 1));
-          $category = db_fetch_object(db_query_range("SELECT t.tid, t.name FROM {term_data} t INNER JOIN {term_node} r ON r.tid = t.tid WHERE t.vid = %d AND r.nid = %d ORDER BY weight", $vid, $object->nid, 0, 1));
+          $category = db_fetch_object(db_query_range("SELECT t.tid, t.name FROM {term_data} t INNER JOIN {term_node} r ON r.tid = t.tid WHERE t.vid = %d AND r.nid = %d ORDER BY t.weight", $vid, $object->nid, 0, 1));
           $category->vid = $vid;
           // In the realm of nodes these are terms, in the realm of Taxonomy, cats
           $label = 'term';
@@ -131,13 +124,14 @@ function pathauto_token_values($type, $object = NULL) {
             $catpath = '';
             $catpath_raw = '';
             foreach ($parents as $parent) {
-              // Replace any / characters in individual terms which might create confusing URLs
-              $catpath = pathauto_cleanstring(check_plain(preg_replace('/\//', '', $parent->name))) .'/'. $catpath;
-              $catpath_raw = pathauto_cleanstring(preg_replace('/\//', '', $parent->name)) .'/'. $catpath_raw;
+              $catpath = pathauto_cleanstring(check_plain($parent->name)) .'/'. $catpath;
+              $catpath_raw = pathauto_cleanstring($parent->name) .'/'. $catpath_raw;
             }
-            $values[$label .'path'] = $catpath .'/'. check_plain($category->name);
-            $values[$label .'path-raw'] = $catpath_raw .'/'. $category->name;
-            $values[$label .'alias'] = drupal_get_path_alias('taxonomy/term/'. $category->tid);
+            $values[$label .'path'] = $catpath . pathauto_cleanstring(check_plain($category->name));
+            $values[$label .'path-raw'] = $catpath_raw . pathauto_cleanstring($category->name);
+
+            $term = taxonomy_get_term($category->tid);
+            $values[$label .'alias'] = drupal_get_path_alias(taxonomy_term_path($term));
             if (!strncasecmp($values[$label .'alias'], 'taxonomy', 8)) {
               $values[$label .'alias'] = check_plain($category->name);
             }
@@ -191,7 +185,7 @@ function pathauto_path_alias_types() {
   if (module_exists('taxonomy')) {
     $objects['taxonomy/'] = t('vocabularies and terms');
   }
-  if (module_exists('taxonomy')) {
+  if (module_exists('tracker')) {
     $objects['user/%/track'] = t('user trackers');
   }
   if (module_exists('forum')) {
@@ -207,51 +201,49 @@ function pathauto_path_alias_types() {
  * Implementation of hook_nodeapi().
  */
 function pathauto_nodeapi(&$node, $op, $teaser, $page) {
-  if (module_exists('path')) {
-    switch ($op) {
-      case 'presave':
-        // About to be saved (before insert/update)
-        if (!empty($node->pathauto_perform_alias) && isset($node->old_alias)
-            && $node->path == '' && $node->old_alias != '') {
-          /**
-           * There was an old alias, but when pathauto_perform_alias was checked
-           * the javascript disabled the textbox which led to an empty value being
-           * submitted. Restoring the old path-value here prevents the Path module
-           * from deleting any old alias before Pathauto gets control.
-           */
-          $node->path = $node->old_alias;
-        }
-        break;
-      case 'insert':
-      case 'update':
-        _pathauto_include();
-        // Get the specific pattern or the default
-        if (variable_get('language_content_type_'. $node->type, 0)) {
-          $pattern = trim(variable_get('pathauto_node_'. $node->type .'_'. $node->language .'_pattern', FALSE));
-        }
+  switch ($op) {
+    case 'presave':
+      // About to be saved (before insert/update)
+      if (!empty($node->pathauto_perform_alias) && isset($node->old_alias)
+          && $node->path == '' && $node->old_alias != '') {
+        /**
+         * There was an old alias, but when pathauto_perform_alias was checked
+         * the javascript disabled the textbox which led to an empty value being
+         * submitted. Restoring the old path-value here prevents the Path module
+         * from deleting any old alias before Pathauto gets control.
+         */
+        $node->path = $node->old_alias;
+      }
+      break;
+    case 'insert':
+    case 'update':
+      _pathauto_include();
+      // Get the specific pattern or the default
+      if (variable_get('language_content_type_'. $node->type, 0)) {
+        $pattern = trim(variable_get('pathauto_node_'. $node->type .'_'. $node->language .'_pattern', FALSE));
+      }
+      if (empty($pattern)) {
+        $pattern = trim(variable_get('pathauto_node_'. $node->type .'_pattern', FALSE));
         if (empty($pattern)) {
-          $pattern = trim(variable_get('pathauto_node_'. $node->type .'_pattern', FALSE));
-          if (empty($pattern)) {
-            $pattern = trim(variable_get('pathauto_node_pattern', FALSE));
-          }
+          $pattern = trim(variable_get('pathauto_node_pattern', FALSE));
         }
-        // Only do work if there's a pattern
-        if ($pattern) {
-          // Only create an alias if the checkbox was not provided or if the checkbox was provided and is checked
-          if (!isset($node->pathauto_perform_alias) || $node->pathauto_perform_alias) {
-            $placeholders = pathauto_get_placeholders('node', $node);
-            $src = "node/$node->nid";
-            $alias = pathauto_create_alias('node', $op, $placeholders, $src, $node->nid, $node->type, $node->language);
-          }
+      }
+      // Only do work if there's a pattern
+      if ($pattern) {
+        // Only create an alias if the checkbox was not provided or if the checkbox was provided and is checked
+        if (!isset($node->pathauto_perform_alias) || $node->pathauto_perform_alias) {
+          $placeholders = pathauto_get_placeholders('node', $node);
+          $src = "node/$node->nid";
+          $alias = pathauto_create_alias('node', $op, $placeholders, $src, $node->nid, $node->type, $node->language);
         }
-        break;
-      case 'delete':
-        path_set_alias('node/'. $node->nid);
-        path_set_alias('node/'. $node->nid .'/feed');
-        break;
-      default:
-        break;
-    }
+      }
+      break;
+    case 'delete':
+      path_set_alias('node/'. $node->nid);
+      path_set_alias('node/'. $node->nid .'/feed');
+      break;
+    default:
+      break;
   }
 }
 
@@ -283,7 +275,7 @@ function pathauto_form_alter(&$form, $form_state, $form_id) {
     // If there is a pattern, show the automatic alias checkbox.
     if ($pattern) {
       if (!isset($node->pathauto_perform_alias)) {
-        if (isset($node->nid)) {
+        if (!empty($node->nid)) {
           // If this is not a new node, compare it's current alias to the
           // alias that would be genereted by pathauto. If they are the same,
           // then keep the automatic alias enabled.
@@ -301,6 +293,9 @@ function pathauto_form_alter(&$form, $form_state, $form_id) {
       // Add JavaScript that will disable the path textfield when the automatic
       // alias checkbox is checked.
       drupal_add_js(drupal_get_path('module', 'pathauto') .'/pathauto.js');
+
+      // Override path.module's vertical tabs summary.
+      $form['path']['#attached']['js']['vertical-tabs'] = drupal_get_path('module', 'pathauto') . '/pathauto.js';
 
       $form['path']['pathauto_perform_alias'] = array(
         '#type' => 'checkbox',
@@ -354,7 +349,7 @@ function pathauto_node_operations_update($nodes) {
   foreach ($nodes as $nid) {
     $node = node_load($nid);
     $placeholders = pathauto_get_placeholders('node', $node);
-    pathauto_create_alias('node', 'bulkupdate', $placeholders, "node/$node->nid", $node->nid, $node->type);
+    pathauto_create_alias('node', 'bulkupdate', $placeholders, "node/$node->nid", $node->nid, $node->type, $node->language);
   }
 }
 
@@ -424,7 +419,7 @@ function pathauto_user($op, &$edit, &$user, $category = FALSE) {
             $new_user->roles = isset($edit['roles']) ? $edit['roles'] : array();
             $new_user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user'; // Add this back
           }
-          if (user_access('create blog entries', $new_user)) {
+          if (node_access('create', 'blog', $new_user)) {
             $src = 'blog/'. $user->uid;
             $alias = pathauto_create_alias('blog', $op, $placeholders, $src, $user->uid);
           }

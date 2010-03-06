@@ -1,5 +1,5 @@
 <?php
-// $Id: i18nsync.module,v 1.1.2.33 2009/11/06 14:02:39 jareyero Exp $
+// $Id: i18nsync.module,v 1.1.2.34 2009/12/01 16:05:29 jareyero Exp $
 
 /**
  * @file
@@ -187,10 +187,10 @@ function i18nsync_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
           // Set tnid that is not set by translation module
           $node->tnid = $node->translation_source->tnid ? $node->translation_source->tnid : $node->translation_source->nid;
           // If we have files, we need to save the files that have been inherited
-          if (!empty($node->files)) {
+          if (!empty($node->files) && i18nsync_node_fields($node->type, 'files')) {
             foreach ($node->files as $fid => $file) {
               $file = (object)$file;
-              if (empty($file->remove) && !isset($_SESSION['upload_files'][$fid])) {
+              if (empty($file->remove) && empty($file->new)) {
                 db_query("INSERT INTO {upload} (fid, nid, vid, list, description, weight) VALUES (%d, %d, %d, %d, '%s', %d)", $file->fid, $node->nid, $node->vid, $file->list, $file->description, $file->weight);
               }
             }
@@ -202,6 +202,10 @@ function i18nsync_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
         if (!empty($node->tnid) && ($fields = i18nsync_node_fields($node->type)) && ($translations = _i18nsync_node_translations($node, TRUE))) {
           $i18nsync = TRUE;
           $count = 0;
+          // If we have fields we need to reload them so we have the full data (fid, etc...)
+          if (!empty($node->files) && in_array('files', $fields)) {
+            $node->files = upload_load($node);
+          }
           foreach ($translations as $trnode) {
             if ($node->nid != $trnode->nid) {
               i18nsync_node_translation($node, $trnode, $fields, $op);
@@ -301,19 +305,16 @@ function i18nsync_node_translation($node, $translation, $fields, $op) {
           // @todo Weird things may happen if 'images' and 'files' are both selected
         case 'files':
           // Sync existing attached files. This should work for images too
-
           foreach ((array)$node->files as $fid => $file) {
             if (isset($translation->files[$fid])) {
-              $translation->files[$fid]->list = is_array($file) ? $file['list'] : $file->list;
+              // Just update list and weight properties, description can be different
+              $translation->files[$fid]->list = $file->list;
+              $translation->files[$fid]->weight = $file->weight;
             }
             else {
-              // New file. Create new revision of file for the translation.
-              $translation->files[$fid] = $file;
-              // If it's a new node revision it will just be created, but if it's not
-              // we have to update the table directly. The revision field was before this one in the list.
-              if (!isset($translation->revision) || !$translation->revision) {
-                db_query("INSERT INTO {upload} (fid, nid, vid, list, description) VALUES (%d, %d, %d, %d, '%s')", $file->fid, $translation->nid, $translation->vid, $file->list, $file->description);
-              }
+              // New file. Clone so we can set the new property just for this translation
+              $translation->files[$fid] = clone $file;
+              $translation->files[$fid]->new = TRUE;
             }
           }
           // Drop removed files.
@@ -433,9 +434,12 @@ function i18nsync_node_translation_reference_field(&$reference_node, $default_va
  *
  * @param $type
  *   Node type.
+ * @param $field
+ *   Optional field name to check whether it is in the list
  */
-function i18nsync_node_fields($type) {
-  return variable_get('i18nsync_nodeapi_'. $type, array());
+function i18nsync_node_fields($type, $field = NULL) {
+  $fields = variable_get('i18nsync_nodeapi_'. $type, array());
+  return $field ? in_array($field, $fields) : $fields;
 }
 
 /**

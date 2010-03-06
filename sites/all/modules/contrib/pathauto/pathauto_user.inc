@@ -1,5 +1,5 @@
 <?php
-// $Id: pathauto_user.inc 552 2009-10-26 21:29:47Z rfay $
+// $Id: pathauto_user.inc,v 1.28.2.2 2008/08/05 17:28:13 freso Exp $
 
 /**
  * @file

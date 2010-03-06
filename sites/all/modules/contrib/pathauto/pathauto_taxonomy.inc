@@ -1,5 +1,5 @@
 <?php
-// $Id: pathauto_taxonomy.inc 552 2009-10-26 21:29:47Z rfay $
+// $Id: pathauto_taxonomy.inc,v 1.39.2.2 2008/08/28 16:16:31 greggles Exp $
 
 /**
  * @file

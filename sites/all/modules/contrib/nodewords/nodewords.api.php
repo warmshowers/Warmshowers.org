@@ -1,6 +1,6 @@
 <?php
 
-// $Id: nodewords.api.php,v 1.1.2.7 2009/12/05 22:28:46 kiam Exp $
+// $Id: nodewords.api.php,v 1.1.2.8 2009/12/28 21:28:17 kiam Exp $
 
 /**
  * @file.
@@ -22,7 +22,7 @@
  *
  */
 function hook_nodewords_api() {
-  return array('version' => 1.1);
+  return array('version' => '1.1');
 }
 
 /**
