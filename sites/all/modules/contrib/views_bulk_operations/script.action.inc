@@ -1,5 +1,5 @@
 <?php
-// $Id: script.action.inc,v 1.1.2.3 2009/07/23 07:22:40 kratib Exp $
+// $Id: script.action.inc,v 1.1.2.4 2009/12/02 20:02:26 kratib Exp $
 
 function views_bulk_operations_script_action_info() {
   if (!module_exists('actions_permissions') && !user_access('administer site configuration')) return array();
@@ -28,6 +28,7 @@ function views_bulk_operations_script_action_form($context) {
     '#title' => t('PHP script'),
     '#description' => t('Type the PHP snippet that will run upon execution of this action. You can use variables <code>&$object</code> and <code>$context</code> in your snippet.
                          Note that it is up to the script to save the object once it\'s done modifying it.'),
+    '#default_value' => @$context['script'],
   );
   return $form;
 }

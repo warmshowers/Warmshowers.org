@@ -94,7 +94,7 @@ function views_bulk_operations_taxonomy_action(&$node, $context) {
 function views_bulk_operations_taxonomy_action_form($context) {
   if (isset($context['selection'])) {
     $vocabularies = array();
-    $result = db_query("SELECT DISTINCT v.vid FROM {vocabulary_node_types} v LEFT JOIN {node} n ON v.type = n.type WHERE n.nid IN (%s)", implode(',', $context['selection']));
+    $result = db_query("SELECT DISTINCT v.vid FROM {vocabulary_node_types} v LEFT JOIN {node} n ON v.type = n.type WHERE n.nid IN (%s)", implode(',', array_keys($context['selection'])));
     while ($v = db_fetch_object($result)) {
       $vocabularies[$v->vid] = taxonomy_vocabulary_load($v->vid);
     }
@@ -112,7 +112,7 @@ function views_bulk_operations_taxonomy_action_form($context) {
     '#tree' => TRUE,
   );  
   while (list(,$vocabulary) = each($vocabularies)) {
-    $form['taxonomy'][$vocabulary->vid] = taxonomy_form($vocabulary->vid);
+    $form['taxonomy'][$vocabulary->vid] = taxonomy_form($vocabulary->vid, isset($context['terms']) ? $context['terms'] : NULL);
     $form['taxonomy'][$vocabulary->vid]['#weight'] = $vocabulary->weight;
     if ($vocabulary->tags) { // If tags, give the ability to add new terms
       if ($vocabulary->help) {
@@ -128,6 +128,7 @@ function views_bulk_operations_taxonomy_action_form($context) {
         '#weight' => $vocabulary->weight,
         '#maxlength' => 1024,
         '#description' => $help,
+        '#default_value' => isset($context['terms']['tags'][$vocabulary->vid]) ? $context['terms']['tags'][$vocabulary->vid] : '',
       );
     }
   }
