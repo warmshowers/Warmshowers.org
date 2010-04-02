@@ -10,7 +10,7 @@
  */
 /* -- Delete this line if you want to use and modify this code
 // Example: optionally add a fixed width CSS file.
-if (theme_get_setting('polished_fixed')) {
+if (theme_get_setting('omega_starterkit_fixed')) {
   drupal_add_css(path_to_theme() . '/layout-fixed.css', 'theme', 'all');
 }
 // */
@@ -38,7 +38,7 @@ function omega_starterkit_theme(&$existing, $type, $theme, $path) {
  *   The name of the template being rendered (name of the .tpl.php file.)
  */
 /* -- Delete this line if you want to use this function
-function polished_preprocess(&$vars, $hook) {
+function omega_starterkit_preprocess(&$vars, $hook) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -52,7 +52,7 @@ function polished_preprocess(&$vars, $hook) {
  *   The name of the template being rendered ("page" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function polished_preprocess_page(&$vars, $hook) {
+function omega_starterkit_preprocess_page(&$vars, $hook) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -66,7 +66,7 @@ function polished_preprocess_page(&$vars, $hook) {
  *   The name of the template being rendered ("node" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function polished_preprocess_node(&$vars, $hook) {
+function omega_starterkit_preprocess_node(&$vars, $hook) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -80,7 +80,7 @@ function polished_preprocess_node(&$vars, $hook) {
  *   The name of the template being rendered ("comment" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function polished_preprocess_comment(&$vars, $hook) {
+function omega_starterkit_preprocess_comment(&$vars, $hook) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -94,7 +94,7 @@ function polished_preprocess_comment(&$vars, $hook) {
  *   The name of the template being rendered ("block" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function polished_preprocess_block(&$vars, $hook) {
+function omega_starterkit_preprocess_block(&$vars, $hook) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */

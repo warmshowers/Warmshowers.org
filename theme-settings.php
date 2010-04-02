@@ -19,6 +19,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
   //drupal_add_css(drupal_get_path('theme', 'omega') . '/theme-settings.css', 'theme');
   // Add javascript to show/hide optional settings
   drupal_add_js(drupal_get_path('theme', 'omega'). '/js/omega_admin.js', 'theme');
+  drupal_add_css(drupal_get_path('theme', 'omega'). '/css/omega_theme_settings.css', 'theme', 'all', TRUE);
 
   // Get the default values from the .info file.
   if (count($subtheme_defaults) > 0) {
@@ -221,79 +222,79 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
       $form['omega_container']['omega_regions']['headers'] = array(
         '#type' => 'fieldset',
         '#title' => t('Header Configuration'),
-        '#description' => t('Header region zones, including Primary & Secondary menus, Header first and Header Last.'),
+        '#description' => t('Header region zones, including Logo/Branding, Primary & Secondary menus, Header first and Header Last. By default, the logo and menu elements are designed to display inline. This is accomplished by making the width of the grid elements for the logo and menus to equal the container width for those items, however, to make them stack, you can make each element have the full amount of grids that the container allows.'),
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
         $form['omega_container']['omega_regions']['headers']['omega_branding_wrapper_width'] = array(
           '#type' => 'select',
-          '#title' => t('Wrapper Area width for Header/Navigation Elements'),
+          '#title' => t('Wrapper Area width for Logo/Navigation Elements'),
           '#default_value' => $saved_settings['omega_branding_wrapper_width'],
           '#options' => $containers,
-          '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
-        );
-        $form['omega_container']['omega_regions']['headers']['omega_header_menu_width'] = array(
-          '#type' => 'select',
-          '#title' => t('Wrapper Area width for Menu Elements'),
-          '#default_value' => $saved_settings['omega_header_menu_width'],
-          '#options' => $grids,
-          '#description' => t('Width of menu elements.'),
+          '#description' => t('Container Grid width for the branding (logo) area and navigation menus.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_header_logo_width'] = array(
           '#type' => 'select',
           '#title' => t('Width for Logo/Branding area'),
           '#default_value' => $saved_settings['omega_header_logo_width'],
           '#options' => $grids,
-          '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
+          '#description' => t('Grid width of the logo/branding area. This number should be less than or equal to the container width defined above.'),
+        );
+        $form['omega_container']['omega_regions']['headers']['omega_header_menu_width'] = array(
+          '#type' => 'select',
+          '#title' => t('Wrapper Area width for Menu Elements'),
+          '#default_value' => $saved_settings['omega_header_menu_width'],
+          '#options' => $grids,
+          '#description' => t('Grid width of the primary/secondary menu elements. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_header_wrapper_width'] = array(
           '#type' => 'select',
-          '#title' => t('Wrapper Area width for Header/Navigation Elements'),
+          '#title' => t('Wrapper Area width for Header Elements'),
           '#default_value' => $saved_settings['omega_header_wrapper_width'],
           '#options' => $containers,
-          '#description' => t('Total of the two numbers for header first and header last. This will also be the default value for navigation in that zone.'),
+          '#description' => t('Container Grid width for the header region areas.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_header_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Header First'),
           '#default_value' => $saved_settings['omega_header_first_width'],
           '#options' => $grids,
-          '#description' => t('This number, paired with the Header Last determine the share of your grid for each element.'),
+          '#description' => t('Grid width of the first header region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_header_last_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Header Last'),
           '#default_value' => $saved_settings['omega_header_last_width'],
           '#options' => $grids,
-          '#description' => t('This number, paired with the Header First determine the share of your grid for each element.'),
+          '#description' => t('Grid width of the last header region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_internal_nav_wrapper_width'] = array(
           '#type' => 'select',
           '#title' => t('Wrapper Area width for Breadcrumb/Slogan/Search'),
           '#default_value' => $saved_settings['omega_internal_nav_wrapper_width'],
           '#options' => $containers,
-          '#description' => t(''),
+          '#description' => t('Container Grid width for the breadcrumb/search/slogan area.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_breadcrumb_slogan_width'] = array(
           '#type' => 'select',
           '#title' => t('Wrapper Area width for Breadcrumb/Slogan'),
           '#default_value' => $saved_settings['omega_breadcrumb_slogan_width'],
           '#options' => $grids,
-          '#description' => t(''),
+          '#description' => t('Grid width for the slogan/breadcrumb area. By default, the slogan will only appear in the zone if there is no breadcrumb avaiable.'),
         );
         $form['omega_container']['omega_regions']['headers']['omega_search_width'] = array(
           '#type' => 'select',
           '#title' => t('Wrapper Area width for Search'),
           '#default_value' => $saved_settings['omega_search_width'],
           '#options' => $grids,
-          '#description' => t(''),
+          '#description' => t('Grid width for the search zone, which appears inline with the breadcrumb/slogan zone.'),
         );
 
       // Preface Blocks
       $form['omega_container']['omega_regions']['preface'] = array(
         '#type' => 'fieldset',
         '#title' => t('Preface Configuration'),
-        '#description' => t('Preface region zones.'),
+        '#description' => t('Grid configuration for preface zones. You may use prefix and suffix here to allow extra spacing between regions. You can create all regions inline if the total of the grid elements are less than or equal to the container width defind above. You may stack these items easily by making the elements grid width be the full amount defined by the container.'),
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
@@ -302,70 +303,88 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#title' => t('Preface Wrapper Container Grids'),
           '#default_value' => $saved_settings['omega_preface_wrapper_grids'],
           '#options' => $containers,
-          '#description' => t('Grid elements to be used for the preface region.'),
+          '#description' => t('Container Grid width for the preface regions.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface First'),
           '#default_value' => $saved_settings['omega_preface_first_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the Preface Middle and Preface Last determine the share of your grid for each element.'),
+          '#description' => t('Grid width of the first preface region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_first_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Preface First'),
           '#default_value' => $saved_settings['omega_preface_first_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['preface']['omega_preface_first_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Preface First'),
           '#default_value' => $saved_settings['omega_preface_first_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_middle_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface Middle'),
           '#default_value' => $saved_settings['omega_preface_middle_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the Preface First and Preface Last determine the share of your grid for each element.'),
+          '#description' => t('Grid width of the middle preface region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_middle_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Preface Middle'),
           '#default_value' => $saved_settings['omega_preface_middle_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['preface']['omega_preface_middle_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Preface Middle'),
           '#default_value' => $saved_settings['omega_preface_middle_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_last_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Preface Last'),
           '#default_value' => $saved_settings['omega_preface_last_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the Preface First and Preface Middle determine the share of your grid for each element.'),
+          '#description' => t('Grid width of the last preface region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['preface']['omega_preface_last_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Preface Last'),
           '#default_value' => $saved_settings['omega_preface_last_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['preface']['omega_preface_last_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Preface Last'),
           '#default_value' => $saved_settings['omega_preface_last_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
       // Main Body Regions
       $form['omega_container']['omega_regions']['main'] = array(
         '#type' => 'fieldset',
         '#title' => t('Content Layout Configuration'),
-        '#description' => t('Content Zone, Sidebar First and Sidebar Last.'),
+        '#description' => t('<p>Grid configurations for Content Zone, Sidebar First and Sidebar Last. The "main" regions here are the only true "smart" zone that will use the maximum container width to determine the appropriate width for elements in this zone based on which regions are displayed on the current page.</p><p>If your container grid is 16 grids, and you have a configuration of 4-8-4, which would imply two sidebars and the content zone, if all regions are present, this layout of 4-8-4 will be respected. However, if on a page, the first sidebar is empty of content, the content zone would then incorporate those leftover 4 grids, so your layout would be 12-4.'),
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
@@ -385,7 +404,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#title' => t('Container width for content zone'),
           '#default_value' => $saved_settings['omega_content_container_width'],
           '#options' => $containers,
-          '#description' => t(''),
+          '#description' => t('Container Grid width for the main content regions. This includes the content_top, content_bottom, and primary content zone.'),
         );
         $form['omega_container']['omega_regions']['main']['omega_sidebar_first_width'] = array(
           '#type' => 'select',
@@ -428,7 +447,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
       $form['omega_container']['omega_regions']['postscript'] = array(
         '#type' => 'fieldset',
         '#title' => t('Postscript Configuration'),
-        '#description' => t('Postscript region zones.'),
+        '#description' => t('Grid configuration for postscript zones. You may use prefix and suffix here to allow extra spacing between regions. You can create all regions inline if the total of the grid elements are less than or equal to the container width defind above. You may stack these items easily by making the elements grid width be the full amount defined by the container.'),
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
@@ -437,89 +456,113 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#title' => t('Container width for postscript regions'),
           '#default_value' => $saved_settings['omega_postscript_container_width'],
           '#options' => $containers,
-          '#description' => t(''),
+          '#description' => t('Container Grid width for the postscript regions.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 1'),
           '#default_value' => $saved_settings['omega_postscript_one_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
+          '#description' => t('Grid width of the first postscript region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Postscript 1'),
           '#default_value' => $saved_settings['omega_postscript_one_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['postscript']['omega_postscript_one_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Postscript 1'),
           '#default_value' => $saved_settings['omega_postscript_one_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 2'),
           '#default_value' => $saved_settings['omega_postscript_two_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
+          '#description' => t('Grid width of the second postscript region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Postscript 2'),
           '#default_value' => $saved_settings['omega_postscript_two_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['postscript']['omega_postscript_two_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Postscript 2'),
           '#default_value' => $saved_settings['omega_postscript_two_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 3'),
           '#default_value' => $saved_settings['omega_postscript_three_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
+          '#description' => t('Grid width of the third postscript region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Postscript 3'),
           '#default_value' => $saved_settings['omega_postscript_three_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['postscript']['omega_postscript_three_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Postscript 3'),
           '#default_value' => $saved_settings['omega_postscript_three_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Postscript 4'),
           '#default_value' => $saved_settings['omega_postscript_four_width'],
           '#options' => $grids,
-          '#description' => t('This number, combined with the other Postscript content zones determines the share of your grid for each element.'),
+          '#description' => t('Grid width of the fourth postscript region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_prefix'] = array(
           '#type' => 'select',
           '#title' => t('Prefix Spacing for Postscript 4'),
           '#default_value' => $saved_settings['omega_postscript_four_prefix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="prefix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding prefix grids to this element will add padding to the left side of the element, creating spacing between the previous element.'),
         );
          $form['omega_container']['omega_regions']['postscript']['omega_postscript_four_suffix'] = array(
           '#type' => 'select',
           '#title' => t('Suffix Spacing for Postscript 4'),
           '#default_value' => $saved_settings['omega_postscript_four_suffix'],
           '#options' => $spacing,
+          '#prefix' => '<div class="suffix_config">',
+          '#suffix' => '</div>',
+          '#description' => t('Adding suffix grids to this element will add padding to the right side of the element, creating spacing between the next element.'),
         );
       // Footer Blocks
       $form['omega_container']['omega_regions']['footer'] = array(
         '#type' => 'fieldset',
         '#title' => t('Footer Configuration'),
-        '#description' => t('Footer region zones.'),
+        '#description' => t('Grid configuration for footer zones. You can create both regions inline if the total of the grid elements are less than or equal to the container width defind above. You may stack these items easily by making the elements grid width be the full amount defined by the container.'),
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
@@ -528,21 +571,21 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
           '#title' => t('Container width for footer regions'),
           '#default_value' => $saved_settings['omega_footer_container_width'],
           '#options' => $containers,
-          '#description' => t(''),
+          '#description' => t('Container Grid width for the footer regions.'),
         );
         $form['omega_container']['omega_regions']['footer']['omega_footer_first_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Footer First'),
           '#default_value' => $saved_settings['omega_footer_first_width'],
           '#options' => $grids,
-          '#description' => t(''),
+          '#description' => t('Grid width of the first footer region. This number should be less than or equal to the container width defined above.'),
         );
         $form['omega_container']['omega_regions']['footer']['omega_footer_last_width'] = array(
           '#type' => 'select',
           '#title' => t('Contextual Width for Footer Last'),
           '#default_value' => $saved_settings['omega_footer_last_width'],
           '#options' => $grids,
-          '#description' => t(''),
+          '#description' => t('Grid width of the last footer region. This number should be less than or equal to the container width defined above.'),
         );
   // Return theme settings form
   return $form;
