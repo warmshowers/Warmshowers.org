@@ -127,8 +127,8 @@ switch($settings['omega_content_layout']){
   $sl_max_width = $settings['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
   
   $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
-  
-  if ($vars['sidebar_first']) {
+  //if (!(!$variables['show_blocks'] && ($region == 'sidebar_left' || $region == 'sidebar_right'))) 
+  if ($vars['sidebar_first'] && $vars['show_blocks']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
       $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
@@ -137,11 +137,19 @@ switch($settings['omega_content_layout']){
       $vars['sidebar_last'], $settings['omega_sidebar_last_width']
     );
   }
-  if ($vars['sidebar_last']) {
+  else {
+    // we need to compensate for panels disabling the regions
+    unset($vars['sidebar_first']);
+  }
+  if ($vars['sidebar_last'] && $vars['show_blocks']) {
     $vars['sidebar_last_classes'] = 
       ns('grid-'. $sl_max_width, 
       $vars['sidebar_first'] || !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
+  }
+  else {
+    // we need to compensate for panels disabling the regions
+    unset($vars['sidebar_last']);
   }
   if ($vars['content']) {
     $vars['main_content_classes'] = 
@@ -158,17 +166,25 @@ switch($settings['omega_content_layout']){
   case 'content_first_last':
   $sl_max_width = $settings['omega_sidebar_first_width'] + $settings['omega_sidebar_last_width'];
   $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
-  if ($vars['sidebar_first']) {
+  if ($vars['sidebar_first'] && $vars['show_blocks']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
       $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
     );
   }
-  if ($vars['sidebar_last']) {
+  else {
+    // we need to compensate for panels disabling the regions
+    unset($vars['sidebar_first']);
+  }
+  if ($vars['sidebar_last'] && $vars['show_blocks']) {
     $vars['sidebar_last_classes'] = 
       ns('grid-'. $sl_max_width, 
       $vars['sidebar_first'] || !$vars['sidebar_first'], $settings['omega_sidebar_first_width']
     );
+  }
+  else {
+    // we need to compensate for panels disabling the regions
+    unset($vars['sidebar_last']);
   }
   if ($vars['content']) {
     $vars['main_content_classes'] = 
@@ -186,21 +202,27 @@ switch($settings['omega_content_layout']){
   $sl_pull = $settings['omega_content_main_width'] + $settings['omega_sidebar_last_width'];
   $sr_pull = $settings['omega_content_main_width'];
   
-  if ($vars['sidebar_first']) {
+  if ($vars['sidebar_first'] && $vars['show_blocks']) {
     $vars['sidebar_first_classes'] = 
       ns('grid-'. $sl_max_width, 
       $vars['sidebar_last'] || !$vars['sidebar_last'], $settings['omega_sidebar_last_width']
     ). ' '. ns('pull-'. $sr_pull
     );
   }
-  
-  if ($vars['sidebar_last']) {
+  else {
+    // we need to compensate for panels disabling the regions
+    unset($vars['sidebar_first']);
+  }
+  if ($vars['sidebar_last'] && $vars['show_blocks']) {
     $vars['sidebar_last_classes'] = 
       ns('grid-'. $settings['omega_sidebar_last_width']
     ). ' '. ns('pull-'. $sr_pull
     );
   }
-  
+  else {
+    // we need to compensate for panels disabling the regions
+    unset($vars['sidebar_last']);
+  }
   if ($vars['content']) {
     $vars['main_content_classes'] = 
       ns('grid-'. $vars['content_container_width'],  
