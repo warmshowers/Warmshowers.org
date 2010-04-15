@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument_many_to_one.inc,v 1.1 2008/09/03 19:21:28 merlinofchaos Exp $
+// $Id: views_handler_argument_many_to_one.inc,v 1.1.4.2 2010/03/22 20:40:41 merlinofchaos Exp $
 /**
  * An argument handler for use in fields that have a many to one relationship
  * with the table(s) to the left. This adds a bunch of options that are
@@ -8,6 +8,8 @@
  * - numeric: If true, the field will be considered numeric. Probably should
  *   always be set TRUE as views_handler_argument_string has many to one
  *   capabilities.
+ * - zero is null: If true, a 0 will be handled as empty, so for example 
+ *   a default argument can be provided or a summary can be shown.
  *
  * @ingroup views_argument_handlers
  */
@@ -73,7 +75,18 @@ class views_handler_argument_many_to_one extends views_handler_argument {
   }
 
   function query() {
-    if (empty($this->argument)) {
+    $empty = FALSE;
+    if (isset($this->definition['zero is null']) && $this->definition['zero is null']) {
+      if (empty($this->argument)) {
+        $empty = TRUE;
+      }
+    }
+    else {
+      if (!isset($this->argument)) {
+        $empty = TRUE;
+      }
+    }
+    if ($empty) {
       parent::ensure_my_table();
       $this->query->add_where(0, "$this->table_alias.$this->real_field IS NULL");
       return;

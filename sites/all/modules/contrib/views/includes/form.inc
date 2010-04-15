@@ -1,5 +1,5 @@
 <?php
-// $Id: form.inc,v 1.11 2009/09/25 00:29:43 merlinofchaos Exp $
+// $Id: form.inc,v 1.11.2.1 2010/01/05 01:33:46 merlinofchaos Exp $
 
 /**
  * @file form.inc
@@ -264,7 +264,8 @@ function drupal_validate_form_new($form_id, $form, &$form_state) {
  * - @code '#dependency' => array('id-of-form-without-the-#' => array(list, of, values, that, make, this, gadget, visible)); @endcode
  */
 function views_process_dependency($element, $edit, &$form_state, &$form) {
-  if (isset($element['#dependency'])) {
+  static $dependencies;
+  if (isset($element['#dependency']) && !isset($dependencies[$element['#id']])) {
     if (!isset($element['#dependency_count'])) {
       $element['#dependency_count'] = 1;
     }
@@ -276,6 +277,7 @@ function views_process_dependency($element, $edit, &$form_state, &$form) {
       $options['viewsAjax']['formRelationships'][$element['#id']] = array('num' => $element['#dependency_count'], 'values' => $element['#dependency']);
       drupal_add_js($options, 'setting');
     }
+    $dependencies[$element['#id']] = TRUE;
   }
 
   return $element;

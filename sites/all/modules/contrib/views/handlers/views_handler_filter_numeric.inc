@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_numeric.inc,v 1.7 2009/03/25 17:29:33 merlinofchaos Exp $
+// $Id: views_handler_filter_numeric.inc,v 1.7.4.1 2010/03/08 19:53:49 merlinofchaos Exp $
 
 /**
  * Simple filter to handle greater than/less than filters
@@ -82,7 +82,7 @@ class views_handler_filter_numeric extends views_handler_filter {
           'values' => 0,
         ),
         'not empty' => array(
-          'title' => t('Is not empty (NULL)'),
+          'title' => t('Is not empty (NOT NULL)'),
           'method' => 'op_empty',
           'short' => t('not empty'),
           'values' => 0,

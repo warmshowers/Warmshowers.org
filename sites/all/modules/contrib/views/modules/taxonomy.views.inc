@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.views.inc,v 1.57 2009/07/01 06:13:49 merlinofchaos Exp $
+// $Id: taxonomy.views.inc,v 1.57.2.5 2010/04/06 19:59:29 merlinofchaos Exp $
 /**
  * @file
  *
@@ -105,6 +105,7 @@ function taxonomy_views_data() {
     'argument' => array(
       'handler' => 'views_handler_argument_numeric',
       'skip base' => array('node', 'node_revision'),
+      'zero is null' => TRUE,
     ),
     'filter' => array(
       'handler' => 'views_handler_filter_term_node_tid',
@@ -124,6 +125,10 @@ function taxonomy_views_data() {
     ),
     'sort' => array(
       'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+      'help' => t('Taxonomy term name.'),
     ),
     'argument' => array(
       'handler' => 'views_handler_argument_string',
@@ -194,6 +199,17 @@ function taxonomy_views_data() {
     ),
   );
 
+  $data['term_node']['vid'] = array(
+    'title' => t('Node'),
+    'help' => t('Get all nodes tagged with a term.'),
+    'relationship' => array(
+      'handler' => 'views_handler_relationship',
+      'base' => 'node',
+      'base field' => 'vid',
+      'label' => t('node'),
+    ),
+  );
+
   // tid field
   $data['term_node']['tid'] = array(
     'title' => t('Term ID'),
@@ -222,7 +238,46 @@ function taxonomy_views_data() {
     ),
   );
 
-  // @todo: term_relation
+  // term_relation
+
+  $data['term_relation']['table']['group']  = t('Taxonomy');
+
+  $data['term_relation']['table']['join'] = array(
+    'term_data' => array(
+      // links directly to term_data via tid
+      'left_field' => 'tid',
+      'field' => 'tid1',
+    ),
+    'term_relation' => array(
+      // links to self through left.tid1 = right.tid2
+      'left_field' => 'tid1',
+      'field' => 'tid2',
+    ),
+    'node' => array(
+      'left_table' => 'term_node',
+      'left_field' => 'tid',
+      'field' => 'tid1',
+    ),
+    'node_revisions' => array(
+      'left_table' => 'term_node',
+      'left_field' => 'tid',
+      'field' => 'tid1',
+    ),
+  );
+
+  $data['term_relation']['tid2'] = array(
+    'title' => t('Related terms'),
+    'help' => t('The related terms of the term. This can produce duplicate entries if there is more than one related term.'),
+    'relationship' => array(
+      'base' => 'term_data',
+      'field' => 'tid2',
+      'label' => t('Related term'),
+    ),
+    'argument' => array(
+      'help' => t('A related term of the term.'),
+      'handler' => 'views_handler_argument_numeric',
+    ),    
+  );
 
   // ----------------------------------------------------------------------
   // term_hierarchy table
@@ -402,6 +457,13 @@ function taxonomy_views_plugins() {
         'path' => drupal_get_path('module', 'views') . '/modules/taxonomy',
       ),
     ),
+    'argument default' => array(
+      'taxonomy_tid' => array(
+        'title' => t('Taxonomy Term ID from URL'),
+        'handler' => 'views_plugin_argument_default_taxonomy_tid',
+        'path' => drupal_get_path('module', 'views') . '/modules/taxonomy',
+      ),
+    ),
   );
 }
 
@@ -420,8 +482,13 @@ function views_taxonomy_set_breadcrumb(&$breadcrumb, &$argument) {
     if ($parent->tid == $argument->argument) {
       continue;
     }
-    $args[$argument->position] = $parent->tid;
-    $path = $argument->view->get_url($args);
+    if ($argument->options['use_taxonomy_term_path']) {
+      $path = taxonomy_term_path($parent);
+    }
+    else {
+      $args[$argument->position] = $parent->tid;
+      $path = $argument->view->get_url($args);
+    }
     $breadcrumb[$path] = check_plain($parent->name);
   }
 }

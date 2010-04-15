@@ -1,5 +1,5 @@
 <?php
-// $Id: markitup.inc,v 1.5 2009/06/09 00:18:12 sun Exp $
+// $Id: markitup.inc,v 1.7.2.1 2009/08/03 22:37:15 sun Exp $
 
 /**
  * @file
@@ -144,12 +144,11 @@ function wysiwyg_markitup_settings($editor, $config, $theme) {
       'call' => 'preview',
     ),
   );
-
   if (!empty($config['buttons'])) {
     foreach ($config['buttons'] as $plugin) {
       foreach ($plugin as $button => $enabled) {
         if (isset($default_buttons[$button])) {
-          $settings['markupSet'][] = $default_buttons[$button];
+          $settings['markupSet'][$button] = $default_buttons[$button];
         }
       }
     }
@@ -170,8 +169,8 @@ function wysiwyg_markitup_plugins($editor) {
       'buttons' => array(
         'bold' => t('Bold'), 'italic' => t('Italic'),
         'stroke' => t('Strike-through'),
-        'image' => t('Image'),
         'link' => t('Link'),
+        'image' => t('Image'),
         // 'cleanup' => t('Clean-up'),
         'preview' => t('Preview'),
       ),

@@ -1,5 +1,5 @@
 <?php
-// $Id: nicedit.inc,v 1.6 2009/06/09 00:18:12 sun Exp $
+// $Id: nicedit.inc,v 1.6.2.1 2009/08/03 22:37:15 sun Exp $
 
 /**
  * @file
@@ -107,7 +107,7 @@ function wysiwyg_nicedit_plugins($editor) {
         'outdent' => t('Outdent'), 'indent' => t('Indent'),
         'image' => t('Image'),
         'forecolor' => t('Forecolor'), 'bgcolor' => t('Backcolor'),
-        'superscript' => t('Sup'), 'subscript' => t('Sub'),
+        'superscript' => t('Superscript'), 'subscript' => t('Subscript'),
         'hr' => t('Horizontal rule'),
         // @todo New challenge: Optional internal plugins packaged into editor
         //   library.

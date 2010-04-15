@@ -1,12 +1,12 @@
 <?php
-// $Id: node.views_default.inc,v 1.11 2009/02/18 00:07:22 merlinofchaos Exp $
+// $Id: node.views_default.inc,v 1.11.4.1 2010/03/10 20:02:26 merlinofchaos Exp $
 /**
  * @file
  * Contains default views on behalf of the node module.
  */
 
 /**
- * Implementation of hook_default_view_views().
+ * Implementation of hook_views_default_views().
  */
 function node_views_default_views() {
   $view = new view;

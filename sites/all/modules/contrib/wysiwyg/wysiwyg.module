@@ -1,5 +1,5 @@
 <?php
-// $Id: wysiwyg.module,v 1.33 2009/06/09 00:18:11 sun Exp $
+// $Id: wysiwyg.module,v 1.33.2.11 2010/02/14 01:59:47 sun Exp $
 
 /**
  * @file
@@ -61,8 +61,12 @@ function wysiwyg_menu() {
  */
 function wysiwyg_theme() {
   return array(
-    'wysiwyg_profile_overview' => array('arguments' => array('form' => NULL)),
-    'wysiwyg_admin_button_table' => array('arguments' => array('form' => NULL)),
+    'wysiwyg_profile_overview' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'wysiwyg_admin_button_table' => array(
+      'arguments' => array('form' => NULL),
+    ),
     'wysiwyg_dialog_page' => array(
       'arguments' => array('content' => NULL, 'show_messages' => TRUE),
       'file' => 'wysiwyg.dialog.inc',
@@ -77,7 +81,7 @@ function wysiwyg_theme() {
 function wysiwyg_help($path, $arg) {
   switch ($path) {
     case 'admin/settings/wysiwyg':
-      $output = '<p>' . t('A Wysiwyg profile can be associated to an input format. A Wysiwyg profile defines which client-side editor is loaded, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions.') . '</p>';
+      $output = '<p>' . t('A Wysiwyg profile is associated with an input format. A Wysiwyg profile defines which client-side editor is loaded with a particular input format, what buttons or themes are enabled for the editor, how the editor is displayed, and a few other editor-specific functions.') . '</p>';
       return $output;
   }
 }
@@ -121,21 +125,22 @@ function wysiwyg_process_form(&$form) {
       // filter_form() always uses the key 'format'. We need a type-agnostic
       // match to prevent false positives. Also, there must have been at least
       // one element on this level.
-      if ($item === 'format' && $index > 0) {
+      if (($item === 'format' || $item === 'signature_format') && $index > 0) {
         // Make sure we either match a input format selector or input format
         // guidelines (displayed if user has access to one input format only).
         if ((isset($element['#type']) && $element['#type'] == 'fieldset') || isset($element['format']['guidelines'])) {
           // The element before this element is the target form field.
           $field = &$form[$children[$index - 1]];
 
-          // Disable #resizable to avoid resizable behavior to hi-jack the UI,
-          // but load the behavior, so the 'none' editor can attach/detach it.
+          // If this textarea is #resizable and we will load at least one
+          // editor, then only load the behavior and let the 'none' editor
+          // attach/detach it to avoid hi-jacking the UI. Due to our CSS class
+          // parsing, we can add arbitrary parameters for each input format.
+          // The #resizable property will be removed below, if at least one
+          // profile has been loaded.
           $extra_class = '';
           if (!empty($field['#resizable'])) {
-            // Due to our CSS class parsing, we can add arbitrary parameters
-            // for each input format.
             $extra_class = ' wysiwyg-resizable-1';
-            $field['#resizable'] = FALSE;
             drupal_add_js('misc/textarea.js');
           }
 
@@ -156,9 +161,12 @@ function wysiwyg_process_form(&$form) {
             // Fetch the profile associated to this input format.
             $profile = wysiwyg_get_profile($format);
             if ($profile) {
+              $loaded = TRUE;
               $editor = $profile->editor;
               $status = (int) wysiwyg_user_get_status($profile);
-              $toggle = (int) $profile->settings['show_toggle'];
+              if (isset($profile->settings['show_toggle'])) {
+                $toggle = (int) $profile->settings['show_toggle'];
+              }
               // Check editor theme (and reset it if not/no longer available).
               $theme = wysiwyg_get_editor_themes($profile, (isset($profile->settings['theme']) ? $profile->settings['theme'] : ''));
 
@@ -182,6 +190,12 @@ function wysiwyg_process_form(&$form) {
               $element[$format]['#attributes']['class'] = (isset($element[$format]['#attributes']['class']) ? $element[$format]['#attributes']['class'] . ' ' : '');
               $element[$format]['#attributes']['class'] .= 'wysiwyg wysiwyg-format-' . $format . ' wysiwyg-editor-' . $editor . ' wysiwyg-field-' . $field['#id'] . ' wysiwyg-status-' . $status . ' wysiwyg-toggle-' . $toggle . $extra_class;
             }
+          }
+
+          // If we loaded at least one editor, then the 'none' editor will
+          // handle resizable textareas instead of core.
+          if (isset($loaded) && !empty($field['#resizable'])) {
+            $field['#resizable'] = FALSE;
           }
         }
         // If this element is 'format', do not recurse further.
@@ -282,14 +296,13 @@ function wysiwyg_load_editor($profile) {
       }
 
       drupal_add_js(array('wysiwyg' => array(
-        'configs' => array($editor['name'] => array()),
-        // @todo Move into profile settings.
-        'showToggle' => isset($profile->settings['show_toggle']) ? $profile->settings['show_toggle'] : TRUE,
-        // @todo Move into (global) editor settings.
-        // If JS compression is enabled, at least TinyMCE is unable to determine
-        // its own base path and exec mode since it can't find the script name.
-        'editorBasePath' => base_path() . $editor['library path'],
-        'execMode' => $library,
+        'configs' => array($editor['name'] => array('global' => array(
+          // @todo Move into (global) editor settings.
+          // If JS compression is enabled, at least TinyMCE is unable to determine
+          // its own base path and exec mode since it can't find the script name.
+          'editorBasePath' => base_path() . $editor['library path'],
+          'execMode' => $library,
+        ))),
       )), 'setting');
 
       $loaded[$name] = TRUE;
@@ -479,7 +492,7 @@ function wysiwyg_get_editor_themes(&$profile, $selected_theme = NULL) {
   // Check optional $selected_theme argument, if given.
   if (isset($selected_theme)) {
     // If the passed theme name does not exist, use the first available.
-    if (!isset($themes[$profile->editor][$selected_theme])) {
+    if (!in_array($selected_theme, $themes[$profile->editor])) {
       $selected_theme = $profile->settings['theme'] = $themes[$profile->editor][0];
     }
   }
@@ -527,6 +540,10 @@ function wysiwyg_get_editor_config($profile, $theme) {
   $settings = array();
   if (!empty($editor['settings callback']) && function_exists($editor['settings callback'])) {
     $settings = $editor['settings callback']($editor, $profile->settings, $theme);
+
+    // Allow other modules to alter the editor settings for this format.
+    $context = array('editor' => $editor, 'profile' => $profile, 'theme' => $theme);
+    drupal_alter('wysiwyg_editor_settings', $settings, $context);
   }
   return $settings;
 }
@@ -553,7 +570,9 @@ function wysiwyg_get_css() {
   foreach (drupal_add_css() as $media => $css) {
     if ($media != 'print') {
       foreach ($css['theme'] as $filepath => $preprocess) {
-        $files[] = base_path() . $filepath;
+        if (file_exists($filepath)) {
+          $files[] = base_path() . $filepath;
+        }
       }
     }
   }

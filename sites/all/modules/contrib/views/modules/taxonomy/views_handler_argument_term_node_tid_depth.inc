@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_argument_term_node_tid_depth.inc,v 1.3 2009/09/24 23:36:09 merlinofchaos Exp $
+// $Id: views_handler_argument_term_node_tid_depth.inc,v 1.3.2.1 2010/03/16 23:38:23 merlinofchaos Exp $
 /**
  * Argument handler for taxonomy terms with depth.
  *
@@ -13,6 +13,7 @@ class views_handler_argument_term_node_tid_depth extends views_handler_argument 
     $options['depth'] = array('default' => 0);
     $options['break_phrase'] = array('default' => FALSE);
     $options['set_breadcrumb'] = array('default' => FALSE);
+    $options['use_taxonomy_term_path'] = array('default' => FALSE);
 
     return $options;
   }
@@ -38,6 +39,15 @@ class views_handler_argument_term_node_tid_depth extends views_handler_argument 
       '#title' => t("Set the breadcrumb for the term parents"),
       '#description' => t('If selected, the breadcrumb trail will include all parent terms, each one linking to this view. Note that this only works if just one term was received.'),
       '#default_value' => !empty($this->options['set_breadcrumb']),
+    );
+
+    $form['use_taxonomy_term_path'] = array(
+      '#type' => 'checkbox',
+      '#title' => t("Use Drupal's taxonomy term path to create breadcrumb links"),
+      '#description' => t('If selected, the links in the breadcrumb trail will be created using the standard drupal method instead of the custom views method. This is useful if you are using modules like taxonomy redirect to modify your taxonomy term links.'),
+      '#default_value' => !empty($this->options['use_taxonomy_term_path']),
+      '#process' => array('views_process_dependency'),
+      '#dependency' => array('edit-options-set-breadcrumb' => array(TRUE)),
     );
   }
 

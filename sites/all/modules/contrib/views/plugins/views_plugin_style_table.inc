@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_style_table.inc,v 1.7.2.1 2009/11/10 19:30:48 merlinofchaos Exp $
+// $Id: views_plugin_style_table.inc,v 1.7.2.3 2010/03/11 00:06:18 merlinofchaos Exp $
 /**
  * @file
  * Contains the table style plugin.
@@ -28,7 +28,7 @@ class views_plugin_style_table extends views_plugin_style {
    * Determine if we should provide sorting based upon $_GET inputs.
    */
   function build_sort() {
-    if (!isset($_GET['order']) && $this->options['default'] == -1 || empty($this->view->field[$this->options['default']])) {
+    if (!isset($_GET['order']) && ($this->options['default'] == -1 || empty($this->view->field[$this->options['default']]))) {
       return TRUE;
     }
 
@@ -172,14 +172,7 @@ class views_plugin_style_table extends views_plugin_style {
     $columns = $this->sanitize_columns($this->options['columns']);
 
     // Create an array of allowed columns from the data we know:
-    foreach ($handlers as $field => $handler) {
-      if ($label = $handler->label()) {
-        $field_names[$field] = $label;
-      }
-      else {
-        $field_names[$field] = $handler->ui_name();
-      }
-    }
+    $field_names = $this->display->handler->get_field_labels();
 
     if (isset($this->options['default'])) {
       $default = $this->options['default'];

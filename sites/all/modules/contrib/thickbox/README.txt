@@ -32,7 +32,7 @@ Installation:
 
 Configuration:
 -------------
-If you use the image module there is a setting that will automaticly
+If you use the image module there is a setting that will automatically
 activate Thickbox for all image nodes.
 
 
@@ -47,4 +47,4 @@ Contributions:
 
 Last updated:
 ------------
-$Id: README.txt,v 1.8.2.2 2008/09/12 06:40:44 frjo Exp $
+$Id: README.txt,v 1.8.2.3 2009/10/14 10:34:21 frjo Exp $

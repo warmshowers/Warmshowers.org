@@ -1,5 +1,5 @@
 <?php
-// $Id: i18n.pages.inc,v 1.1.2.5 2009/09/21 23:11:33 jareyero Exp $
+// $Id: i18n.pages.inc,v 1.1.2.6 2010/03/04 11:51:54 jareyero Exp $
 
 /**
  * @file
@@ -259,7 +259,7 @@ function _i18n_node_references($string, $match = 'contains', $params = array(), 
  * Theme select translation form
  * @ingroup themeable
  */
-function theme_i18n_node_select_translation(&$elements) {
+function theme_i18n_node_select_translation($elements) {
   $output = '';
   if (isset($elements['nid'])) {
     $rows = array();

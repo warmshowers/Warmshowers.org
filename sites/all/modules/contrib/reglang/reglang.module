@@ -1,5 +1,5 @@
 <?php
-// $Id: reglang.module,v 1.1.2.6 2009/03/11 23:45:34 karst Exp $
+// $Id: reglang.module,v 1.1.2.8 2010/03/18 09:12:51 karst Exp $
 
 /**
  * @file
@@ -9,6 +9,9 @@
  *
  */
 
+/**
+ * Contants
+ */
 define('REGLANG_REGISTER_OFF', 0);
 define('REGLANG_REGISTER_CURRENT', 1);
 define('REGLANG_REGISTER_DEFAULT', 2);
@@ -16,6 +19,10 @@ define('REGLANG_REGISTER_DEFAULT', 2);
 define('REGLANG_NOTIFY_OFF', 0);
 define('REGLANG_NOTIFY_USER', 1);
 define('REGLANG_NOTIFY_DEFAULT', 2);
+
+define('REGLANG_NODE_OFF', 0);
+define('REGLANG_NODE_CURRENT', 1);
+define('REGLANG_NODE_DEFAULT', 2);
 
 /**
  * Implementation of hook_menu().
@@ -55,7 +62,7 @@ function reglang_settings() {
     ),
   );
 
- $form['reglang_notify_option'] = array(
+  $form['reglang_notify_option'] = array(
     '#type' => 'radios',
     '#title' => t('The language used to mails in if a user is set'),
     '#default_value' => variable_get('reglang_notify_option', REGLANG_NOTIFY_OFF),
@@ -63,6 +70,17 @@ function reglang_settings() {
       t('Do nothing - Drupal default behaviour.'),
       t('Current - Language of the user the mail is for. Probably what you want.'),
       t('Default - Default language of the site.'),
+    ),
+  );
+
+  $form['reglang_node_option'] = array(
+    '#type' => 'radios',
+    '#title' => t('If a node is added or updated and has no language / "language neutral" set'),
+    '#default_value' => variable_get('reglang_node_option', REGLANG_NODE_OFF),
+    '#options' => array(
+      t('Do nothing - Drupal default behaviour.'),
+      t('Current - Force the currently used language.'),
+      t('Default - Force the defaultlanguage of the site.'),
     ),
   );
 
@@ -77,20 +95,20 @@ function reglang_user($op, &$edit, &$account, $category = NULL) {
   //If no language already set and operation is insert
   if (!$account->language && $op == 'insert') {
     switch (variable_get('reglang_option', REGLANG_REGISTER_OFF)) {
-      //current
+
       case REGLANG_REGISTER_CURRENT:
         global $language;
         break;
-      //sites default
+
       case REGLANG_REGISTER_DEFAULT:
         $language = language_default();
         break;
-      //default means do nothing
+
       case REGLANG_REGISTER_OFF:
       default:
         return;
     }
-    db_query('UPDATE {users} SET language = "%s" WHERE uid = %d', $language->language, $account->uid);
+    db_query("UPDATE {users} SET language = '%s' WHERE uid = %d", $language->language, $account->uid);
   }
 }
 
@@ -106,12 +124,10 @@ function reglang_mail_alter(&$message) {
         //might already be the preferred language of the user but any way we have to load the language
         //so checking is equal to setting.
         $message['language'] = user_preferred_language($message['params']['account']);
-        reglang_do_mail_edit($message);
         break;
 
       case REGLANG_NOTIFY_DEFAULT:
         $message['language'] = language_default();
-        reglang_do_mail_edit($message);
         break;
 
       case REGLANG_NOTIFY_OFF:
@@ -121,24 +137,25 @@ function reglang_mail_alter(&$message) {
   }
 }
 
-/**
- * Helper function to check for and use the mail_edit module
- * mail_edit uses the same hook.
- * The functions are used in alphabetical order.
- * So I have to call the hook again to get the correct email.
- *
- * If a lot of mails are send I try to keep the check for mail_edit as small as possible.
- * This still might be a performance decrease.
- */
-function reglang_do_mail_edit(&$message) {
+function reglang_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  //if update or insert and no language set
+  if (($op == 'insert' || $op == 'update') && !$node->language) {
+    switch (variable_get('reglang_node_option', REGLANG_NODE_OFF)) {
 
-  static $mail_edit_exists = NULL;
+      case REGLANG_NODE_CURRENT:
+        global $language;
+        break;
 
-  if ($mail_edit_exists === NULL) {
-    $mail_edit_exists = module_exists('mail_edit');
-  }
+      case REGLANG_NODE_DEFAULT:
+        $language = language_default();
+        break;
 
-  if ($mail_edit_exists) {
-    mail_edit_mail_alter($message);
+      case REGLANG_NODE_OFF:
+      default:
+        return;
+    }
+    if ($language->language && $node->nid) {
+      db_query('UPDATE {node} SET language = "%s" WHERE nid = %d', $language->language, $node->nid);
+    }
   }
 }

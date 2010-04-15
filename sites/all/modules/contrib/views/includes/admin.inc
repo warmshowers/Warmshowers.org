@@ -1,5 +1,5 @@
 <?php
-// $Id: admin.inc,v 1.161.2.3 2009/11/20 22:04:22 merlinofchaos Exp $
+// $Id: admin.inc,v 1.161.2.11 2010/04/07 21:04:15 merlinofchaos Exp $
 /**
  * @file admin.inc
  * Provides the Views' administrative interface.
@@ -500,6 +500,13 @@ function views_ui_preview_form(&$form_state) {
     '#id' => 'preview-submit',
   );
 
+
+  $form['live_preview'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Automatic live preview'),
+    '#default_value' => !variable_get('views_ui_disable_live_preview', 0),
+  );
+
   $form['#action'] = url("admin/build/views/nojs/preview/$view->name");
   return $form;
 }
@@ -782,6 +789,11 @@ function views_ui_import_validate($form, &$form_state) {
       form_error($form['view'], t('That view is not compatible with this version of Views.'));
     }
   }
+  elseif ($view->api_version > views_api_version()) {
+    form_error($form['view'], t('That view is created for the version @import_version of views, but you only have @api_version', array(
+      '@import_version' => $view->api_version,
+      '@api_version' => views_api_version())));
+  }
 
   // View name must be alphanumeric or underscores, no other punctuation.
   if (!empty($form_state['values']['name']) && preg_match('/[^a-zA-Z0-9_]/', $form_state['values']['name'])) {
@@ -874,7 +886,7 @@ function views_ui_edit_view_form(&$form_state, $view) {
   if (is_numeric($view->vid)) {
     $form['buttons']['delete'] = array(
       '#type' => 'submit',
-      '#value' => t('Delete'),
+      '#value' => $view->type == t('Overridden') ? t('Revert') : t('Delete'),
       '#submit' => array('views_ui_edit_view_form_delete'),
     );
   }
@@ -887,7 +899,7 @@ function views_ui_edit_view_form(&$form_state, $view) {
  * Validate that a view is complete and whole.
  */
 function views_ui_edit_view_form_validate($form, &$form_state) {
-  // Do not validate cancel or delete.
+  // Do not validate cancel or delete or revert.
   if (empty($form_state['clicked_button']['#value']) || $form_state['clicked_button']['#value'] != t('Save')) {
     return;
   }
@@ -1034,7 +1046,6 @@ function template_preprocess_views_ui_edit_view(&$vars) {
 
   $vars['quick_links'] = theme('links', $vars['quick_links_raw']);
   views_add_css('views-admin');
-  views_add_css('views');
   views_add_js('ajax');
   drupal_add_js('misc/jquery.form.js');
 
@@ -1090,7 +1101,7 @@ function template_preprocess_views_ui_edit_tab(&$vars) {
   }
 
   $tag = empty($view->tag) ? t('None') : $view->tag;
-  $vars['details'] = t('Tag') . ': ' . l($tag, "admin/build/views/nojs/details/$view->name", array('attributes' => array('class' => 'views-ajax-link')));
+  $vars['details'] = t('Description') . '/' . t('Tag') . ': ' . l($tag, "admin/build/views/nojs/details/$view->name", array('attributes' => array('class' => 'views-ajax-link')));
 
   // Calculate options from display plugin.
   $options = $categories = array();
@@ -1243,7 +1254,8 @@ function template_preprocess_views_ui_edit_item(&$vars) {
     $handler = views_get_handler($field['table'], $field['field'], $type);
     if (empty($handler)) {
       $fields[$id]['class'] = 'broken';
-      $fields[$id]['title'] = t("Error: handler for @table > @field doesn't exist!", array('@table' => $field['table'], '@field' => $field['field']));
+      $field_name = t('Broken/missing handler: @table > @field', array('@table' => $field['table'], '@field' => $field['field']));
+      $fields[$id]['title'] = l($field_name, "admin/build/views/nojs/config-item/$view->name/$display->id/$type/$id", array('attributes' => array('class' => 'views-ajax-link'), 'html' => TRUE));
       $fields[$id]['info'] = '';
       continue;
     }
@@ -2713,6 +2725,13 @@ function views_ui_admin_tools() {
     '#default_value' => variable_get('views_ui_query_on_top', FALSE),
   );
 
+  $form['views_ui_disable_live_preview'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable automatic live preview'),
+    '#description' => t("Don't automatically update the preview. This can speed up the editing of views a bit.'"),
+    '#default_value' => variable_get('views_ui_disable_live_preview', 0),
+  );
+
   $form['views_show_additional_queries'] = array(
     '#type' => 'checkbox',
     '#title' => t('Show other queries run during render during live preview'),
@@ -2754,7 +2773,7 @@ function views_ui_admin_tools() {
   $form['views_exposed_filter_any_label'] = array(
     '#type' => 'select',
     '#title' => t('Label for "Any" value on optional single-select exposed filters'),
-    '#options' => array('old_any' => t('<Any>'), 'new_any' => t('- Any -')),
+    '#options' => array('old_any' => '<Any>', 'new_any' => t('- Any -')),
     '#default_value' => variable_get('views_exposed_filter_any_label', 'old_any'),
   );
 

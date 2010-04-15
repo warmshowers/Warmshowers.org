@@ -1,5 +1,5 @@
 <?php
-// $Id: wysiwyg.admin.inc,v 1.15 2009/06/09 00:18:11 sun Exp $
+// $Id: wysiwyg.admin.inc,v 1.15.2.9 2010/02/13 23:58:41 sun Exp $
 
 /**
  * @file
@@ -50,7 +50,6 @@ function wysiwyg_profile_form($form_state, $profile) {
   $editor = wysiwyg_get_editor($profile->editor);
   drupal_set_title(t('%editor profile for %format', array('%editor' => $editor['title'], '%format' => $formats[$profile->format]->name)));
 
-  $form = array();
   $form['format'] = array('#type' => 'value', '#value' => $profile->format);
   $form['input_format'] = array('#type' => 'value', '#value' => $formats[$profile->format]->name);
   $form['editor'] = array('#type' => 'value', '#value' => $profile->editor);
@@ -95,7 +94,7 @@ function wysiwyg_profile_form($form_state, $profile) {
     '#type' => 'select',
     '#title' => t('Language'),
     '#default_value' => $profile->settings['language'],
-    '#options' => drupal_map_assoc(array('ar', 'ca', 'cs', 'cy', 'da', 'de', 'el', 'en', 'es', 'fa', 'fi', 'fr', 'fr_ca', 'he', 'hu', 'is', 'it', 'ja', 'ko', 'nb', 'nl', 'nn', 'pl', 'pt', 'pt_br', 'ru', 'ru_KOI8-R', 'ru_UTF-8', 'si', 'sk', 'sv', 'th', 'zh_cn', 'zh_tw', 'zh_tw_utf8')),
+    '#options' => drupal_map_assoc(array('ar', 'ca', 'cs', 'cy', 'da', 'de', 'el', 'en', 'es', 'fa', 'fi', 'fr', 'fr_ca', 'he', 'hu', 'is', 'it', 'ja', 'ko', 'nb', 'nl', 'nn', 'pl', 'pt', 'pt_br', 'ru', 'ru_KOI8-R', 'ru_UTF-8', 'si', 'sk', 'sv', 'th', 'tr', 'uk', 'zh_cn', 'zh_tw', 'zh_tw_utf8')),
     '#description' => t('The language to use for the editor interface. Language codes are based on the <a href="http://www.loc.gov/standards/iso639-2/englangn.html">ISO-639-2</a> format.'),
   );
 
@@ -281,6 +280,11 @@ function wysiwyg_profile_form($form_state, $profile) {
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),
+    '#weight' => 100,
+  );
+  $form['cancel'] = array(
+    '#value' => l(t('Cancel'), 'admin/settings/wysiwyg'),
+    '#weight' => 110,
   );
 
   return $form;
@@ -309,7 +313,7 @@ function wysiwyg_profile_form_submit($form, &$form_state) {
 
   // Remove FAPI values.
   // @see system_settings_form_submit()
-  unset($values['submit'], $values['form_id'], $values['op'], $values['form_token']);
+  unset($values['submit'], $values['form_id'], $values['op'], $values['form_token'], $values['form_build_id']);
 
   // Insert new profile data.
   db_query("UPDATE {wysiwyg} SET settings = '%s' WHERE format = %d", serialize($values), $format);
@@ -322,7 +326,7 @@ function wysiwyg_profile_form_submit($form, &$form_state) {
 /**
  * Layout for the buttons in the Wysiwyg Editor profile form.
  */
-function theme_wysiwyg_admin_button_table(&$form) {
+function theme_wysiwyg_admin_button_table($form) {
   $buttons = array();
 
   // Flatten forms array.
@@ -357,7 +361,6 @@ function theme_wysiwyg_admin_button_table(&$form) {
  */
 function wysiwyg_profile_overview() {
   include_once './includes/install.inc';
-  $form = array();
 
   // Check which wysiwyg editors are installed.
   $editors = wysiwyg_get_all_editors();
@@ -381,7 +384,7 @@ function wysiwyg_profile_overview() {
       $library = (isset($editor['library']) ? $editor['library'] : key($editor['libraries']));
       $targs = array(
         '@editor-path' => $editor['editor path'],
-        '@library-filepath' => $editor['library path'] . '/' . $editor['libraries'][$library]['files'][0],
+        '@library-filepath' => $editor['library path'] . '/' . (isset($editor['libraries'][$library]['files'][0]) ? $editor['libraries'][$library]['files'][0] : key($editor['libraries'][$library]['files'])),
       );
       $instructions = '<p>' . t('Extract the archive and copy its contents into a new folder in the following location:<br /><code>@editor-path</code>', $targs) . '</p>';
       $instructions .= '<p>' . t('So the actual library can be found at:<br /><code>@library-filepath</code>', $targs) . '</p>';
@@ -405,7 +408,7 @@ function wysiwyg_profile_overview() {
     '#description' => (!$count ? t('There are no editor libraries installed currently. The following list contains a list of currently supported editors:') : ''),
     '#weight' => 10,
   );
-  $form['status']['report'] = array('#type' => 'markup', '#value' => theme('status_report', $status));
+  $form['status']['report'] = array('#value' => theme('status_report', $status));
 
   if (!$count) {
     return $form;
@@ -413,36 +416,53 @@ function wysiwyg_profile_overview() {
 
   $formats = filter_formats();
   $profiles = wysiwyg_profile_load_all();
-  $form['formats']['#tree'] = TRUE;
+  $form['formats'] = array(
+    '#type' => 'item',
+    '#description' => t('To assign a different editor to a text format, click "delete" to remove the existing first.'),
+    '#tree' => TRUE,
+  );
+
+  $enable_save = FALSE;
   foreach ($formats as $id => $format) {
     $form['formats'][$id]['name'] = array(
       '#value' => check_plain($format->name),
     );
-    $form['formats'][$id]['editor'] = array(
-      '#type' => 'select',
-      '#default_value' => isset($profiles[$id]) ? $profiles[$id]->editor : '',
-      '#options' => $options,
-      '#id' => "edit-editor-$id",
-      '#disabled' => isset($profiles[$id]) ? (bool) $profiles[$id]->editor : FALSE,
-    );
+    // Only display editor selection for associated input formats to avoid
+    // confusion about disabled selection.
+    if (isset($profiles[$id]) && !empty($profiles[$id]->editor)) {
+      $form['formats'][$id]['editor'] = array(
+        '#value' => $options[$profiles[$id]->editor],
+      );
+    }
+    else {
+      $form['formats'][$id]['editor'] = array(
+        '#type' => 'select',
+        '#default_value' => '',
+        '#options' => $options,
+      );
+      $enable_save = TRUE;
+    }
     if (isset($profiles[$id]) && !empty($profiles[$id]->editor)) {
       $form['formats'][$id]['edit'] = array(
         '#value' => l(t('Edit'), "admin/settings/wysiwyg/profile/$id/edit"),
       );
-      $form['formats'][$id]['remove'] = array(
-        '#value' => l(t('Remove'), "admin/settings/wysiwyg/profile/$id/delete"),
+      $form['formats'][$id]['delete'] = array(
+        '#value' => l(t('Delete'), "admin/settings/wysiwyg/profile/$id/delete"),
       );
     }
   }
 
-  $form['submit'] = array('#type' => 'submit', '#value' => t('Save'));
+  // Submitting the form when no editors can be selected causes errors.
+  if ($enable_save) {
+    $form['submit'] = array('#type' => 'submit', '#value' => t('Save'));
+  }
   return $form;
 }
 
 /**
  * Return HTML for the Wysiwyg profile overview form.
  */
-function theme_wysiwyg_profile_overview(&$form) {
+function theme_wysiwyg_profile_overview($form) {
   if (!isset($form['formats'])) {
     return;
   }
@@ -455,10 +475,10 @@ function theme_wysiwyg_profile_overview(&$form) {
       drupal_render($format['name']),
       drupal_render($format['editor']),
       isset($format['edit']) ? drupal_render($format['edit']) : '',
-      isset($format['remove']) ? drupal_render($format['remove']) : '',
+      isset($format['delete']) ? drupal_render($format['delete']) : '',
     );
   }
-  $output .= theme('table', $header, $rows);
+  $form['formats']['table']['#value'] = theme('table', $header, $rows);
   $output .= drupal_render($form);
   return $output;
 }

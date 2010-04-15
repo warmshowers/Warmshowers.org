@@ -1,5 +1,5 @@
 <?php
-// $Id: css_injector.admin.inc,v 1.1.2.6 2008/08/10 01:56:58 add1sun Exp $
+// $Id: css_injector.admin.inc,v 1.1.2.10 2010/03/08 00:02:22 eaton Exp $
 
 /**
  * Page callback for CSS Injector's main admin page.
@@ -51,7 +51,7 @@ function css_injector_admin_delete_button($form, &$form_state) {
 /**
  * Theme function for the CSS Injector admin overview form.
  */
-function theme_css_injector_admin_form(&$form) {
+function theme_css_injector_admin_form($form) {
   $headers = array(t('Title'), t('File path'), t('Actions'));
   $rows = array();
   if (!empty($form['rules'])) {
@@ -59,7 +59,7 @@ function theme_css_injector_admin_form(&$form) {
       $row = array();
       $rule = $form['rules'][$crid]['#rule'];
       $row[] = check_plain($rule['title']);
-      $row[] = check_plain($rule['file_path']);
+      $row[] = check_plain(_css_injector_rule_path($rule['crid']));
       $row[] = drupal_render($form['rules'][$crid]);
       $rows[] = $row;
     }
@@ -96,13 +96,10 @@ function css_injector_edit($form_state, $crid = NULL) {
       '#type' => 'value',
       '#value' => $crid,
     );
-    $path = file_create_path($rule['file_path']);
+
+    $path = file_create_path(_css_injector_rule_path($rule['crid']));
     if (file_exists($path)) {
       $rule['css_text'] = file_get_contents($path);
-      $form['file_path'] = array(
-        '#type' => 'value',
-        '#value' => $rule['file_path'],
-      );
     }
     else {
       $rule['css_text'] = '';
@@ -167,7 +164,6 @@ function css_injector_edit($form_state, $crid = NULL) {
   $form['media'] = array(
     '#type' => 'select',
     '#title' => t('Media'),
-    '#description' => t(''),
     '#options' => array('all' => t('All'), 'screen' => t('Screen'), 'print' => t('Print')),
     '#default_value' => $rule['media'],
   );
@@ -175,7 +171,6 @@ function css_injector_edit($form_state, $crid = NULL) {
   $form['preprocess'] = array(
     '#type' => 'checkbox',
     '#title' => t('Preprocess CSS'),
-    '#description' => t(''),
     '#default_value' => $rule['preprocess'],
   );
 
@@ -183,6 +178,11 @@ function css_injector_edit($form_state, $crid = NULL) {
     '#type' => 'submit',
     '#value' => t('Save'),
     '#submit' => array('css_injector_edit_save'),
+  );
+  $form['buttons']['save_and_continue'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save and Continue'),
+    '#submit' => array('css_injector_edit_save_and_continue'),
   );
 
   if (!empty($rule['crid'])) {
@@ -212,20 +212,22 @@ function css_injector_edit_validate($form, &$form_state) {
  */
 function css_injector_edit_save($form, &$form_state) {
   $rule = $form_state['rule'];
+  drupal_write_record('css_injector_rule', $rule, empty($rule['crid']) ? NULL : 'crid');
 
-  if (empty($rule['crid'])) {
-    drupal_write_record('css_injector_rule', $rule);
-    $directory = file_directory_path();
-    $rule['file_path'] = file_create_path($directory .'/css_injector_'. $rule['crid'] .'.css');
-  }
-  drupal_write_record('css_injector_rule', $rule, array('crid'));
-
-  file_save_data($rule['css_text'], file_create_path($rule['file_path']), FILE_EXISTS_REPLACE);
+  file_save_data($rule['css_text'], file_create_path(_css_injector_rule_path($rule['crid'])), FILE_EXISTS_REPLACE);
   _css_injector_load_rule(NULL, TRUE);
 
   drupal_set_message('Your CSS injection rule was saved.');
   $form_state['redirect'] = 'admin/settings/css_injector';
 }
+
+/**
+ * Save and continue callback for the CSS rule edit form.
+ */
+ function css_injector_edit_save_and_continue($form, &$form_state) {
+   css_injector_edit_save($form, $form_state);
+   $form_state['redirect'] = 'admin/settings/css_injector/edit/' . $form_state['rule']['crid'];
+ } 
 
 
 /**

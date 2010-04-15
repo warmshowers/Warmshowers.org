@@ -1,5 +1,5 @@
 <?php
-// $Id: openwysiwyg.inc,v 1.2 2009/06/09 00:18:12 sun Exp $
+// $Id: openwysiwyg.inc,v 1.4 2009/06/13 02:17:10 sun Exp $
 
 /**
  * @file
@@ -88,7 +88,6 @@ function wysiwyg_openwysiwyg_themes($editor, $profile) {
 function wysiwyg_openwysiwyg_settings($editor, $config, $theme) {
   $settings = array(
     'path' => base_path() . $editor['editor path'] . '/',
-    'Toolbar' => array(),
     'Width' => '100%',
   );
 
@@ -105,7 +104,7 @@ function wysiwyg_openwysiwyg_settings($editor, $config, $theme) {
     }
   }
 
-  if (!empty($config['buttons']) && is_array($config['buttons'])) {
+  if (!empty($config['buttons'])) {
     $plugins = wysiwyg_get_plugins($editor['name']);
     foreach ($config['buttons'] as $plugin => $buttons) {
       foreach ($buttons as $button => $enabled) {

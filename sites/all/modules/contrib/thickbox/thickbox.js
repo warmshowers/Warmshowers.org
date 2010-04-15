@@ -1,4 +1,4 @@
-// $Id: thickbox.js,v 1.8.2.18 2009/07/31 15:21:59 frjo Exp $
+// $Id: thickbox.js,v 1.8.2.19 2010/03/09 07:10:48 frjo Exp $
 
 /*
  * Thickbox 3.1 - One Box To Rule Them All.
@@ -363,7 +363,7 @@ function tb_setBrowserExtra() {
   var userAgent = navigator.userAgent.toLowerCase();
   $.browserextra = {
     iphone: /iphone/.test( userAgent ),
-    msie6: /msie/.test( userAgent ) && !/opera/.test( userAgent ) && /msie 6\.0/.test( userAgent ) && !/msie 7\.0/.test( userAgent ),
+    msie6: /msie/.test( userAgent ) && !/opera/.test( userAgent ) && /msie 6\.0/.test( userAgent ) && !/msie 7\.0/.test( userAgent ) && !/msie 8\.0/.test( userAgent ),
     macfirefox: /mac/.test( userAgent ) && /firefox/.test( userAgent )
   };
 }

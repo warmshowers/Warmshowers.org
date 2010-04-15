@@ -1,5 +1,5 @@
 <?php 
-// $Id: better_messages.tpl.php,v 1.1.2.3 2009/07/30 00:44:02 doublethink Exp $
+// $Id: better_messages.tpl.php,v 1.1.2.4 2010/03/29 09:56:01 doublethink Exp $
 /*
 Available variables are:
 $content	The messages to put inside Better Messages. Drupal originally calls theme_status_messages() to theme this output.
@@ -15,7 +15,7 @@ $content	The messages to put inside Better Messages. Drupal originally calls the
 						<?php /* If you want to theme further.. theme_better_messages_content() */ ?>
 						<?php print $content ?>
 					</div>
-					<div class="footer"><a class="message-close" href="#"></a></div>
+					<div class="footer"><span class="message-timer"></span><a class="message-close" href="#"></a></div>
 				</td>
 				<td class="b"></td></tr>
 			<tr><td class="bl"></td><td class="b"></td><td class="br"></td></tr>

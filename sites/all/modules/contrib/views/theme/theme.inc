@@ -1,5 +1,5 @@
 <?php
-// $Id: theme.inc,v 1.84.2.4 2009/11/30 19:05:47 merlinofchaos Exp $
+// $Id: theme.inc,v 1.84.2.13 2010/04/08 17:33:38 merlinofchaos Exp $
 
 /**
  * @file theme.inc
@@ -48,6 +48,19 @@ function template_preprocess_views_view(&$vars) {
   $vars['css_name']   = views_css_safe($view->name);
   $vars['name']       = $view->name;
   $vars['display_id'] = $view->current_display;
+
+  // Basic classes
+  $vars['classes_array'] = array();
+  $vars['classes_array'][] = 'view';
+  $vars['classes_array'][] = 'view-' . views_css_safe($vars['name']);
+  $vars['classes_array'][] = 'view-id-' . $vars['name'];
+  $vars['classes_array'][] = 'view-display-id-' . $vars['display_id'];
+
+  $css_class = $view->display_handler->get_option('css_class');
+  if (!empty($css_class)) {
+    $vars['css_class'] = preg_replace('/[^a-zA-Z0-9- ]/', '-', $css_class);
+    $vars['classes_array'][] = $vars['css_class'];
+  }
 
   if (!$vars['rows']) {
     $vars['empty']    = $view->display_handler->render_empty();
@@ -114,7 +127,6 @@ function template_preprocess_views_view(&$vars) {
     $vars['admin_links'] = '';
     $vars['admin_links_raw'] = array();
   }
-  views_add_css('views');
 
   // Our JavaScript needs to have some means to find the HTML belonging to this
   // view.
@@ -127,6 +139,7 @@ function template_preprocess_views_view(&$vars) {
   // wrapper.
   static $dom_id = 1;
   $vars['dom_id'] = !empty($view->dom_id) ? $view->dom_id : $dom_id++;
+  $vars['classes_array'][] = 'view-dom-id-' . $vars['dom_id'];
 
   // If using AJAX, send identifying data about this view.
   if ($view->use_ajax) {
@@ -154,6 +167,8 @@ function template_preprocess_views_view(&$vars) {
     drupal_add_js($settings, 'setting');
     views_add_js('ajax_view');
   }
+  // Flatten the classes to a string for the template file.
+  $vars['classes'] = implode(' ', $vars['classes_array']);
 }
 
 /**
@@ -206,7 +221,8 @@ function template_preprocess_views_view_fields(&$vars) {
  * this: @code { $row->{$field->field_alias} @endcode
  */
 function theme_views_view_field($view, $field, $row) {
-  return $field->advanced_render($row);
+  // Reference safe for PHP 4:
+  return $view->field[$field->options['id']]->advanced_render($row);
 }
 
 /**
@@ -232,6 +248,7 @@ function template_preprocess_views_view_summary(&$vars) {
   if (!empty($view->exposed_raw_input)) {
     $url_options['query'] = $view->exposed_raw_input;
   }
+  $vars['classes'] = array();
   foreach ($vars['rows'] as $id => $row) {
     $vars['rows'][$id]->link = $argument->summary_name($row);
     $args = $view->args;
@@ -239,6 +256,9 @@ function template_preprocess_views_view_summary(&$vars) {
 
     $vars['rows'][$id]->url = url($view->get_url($args), $url_options);
     $vars['rows'][$id]->count = intval($row->{$argument->count_alias});
+    if ($vars['rows'][$id]->url == base_path() . $_GET['q'] || $vars['rows'][$id]->url == base_path() . drupal_get_path_alias($_GET['q'])) {
+      $vars['classes'][$id] = 'active';
+    }
   }
 }
 
@@ -249,6 +269,7 @@ function template_preprocess_views_view_summary(&$vars) {
 function template_preprocess_views_view_summary_unformatted(&$vars) {
   $view     = $vars['view'];
   $argument = $view->argument[$view->build_info['summary_level']];
+  $vars['classes'] = array();
 
   $url_options = array();
 
@@ -268,6 +289,9 @@ function template_preprocess_views_view_summary_unformatted(&$vars) {
 
     $vars['rows'][$id]->url = url($view->get_url($args), $url_options);
     $vars['rows'][$id]->count = intval($row->{$argument->count_alias});
+    if ($vars['rows'][$id]->url == base_path() . $_GET['q'] || $vars['rows'][$id]->url == base_path() . drupal_get_path_alias($_GET['q'])) {
+      $vars['classes'][$id] = 'active';
+    }
   }
 }
 
@@ -364,8 +388,9 @@ function template_preprocess_views_view_table(&$vars) {
     }
   }
 
+  $count = 0;
   foreach ($vars['rows'] as $num => $row) {
-    $vars['row_classes'][$num][] = ($num % 2 == 0) ? 'odd' : 'even';
+    $vars['row_classes'][$num][] = ($count++ % 2 == 0) ? 'odd' : 'even';
   }
 
   $vars['row_classes'][0][] = 'views-row-first';
@@ -376,6 +401,7 @@ function template_preprocess_views_view_table(&$vars) {
     drupal_add_js('misc/tableheader.js');
     $vars['class'] .= " sticky-enabled";
   }
+  $vars['class'] .= ' cols-'. count($vars['rows']);
 }
 
 /**
@@ -405,8 +431,10 @@ function template_preprocess_views_view_grid(&$vars) {
     }
     if ($row) {
       // Fill up the last line.
-      for ($i = 0; $i < ($columns - $row_count); $i++) {
-        $row[] = '';
+      if (count($rows)) {
+        for ($i = 0; $i < ($columns - $row_count); $i++) {
+          $row[] = '';
+        }
       }
       $rows[] = $row;
     }
@@ -451,14 +479,19 @@ function template_preprocess_views_view_unformatted(&$vars) {
   $vars['classes'] = array();
   // Set up striping values.
   foreach ($rows as $id => $row) {
-    $vars['classes'][$id] = 'views-row';
-    $vars['classes'][$id] .= ' views-row-' . ($id + 1);
-    $vars['classes'][$id] .= ' views-row-' . ($id % 2 ? 'even' : 'odd');
+    $row_classes = array();
+    $row_classes[] = 'views-row';
+    $row_classes[] = 'views-row-' . ($id + 1);
+    $row_classes[] = 'views-row-' . ($id % 2 ? 'even' : 'odd');
     if ($id == 0) {
-      $vars['classes'][$id] .= ' views-row-first';
+      $row_classes[] = 'views-row-first';
     }
+    if ($id == count($rows) -1) {
+      $row_classes[] = 'views-row-last';
+    }
+    // Flatten the classes to a string for each row for the template file.
+    $vars['classes'][$id] = implode(' ', $row_classes);
   }
-  $vars['classes'][$id] .= ' views-row-last';
 }
 
 /**
@@ -551,7 +584,6 @@ function template_preprocess_views_view_row_rss(&$vars) {
  * Default theme function for all filter forms.
  */
 function template_preprocess_views_exposed_form(&$vars) {
-  views_add_css('views');
   $form = &$vars['form'];
 
   // Put all single checkboxes together in the last spot.

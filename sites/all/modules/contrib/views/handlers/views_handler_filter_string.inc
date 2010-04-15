@@ -1,5 +1,5 @@
 <?php
-// $Id: views_handler_filter_string.inc,v 1.8 2009/09/15 16:25:55 merlinofchaos Exp $
+// $Id: views_handler_filter_string.inc,v 1.8.2.1 2010/03/08 19:53:49 merlinofchaos Exp $
 
 /**
  * Basic textfield filter to handle string filtering commands
@@ -95,7 +95,7 @@ class views_handler_filter_string extends views_handler_filter {
           'values' => 0,
         ),
         'not empty' => array(
-          'title' => t('Is not empty (NULL)'),
+          'title' => t('Is not empty (NOT NULL)'),
           'method' => 'op_empty',
           'short' => t('not empty'),
           'values' => 0,

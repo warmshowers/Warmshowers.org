@@ -23,7 +23,6 @@ function i18nviews_views_handlers() {
     'handlers' => array(
       'content_negotiation_filter_handler' => array(
         'parent' => 'views_handler_filter',
-        'file' => 'includes/content_negotiation_filter_handler.inc'
       ),
     ),
   );

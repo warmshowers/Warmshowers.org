@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_style.inc,v 1.8.2.6 2009/11/30 19:21:48 merlinofchaos Exp $
+// $Id: views_plugin_style.inc,v 1.8.2.7 2010/03/11 00:06:18 merlinofchaos Exp $
 
 /**
  * @defgroup views_style_plugins Views' style plugins
@@ -89,15 +89,7 @@ class views_plugin_style extends views_plugin {
     // @TODO: Document "uses grouping" in docs.php when docs.php is written.
     if ($this->uses_fields() && $this->definition['uses grouping']) {
       $options = array('' => t('<None>'));
-      foreach ($this->display->handler->get_handlers('field') as $field => $handler) {
-
-        if ($label = $handler->label()) {
-          $options[$field] = $label;
-        }
-        else {
-          $options[$field] = $handler->ui_name();
-        }
-      }
+      $options += $this->display->handler->get_field_labels();
 
       // If there are no fields, we can't group on them.
       if (count($options) > 1) {

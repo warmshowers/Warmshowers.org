@@ -1,4 +1,5 @@
-// $Id: break.js,v 1.5 2009/06/10 00:28:17 twod Exp $
+// $Id: break.js,v 1.6.2.1 2010/02/13 23:58:41 sun Exp $
+(function ($) {
 
 // @todo Array syntax required; 'break' is a predefined token in JavaScript.
 Drupal.wysiwyg.plugins['break'] = {
@@ -61,6 +62,8 @@ Drupal.wysiwyg.plugins['break'] = {
    * Helper function to return a HTML placeholder.
    */
   _getPlaceholder: function (settings) {
-    return '<img src="' + settings.path + '/images/spacer.gif" alt="&lt;--break-&gt;" title="&lt;--break--&gt;" class="wysiwyg-break" />';
+    return '<img src="' + settings.path + '/images/spacer.gif" alt="&lt;--break-&gt;" title="&lt;--break--&gt;" class="wysiwyg-break drupal-content" />';
   }
 };
+
+})(jQuery);

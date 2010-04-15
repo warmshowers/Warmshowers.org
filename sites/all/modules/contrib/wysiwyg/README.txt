@@ -1,4 +1,4 @@
-/* $Id: README.txt,v 1.6 2008/10/28 22:46:05 sun Exp $ */
+/* $Id: README.txt,v 1.6.4.1 2009/06/21 03:54:46 sun Exp $ */
 
 -- SUMMARY --
 
@@ -42,20 +42,8 @@ Bug reports, feature suggestions and latest developments:
 -- CONTACT --
 
 Current maintainers:
-* Daniel F. Kudwien (sun) - http://www.unleashedmind.com
-
-Previous maintainers:
-* Nathan Haug (quicksketch) - http://quicksketch.org
-* kreynen - http://drupal.org/user/48877
-* Allie Micka - http://drupal.org/user/15091
-* Theodore Serbinski (m3avrck) - http://drupal.org/user/12932
-* Nedjo Rogers (nedjo) - http://drupal.org/user/4481
-* Steve McKenzie - http://drupal.org/user/45890
-* ufku - http://drupal.org/user/9910
-* Matt Westgate - <drupal AT asitis DOT org> and
-* Jeff Robbins - <robbins AT jjeff DOT com>
-* Richard Bennett - <richard.b AT gritechnologies DOT com>
-
+* Daniel F. Kudwien (sun) - http://drupal.org/user/54136
+* Henrik Danielsson (TwoD) - http://drupal.org/user/244227
 
 This project has been sponsored by:
 * UNLEASHED MIND

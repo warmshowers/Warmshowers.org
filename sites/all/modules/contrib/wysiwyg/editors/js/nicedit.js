@@ -1,4 +1,5 @@
-// $Id: nicedit.js,v 1.3 2008/12/01 14:14:41 sun Exp $
+// $Id: nicedit.js,v 1.3.4.2 2010/02/13 23:58:41 sun Exp $
+(function($) {
 
 /**
  * Attach this editor to a target element.
@@ -7,12 +8,15 @@ Drupal.wysiwyg.editor.attach.nicedit = function(context, params, settings) {
   // Attach editor.
   var editor = new nicEditor(settings);
   editor.panelInstance(params.field);
+  editor.addEvent('focus', function () {
+    Drupal.wysiwyg.activeId = params.field;
+  });
 };
 
 /**
  * Detach a single or all editors.
  *
- * See Drupal.wysiwyg.editor.detach.none() for a full desciption of this hook.
+ * See Drupal.wysiwyg.editor.detach.none() for a full description of this hook.
  */
 Drupal.wysiwyg.editor.detach.nicedit = function(context, params) {
   if (typeof params != 'undefined') {
@@ -26,7 +30,7 @@ Drupal.wysiwyg.editor.detach.nicedit = function(context, params) {
     for (var e in nicEditors.editors) {
       // Save contents of all editors back into textareas.
       var instances = nicEditors.editors[e].nicInstances;
-      for (var i = 0; i < instances.length; i++) {	
+      for (var i = 0; i < instances.length; i++) {
         instances[i].remove();
       }
       // Remove all editor instances.
@@ -35,3 +39,45 @@ Drupal.wysiwyg.editor.detach.nicedit = function(context, params) {
   }
 };
 
+/**
+ * Instance methods for nicEdit.
+ */
+Drupal.wysiwyg.editor.instance.nicedit = {
+  insert: function (content) {
+    var instance = nicEditors.findEditor(this.field);
+    var editingArea = instance.getElm();
+    var sel = instance.getSel();
+    // IE.
+    if (document.selection) {
+      editingArea.focus();
+      sel.createRange().text = content;
+    }
+    else {
+      // Convert selection to a range.
+      var range;
+      // W3C compatible.
+      if (sel.getRangeAt) {
+        range = sel.getRangeAt(0);
+      }
+      // Safari.
+      else {
+        range = editingArea.ownerDocument.createRange();
+        range.setStart(sel.anchorNode, sel.anchorOffset);
+        range.setEnd(sel.focusNode, userSeletion.focusOffset);
+      }
+      // The code below doesn't work in IE, but it never gets here.
+      var fragment = editingArea.ownerDocument.createDocumentFragment();
+      // Fragments don't support innerHTML.
+      var wrapper = editingArea.ownerDocument.createElement('div');
+      wrapper.innerHTML = content;
+      while (wrapper.firstChild) {
+        fragment.appendChild(wrapper.firstChild);
+      }
+      range.deleteContents();
+      // Only fragment children are inserted.
+      range.insertNode(fragment);
+    }
+  }
+};
+
+})(jQuery);

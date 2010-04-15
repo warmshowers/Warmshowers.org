@@ -1,5 +1,5 @@
 <?php
-// $Id: fckeditor.inc,v 1.17 2009/06/09 00:18:11 sun Exp $
+// $Id: fckeditor.inc,v 1.17.2.2 2010/01/23 00:51:32 sun Exp $
 
 /**
  * @file
@@ -119,10 +119,10 @@ function wysiwyg_fckeditor_settings($editor, $config, $theme) {
     $settings['FontFormats'] = strtr($config['block_formats'], array(',' => ';'));
   }
   if (isset($config['apply_source_formatting'])) {
-    $settings['FormatSource'] = $config['apply_source_formatting'];
+    $settings['FormatOutput'] = $settings['FormatSource'] = $config['apply_source_formatting'];
   }
-  if (isset($config['preformatted'])) {
-    $settings['FormatOutput'] = $config['preformatted'];
+  if (isset($config['paste_auto_cleanup_on_paste'])) {
+    $settings['AutoDetectPasteFromWord'] = $config['paste_auto_cleanup_on_paste'];
   }
 
   if (isset($config['css_setting'])) {

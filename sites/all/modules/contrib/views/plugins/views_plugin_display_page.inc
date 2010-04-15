@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_display_page.inc,v 1.8 2009/06/26 00:23:42 merlinofchaos Exp $
+// $Id: views_plugin_display_page.inc,v 1.8.2.4 2010/03/11 00:01:34 merlinofchaos Exp $
 /**
  * @file
  * Contains the page display plugin.
@@ -38,6 +38,7 @@ class views_plugin_display_page extends views_plugin_display {
         'title' => array('default' => '', 'translatable' => FALSE),
         'description' => array('default' => '', 'translatable' => FALSE),
         'weight' => array('default' => 0),
+        'name' => array('default' => 'navigation'),
        ),
     );
 
@@ -47,7 +48,7 @@ class views_plugin_display_page extends views_plugin_display {
   /**
    * Add this display's path information to Drupal's menu system.
    */
-  function execute_hook_menu() {
+  function execute_hook_menu($callbacks) {
     $items = array();
     // Replace % with the link to our standard views argument loader
     // views_arg_load -- which lives in views.module
@@ -67,7 +68,9 @@ class views_plugin_display_page extends views_plugin_display {
     $path = implode('/', $bits);
 
     $access_plugin = $this->get_access_plugin();
-
+    if (!isset($access_plugin)) {
+      $access_plugin = views_get_plugin('access', 'none');
+    }
     if ($path) {
       $items[$path] = array(
         // default views page entry
@@ -135,6 +138,7 @@ class views_plugin_display_page extends views_plugin_display {
               'load arguments'  => array($this->view->name, $this->display->id, '%index'),
               'title' => $tab_options['title'],
               'description' => $tab_options['description'],
+              'menu_name' => $tab_options['name'],
             );
             switch ($tab_options['type']) {
               default:
@@ -389,6 +393,27 @@ class views_plugin_display_page extends views_plugin_display {
           '#process' => array('views_process_dependency'),
           '#dependency' => array('radio:tab_options[type]' => array('normal', 'tab')),
         );
+        // Only display the menu selector if menu module is enabled.
+        if (module_exists('menu')) {
+          $form['tab_options']['name'] = array(
+            '#title' => t('Menu'),
+            '#type' => 'select',
+            '#options' => menu_get_menus(),
+            '#default_value' => $tab_options['name'],
+            '#description' => t('Insert item into an available menu.'),
+            '#process' => array('views_process_dependency'),
+            '#dependency' => array('radio:tab_options[type]' => array('normal')),
+          );
+        }
+        else {
+          $form['tab_options']['name'] = array(
+            '#type' => 'value',
+            '#value' => $tab_options['name'],
+          );
+          $form['tab_options']['markup'] = array(
+            '#value' => t('Menu selection requires the activation of menu module.'),
+          );
+        }
         $form['tab_options']['weight'] = array(
           '#suffix' => '</div>',
           '#title' => t('Tab weight'),

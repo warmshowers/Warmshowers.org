@@ -1,5 +1,5 @@
 <?php
-// $Id: better_messages.module,v 1.1.2.12 2009/10/07 13:54:35 doublethink Exp $
+// $Id: better_messages.module,v 1.1.2.15 2010/03/29 09:56:01 doublethink Exp $
 
 /*
 Implementation of hook_menu
@@ -12,7 +12,7 @@ function better_messages_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('better_messages_admin'),
     'access callback' => 'user_access',
-    'access arguments' => array('administer site configuration'),
+    'access arguments' => array('administer better messages'),
     'file' => 'better_messages.inc',
   );
   return $items;
@@ -22,7 +22,7 @@ function better_messages_menu() {
  * Implementation of hook_perm().
  */
 function better_messages_perm() {
-  return array('access better messages');
+  return array('access better messages', 'administer better messages');
 }
 
 /*
@@ -33,30 +33,11 @@ function better_messages_theme() {
     'better_messages_content' => array(
     	'arguments' => array('display' => null),
     ),
-    'better_messages_skin' => array(
+    'better_messages' => array(
     	'template'	=> 'better_messages',
     	'arguments' => array('content' => null),
     ),
   );
-}
-
-/*
-Help function to scan for skins
-*/
-function better_messages_get_skins() {
-	$default_theme = variable_get('theme_default', 'none');
-	// Call skins in modules skins directory
-	$default_skins_directory = drupal_get_path('module', 'better_messages') .'/skins';
-	$files = file_scan_directory($default_skins_directory, '\.css$');
-	// Now we call skins in the default theme skins directory
-	$theme_skins_directory = drupal_get_path('theme', $default_theme) . '/skins';
-	$theme_files = file_scan_directory($theme_skins_directory, '\.css$');
-	// Merge the options and make the names readable.
-	$files = array_merge($files, $theme_files);
-	$skins = array();
-	foreach ($files as $file) {	$skins[$file->filename] = drupal_ucfirst($file->name); }
-	ksort($skins);
-	return $skins;
 }
 
 /*
@@ -77,9 +58,9 @@ function theme_better_messages($display = NULL) {
 		$message = theme('better_messages_content', $display);
 		// We save the intial output to SESSION so we can put it in <noscript> on page_preprocess
 		$_SESSION['original_messages'] = $message;
-		$message_skin = theme('better_messages_skin', $message);
+		$message_skin = theme('better_messages', $message);
 		// We add a special ID so that JavaScript knows what to handle. Changing the ID will break JavaScript handling code.
-		$output = "<div id=\"better-messages-wrapper\" style=\"display:none;overflow:visible;position:absolute;z-index:101;\">\n". 
+		$output = "<div id=\"better-messages-wrapper\" style=\"display:none;overflow:visible;position:absolute;z-index:9999;\">\n". 
 					$message_skin ."\n</div>\n";
 	}
 	else { $output = theme('better_messages_content', $display); }
@@ -132,34 +113,19 @@ function better_messages_preprocess_page(&$vars) {
 Helper function to get the settings
 */
 function better_messages_get_settings() {
-	// Invoke better_messages_skins 
-	$skins = better_messages_get_skins();
-	// Settings
 	$settings = array(
-		'position' => variable_get('better_messages_pos', 'center'),
-		'vertical' => variable_get('better_messages_vertical', 0),
-		'horizontal' => variable_get('better_messages_horizontal', 10),
-		'fixed'	=> variable_get('better_messages_fixed', 1),
-		'width' => variable_get('better_messages_width', '400px'),
-		'autoclose'	=> variable_get('better_messages_autoclose', 0),
-		'opendelay' => variable_get('better_messages_open_delay', 0.3),
-		'disable_autoclose' => variable_get('better_messages_disable_autoclose', 0),
-		'popin' => array(
-			'effect' => variable_get('better_messages_popin_effect', 'fadeIn'), 
-			'duration' => variable_get('better_messages_popin_duration', 'slow')
-		),
-		'popout' => array(
-			'effect' => variable_get('better_messages_popout_effect', 'fadeOut'), 
-			'duration' => variable_get('better_messages_popout_duration', 'slow')
-			),
+		'position' => 'center', 'vertical' => 0, 'horizontal' => 10, 'fixed'	=> 1,
+  	'width' => '400px', 'autoclose'	=> 0,	'opendelay' => 0.3,	'disable_autoclose' => 0,
+	  'show_countdown' => 1, 'hover_autoclose' => 1,
+		'popin' => array('effect' => 'fadeIn', 'duration' => 'slow'),
+		'popout' => array('effect' => 'fadeOut', 'duration' => 'slow'),
+	  'jquery_ui' => array('draggable' => 0, 'resizable' => 0),
 		'extra' => array(
-			'skin'	=> variable_get('better_messages_skin', key($skins)),
-			'skins' => $skins,
-			'pages' => variable_get('better_messages_pages', ''),
-			'visibility' => variable_get('better_messages_visibility', 0),
-		),
+			'pages' => '',
+			'visibility' => 0,
+		)
 	);
-	return $settings;
+	return variable_get('better_messages', $settings);
 }
 
 /*
@@ -184,9 +150,19 @@ Helper function to add required JS and CSS only when required
 */
 function better_messages_add_files($disable_autoclose){
 	$settings = better_messages_get_settings();
-	drupal_add_css($settings['extra']['skin']);
+	drupal_add_css(drupal_get_path('module', 'better_messages') . '/skins/default/better_messages.css');
 	drupal_add_js(drupal_get_path('module', 'better_messages') . '/better_messages.js');
 	// Remove extra info from JS
+	if (!module_exists('jquery_ui')) { 
+		unset($settings['jquery_ui']); 
+	}
+	else {
+		foreach ($settings['jquery_ui'] as $jquery_ui_setting => $value) {
+			if ($value == 1) {
+				jquery_ui_add(array('ui.' . $jquery_ui_setting));
+			} 
+		}
+	}
 	unset($settings['extra']);
 	if ($disable_autoclose) {
 	  $settings['autoclose'] = 0;
