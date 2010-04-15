@@ -1,5 +1,5 @@
 <?php 
-// $Id: nagios.module,v 1.1.2.24 2009/08/29 21:02:57 kbahey Exp $
+// $Id: nagios.module,v 1.1.2.25 2010/03/18 22:29:27 kbahey Exp $
 
 // Copyright 2009 Khalid Baheyeldin http://2bits.com
 
@@ -135,7 +135,7 @@ function nagios_status_page() {
       ),
     );
   }
-
+  
   if (!$skip_invoke) {
     // Not authorized, so skipping calling other modules
     $nagios_data = nagios_invoke_all('nagios');
@@ -143,10 +143,13 @@ function nagios_status_page() {
 
   // Find the highest level to be the overall status
   $severity = NAGIOS_STATUS_OK;
-
+  $min_severity = variable_get('nagios_min_report_severity', NAGIOS_STATUS_WARNING);
+  
   foreach($nagios_data as $module_name => $module_data) {
     foreach($module_data as $key => $value) {
-      $severity = max($severity, $value['status']);
+      if ($value['status'] >= $min_severity) {
+        $severity = max($severity, $value['status']);
+      } 
     }
   }
 
@@ -160,10 +163,18 @@ function nagios_status_page() {
     foreach($module_data as $key => $value) {
       switch($value['type']) {
         case 'state':
-          $tmp_state = $key . ':' . $codes[$value['status']];
+          // If status is larger then minimum severity
+          if ($value['status'] >= $min_severity) {
+            $tmp_state = $key . ':' . $codes[$value['status']];
+          }
+          else {
+            $tmp_state = $key . ':' . $codes[NAGIOS_STATUS_OK];
+          }  
+         
           if (!empty($value['text'])) {
             $tmp_state .= '=' . $value['text'];
           }
+
           $output_state[] = $tmp_state;
           break;
 
@@ -239,6 +250,14 @@ function nagios_nagios_settings() {
     '#description'   => t('Issue a critical alert when cron has not been running for this duration (in minutes). Default is 60 minutes.')
   );
 
+  $form[$group]['nagios_min_report_severity'] = array(
+    '#type'          => 'select',
+    '#title'         => t('Mininum report severity'),
+    '#default_value' => variable_get('nagios_min_report_severity', NAGIOS_STATUS_WARNING),
+    '#options'       => nagios_status(),
+    '#description'   => t('Issue an alert only for this minimum severity, not for lower severities.'),
+  );
+ 
   return $form;
 }
 
