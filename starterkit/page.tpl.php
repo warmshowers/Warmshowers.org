@@ -168,12 +168,12 @@
     <?php if($footer_first || $footer_last || $footer_message): ?>
     <div id="footer-wrapper" class="container-<?php print $footer_container_width; ?> clearfix">
       <?php if($footer_first): ?>
-        <div id="footer-first" class="grid-<?php print $footer_first_classes; ?>">
+        <div id="footer-first" class="<?php print $footer_first_classes; ?>">
           <?php print $footer_first; ?>
         </div><!-- /#footer-first -->
       <?php endif; ?>
       <?php if($footer_last || $footer_message): ?>
-        <div id="footer-last" class="grid-<?php print $footer_last_classes; ?>">
+        <div id="footer-last" class="<?php print $footer_last_classes; ?>">
           <?php print $footer_last; ?>
           <?php if ($footer_message): ?>
             <div id="footer-message">

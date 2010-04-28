@@ -34,10 +34,3 @@ function omega_theme_get_default_settings($theme) {
   // Return the default settings.
   return $defaults;
 }
-
-function omega_theme_generate_region_settings() {
-  
-}
-function omega_theme_generate_region_options(){
-  
-}

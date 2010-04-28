@@ -107,15 +107,7 @@ function omega_starterkit_preprocess_block(&$vars, $hook) {
  * @return string
  */
 function omega_starterkit_render_attributes($attributes) {
-  if($attributes) {
-    $items = array();
-    foreach($attributes as $attribute => $data) {
-      if(is_array($data)) {
-        $data = implode(' ', $data);
-      }
-      $items[] = $attribute . '="' . $data . '"';
-    }
-    $output = ' ' . implode(' ', $items);
-  }
-  return $output;
+  // not sure why this has to be here anymore, investigating
+	omega_render_attributes($attributes);
+  
 }
