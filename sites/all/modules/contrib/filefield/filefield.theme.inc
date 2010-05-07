@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield.theme.inc,v 1.9 2009/03/28 06:13:07 quicksketch Exp $
+// $Id: filefield.theme.inc,v 1.10 2010/04/28 16:32:20 quicksketch Exp $
 
 /**
  * @file
@@ -21,7 +21,7 @@ function theme_filefield_icon($file) {
   }
   $mime = check_plain($file['filemime']);
 
-  $dashed_mime = strtr($mime, array('/' => '-'));
+  $dashed_mime = strtr($mime, array('/' => '-', '+' => '-'));
 
   if ($icon_url = filefield_icon_url($file)) {
     $icon = '<img class="field-icon-'. $dashed_mime .'"  alt="'. $mime .' icon" src="'. $icon_url .'" />';

@@ -1,5 +1,5 @@
 <?php
-// $Id: imagefield.module,v 1.103 2009/08/28 03:53:15 quicksketch Exp $
+// $Id: imagefield.module,v 1.109 2010/05/05 23:26:42 quicksketch Exp $
 
 /**
  * @file
@@ -104,7 +104,7 @@ function imagefield_file_download($filepath) {
     // Allow access to temporary thumbnails, since they're not yet associated
     // with a node. If not temporary, check access on the original file.
     $status = db_result(db_query("SELECT status FROM {files} WHERE filepath = '%s'", $original_full_path));
-    $access = ($status == 0 || module_invoke_all('file_download', $original_path));
+    $access = ($status == 0 || !in_array(-1, module_invoke_all('file_download', $original_path)));
     if ($access && $info = getimagesize($thumb_full_path)) {
       return array(
         'Content-Type: ' . $info['mime'],
@@ -122,6 +122,33 @@ function imagefield_file_download($filepath) {
         'Content-Length: ' . filesize($full_path)
       );
     }
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * Add ALT and title texts to the search index.
+ */
+function imagefield_nodeapi($node, $op) {
+  if ($op == 'update index') {
+    static $fields;
+    if (!isset($fields)) {
+      $fields = filefield_get_field_list();
+    }
+
+    $texts = array();
+    foreach ($fields as $field) {
+      $name = $field['field_name'];
+      // Check this node for ImageField alt and title data.
+      if (isset($node->$name) && is_array($node->$name)) {
+        foreach ($node->$name as $item) {
+          $texts[] = isset($item['data']['alt']) ? $item['data']['alt'] : '';
+          $texts[] = isset($item['data']['title']) ? $item['data']['title'] : '';
+        }
+      }
+    }
+    return implode(' ', $texts);
   }
 }
 
@@ -189,8 +216,13 @@ function imagefield_widget(&$form, &$form_state, $field, $items, $delta = 0) {
 function imagefield_widget_upload_validators($field) {
   $validators = array();
 
+  // Match the default value if no file extensions have been saved at all.
+  if (!isset($field['widget']['file_extensions'])) {
+    $field['widget']['file_extensions'] = 'png gif jpg jpeg';
+  }
+
   // Ensure that only web images are supported.
-  $web_extensions = array('jpg', 'jpeg', 'gif', 'png');
+  $web_extensions = array('png', 'gif', 'jpg', 'jpeg');
   $extensions = array_filter(explode(' ', $field['widget']['file_extensions']));
   if (empty($extensions)) {
     $extensions = $web_extensions;
@@ -309,7 +341,14 @@ function theme_imagefield_image($file, $alt = '', $title = '', $attributes = NUL
     $query_string = $query_character . $file['timestamp'];
   }
 
-  $url = file_create_url($file['filepath']) . $query_string;
+  // Encode the parts of the path.
+  $parts = explode('/', $file['filepath']);
+  foreach ($parts as $n => $part) {
+    $parts[$n] = rawurlencode($part);
+  }
+  $path = implode('/', $parts);
+
+  $url = file_create_url($path) . $query_string;
   $attributes['src'] = $url;
   $attributes = drupal_attributes($attributes);
   return '<img '. $attributes .' />';
@@ -332,7 +371,22 @@ function theme_imagefield_admin_thumbnail($item = NULL) {
     return '<!-- link to default admin thumb -->';
   }
   $thumb_path = imagefield_file_admin_thumb_path($item);
-  return '<img src="'. file_create_url($thumb_path) .'" title="' . check_plain($item['filename']) . '" />';
+
+  // Encode the parts of the path.
+  $parts = explode('/', $thumb_path);
+  foreach ($parts as $n => $part) {
+    $parts[$n] = rawurlencode($part);
+  }
+  $thumb_path = implode('/', $parts);
+
+  // Add a timestamp to the URL to ensure it is immediately updated after editing.
+  $query_string = '';
+  if (isset($item['timestamp'])) {
+    $query_character = (variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC) == FILE_DOWNLOADS_PRIVATE && variable_get('clean_url', '0') == '0') ? '&' : '?';
+    $query_string = $query_character . $item['timestamp'];
+  }
+
+  return '<img src="'. file_create_url($thumb_path) . $query_string . '" title="' . check_plain($item['filename']) . '"  alt="' . t('Image preview') . '" />';
 }
 /**
  * @} End defgroup "Theme Callbacks".

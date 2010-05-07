@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield_meta.views.inc,v 1.1 2009/03/11 06:02:24 quicksketch Exp $
+// $Id: filefield_meta.views.inc,v 1.2 2010/04/24 06:28:03 quicksketch Exp $
 /**
  * @file
  * Provide views data for filefield_meta.module.
@@ -87,7 +87,7 @@ function filefield_meta_views_data() {
     'title' => t('Audio format'),
     'help' => t('The audio format.'),
     'field' => array(
-      'handler' => 'views_handler_field_string',
+      'handler' => 'views_handler_field',
       'click sortable' => TRUE,
     ),
     'sort' => array(
@@ -103,7 +103,7 @@ function filefield_meta_views_data() {
     'title' => t('Audio sample rate'),
     'help' => t('The sample rate of the audio.'),
     'field' => array(
-      'handler' => 'views_handler_field_numeric',
+      'handler' => 'filefield_meta_handler_field_samplerate',
       'click sortable' => TRUE,
      ),
     'sort' => array(
@@ -119,7 +119,7 @@ function filefield_meta_views_data() {
     'title' => t('Audio channel mode'),
     'help' => t('The number of channels in the audio, by name (stereo or mono).'),
     'field' => array(
-      'handler' => 'views_handler_field_string',
+      'handler' => 'views_handler_field',
       'click sortable' => TRUE,
     ),
     'sort' => array(
@@ -135,7 +135,7 @@ function filefield_meta_views_data() {
     'title' => t('Audio bitrate'),
     'help' => t('The audio bitrate.'),
     'field' => array(
-      'handler' => 'views_handler_field_numeric',
+      'handler' => 'filefield_meta_handler_field_bitrate',
       'click sortable' => TRUE,
      ),
     'sort' => array(
@@ -151,14 +151,14 @@ function filefield_meta_views_data() {
     'title' => t('Audio bitrate mode'),
     'help' => t('The kind of audio bitrate, such as VBR. Usually empty.'),
     'field' => array(
-      'handler' => 'views_handler_field_numeric',
+      'handler' => 'views_handler_field',
       'click sortable' => TRUE,
      ),
     'sort' => array(
       'handler' => 'views_handler_sort',
     ),
     'filter' => array(
-      'handler' => 'views_handler_filter_numeric',
+      'handler' => 'views_handler_filter_string',
     ),
   );
 
@@ -175,7 +175,13 @@ function filefield_meta_views_handlers() {
     ),
     'handlers' => array(
       // field handlers
+      'filefield_meta_handler_field_bitrate' => array(
+        'parent' => 'views_handler_field_numeric',
+      ),
       'filefield_meta_handler_field_duration' => array(
+        'parent' => 'views_handler_field_numeric',
+      ),
+      'filefield_meta_handler_field_samplerate' => array(
         'parent' => 'views_handler_field_numeric',
       ),
     ),

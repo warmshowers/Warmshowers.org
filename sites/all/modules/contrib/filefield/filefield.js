@@ -1,4 +1,4 @@
-// $Id: filefield.js,v 1.21 2009/07/03 21:22:57 quicksketch Exp $
+// $Id: filefield.js,v 1.25 2010/04/24 02:47:49 quicksketch Exp $
 
 /**
  * Auto-attach standard client side file input validation.
@@ -15,7 +15,7 @@ Drupal.behaviors.filefieldValidateAutoAttach = function(context) {
     if (accept.length > 1 && this.value.length > 0) {
       var v = new RegExp('\\.(' + accept + ')$', 'gi');
       if (!v.test(this.value)) {
-        var error = Drupal.t("The selected file %filename cannot not be uploaded. Only files with the following extensions are allowed: %extensions.",
+        var error = Drupal.t("The selected file %filename cannot be uploaded. Only files with the following extensions are allowed: %extensions.",
           { '%filename' : this.value, '%extensions' : accept.replace(/\|/g, ', ') }
         );
         // What do I prepend this to?
@@ -37,16 +37,15 @@ Drupal.behaviors.filefieldValidateAutoAttach = function(context) {
  * Prevent FileField uploads when using buttons not intended to upload.
  */
 Drupal.behaviors.filefieldButtons = function(context) {
-  $('input.form-submit')
-    .bind('mousedown', Drupal.filefield.disableFields)
-    .bind('mousedown', Drupal.filefield.progressBar);
+  $('input.form-submit', context).bind('mousedown', Drupal.filefield.disableFields);
+  $('div.filefield-element input.form-submit', context).bind('mousedown', Drupal.filefield.progressBar);
 };
 
 /**
  * Open links to files within the node form in a new window.
  */
 Drupal.behaviors.filefieldPreviewLinks = function(context) {
-  $('div.filefield-element div.widget-preview a').click(Drupal.filefield.openInNewWindow).attr('target', '_blank');
+  $('div.filefield-element div.widget-preview a', context).click(Drupal.filefield.openInNewWindow).attr('target', '_blank');
 }
 
 /**

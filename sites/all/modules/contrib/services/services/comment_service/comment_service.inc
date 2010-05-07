@@ -1,5 +1,5 @@
 <?php
-// $Id: comment_service.inc,v 1.1.2.1.2.2 2009/12/05 01:42:38 heyrocker Exp $
+// $Id: comment_service.inc,v 1.1.2.1.2.4 2010/02/21 01:40:32 heyrocker Exp $
 
 /**
  * @file
@@ -12,15 +12,14 @@
  * If a cid is specified in $comment->cid then that comment is edited.
  *
  * @param $comment
- *   An array matching the form values that would be submitted in the comment
- *   edit form.
+ *   An object as would be returned from comment_load().
  * @return
  *   Unique identifier for the comment (cid) or FALSE if there was a problem.
  */
 function comment_service_save($comment) {
   // If the submitted comment does not contain a uid, set it to anonymous.
-  if (isset($comment->uid)) {
-    $uid = 0;
+  if (!isset($comment->uid)) {
+    $comment->uid = 0;
   }
 
   // If the submitted comment does not contain a nid, then return an error.

@@ -1,5 +1,5 @@
 <?php
-// $Id: imagefield_widget.inc,v 1.40 2009/09/18 15:30:18 quicksketch Exp $
+// $Id: imagefield_widget.inc,v 1.43 2010/05/01 22:39:42 quicksketch Exp $
 
 /**
  * @file
@@ -22,7 +22,7 @@ function imagefield_widget_settings_form($widget) {
     '#default_value' => !empty($widget['max_resolution']) ? $widget['max_resolution'] : 0,
     '#size' => 15,
     '#maxlength' => 10,
-    '#description' => t('The maximum allowed image size expressed as WIDTHxHEIGHT (e.g. 640x480). Set to 0 for no restriction. If a larger image is uploaded, it will be resized to reflect the given width and height. Resizing images on upload will cause the loss of <a href="http://en.wikipedia.org/wiki/Exchangeable_image_file_format">EXIF data</a> in the image.'),
+    '#description' => t('The maximum allowed image size expressed as WIDTHxHEIGHT (e.g. 640x480). Set to 0 for no restriction. If a larger image is uploaded, it will be resized to reflect the given width and height.'),
     '#weight' => 2.1,
   );
   $form['min_resolution'] = array(
@@ -31,10 +31,13 @@ function imagefield_widget_settings_form($widget) {
     '#default_value' => !empty($widget['min_resolution']) ? $widget['min_resolution'] : 0,
     '#size' => 15,
     '#maxlength' => 10,
-    '#description' =>
-    t('The minimum allowed image size expressed as WIDTHxHEIGHT (e.g. 640x480). Set to 0 for no restriction. If an image that is smaller than these dimensions is uploaded it will be rejected.'),
+    '#description' => t('The minimum allowed image size expressed as WIDTHxHEIGHT (e.g. 640x480). Set to 0 for no restriction. If an image that is smaller than these dimensions is uploaded it will be rejected.'),
     '#weight' => 2.2,
   );
+
+  if (!module_exists('imageapi') || imageapi_default_toolkit() == 'imageapi_gd') {
+    $form['max_resolution']['#description'] .= ' ' . t('Resizing images on upload will cause the loss of <a href="http://en.wikipedia.org/wiki/Exchangeable_image_file_format">EXIF data</a> in the image.');
+  }
 
   $form['alt_settings'] = array(
     '#type' => 'fieldset',
@@ -134,7 +137,12 @@ function imagefield_widget_settings_form($widget) {
  * to the $form_state variable.
  */
 function _imagefield_widget_settings_default_validate($element, &$form_state) {
-  // Verify the destination exists
+  // Skip this validation if there isn't a default file uploaded at all.
+  if (!is_uploaded_file($_FILES['files']['tmp_name']['default_image_upload'])) {
+    return;
+  }
+
+  // Verify the destination exists.
   $destination = file_directory_path() .'/imagefield_default_images';
   if (!field_file_check_directory($destination, FILE_CREATE_DIRECTORY)) {
     form_set_error('default_image', t('The default image could not be uploaded. The destination %destination does not exist or is not writable by the server.', array('%destination' => dirname($destination))));
@@ -155,7 +163,7 @@ function _imagefield_widget_settings_default_validate($element, &$form_state) {
   $old_default = $form_state['values']['default_image'];
   if (!empty($old_default['fid'])) {
     if (file_delete(file_create_path($old_default['filepath']))) {
-      db_query('DELETE FROM {files} WHERE fid=%d', $old_default['fid']);
+      db_query('DELETE FROM {files} WHERE fid = %d', $old_default['fid']);
     }
   }
 
@@ -274,5 +282,6 @@ function imagefield_widget_process($element, $edit, &$form_state, $form) {
  */
 function theme_imagefield_widget($element) {
   drupal_add_css(drupal_get_path('module', 'imagefield') .'/imagefield.css');
+  $element['#id'] .= '-upload'; // Link the label to the upload field.
   return theme('form_element', $element, $element['#children']);
 }

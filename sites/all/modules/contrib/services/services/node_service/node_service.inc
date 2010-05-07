@@ -1,5 +1,5 @@
 <?php
-// $Id: node_service.inc,v 1.1.2.11.2.4 2009/12/05 01:42:38 heyrocker Exp $
+// $Id: node_service.inc,v 1.1.2.11.2.10 2010/02/20 23:50:05 heyrocker Exp $
 
 /**
  * @file
@@ -18,11 +18,29 @@
  *   Object. The node object with all wanted fields.
  */
 function node_service_get($nid, $fields = array()) {
-  if (!$node = services_node_load(node_load(array('nid' => $nid)), $fields)) {
-    return services_error(t('Could not find the node.'), 401);
+  global $user;
+  $node = node_load(array('nid' => $nid));
+
+  if ($node) {
+    // Apply field level content permissions
+    if (module_exists('content') && variable_get('services_use_content_permissions', FALSE)) {
+      $content_fields = content_fields(NULL, $node->type);
+      foreach ($content_fields as $field_name => $field_info) {
+        if (isset($node->$field_name)) {
+          $access = module_invoke_all('field_access', 'view', $field_info, $user, $node);
+          if (in_array(FALSE, $access)) {
+            unset($node->$field_name);
+          }
+        }
+      }
+    }
+    $result = services_node_load($node, $fields);
+  }
+  else {
+    $result = services_error(t('Could not find the node.'), 404);
   }
 
-  return $node;
+  return $result;
 }
 
 /**
@@ -122,9 +140,17 @@ function node_service_save($edit) {
     }
   }
   else {
+    // If the submitted node has no author (for instance if it was
+    // created programmatically by hand) then set the currently logged 
+    // in user as the author. 
+    if (!$edit['uid']) {
+      global $user;
+      $edit['uid'] = $user->uid;
+    }
+
     // Setup form_state
     $form_state = array();
-    $form_state['values'] = (array) $edit;
+    $form_state['values'] = $edit;
     $form_state['values']['op'] = t('Save');
 
     $ret = drupal_execute($edit['type'] .'_node_form', $form_state, (object)$edit);

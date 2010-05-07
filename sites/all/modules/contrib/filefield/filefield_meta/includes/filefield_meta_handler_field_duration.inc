@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield_meta_handler_field_duration.inc,v 1.2 2009/03/19 03:43:37 quicksketch Exp $
+// $Id: filefield_meta_handler_field_duration.inc,v 1.3 2010/04/24 06:28:03 quicksketch Exp $
 
 /**
  * @file
@@ -17,9 +17,8 @@ class filefield_meta_handler_field_duration extends views_handler_field_numeric 
 
     $options['format'] = array('default' => 'default', 'translatable' => TRUE);
 
-    // Remove the separator and alter options since we don't need them.
+    // Remove the separator options since we don't need them.
     unset($options['separator']);
-    unset($options['alter']);
 
     return $options;
   }
@@ -27,9 +26,8 @@ class filefield_meta_handler_field_duration extends views_handler_field_numeric 
   function options_form(&$form, &$form_state) {
     parent::options_form($form, $form_state);
 
-    // Remove the separator and alter options since we don't need them.
+    // Remove the separator options since we don't need them.
     unset($form['separator']);
-    unset($form['alter']);
 
     $form['prefix']['#weight'] = 10;
     $form['suffix']['#weight'] = 10;
@@ -49,21 +47,27 @@ class filefield_meta_handler_field_duration extends views_handler_field_numeric 
 
   function render($values) {
     $value = $values->{$this->field_alias};
+
     switch ($this->options['format']) {
       case 'hours':
-        $output = date('g', (int) $value);
+        $value = date('g', (int) $value);
         break;
       case 'minutes':
-        $output = date('i', (int) $value);
+        $value = date('i', (int) $value);
         break;
       case 'seconds':
-        $output = date('s', (int) $value);
+        $value = date('s', (int) $value);
         break;
       case 'total':
-        $output = $value;
+        $value = $value;
         break;
       default:
         $output = theme('filefield_meta_duration', $value);
+    }
+
+    // Check to see if hiding should happen before adding prefix and suffix.
+    if ($this->options['hide_empty'] && empty($value) && ($value !== 0 || $this->options['empty_zero'])) {
+      return '';
     }
 
     return check_plain($this->options['prefix']) . $output . check_plain($this->options['suffix']);

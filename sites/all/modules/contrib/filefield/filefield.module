@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield.module,v 1.209 2009/10/20 17:46:22 quicksketch Exp $
+// $Id: filefield.module,v 1.216 2010/05/05 23:25:24 quicksketch Exp $
 
 /**
  * @file
@@ -154,17 +154,11 @@ function filefield_file_download($file) {
       }
     }
   }
-  // If no file field item is involved with this file, we don't care about it.
-  if (empty($cck_files)) {
-    return;
-  }
 
-  // If any node includes this file but the user may not view this field,
-  // then deny the download.
-  foreach ($cck_files as $field_name => $field_files) {
-    if (!filefield_view_access($field_name)) {
-      return -1;
-    }
+  // If no file field item is involved with this file, we don't care about it,
+  // unless it's a newly uploaded image that isn't yet associated with a field.
+  if (empty($cck_files) && !($file->status == 0 && isset($_SESSION['filefield_access']) && in_array($file->fid, $_SESSION['filefield_access']))) {
+    return;
   }
 
   // So the overall field view permissions are not denied, but if access is
@@ -180,7 +174,7 @@ function filefield_file_download($file) {
       if (isset($nodes[$content['nid']])) {
         continue; // Don't check the same node twice.
       }
-      if ($denied == FALSE && ($node = node_load($content['nid'])) && node_access('view', $node) == FALSE) {
+      if ($denied == FALSE && ($node = node_load($content['nid'])) && (node_access('view', $node) == FALSE || filefield_view_access($field_name, $node) == FALSE)) {
         // You don't have permission to view the node this file is attached to.
         $denied = TRUE;
       }
@@ -300,8 +294,12 @@ function filefield_widget_settings($op, $widget) {
  * Implementation of hook_widget().
  */
 function filefield_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  if (module_exists('devel_themer') && (user_access('access devel theme information') || user_access('access devel information'))) {
+    drupal_set_message(t('Files may not be uploaded while the Theme Developer tool is enabled. It is highly recommended to <a href="!url">disable this module</a> unless it is actively being used.', array('!url' => url('admin/build/modules'))), 'error');
+  }
+
   // CCK doesn't give a validate callback at the field level...
-  // and FAPI's #require is naieve to complex structures...
+  // and FAPI's #require is naive to complex structures...
   // we validate at the field level ourselves.
   if (empty($form['#validate']) || !in_array('filefield_node_form_validate', $form['#validate'])) {
     $form['#validate'][] = 'filefield_node_form_validate';
@@ -340,6 +338,11 @@ function filefield_widget_upload_validators($field) {
     $max_filesize = parse_size($field['widget']['max_filesize_per_file']);
   }
 
+  // Match the default value if no file extensions have been saved at all.
+  if (!isset($field['widget']['file_extensions'])) {
+    $field['widget']['file_extensions'] = 'txt';
+  }
+
   $validators = array(
     // associate the field to the file on validation.
     'filefield_validate_associate_field' => array($field),
@@ -362,6 +365,19 @@ function filefield_widget_upload_validators($field) {
  */
 function filefield_content_is_empty($item, $field) {
   return empty($item['fid']) || (int)$item['fid'] == 0;
+}
+
+/**
+ * Implementation of CCK's hook_content_diff_values().
+ */
+function filefield_content_diff_values($node, $field, $items) {
+  $return = array();
+  foreach ($items as $item) {
+    if (is_array($item) && !empty($item['filepath'])) {
+      $return[] = $item['filepath'];
+    }
+  }
+  return $return;
 }
 
 /**
@@ -397,6 +413,7 @@ function filefield_widget_info() {
       'multiple values' => CONTENT_HANDLE_CORE,
       'callbacks' => array('default value' => CONTENT_CALLBACK_CUSTOM),
       'description' => t('A plain file upload widget.'),
+      'file_extensions' => 'txt',
     ),
   );
 }
@@ -459,8 +476,8 @@ function filefield_icon_url($file) {
  * us to check, so we can make sure that the user may actually edit the file.
  */
 function filefield_edit_access($field_name) {
-  if (module_exists('content_permissions')) {
-    return user_access('edit '. $field_name);
+  if (!content_access('edit', content_fields($field_name))) {
+    return FALSE;
   }
   // No content permissions to check, so let's fall back to a more general permission.
   return user_access('access content');
@@ -469,9 +486,9 @@ function filefield_edit_access($field_name) {
 /**
  * Access callback that checks if the current user may view the filefield.
  */
-function filefield_view_access($field_name) {
-  if (module_exists('content_permissions')) {
-    return user_access('view '. $field_name);
+function filefield_view_access($field_name, $node = NULL) {
+  if (!content_access('view', content_fields($field_name), NULL, $node)) {
+    return FALSE;
   }
   // No content permissions to check, so let's fall back to a more general permission.
   return user_access('access content');
@@ -737,8 +754,8 @@ function filefield_validate_size_help($size) {
 function filefield_validate_image_resolution(&$file, $maximum_dimensions = 0, $minimum_dimensions = 0) {
   $errors = array();
 
-  list($max_width, $max_height) = explode('x', $maximum_dimensions);
-  list($min_width, $min_height) = explode('x', $minimum_dimensions);
+  @list($max_width, $max_height) = explode('x', $maximum_dimensions);
+  @list($min_width, $min_height) = explode('x', $minimum_dimensions);
 
   // Check first that the file is an image.
   if ($info = image_get_info($file->filepath)) {
@@ -751,8 +768,14 @@ function filefield_validate_image_resolution(&$file, $maximum_dimensions = 0, $m
           $errors[] = t('The image must be exactly %dimensions pixels.', array('%dimensions' => $maximum_dimensions));
         }
         // Check that scaling won't drop the image below the minimum dimensions.
-        elseif (image_get_toolkit() && (($info['width'] * $ratio < $min_width) || ($info['height'] * $ratio < $min_height))) {
+        elseif ((image_get_toolkit() || module_exists('imageapi')) && (($info['width'] * $ratio < $min_width) || ($info['height'] * $ratio < $min_height))) {
           $errors[] = t('The image will not fit between the dimensions of %min_dimensions and %max_dimensions pixels.', array('%min_dimensions' => $minimum_dimensions, '%max_dimensions' => $maximum_dimensions));
+        }
+        // Try resizing the image with ImageAPI if available.
+        elseif (module_exists('imageapi') && imageapi_default_toolkit()) {
+          $res = imageapi_image_open($file->filepath);
+          imageapi_image_scale($res, $max_width, $max_height);
+          imageapi_image_close($res, $file->filepath);
         }
         // Try to resize the image to fit the dimensions.
         elseif (image_get_toolkit() && @image_scale($file->filepath, $file->filepath, $max_width, $max_height)) {
@@ -971,9 +994,13 @@ function filefield_get_node_files($node, $field = NULL) {
   // Get the file rows.
   foreach ($fields as $field) {
     $db_info = content_database_info($field);
-    $sql =  'SELECT f.* FROM {files} f INNER JOIN {' . $db_info['table'] . '} c ON f.fid = c.' . $db_info['columns']['fid']['column'] . ' AND c.vid = %d';
+    $fields = 'f.*';
+    $fields .= ', c.'. $db_info['columns']['list']['column'] .' AS list';
+    $fields .= ', c.'. $db_info['columns']['data']['column'] .' AS data';
+    $sql =  'SELECT '. $fields .' FROM {files} f INNER JOIN {' . $db_info['table'] . '} c ON f.fid = c.' . $db_info['columns']['fid']['column'] . ' AND c.vid = %d';
     $result = db_query($sql, $node->vid);
     while ($file = db_fetch_array($result)) {
+      $file['data'] = unserialize($file['data']);
       $files[$file['fid']] = $file;
     }
   }

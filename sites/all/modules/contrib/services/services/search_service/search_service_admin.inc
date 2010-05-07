@@ -1,5 +1,5 @@
 <?php
-// $Id: search_service_admin.inc,v 1.1.2.1 2009/03/07 19:10:18 marcingy Exp $
+// $Id: search_service_admin.inc,v 1.1.2.1.2.1 2010/02/22 01:53:33 heyrocker Exp $
 
 /**
  * @file
@@ -7,7 +7,7 @@
  */
 
 /**
- * Form to choose which search services
+ * Menu callback to set content search service settings.
  */
 function search_service_admin() {
 

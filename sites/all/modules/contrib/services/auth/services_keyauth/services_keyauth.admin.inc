@@ -1,11 +1,14 @@
 <?php
-// $Id: services_keyauth.admin.inc,v 1.1.2.2.2.4 2009/12/03 05:59:35 heyrocker Exp $
+// $Id: services_keyauth.admin.inc,v 1.1.2.2.2.7 2010/02/26 17:32:33 heyrocker Exp $
 
 /**
  * @file
  *  Generate security keys.
  */
 
+/**
+ * Display all the available API keys.
+ */
 function services_keyauth_admin_keys_list() {
   $keys = services_keyauth_get_keys();
   $header = array(t('Key'), t('Title'), t('Domain'), array('data' => t('Operations'), 'colspan' => '2'));
@@ -40,6 +43,9 @@ function services_keyauth_admin_keys_list() {
   return theme('table', $header, $rows);
 }
 
+/**
+ * Display the form to create or edit API keys.
+ */
 function services_keyauth_admin_keys_form() {
   $kid = arg(4);
 
@@ -100,12 +106,24 @@ function services_keyauth_admin_keys_form() {
   return $form;
 }
 
+/**
+ * Submit callback for services_keyauth_admin_keys_form().
+ */
 function services_keyauth_admin_keys_form_submit($form, &$form_state) {
   services_keyauth_admin_keys_save($form_state['values']);
 
   $form_state['redirect']  =  'admin/build/services/keys';
 }
 
+/**
+ * Save an API key.
+ *
+ * @param $key
+ *   Associative array containing API key information.
+ *
+ * @return
+ *   A constant, either SAVED_NEW or SAVED_UDPATED.
+ */
 function services_keyauth_admin_keys_save(&$key) {
   $is_existing = FALSE;
   $key['kid'] = !empty($key['kid']) ? $key['kid'] : md5(uniqid(mt_rand(), TRUE));
@@ -131,10 +149,19 @@ function services_keyauth_admin_keys_save(&$key) {
   return $return;
 }
 
+/**
+ * Delete an API key.
+ *
+ * @param $kid
+ *   Unique identifier from the services_keys table.
+ */
 function services_keyauth_admin_keys_delete($kid) {
   db_query("DELETE FROM {services_keys} WHERE kid = '%s'", $kid);
 }
 
+/**
+ * Show a form to confirm whether an API key should be deleted.
+ */
 function services_keyauth_admin_keys_delete_confirm(&$form_state, $kid = 0) {
   $key = db_fetch_object(db_query("SELECT * FROM {services_keys} WHERE kid = '%s'", $kid));
 
@@ -148,6 +175,9 @@ function services_keyauth_admin_keys_delete_confirm(&$form_state, $kid = 0) {
   return confirm_form($form, $message, 'admin/build/services/keys', $caption, t('Delete'));
 }
 
+/**
+ * Submit form callback for services_keyauth_admin_keys_delete_confirm().
+ */
 function services_keyauth_admin_keys_delete_confirm_submit($form, &$form_state) {
   services_keyauth_admin_keys_delete($form_state['values']['kid']);
 

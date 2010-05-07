@@ -1,24 +1,22 @@
 <?php
-// $Id: services_keyauth.module,v 1.1.2.6.2.4 2009/12/05 01:42:38 heyrocker Exp $
+// $Id: services_keyauth.module,v 1.1.2.6.2.6 2010/02/27 00:34:33 heyrocker Exp $
 /**
  * @file
  *  Provides a key based validation system.
  */
+
 /**
  * Implementation of hook_cron().
- *
- * Clear down old values from the nonce table.
  */
 function services_keyauth_cron() {
+  // Clear old values from the nonce table.
   $expiry_time = time() - variable_get('services_key_expiry', 30);
   db_query("DELETE FROM {services_timestamp_nonce}
     WHERE timestamp < '%s'", $expiry_time);
 }
 
 /**
- * This function is called to determine whether the current user has 
- * access to a keys configuration.
- * 
+ * Determine whether the current user has access to a keys configuration.
  */
 function services_keyauth_access() {
   return user_access('administer services') && variable_get('services_use_key', TRUE);
@@ -26,9 +24,6 @@ function services_keyauth_access() {
 
 /**
  * Implementation of hook_authentication_info().
- *
- * @return array
- *  The configuration array for the authentication scheme
  */
 function services_keyauth_authentication_info() {
   return array(
@@ -92,6 +87,29 @@ function services_keyauth_menu() {
   return $items;
 }
 
+/**
+ * Given the necessary data, create a unique hash for key authentication.
+ *
+ * This has is compared to the has passed in by the client to verify
+ * that the two match.
+ *
+ * @param $timestamp
+ *   Current time in unix timestamp format.
+ * @param $domain
+ *   A unique value to identify this request. This typically matched the
+ *   client's domain, but does not have to.
+ * @param $nonce
+ *   A random value. 
+ * @param $method
+ *   The services method being called.
+ * @param $args
+ *   An array of argument for the method.
+ *
+ * @return
+ *   A sha256 hash of the above data, plus the API key.
+ *
+ * @see _services_keyauth_authenticate_call()
+ */
 function services_get_hash($timestamp, $domain, $nonce, $method, $args) {
   $hash_parameters = array($timestamp, $domain, $nonce, $method['method']);
   foreach ($method['args'] as $key => $arg) {
@@ -113,6 +131,15 @@ function services_get_hash($timestamp, $domain, $nonce, $method, $args) {
   return hash_hmac("sha256", implode(';', $hash_parameters), $api_key);
 }
 
+/**
+ * Return key inforamtion for a specified API key.
+ *
+ * @param $kid
+ *   The Key ID for this key in the services_keys table.
+ *
+ * @return
+ *   An object with the key's title and domain.
+ */
 function services_keyauth_get_key($kid) {
   $keys = services_keyauth_get_keys();
   foreach ($keys as $key) {
@@ -122,6 +149,13 @@ function services_keyauth_get_key($kid) {
   }
 }
 
+/**
+ * Return key inforamtion for all API keys.
+ *
+ * @return
+ *   An associative array of objects with the key's title and domain,
+ *   keyed on the Key ID.
+ */
 function services_keyauth_get_keys() {
   static $keys;
   if (!$keys) {
@@ -134,10 +168,17 @@ function services_keyauth_get_keys() {
   return $keys;
 }
 
-function service_keyauth_disable() {
+
+/**
+ * Clear cache when keyauth is disabled.
+ */
+function services_keyauth_disable() {
   cache_clear_all('services:methods', 'cache');
 }
 
-function service_keyauth_enable() {
+/**
+ * Clear cache when keyauth is enabled.
+ */
+function services_keyauth_enable() {
   cache_clear_all('services:methods', 'cache');
 }

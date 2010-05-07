@@ -1,5 +1,5 @@
 <?php
-// $Id: views_service.inc,v 1.1.2.12.2.3 2009/12/05 01:42:39 heyrocker Exp $
+// $Id: views_service.inc,v 1.1.2.12.2.4 2010/02/20 05:13:29 heyrocker Exp $
 /**
  * @file
  *  Link general views functionalities to services module.
@@ -44,6 +44,16 @@ function views_service_get($view_name, $display_id = 'default', $args = array(),
     $view->set_display($display_id);
     $view->execute();
     $result = $view->result;
+
+    $row_plugin = $view->display_handler->get_option('row_plugin');
+    // If row plugin is node, then we should load each node
+    if ($row_plugin == 'node') {
+      $nodes = array();
+      foreach ($view->result as $row) {
+        $nodes[] = services_node_load(node_load($row->nid));
+      }
+      $result = $nodes;
+    }
   }
   else {
     // We want to keep the result an array.

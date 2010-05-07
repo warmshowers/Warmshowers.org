@@ -1,5 +1,5 @@
 <?php
-// $Id: services_admin_browse.inc,v 1.5.2.45.2.5 2009/12/05 15:22:00 heyrocker Exp $
+// $Id: services_admin_browse.inc,v 1.5.2.45.2.7 2010/02/27 05:43:16 heyrocker Exp $
 /**
  * @file
  *  Browser thru all services and servers.
@@ -180,10 +180,15 @@ function services_admin_browse_test_submit($form, $form_state) {
   global $_services_admin_browse_test_submit_result;
   $method = services_method_get(arg(4));
   $args = services_admin_browse_test_unserialize_args($form_state['values']['arg'], $form_state['values']['format']);
-  // Allow the authorization module to handle submitted values.
+  // Allow the authentication module to handle submitted values.
   services_auth_invoke('alter_browse_form_submit', $method, $args);
   $result = services_method_call($method['method'], $args, TRUE);
-  $_services_admin_browse_test_submit_result = '<pre>'. htmlspecialchars(print_r($result, TRUE)) .'</pre>';
+  // if the devel module is installed use kpr for fancy output with types
+  if (function_exists('kpr')) {
+    $_services_admin_browse_test_submit_result = kpr($result, true);
+  } else {
+    $_services_admin_browse_test_submit_result = '<pre>'. htmlspecialchars(print_r($result, TRUE)) .'</pre>';
+  }
 }
 
 function services_admin_browse_test_unserialize_args($values, $formats) {
@@ -281,7 +286,7 @@ function services_admin_settings() {
 
   // Add security options.
   if (!empty($auth_modules)) {
-    $auth_options = array('' => t('-- Select a authorization module'));
+    $auth_options = array('' => t('-- Select an authentication module'));
     foreach ($auth_modules as $module) {
       $info = services_auth_info(NULL, $module);
       services_strip_hashes($info);
@@ -289,15 +294,15 @@ function services_admin_settings() {
       $auth_options[$info['description']][$module] = $info['title'];
     }
 
-    $form['security'] = array(
-      '#title'        => t('Security'),
+    $form['authentication'] = array(
+      '#title'        => t('Authentication'),
       '#type'         => 'fieldset',
-      '#description'  => t('Changing security settings will require you to adjust all method calls. This will affect all applications using site services.'),
+      '#description'  => t('Changing authentication settings will require you to adjust all method calls. This will affect all applications using site services.'),
     );
 
-    $form['security']['auth_module'] = array(
+    $form['authentication']['auth_module'] = array(
       '#type' => 'select',
-      '#title' => t('Authorization module'),
+      '#title' => t('Authentication module'),
       '#options' => $auth_options,
       '#required' => FALSE,
       '#default_value' => variable_get('services_auth_module', ''),
@@ -310,24 +315,31 @@ function services_admin_settings() {
 
     // Placeholder for the auth module options
     // also used as wrapper for ahah.
-    $form['security']['options'] = array(
+    $form['authentication']['options'] = array(
       '#prefix' => '<div id="security-module-options">',
       '#suffix' => '</div>',
       'settings' => array(
         '#value' => sprintf('<div class="description">%s</div>',
-          t('Select a authorization module to configure security')),
+          t('Select an authentication module.')),
       ),
     );
-    // Get the configuration form for the authorization module
+    // Get the configuration form for the authentication module
     $settings = services_auth_invoke('security_settings');
     if (is_array($settings)) {
-      $form['security']['options']['settings'] = $settings;
+      $form['authentication']['options']['settings'] = $settings;
     }
   }
-  else { // Warn if no authorization module has been installed.
-    drupal_set_message(t('No authorization modules have been installed'), 'warning');
+  else { // Warn if no authentication module has been installed.
+    drupal_set_message(t('No authentication modules have been installed'), 'warning');
   }
 
+  $form['services_use_content_permissions'] = array(
+    '#type'           => 'checkbox',
+    '#title'          => t('Apply content permissions'),
+    '#default_value'  => variable_get('services_use_content_permissions', FALSE),
+    '#description'    => t('CCK includes the optional Content Permissions module, which allows administrators to restrict access to content at the field level. By default, node services do NOT apply these permissions, causing all fields to be returned in all cases. Checking this box causes content permissions to be applied to node services.'),
+  );
+  
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save settings'),
@@ -364,8 +376,11 @@ function services_admin_settings_submit($form, $form_state) {
     drupal_set_message('Updated authentication settings');
   }
 
-  // Allow the authorization module to handle submitted values.
+  // Allow the authentication module to handle submitted values.
   services_auth_invoke('security_settings_submit', $form_state);
+  
+  // Apply the content permissions setting.
+  variable_set('services_use_content_permissions', $form_state['values']['services_use_content_permissions']);
 
   // Clear the services cache so that methods and resources are updated according to auth settings
   cache_clear_all('services:', 'cache', TRUE);

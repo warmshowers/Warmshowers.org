@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield_widget.inc,v 1.89 2009/07/25 04:35:03 quicksketch Exp $
+// $Id: filefield_widget.inc,v 1.95 2010/04/28 23:27:16 quicksketch Exp $
 
 /**
  * @file
@@ -14,12 +14,17 @@
  */
 function filefield_widget_settings_form($widget) {
   $form = array();
+
+  // Convert the extensions list to be a human-friendly comma-separated list.
+  $extensions = is_string($widget['file_extensions']) ? $widget['file_extensions'] : 'txt';
+  $extensions = implode(', ', explode(' ', $extensions));
   $form['file_extensions'] = array(
     '#type' => 'textfield',
     '#title' => t('Permitted upload file extensions'),
-    '#default_value' => is_string($widget['file_extensions']) ? $widget['file_extensions'] : 'txt',
+    '#default_value' => $extensions,
     '#size' => 64,
     '#description' => t('Extensions a user can upload to this field. Separate extensions with a space and do not include the leading dot. Leaving this blank will allow users to upload a file with any extension.'),
+    '#element_validate' => array('_filefield_widget_settings_extensions_validate'),
     '#weight' => 1,
   );
 
@@ -87,6 +92,14 @@ function filefield_widget_settings_form($widget) {
  */
 function filefield_widget_settings_save($widget) {
   return array('file_extensions', 'file_path', 'progress_indicator', 'max_filesize_per_file', 'max_filesize_per_node');
+}
+
+function _filefield_widget_settings_extensions_validate($element, &$form_state) {
+  // Remove commas from file extensions.
+  $value = str_replace(',', ' ', $element['#value']);
+  $value = array_filter(explode(' ', $value));
+  $value = implode(' ', $value);
+  form_set_value($element, $value, $form_state);
 }
 
 function _filefield_widget_settings_file_path_validate($element, &$form_state) {
@@ -243,7 +256,7 @@ function filefield_widget_process($element, $edit, &$form_state, $form) {
   $delta = $element['#delta'];
   $element['#theme'] = 'filefield_widget_item';
 
-  $field = content_fields($element['#field_name'], $element['#type_name']);
+  $field = $form['#field_info'][$field_name];
 
   // Title is not necessary for each individual field.
   if ($field['multiple'] > 0) {
@@ -347,6 +360,11 @@ function filefield_widget_process($element, $edit, &$form_state, $form) {
     );
   }
 
+  // Grant access to temporary files.
+  if ($item['fid'] && isset($item['status']) && $item['status'] == 0 && variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC) == FILE_DOWNLOADS_PRIVATE) {
+    $_SESSION['filefield_access'][] = $item['fid'];
+  }
+
   // placeholder.. will be serialized into the data column. this is a place for widgets
   // to put additional data.
   $element['data'] = array(
@@ -368,7 +386,7 @@ function filefield_widget_process($element, $edit, &$form_state, $form) {
     $element['list'] = array(
       '#type' => empty($item['fid']) ? 'hidden' : 'checkbox',
       '#title' => t('List'),
-      '#value' => isset($item['list']) ? $item['list'] : $field['list_default'],
+      '#value' => isset($item['list']) && !empty($item['fid']) ? $item['list'] : $field['list_default'],
       '#attributes' => array('class' => 'filefield-list'),
     );
   }
@@ -433,6 +451,7 @@ function filefield_widget_validate(&$element, &$form_state) {
  * FormAPI theme function. Theme the output of an image field.
  */
 function theme_filefield_widget($element) {
+  $element['#id'] .= '-upload'; // Link the label to the upload field.
   return theme('form_element', $element, $element['#children']);
 }
 
@@ -506,8 +525,7 @@ function theme_filefield_widget_file($element) {
  * properly supported on file fields by Drupal core, so we do this manually.
  */
 function filefield_node_form_validate($form, &$form_state) {
-  $type = content_types($form['type']['#value']);
-  foreach ($type['fields'] as $field_name => $field) {
+  foreach ($form['#field_info'] as $field_name => $field) {
     if (!(in_array($field['module'], array('imagefield', 'filefield')))) continue;
     $empty = $field['module'] .'_content_is_empty';
     $valid = FALSE;

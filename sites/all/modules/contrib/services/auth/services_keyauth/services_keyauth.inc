@@ -1,11 +1,14 @@
 <?php
-// $Id: services_keyauth.inc,v 1.1.2.8.2.10 2009/12/11 14:32:42 heyrocker Exp $
+// $Id: services_keyauth.inc,v 1.1.2.8.2.12 2010/02/27 17:22:11 heyrocker Exp $
 
 /**
  * @file
  *  The implementation of the key authentication scheme
  */
 
+/**
+ * AHAH callback for keyauth settings form piece.
+ */
 function _services_keyauth_security_settings() {
   $form['services_use_key'] = array(
     '#type'           => 'checkbox',
@@ -30,12 +33,18 @@ function _services_keyauth_security_settings() {
   return $form;
 }
 
+/**
+ * Validate callback for keyauth security settings form.
+ */
 function _services_keyauth_security_settings_validate($form_state) {
   if (!preg_match('/^\d+$/', $form_state['values']['services_key_expiry'])) {
     form_set_error('services_key_expiry', t('The token expiry time must specified in whole seconds as a number'));
   }
 }
 
+/**
+ * Submit callback for keyauth security settings form.
+ */
 function _services_keyauth_security_settings_submit($form_state) {
   // Store all values from "our" form as variables.
   foreach (_services_keyauth_security_settings() as $key => $field) {
@@ -43,6 +52,12 @@ function _services_keyauth_security_settings_submit($form_state) {
   }
 }
 
+/**
+ * Alter method signatures to add required arguments for key authentication.
+ *
+ * @param $methods
+ *   An array of all enabled service methods.
+ */
 function _services_keyauth_alter_methods(&$methods) {
   // Skip this if no services have been activated
   if (!is_array($methods) || empty($methods)) {
@@ -90,8 +105,13 @@ function _services_keyauth_alter_methods(&$methods) {
         $method['auth'] = FALSE;
         break;
       default:
-        $method['key'] = isset($method['key']) ? FALSE : TRUE;
-        $method['auth'] = isset($method['auth']) ? FALSE : TRUE;
+        if (!isset($method['key'])) {
+          $method['key'] = TRUE;
+        }
+
+        if (!isset($method['auth'])) {
+          $method['auth'] = TRUE;
+        }
         break;
     }
 
@@ -108,6 +128,14 @@ function _services_keyauth_alter_methods(&$methods) {
   }
 }
 
+/**
+ * Alter service browser form to add required arguments for key authentication.
+ *
+ * @param $form
+ *   The services browser form.
+ * @param $method
+ *   The method currently being browsed.
+ */
 function _services_keyauth_alter_browse_form(&$form, $method) {
 
   foreach ($method['args'] as $key => $arg) {
@@ -141,6 +169,18 @@ function _services_keyauth_alter_browse_form(&$form, $method) {
   }
 }
 
+/**
+ * Authenticate a services method call with key authentication.
+ *
+ * @param $method
+ *   A method definition as returned by services_method_get().
+ * @param $method_name
+ *   The name of the method being called
+ * @param $args
+ *   An array of arguments required by key authentication. These are
+ *   hash, domain, timestamp, and nonce. They must be in the array in
+ *   this order.
+ */
 function _services_keyauth_authenticate_call($method, $method_name, &$args) {
   if ($method['key'] && variable_get('services_use_key', TRUE)) {
     $hash = array_shift($args);
@@ -189,6 +229,9 @@ function _services_keyauth_authenticate_call($method, $method_name, &$args) {
   }
 }
 
+/**
+ * Submit callback for services browse form.
+ */
 function _services_keyauth_alter_browse_form_submit($method, &$args) {
   if ($method['key'] && variable_get('services_use_key', TRUE)) {
     $args_stripped = $args;
