@@ -19,14 +19,14 @@
           <?php endif; ?>
         <?php endif; ?>
       </div><!-- /#branding -->
-
-      <?php if ($main_menu_links || $secondary_menu_links): ?>
+      <?php if ($primary_nav || $secondary_nav): ?>
         <div id="site-menu" class="grid-<?php print $header_menu_width; ?>">
-        <?php if($main_menu_links): ?>
-          <div><?php print $main_menu_links; ?></div>
+       
+        <?php if($primary_nav): ?>
+          <div><?php print $primary_nav; ?></div>
         <?php endif; ?>
-        <?php if($secondary_menu_links): ?>
-          <div><?php print $secondary_menu_links; ?></div>
+        <?php if($secondary_nav): ?>
+          <div><?php print $secondary_nav; ?></div>
         <?php endif; ?>
         </div><!-- /#site-menu -->
       <?php endif; ?>
