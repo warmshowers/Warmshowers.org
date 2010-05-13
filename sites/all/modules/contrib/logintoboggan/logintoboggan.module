@@ -1,5 +1,5 @@
 <?php
-// $Id: logintoboggan.module 552 2009-10-26 21:29:47Z rfay $
+// $Id: logintoboggan.module,v 1.133.2.39 2010/05/12 17:35:56 thehunmonkgroup Exp $
 
 /**
  * @file
@@ -155,12 +155,17 @@ function logintoboggan_form_alter(&$form, $form_state, $form_id) {
       $form['#validate'][] = 'logintoboggan_user_edit_validate';
       $account = user_load(array('uid' => arg(1)));
       $id = logintoboggan_validating_id();
+      $pre_auth = !variable_get('user_email_verification', TRUE) && $id != DRUPAL_AUTHENTICATED_RID;
       $in_pre_auth_role = in_array($id, array_keys($account->roles));
       // Messages are only necessary for user admins, and aren't necessary if
-      // pre-auth role is authenticated user.
-      if (user_access('administer users') && isset($form['account']['roles']) && $id != DRUPAL_AUTHENTICATED_RID) {
+      // there's no valid pre-auth role.
+      if (user_access('administer users') && isset($form['account']['roles']) && $pre_auth) {
         // User is still in the pre-auth role, so let the admin know.
         if ($in_pre_auth_role) {
+          // To reduce UI confusion, remove the disabled checkbox for the
+          // authenticated user role.
+          unset($form['account']['roles'][DRUPAL_AUTHENTICATED_RID]);
+
           if ((variable_get('user_register', 1) == 2)) {
             $form['account']['status']['#description'] = t('If this user was created using the "Immediate Login" feature of LoginToboggan, and they are also awaiting adminstrator approval on their account, you must remove them from the site\'s pre-authorized role in the "Roles" section below, or they will not receive authenticated user permissions!');
           }
@@ -183,10 +188,9 @@ function logintoboggan_form_alter(&$form, $form_state, $form_id) {
           '#weight' => -50,
         );
       }
-      $form['name']['#attributes']['tabindex']    = '1';
-      $form['pass']['#attributes']['tabindex']    = '2';
-      $form['submit']['#attributes']['tabindex']  = '3';
       if (variable_get('logintoboggan_login_with_email', 0)) {
+        // Ensure a valid validate array.
+        $form['#validate'] = is_array($form['#validate']) ? $form['#validate'] : array();
         // LT's validation function must run first.
         array_unshift($form['#validate'],'logintoboggan_user_login_validate');
         // Use theme functions to print the username field's textual labels.
@@ -220,6 +224,9 @@ function logintoboggan_form_alter(&$form, $form_state, $form_id) {
       }
       $mail = variable_get('logintoboggan_confirm_email_at_registration', 0);
       $pass = !variable_get('user_email_verification', TRUE);
+
+      // Ensure a valid submit array.
+      $form['#submit'] = is_array($form['#submit']) ? $form['#submit'] : array();
 
       // Replace core's registration function with LT's registration function.
       // Put the LT submit handler first, so other submit handlers have a valid
@@ -270,9 +277,11 @@ function logintoboggan_form_alter(&$form, $form_state, $form_id) {
 
     // Unset the ability to add the pre-auth role in the user admin interface.
     case 'user_admin_account':
+      // Test here for a valid pre-auth -- we only remove this role if one exists.
       $id = logintoboggan_validating_id();
+      $pre_auth = !variable_get('user_email_verification', TRUE) && $id != DRUPAL_AUTHENTICATED_RID;
       $add = t('Add a role to the selected users');
-      if ($id != DRUPAL_AUTHENTICATED_RID && isset($form['options']['operation']['#options'][$add]["add_role-$id"])) {
+      if ($pre_auth && isset($form['options']['operation']['#options'][$add]["add_role-$id"])) {
         unset($form['options']['operation']['#options'][$add]["add_role-$id"]);
       }
       break;
@@ -435,7 +444,7 @@ function logintoboggan_user_register_validate($form, &$form_state) {
  * @ingroup logintoboggan_form
  */
 function logintoboggan_user_edit_validate($form, &$form_state) {
-  if (strlen($form_state['values']['pass'])) {
+  if (!empty($form_state['values']['pass'])) {
     // if we're changing the password, validate it
     $pass_err = logintoboggan_validate_pass($form_state['values']['pass']);
     if ($pass_err) {
@@ -507,10 +516,12 @@ function logintoboggan_menu() {
   );
 
   // Callback for user validate routine.
-  $items['user/validate'] = array(
+  $items['user/validate/%user/%/%'] = array(
     'title' => 'Validate e-mail address',
     'page callback' => 'logintoboggan_validate_email',
-    'access callback' => TRUE,
+    'page arguments' => array(2, 3, 4),
+    'access callback' => 'logintoboggan_validate_email_access',
+    'access arguments' => array(2, 3),
     'type' => MENU_CALLBACK,
   );
 
@@ -523,7 +534,7 @@ function logintoboggan_menu() {
   );
 
   //callback for re-sending validation e-mail
-  $items['toboggan/revalidate'] = array(
+  $items['toboggan/revalidate/%user'] = array(
     'title' => 'Re-send validation e-mail',
     'page callback' => 'logintoboggan_resend_validation',
     'page arguments' => array(2),
@@ -538,10 +549,10 @@ function logintoboggan_menu() {
 /**
  * Access check for user revalidation.
  */
-function logintoboggan_revalidate_access($uid) {
+function logintoboggan_revalidate_access($account) {
   global $user;
 
-  return $user->uid == $uid || user_access('administer users');
+  return $user->uid && ($user->uid == $account->uid || user_access('administer users'));
 }
 
 /**
@@ -552,16 +563,16 @@ function logintoboggan_revalidate_access($uid) {
 function logintoboggan_theme() {
   return array(
     'lt_username_title' => array(
-      'arguments' => array('form_id'),
+      'arguments' => array('form_id' => NULL),
     ),
     'lt_username_description' => array(
-      'arguments' => array('form_id'),
+      'arguments' => array('form_id' => NULL),
     ),
     'lt_password_title' => array(
-      'arguments' => array('form_id'),
+      'arguments' => array('form_id' => NULL),
     ),
     'lt_password_description' => array(
-      'arguments' => array('form_id'),
+      'arguments' => array('form_id' => NULL),
     ),
     'lt_access_denied' => array(
       'arguments' => array(),
@@ -573,7 +584,7 @@ function logintoboggan_theme() {
       'arguments' => array(),
     ),
     'lt_login_successful_message' => array(
-      'arguments' => array('account'),
+      'arguments' => array('account' => NULL),
     ),
   );
 }
@@ -648,15 +659,12 @@ function _logintoboggan_toggleboggan ($form) {
 }
 
 function logintoboggan_main_settings(&$form_state) {
-  $version = str_replace(array('$Re'.'vision:', '$Da'.'te:', '$'), array('', '', ''), '<p style="font-size:x-small">Login Toboggan version: <b>$Revision: 1.133.2.24 $</b>, $Date: 2009/10/16 14:30:15 $</p>');
-
-  $_disabled = t('disabled');
-  $_enabled = t('enabled');
+  $_disabled = t('Disabled');
+  $_enabled = t('Enabled');
 
   $form['login'] = array(
     '#type' => 'fieldset',
     '#title' => t('Login'),
-    '#prefix' => $version,
   );
 
   $form['login']['logintoboggan_login_with_email'] = array(
@@ -744,14 +752,14 @@ function logintoboggan_main_settings(&$form_state) {
 
   $form['registration']['redirect']['logintoboggan_redirect_on_register'] = array(
     '#type' => 'textfield',
-    '#title' => t('Redirect path on Registration'),
+    '#title' => t('Redirect path on registration'),
     '#default_value' => variable_get('logintoboggan_redirect_on_register', ''),
     '#description' => t('Normally, after a user registers a new account, they will be taken to the front page, or to their user page if you specify <cite>Immediate login</cite> above. Leave this setting blank if you wish to keep the default behavior. If you wish the user to go to a page of your choosing, then enter the path for it here. For instance, you may redirect them to a static page such as <cite>node/35</cite>, or to the <cite>&lt;front&gt;</cite> page. You may also use <em>%uid</em> as a variable, and the user\'s user ID will be substituted in the path.'),
   );
 
   $form['registration']['redirect']['logintoboggan_redirect_on_confirm'] = array(
     '#type' => 'textfield',
-    '#title' => t('Redirect path on Confirmation'),
+    '#title' => t('Redirect path on confirmation'),
     '#default_value' => variable_get('logintoboggan_redirect_on_confirm', ''),
     '#description' => t('Normally, after a user confirms their new account, they will be taken to their user page. Leave this setting blank if you wish to keep the default behavior. If you wish the user to go to a page of your choosing, then enter the path for it here. For instance, you may redirect them to a static page such as <cite>node/35</cite>, or to the <cite>&lt;front&gt;</cite> page. You may also use <em>%uid</em> as a variable, and the user\'s user ID will be substituted in the path. In the case where users are not creating their own passwords, it is suggested to use <cite>user/%uid/edit</cite> here, so the user may set their password immediately after validating their account.'),
   );
@@ -902,87 +910,86 @@ function logintoboggan_validating_id() {
   return variable_get('logintoboggan_pre_auth_role', DRUPAL_AUTHENTICATED_RID);
 }
 
+/**
+ * Access check for user e-mail validation.
+ */
+function logintoboggan_validate_email_access($account, $timestamp) {
+  return $account->uid && $timestamp < time();
+}
 
 /**
  * Menu callback; process validate the e-mail address as a one time URL,
  * and redirects to the user page on success.
  */
-function logintoboggan_validate_email($uid, $timestamp, $hashed_pass, $action = 'login') {
+function logintoboggan_validate_email($account, $timestamp, $hashed_pass, $action = 'login') {
+  global $user;
 
-  $current = time();
-  $uid = (int) $uid;
-  // Some redundant checks for extra security
-  if ($timestamp < $current && $uid && $account = user_load(array('uid' => $uid)) ) {
-    // No time out for first time login.
-    // This conditional checks that:
-    // - the user is still in the pre-auth role or didn't set
-    //   their own password.
-    // - the hashed password is correct.
-    if (((variable_get('user_email_verification', TRUE) && empty($account->login)) || array_key_exists(logintoboggan_validating_id(), $account->roles)) && $hashed_pass == logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail)) {
-      watchdog('user', 'E-mail validation URL used for %name with timestamp @timestamp.', array('%name' => $account->name, '@timestamp' => $timestamp));
-      // Update the user table noting user has logged in.
-      // And this also makes this hashed password a one-time-only login.
-      db_query("UPDATE {users} SET login = '%d' WHERE uid = %d", time(), $account->uid);
+  // No time out for first time login.
+  // This conditional checks that:
+  // - the user is still in the pre-auth role or didn't set
+  //   their own password.
+  // - the hashed password is correct.
+  if (((variable_get('user_email_verification', TRUE) && empty($account->login)) || array_key_exists(logintoboggan_validating_id(), $account->roles)) && $hashed_pass == logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail)) {
+    watchdog('user', 'E-mail validation URL used for %name with timestamp @timestamp.', array('%name' => $account->name, '@timestamp' => $timestamp));
 
-      // Test here for a valid pre-auth -- if the pre-auth is set to the auth user, we
-      // handle things a bit differently.
-      $validating_id = logintoboggan_validating_id();
-      $pre_auth = !variable_get('user_email_verification', TRUE) && $validating_id != DRUPAL_AUTHENTICATED_RID;
+    // Test here for a valid pre-auth -- if the pre-auth is set to the auth user, we
+    // handle things a bit differently.
+    $validating_id = logintoboggan_validating_id();
+    $pre_auth = !variable_get('user_email_verification', TRUE) && $validating_id != DRUPAL_AUTHENTICATED_RID;
 
-      _logintoboggan_process_validation($account);
+    _logintoboggan_process_validation($account);
 
-      // Where do we redirect after confirming the account?
-      $redirect = _logintoboggan_process_redirect(variable_get('logintoboggan_redirect_on_confirm', ''), $account);
+    // Where do we redirect after confirming the account?
+    $redirect = _logintoboggan_process_redirect(variable_get('logintoboggan_redirect_on_confirm', ''), $account);
 
-      switch ($action) {
-        // Proceed with normal user login, as long as it's open registration and their
-        // account hasn't been blocked.
-        case 'login':
-          // Only show the validated message if there's a valid pre-auth role.
-          if ($pre_auth) {
-            drupal_set_message(t('You have successfully validated your e-mail address.'));
-          }
-          if (!$account->status) {
-            drupal_set_message(t('Your account is currently blocked -- login cancelled.'), 'error');
-            drupal_goto('');
-          }
-          else {
-            $edit = array();
-            $redirect = logintoboggan_process_login($account, $edit, $redirect);
-            drupal_goto($redirect['path'], $redirect['query'], $redirect['fragment']);
-          }
-          break;
-        // Admin validation.
-        case 'admin':
-          // user has new permissions, so we clear their menu cache
-          cache_clear_all($account->uid .':', 'cache_menu', TRUE);
-
-          if ($pre_auth) {
-            // Mail the user, letting them know their account now has auth user perms.
-            _user_mail_notify('status_activated', $account);
-          }
-
-          drupal_set_message(t('You have successfully validated %user.', array('%user' => $account->name)));
-          drupal_goto("user/$account->uid/edit");
-          break;
-        // Catch all.
-        default:
-          // user has new permissions, so we clear their menu cache
-          cache_clear_all($account->uid .':', 'cache_menu', TRUE);
-
-          drupal_set_message(t('You have successfully validated %user.', array('%user' => $account->name)));
+    switch ($action) {
+      // Proceed with normal user login, as long as it's open registration and their
+      // account hasn't been blocked.
+      case 'login':
+        // Only show the validated message if there's a valid pre-auth role.
+        if ($pre_auth) {
+          drupal_set_message(t('You have successfully validated your e-mail address.'));
+        }
+        if (!$account->status) {
+          drupal_set_message(t('Your account is currently blocked -- login cancelled.'), 'error');
           drupal_goto('');
-          break;
-      }
-    }
-    else {
-      drupal_set_message(t("Sorry, you can only use your validation link once for security reasons. Please !login with your username and password instead now.", array('!login' => l(t('login'),'user/login'))),'error');
+        }
+        else {
+          $edit = array();
+          $redirect = logintoboggan_process_login($account, $edit, $redirect);
+          drupal_goto($redirect['path'], $redirect['query'], $redirect['fragment']);
+        }
+        break;
+      // Admin validation.
+      case 'admin':
+        if ($pre_auth) {
+          // Mail the user, letting them know their account now has auth user perms.
+          _user_mail_notify('status_activated', $account);
+        }
+
+        drupal_set_message(t('You have successfully validated %user.', array('%user' => $account->name)));
+        drupal_goto("user/$account->uid/edit");
+        break;
+      // Catch all.
+      default:
+        drupal_set_message(t('You have successfully validated %user.', array('%user' => $account->name)));
+        drupal_goto('');
+        break;
     }
   }
-
-  // Deny access, no more clues.
-  // Everything will be in the watchdog's URL for the administrator to check.
-  drupal_access_denied();
+  else {
+    $message = t("Sorry, you can only use your validation link once for security reasons.");
+    // No one currently logged in, go straight to user login page.
+    if (empty($user->uid)) {
+      $message .= t(" Please log in with your username and password instead now.");
+      $goto = 'user/login';
+    }
+    else {
+      $goto = 'user';
+    }
+    drupal_set_message($message, 'error');
+    drupal_goto($goto);
+  }
 }
 
 function _logintoboggan_process_validation($account) {
@@ -1028,17 +1035,11 @@ function _logintoboggan_process_validation($account) {
 
 function logintoboggan_process_login($account, $edit, $redirect = array()){
   global $user;
-  $user = $account;
 
-  watchdog('user', 'Session opened for %name.', array('%name' => $user->name));
+  $user = user_load($account->uid);
 
-  // Update the user table timestamp noting user has logged in.
-  db_query("UPDATE {users} SET login = %d WHERE uid = %d", time(), $user->uid);
-
-  // user has new permissions, so we clear their menu cache
-  cache_clear_all($user->uid .':', 'cache_menu', TRUE);
-
-  user_module_invoke('login', $edit, $user);
+  // Call core's function to finalize the login.
+  user_authenticate_finalize($edit);
 
   // In the special case where a user is validating but they did not create their
   // own password, show a user message letting them know to change their password.
@@ -1063,8 +1064,8 @@ function logintoboggan_eml_validate_url($account){
   return url("user/validate/$account->uid/$timestamp/". logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail), array('absolute' => TRUE));
 }
 
-function logintoboggan_eml_rehash($password, $timestamp, $mail){
-  return md5($timestamp . $password . $mail);
+function logintoboggan_eml_rehash($password, $timestamp, $mail) {
+  return user_pass_rehash($password, $timestamp, $mail);
 }
 
 /**
@@ -1148,10 +1149,9 @@ function logintoboggan_user($op, &$edit, &$user_edit, $category = NULL) {
 /**
  * Re-sends validation e-mail to user specified by $uid.
  */
-function logintoboggan_resend_validation($uid) {
+function logintoboggan_resend_validation($account) {
   global $language;
 
-  $account = user_load(array('uid' => $uid));
   $account->password = t('If required, you may reset your password from: !url', array('!url' => url('user/password', array('absolute' => TRUE))));
 
   $params['account'] = $account;

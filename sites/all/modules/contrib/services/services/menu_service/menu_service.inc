@@ -1,5 +1,5 @@
 <?php
-// $Id: menu_service.inc,v 1.1.2.4.2.2 2010/02/21 03:13:35 heyrocker Exp $
+// $Id: menu_service.inc,v 1.1.2.4.2.3 2010/05/11 01:43:43 heyrocker Exp $
 /**
  * @file
  * Adds a service type for a menu
@@ -15,11 +15,14 @@
  * @param $fields
  *   An array of fields to be returned, for use in limiting the
  *   size of data returned to only that which is necessary.
+ * @param $language
+ *   The language code of the menu to return. Optional if site 
+ *   has only one language (or i18n is not installed <- verify)
  *
  * @return
  *   An array of all child menu items from a given menu item.
  */
-function menu_service_get($menu_id = NULL, $fields = array()) {
+function menu_service_get($menu_id = NULL, $fields = array(), $language = '') {
   if ($menu_id === NULL || trim($menu_id) === '') {
     $menu_id = 'primary-links';
   }
@@ -27,7 +30,7 @@ function menu_service_get($menu_id = NULL, $fields = array()) {
     $fields = FALSE;
   }
   $data = menu_tree_all_data($menu_id);
-  return menu_service_process($data, $fields);
+  return menu_service_process($data, $fields, $language);
 }
 
 /**
@@ -38,11 +41,13 @@ function menu_service_get($menu_id = NULL, $fields = array()) {
  * @param $fields
  *   An array of fields to be returned, for use in limiting the
  *   size of data returned to only that which is necessary.
+ * @param $language
+ *   The language code of the menu to return. Defaults to default language.
  *
  * @return
  *   Array. All children menu items from a given menu item.
  */
-function menu_service_process($data, $fields) {
+function menu_service_process($data, $fields, $language) {
   $out = array();
   if (is_array($data)) {
     foreach ($data as $item) {
@@ -55,10 +60,12 @@ function menu_service_process($data, $fields) {
       else {
         $tmp = (object) $item['link'];
       }
+      
       if (!$fields || in_array('path_alias', $fields, TRUE)) {
-        $tmp->path_alias = drupal_get_path_alias($item['link']['link_path']);
+      	$tmp->path_alias = drupal_get_path_alias($item['link']['link_path'], $language);
       }
-      $tmp->children = menu_service_process($item['below'], $fields);
+            
+      $tmp->children = menu_service_process($item['below'], $fields, $language);
       $out[] = $tmp;
     }
   }

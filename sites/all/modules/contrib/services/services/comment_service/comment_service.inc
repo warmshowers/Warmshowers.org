@@ -1,5 +1,5 @@
 <?php
-// $Id: comment_service.inc,v 1.1.2.1.2.4 2010/02/21 01:40:32 heyrocker Exp $
+// $Id: comment_service.inc,v 1.1.2.1.2.5 2010/05/08 19:26:00 heyrocker Exp $
 
 /**
  * @file
@@ -17,6 +17,10 @@
  *   Unique identifier for the comment (cid) or FALSE if there was a problem.
  */
 function comment_service_save($comment) {
+  if (!is_object($comment)) {
+    $comment = (object) $comment;
+  }
+
   // If the submitted comment does not contain a uid, set it to anonymous.
   if (!isset($comment->uid)) {
     $comment->uid = 0;
