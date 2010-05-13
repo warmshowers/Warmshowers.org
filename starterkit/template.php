@@ -52,7 +52,7 @@ function omega_starterkit_preprocess(&$vars, $hook) {
  *   The name of the template being rendered ("page" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function omega_starterkit_preprocess_page(&$vars, $hook) {
+function omega_starterkit_preprocess_page(&$vars) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -66,7 +66,7 @@ function omega_starterkit_preprocess_page(&$vars, $hook) {
  *   The name of the template being rendered ("node" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function omega_starterkit_preprocess_node(&$vars, $hook) {
+function omega_starterkit_preprocess_node(&$vars) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -80,7 +80,7 @@ function omega_starterkit_preprocess_node(&$vars, $hook) {
  *   The name of the template being rendered ("comment" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function omega_starterkit_preprocess_comment(&$vars, $hook) {
+function omega_starterkit_preprocess_comment(&$vars) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
@@ -94,7 +94,7 @@ function omega_starterkit_preprocess_comment(&$vars, $hook) {
  *   The name of the template being rendered ("block" in this case.)
  */
 /* -- Delete this line if you want to use this function
-function omega_starterkit_preprocess_block(&$vars, $hook) {
+function omega_starterkit_preprocess_block(&$vars) {
   $vars['sample_variable'] = t('Lorem ipsum.');
 }
 // */
