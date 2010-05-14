@@ -32,16 +32,16 @@
       <?php endif; ?>
     </div><!-- /#site-header -->
 
-    <?php if($page['header_first'] || $page['header_last']): ?>
+    <?php if($page['header_first'] || $page['header_second']): ?>
     <div id="header-regions" class="container-<?php print $header_wrapper_width; ?> clearfix">
       <?php if($page['header_first']): ?>
         <div id="header-first" class="<?php print $header_first_classes; ?>">
           <?php print render($page['header_first']); ?>
         </div><!-- /#header-first -->
       <?php endif; ?>
-      <?php if($page['header_last']): ?>
-        <div id="header-last" class="<?php print $header_last_classes; ?>">
-          <?php print render($page['header_last']); ?>
+      <?php if($page['header_second']): ?>
+        <div id="header-last" class="<?php print $header_second_classes; ?>">
+          <?php print render($page['header_second']); ?>
         </div><!-- /#header-last -->
       <?php endif; ?>
     </div><!-- /#header-regions -->
@@ -79,21 +79,21 @@
     
     
     
-    <?php if($page['preface_first'] || $page['preface_middle'] || $page['preface_last']): ?>
+    <?php if($page['preface_first'] || $page['preface_second'] || $page['preface_third']): ?>
     <div id="preface-wrapper" class="container-<?php print $preface_wrapper_grids; ?> clearfix">
       <?php if($page['preface_first']): ?>
         <div id="preface-first" class="preface <?php print $preface_first_classes; ?>">
           <?php print render($page['preface_first']); ?>
         </div><!-- /#preface-first -->
       <?php endif; ?>
-      <?php if($page['preface_middle']): ?>
-        <div id="preface-middle" class="preface <?php print $preface_middle_classes; ?>">
-          <?php print render($page['preface_middle']); ?>
+      <?php if($page['preface_second']): ?>
+        <div id="preface-middle" class="preface <?php print $preface_second_classes; ?>">
+          <?php print render($page['preface_second']); ?>
         </div><!-- /#preface-middle -->
       <?php endif; ?>
-      <?php if($page['preface_last']): ?>
-        <div id="preface-last" class="preface <?php print $preface_last_classes; ?>">
-          <?php print render($page['preface_last']); ?>
+      <?php if($page['preface_third']): ?>
+        <div id="preface-last" class="preface <?php print $preface_third_classes; ?>">
+          <?php print render($page['preface_third']); ?>
         </div><!-- /#preface-last -->
       <?php endif; ?>
     </div><!-- /#preface-wrapper -->
@@ -138,41 +138,41 @@
       <?php endif; ?>
     </div><!-- /#main-content-container -->
     
-    <?php if($page['postscript_one'] || $page['postscript_two'] || $page['postscript_three'] || $page['postscript_four']): ?>
+    <?php if($page['postscript_first'] || $page['postscript_second'] || $page['postscript_third'] || $page['postscript_fourth']): ?>
     <div id="postscript-wrapper" class="container-<?php print $postscript_container_width; ?> clearfix">
-      <?php if($page['postscript_one']): ?>
-        <div id="postscript-one" class="postscript <?php print $postscript_one_classes; ?>">
-          <?php print render($page['postscript_one']); ?>
+      <?php if($page['postscript_first']): ?>
+        <div id="postscript-one" class="postscript <?php print $postscript_first_classes; ?>">
+          <?php print render($page['postscript_first']); ?>
         </div><!-- /#postscript-one -->
       <?php endif; ?>
-      <?php if($page['postscript_two']): ?>
-        <div id="postscript-two" class="postscript <?php print $postscript_two_classes; ?>">
-          <?php print render($page['postscript_two']); ?>
+      <?php if($page['postscript_second']): ?>
+        <div id="postscript-two" class="postscript <?php print $postscript_second_classes; ?>">
+          <?php print render($page['postscript_second']); ?>
         </div><!-- /#postscript-two -->
       <?php endif; ?>
-      <?php if($page['postscript_three']): ?>
-        <div id="postscript-three" class="postscript <?php print $postscript_three_classes; ?>">
-          <?php print render($page['postscript_three']); ?>
+      <?php if($page['postscript_third']): ?>
+        <div id="postscript-three" class="postscript <?php print $postscript_third_classes; ?>">
+          <?php print render($page['postscript_third']); ?>
         </div><!-- /#postscript-three -->
       <?php endif; ?>
-      <?php if($page['postscript_four']): ?>
-        <div id="postscript-four" class="postscript <?php print $postscript_four_classes; ?>">
-          <?php print render($page['postscript_four']); ?>
+      <?php if($page['postscript_fourth']): ?>
+        <div id="postscript-four" class="postscript <?php print $postscript_fourth_classes; ?>">
+          <?php print render($page['postscript_fourth']); ?>
         </div><!-- /#postscript-four -->
       <?php endif; ?>
     </div><!-- /#postscript-wrapper -->
     <?php endif; ?>
     
-    <?php if($page['footer_first'] || $page['footer_last']): ?>
+    <?php if($page['footer_first'] || $page['footer_second']): ?>
     <div id="footer-wrapper" class="container-<?php print $footer_container_width; ?> clearfix">
       <?php if($page['footer_first']): ?>
         <div id="footer-first" class="<?php print $footer_first_classes; ?>">
           <?php print render($page['footer_first']); ?>
         </div><!-- /#footer-first -->
       <?php endif; ?>
-      <?php if($page['footer_last']): ?>
-        <div id="footer-last" class="<?php print $footer_last_classes; ?>">
-          <?php print render($page['footer_last']); ?>
+      <?php if($page['footer_second']): ?>
+        <div id="footer-last" class="<?php print $footer_second_classes; ?>">
+          <?php print render($page['footer_second']); ?>
         </div><!-- /#footer-last -->
       <?php endif; ?>
     </div><!-- /#footer-wrapper -->
