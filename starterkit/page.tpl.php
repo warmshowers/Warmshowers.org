@@ -131,9 +131,9 @@
         </div><!-- /#sidebar-first -->
       <?php endif; ?>
     
-      <?php if ($page['sidebar_last']): ?>
-        <div id="sidebar-last" class="column sidebar region <?php print $sidebar_last_classes; ?>">
-          <?php print render($page['sidebar_last']); ?>
+      <?php if ($page['sidebar_second']): ?>
+        <div id="sidebar-last" class="column sidebar region <?php print $sidebar_second_classes; ?>">
+          <?php print render($page['sidebar_second']); ?>
         </div><!-- /#sidebar-last -->
       <?php endif; ?>
     </div><!-- /#main-content-container -->
