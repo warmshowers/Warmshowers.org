@@ -1,5 +1,5 @@
 <?php
-// $Id: flag.admin.inc,v 1.1.4.5 2009/09/14 20:57:52 quicksketch Exp $
+// $Id: flag.admin.inc,v 1.1.4.6 2010/05/07 23:40:25 quicksketch Exp $
 
 /**
  * @file
@@ -157,7 +157,7 @@ function flag_add_form_validate($form, &$form_state) {
 }
 
 function flag_add_form_submit($form, &$form_state) {
-  drupal_goto('admin/build/flags/add/'. $form_state['values']['type'] .'/'. $form_state['values']['name']);
+  $form_state['redirect'] = 'admin/build/flags/add/' . $form_state['values']['type'] . '/' . $form_state['values']['name'];
 }
 
 /**

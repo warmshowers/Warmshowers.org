@@ -1,3 +1,7 @@
+// $Id: README.txt,v 1.2.2.4 2010/05/05 04:01:01 danielb Exp $
+
+Login one time README
+
 CONTENTS OF THIS FILE
 ----------------------
 
@@ -24,7 +28,8 @@ INSTALLATION
 
 CONFIGURATION
 -------------
-You can configure the one-time login email template on the user settings page.
+Configuration is at: User management -> Login one time 
+(admin/user/login_one_time)
 
 
 USAGE

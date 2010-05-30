@@ -1,4 +1,4 @@
-$Id: README.txt,v 1.1.2.16 2009/10/21 18:47:10 kbahey Exp $
+$Id: README.txt,v 1.1.2.17 2010/05/14 00:59:18 kbahey Exp $
 
 Copyright 2009 Khalid Baheyeldin http://2bits.com
 
@@ -158,79 +158,11 @@ API
 ---
 
 This module provides an API for other modules to report status back to Nagios.
-Your module should implement the following hooks:
-
-hook_nagios_info()
-------------------
-This hook is used to provide a way to enabled/disable a certain module from being included in Nagios
-reports and alerts.
-
-function yourmodule_nagios_info() {
-  return array(
-    'name'   => 'Your module name',
-    'id'     => 'IDENTIFIER',
-  );
-}
-
-hook_nagios()
--------------
-Your module should have a yourmodule_nagios() function that does the actual work of checking something
-and reporting back a status and some info.
-
-The data returned is an associative array as follows:
-
-array(
-  'key'  => 'IDENTIFIER',
-  'data' => array(
-    'status' => STATUS_CODE,
-    'type    => 'state', // Can be a 'state' for OK, Warning, Critical, Unknown) or can be 'perf', which does
-                         // Cause an alert, but can be processed later by custom programs
-    'text'   => 'Text description for the problem',
-  ),
-);
-
-STATUS_CODE must be one of the following, defined in nagios.module:
-
-  NAGIOS_STATUS_OK
-  NAGIOS_STATUS_UNKNOWN
-  NAGIOS_STATUS_WARNING
-  NAGIOS_STATUS_CRITICAL
-
-Here is an example:
-
-function yourmodule_nagios() {
-  $data = array();
-
-  // Check something ...
-  $count = ...
-  if (!$count) {
-    $data = array(
-      'status' => NAGIOS_STATUS_WARNING,
-      'type'   => 'state',
-      'text'   => t('A very brief description of the warning'),
-    );
-  }
-  else {
-    $data = array(
-      'status' => NAGIOS_STATUS_OK,
-      'type'   => 'state',
-      'text'   => '',
-    );
-  }
-
-  return array(
-    'key' => 'IDENTIFIER', // This identifier will appear on Nagios' monitoring pages and alerts.
-    'data' => $data,
-  );
-}
+See nagios.api.php for examples of the hooks and documentation.
 
 For a real life example on how to use this API, check the performance.module in the devel project
 at http://drupal.org/project/devel
 
-hook_nagios_settings()
-----------------------
-This hook provides standard form API elements to be included at admin/settings/nagios. You can
-set any thresholds you want in this hook.
 
 Bugs/Features/Patches:
 ----------------------

@@ -9,14 +9,15 @@
 ECHO="/bin/echo"
 GREP="/bin/egrep"
 RM="/bin/rm"
+CP="/bin/cp"
 WGET="/usr/bin/wget"
 SSL=/bin/false
 
 PROGNAME=`/usr/bin/basename $0`
 PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
-REVISION=`echo '$Revision: 1.1.2.12 $' | sed -e 's/[^0-9.]//g'`
+REVISION=`echo '$Revision: 1.1.2.13 $' | sed -e 's/[^0-9.]//g'`
 
-temp=/tmp/$PROGNAME.$$
+temp=`mktemp`
 
 if [[ -e $PROGPATH/utils.sh ]]; then
   . $PROGPATH/utils.sh
@@ -91,7 +92,15 @@ while test -n "$1"; do
     -t) 
       timeout=$2
       shift
-            ;;
+      ;;
+    --http-user) 
+      httpuser=$2
+      shift
+      ;;
+    --http-password) 
+      httppassword=$2
+      shift
+      ;;
     *)
       $ECHO "Unknown argument: $1"
       print_usage
@@ -122,13 +131,22 @@ fi
 
 
 if $SSL; then
-  CMD="$WGET --no-check-certificate -S -T $timeout -O - -U $unique_id https://$hostname/$path"
+  CMD="$WGET --no-check-certificate -S -T $timeout -O - --http-user=$httpuser --http-password=$httppassword -U $unique_id https://$hostname/$path"
 else
   CMD="$WGET -S -T $timeout -O - -U $unique_id http://$hostname/$path"
 fi
 
 $CMD > $temp 2>&1
 RC=$?
+
+# When using http authentication wget always waits until it receives a 401 before sending the password. 
+# Therefore the first header should be stripped off
+if [ "$httppassword" != "" ]; then
+  temp2=`mktemp`
+  $GREP -v 'HTTP/1.1 401 Authorization Required' $temp > $temp2
+  $CP $temp2 $temp
+  $RM -f $temp2
+fi
 
 HTTP=`$GREP "HTTP/1" $temp`
 
