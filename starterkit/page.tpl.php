@@ -67,7 +67,7 @@
           <div id="bcrumb"><?php print $breadcrumb; ?></div><!-- /#bcrumb -->
         <?php endif; ?>
       </div>
-      <?php if($search_region): ?>
+      <?php if(isset($search_region)): ?>
         <div id="search-region" class="<?php print $search_region_classes; ?>"><?php print render($search_region);?></div>
       <?php endif; ?>
     </div><!-- /#internal-nav -->
