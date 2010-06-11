@@ -5,8 +5,6 @@
   <div id="page" class="clearfix">
     <div id="site-header" class="container-<?php print $branding_wrapper_width; ?> clearfix">
       <div id="branding" class="grid-<?php print $header_logo_width; ?>">
-        
-  
         <?php if (isset($linked_logo_img)): ?>
           <?php print $linked_logo_img; ?>
         <?php endif; ?>
@@ -46,17 +44,7 @@
       <?php endif; ?>
     </div><!-- /#header-regions -->
     <?php endif; ?>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     <?php if($site_slogan && $is_front || $breadcrumb): ?>
     <div id="internal-nav" class="container-<?php print $internal_nav_wrapper_width; ?> clearfix">
       <div id="slogan-bcrumb" class="grid-<?php print $breadcrumb_slogan_width; ?>">
@@ -72,16 +60,7 @@
       <?php endif; ?>
     </div><!-- /#internal-nav -->
     <?php endif; ?>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     <?php if($page['preface_first'] || $page['preface_second'] || $page['preface_third']): ?>
     <div id="preface-wrapper" class="container-<?php print $preface_wrapper_grids; ?> clearfix">
       <?php if($page['preface_first']): ?>
