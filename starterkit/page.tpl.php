@@ -14,8 +14,8 @@
 
 <body class="<?php print $body_classes; ?>">
   <?php if (!empty($admin)) print $admin; ?>
-  <div id="page" class="clear-block">
-    <div id="site-header" class="container-<?php print $branding_wrapper_width; ?> clear-block">
+  <div id="page" class="clearfix">
+    <div id="site-header" class="container-<?php print $branding_wrapper_width; ?> clearfix">
       <div id="branding" class="grid-<?php print $header_logo_width; ?>">
         <?php if ($linked_logo_img): ?>
           <?php print $linked_logo_img; ?>
@@ -42,7 +42,7 @@
     </div><!-- /#site-header -->
 
     <?php if($header_first || $header_last): ?>
-    <div id="header-regions" class="container-<?php print $header_wrapper_width; ?> clear-block">
+    <div id="header-regions" class="container-<?php print $header_wrapper_width; ?> clearfix">
       <?php if($header_first): ?>
         <div id="header-first" class="<?php print $header_first_classes; ?>">
           <?php print $header_first; ?>
@@ -57,7 +57,7 @@
     <?php endif; ?>
     
     <?php if($site_slogan && $is_front || $search_box || $breadcrumb): ?>
-    <div id="internal-nav" class="container-<?php print $internal_nav_wrapper_width; ?> clear-block">
+    <div id="internal-nav" class="container-<?php print $internal_nav_wrapper_width; ?> clearfix">
       <div id="slogan-bcrumb" class="grid-<?php print $breadcrumb_slogan_width; ?>">
         <?php if ($site_slogan && $is_front): ?>
           <div id="slogan"><?php print $site_slogan; ?></div><!-- /#slogan -->
@@ -73,7 +73,7 @@
     <?php endif; ?>
     
     <?php if($preface_first || $preface_middle || $preface_last): ?>
-    <div id="preface-wrapper" class="container-<?php print $preface_wrapper_grids; ?>">
+    <div id="preface-wrapper" class="container-<?php print $preface_wrapper_grids; ?> clearfix">
       <?php if($preface_first): ?>
         <div id="preface-first" class="preface <?php print $preface_first_classes; ?>">
           <?php print $preface_first; ?>
@@ -93,14 +93,14 @@
     <?php endif; ?>
     
     <?php if($help || $messages): ?>
-    <div class="container-<?php print $default_container_width; ?> clear-block">
+    <div class="container-<?php print $default_container_width; ?> clearfix">
       <div class="grid-<?php print $default_container_width; ?>">
         <?php print $help; ?><?php print $messages; ?>
       </div>
     </div><!-- /.container-xx -->
     <?php endif; ?>
     
-    <div id="main-content-container" class="container-<?php print $content_container_width; ?> clear-block">
+    <div id="main-content-container" class="container-<?php print $content_container_width; ?> clearfix">
       <div id="main-wrapper" class="column <?php print $main_content_classes; ?>">
         <?php print $mission; ?>
         <?php if($content_top): ?>
@@ -116,7 +116,7 @@
           <h1 class="title" id="page-title"><?php print $title; ?></h1>
         <?php endif; ?>
     
-        <div id="main-content" class="region clear-block">
+        <div id="main-content" class="region clearfix">
           <?php print $content; ?>
         </div><!-- /#main-content -->
         
@@ -141,7 +141,7 @@
     </div><!-- /#main-content-container -->
     
     <?php if($postscript_one || $postscript_two || $postscript_three || $postscript_four): ?>
-    <div id="postscript-wrapper" class="container-<?php print $postscript_container_width; ?> clear-block">
+    <div id="postscript-wrapper" class="container-<?php print $postscript_container_width; ?> clearfix">
       <?php if($postscript_one): ?>
         <div id="postscript-one" class="postscript <?php print $postscript_one_classes; ?>">
           <?php print $postscript_one; ?>
