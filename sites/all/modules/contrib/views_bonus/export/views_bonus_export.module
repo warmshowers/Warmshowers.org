@@ -1,5 +1,5 @@
 <?php
-// $Id: views_bonus_export.module,v 1.15 2010/01/07 22:54:22 neclimdul Exp $
+// $Id: views_bonus_export.module,v 1.17 2010/03/04 19:42:27 neclimdul Exp $
 /**
  * @file
  * Provides the ability to export to specific
@@ -56,79 +56,15 @@ function theme_views_bonus_export_feed_icon($image_path, $url, $query = '', $tex
 }
 
 /**
- * Preprocess csv output template.
- */
-function template_preprocess_views_bonus_export_csv(&$vars) {
-  // TODO Replace items with themed_rows.
-  _views_bonus_export_shared_preprocess($vars);
-
-  $vars['seperator'] = $vars['options']['seperator'];
-
-  // Special handling when quoted values are involved.
-  if ($vars['options']['quote']) {
-    $wrap = '"';
-    $replace_value = '""';
-  }
-  else {
-    $wrap = '';
-    $replace_value = '';
-  }
-
-  // Format header values.
-  foreach ($vars['header'] as $key => $value) {
-    $vars['header'][$key] = $wrap . str_replace('"', $replace_value, decode_entities(strip_tags($value))) . $wrap;
-  }
-  // Format row values.
-  foreach ($vars['themed_rows'] as $i => $values) {
-    foreach ($values as $j => $value) {
-      $vars['themed_rows'][$i][$j] = $wrap . str_replace('"', $replace_value, decode_entities(strip_tags($value))) . $wrap;
-    }
-  }
-}
-
-/**
- * Preprocess txt output template.
- */
-function template_preprocess_views_bonus_export_txt(&$vars) {
-  _views_bonus_export_shared_preprocess($vars);
-}
-
-/**
- * Preprocess doc output template.
- */
-function template_preprocess_views_bonus_export_doc(&$vars) {
-  _views_bonus_export_shared_preprocess($vars);
-}
-
-/**
- * Preprocess xls output template.
- */
-function template_preprocess_views_bonus_export_xls(&$vars) {
-  _views_bonus_export_shared_preprocess($vars);
-}
-
-/**
- * Preprocess xml output template.
- */
-function template_preprocess_views_bonus_export_xml(&$vars) {
-  _views_bonus_export_shared_preprocess($vars);
-
-  foreach ($vars['themed_rows'] as $num => $row) {
-    foreach ($row as $field => $content) {
-      $vars['themed_rows'][$num][$field] = str_replace(
-        array('&', '<', '>'),
-        array('&amp;', '&lt;', '&gt;'),
-        $content);
-    }
-  }
-}
-
-/**
  * Shared helper function for export preprocess functions.
  */
 function _views_bonus_export_shared_preprocess(&$vars) {
   $view     = $vars['view'];
   $fields   = &$view->field;
+
+  // Add headers here as well as post rendering so older versions of views are
+  // actually supported.
+  _views_bonus_export_add_headers($view);
 
   $rows = $vars['rows'];
 
@@ -156,27 +92,38 @@ function _views_bonus_export_shared_preprocess(&$vars) {
  * Implementation of hook_views_post_render().
  */
 function views_bonus_export_views_post_render(&$view, &$output, &$cache) {
+  if (is_a($view->style_plugin, 'views_bonus_plugin_style_export')) {
+    _views_bonus_export_add_headers($view);
+  }
+}
+
+/**
+ * Private helper function for adding headers to exported views.
+ *
+ * @param $view
+ * A views object who's current style plugin is a views export style.
+ * @return
+ * No return. Headers are added to page.
+ */
+function _views_bonus_export_add_headers(&$view) {
   $style = $view->style_plugin;
 
-  if (is_a($style, 'views_bonus_plugin_style_export')) {
+  drupal_set_header('Cache-Control: max-age=60, must-revalidate');
 
-    drupal_set_header('Cache-Control: max-age=60, must-revalidate');
-
-    if (!empty($style->definition['export headers'])) {
-      foreach ($style->definition['export headers'] as $header) {
-        drupal_set_header($header);
-      }
+  if (!empty($style->definition['export headers'])) {
+    foreach ($style->definition['export headers'] as $header) {
+      drupal_set_header($header);
     }
+  }
 
-    if (isset($style->options['filename']) && !empty($style->options['provide_file'])) {
-      $filename = strtr(
-        $style->options['filename'],
-        array('%view' => check_plain($view->name))
-      );
+  if (isset($style->options['filename']) && !empty($style->options['provide_file'])) {
+    $filename = strtr(
+      $style->options['filename'],
+      array('%view' => check_plain($view->name))
+    );
 
-      if ($filename) {
-        drupal_set_header('Content-Disposition: attachment; filename="'. $filename .'"');
-      }
+    if ($filename) {
+      drupal_set_header('Content-Disposition: attachment; filename="'. $filename .'"');
     }
   }
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: views_bonus_plugin_style_export.inc,v 1.12 2010/01/08 23:19:37 neclimdul Exp $
+// $Id: views_bonus_plugin_style_export.inc,v 1.14 2010/06/16 14:21:56 neclimdul Exp $
 /**
  * @file
  * Plugin include file for export style plugin.
@@ -101,7 +101,9 @@ class views_bonus_plugin_style_export extends views_plugin_style {
     );
     $query = $this->view->get_exposed_input();
     // Stash the display id we're coming form in the url so we can hijack it later.
-    $query['attach'] = $display_id;
+    if ($this->options['parent_sort']) {
+      $query['attach'] = $display_id;
+    }
     $this->view->feed_icon .= theme($theme_pattern,
       $this->feed_image,
       $this->view->get_url(NULL, $path),
@@ -114,7 +116,7 @@ class views_bonus_plugin_style_export extends views_plugin_style {
 
     // Bypass doing any sort of testing if parent sorting is disabled.
     if (!$this->options['parent_sort']) {
-      return;
+      return parent::build_sort();
     }
 
     $displays = $this->display->handler->get_option('displays');
@@ -122,7 +124,7 @@ class views_bonus_plugin_style_export extends views_plugin_style {
     // Here is later. We can get the passed argument and use it to know which
     // display we can from and then do some addition processing.
     // If the display exists and is attached these two tests will succeed.
-    if (isset($displays[$_GET['attach']]) && $displays[$_GET['attach']]) {
+    if (isset($_GET['attach']) && isset($displays[$_GET['attach']]) && $displays[$_GET['attach']]) {
       // Setup the second style we're going to be using to sort on.
       $plugin_id = $displays[$_GET['attach']];
       $parent_display = $this->view->display[$plugin_id];
@@ -140,6 +142,9 @@ class views_bonus_plugin_style_export extends views_plugin_style {
     // If we found an extra style plugin earlier, pass off the build_sort_post call to it.
     if (isset($this->extra_style)) {
       return $this->extra_style->build_sort_post();
+    }
+    else {
+      return parent::build_sort_post();
     }
   }
 }

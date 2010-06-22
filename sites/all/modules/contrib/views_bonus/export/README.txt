@@ -7,7 +7,7 @@ basic txt output and simple xml.
 Using the "Bonus: Views Export" module.
 --------------------------------------------------------------------------------
 1. Add a new "Feed" display to your view.
-2. Change its style to the desired export type. e.g. "CSV file"
+2. Change its "Style" to the desired export type. e.g. "CSV file".
 3. Configure the options (such as name, quote, etc.). You can go back and do
    this at any time by clicking the gear icon next to the style plugin you just
    selected.

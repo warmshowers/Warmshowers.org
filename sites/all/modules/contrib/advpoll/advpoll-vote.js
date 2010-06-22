@@ -1,8 +1,8 @@
-// $Id: advpoll-vote.js,v 1.1.2.11.2.4 2009/04/11 16:02:47 chriskennedy Exp $
+// $Id: advpoll-vote.js,v 1.1.2.11.2.5 2010/06/09 01:47:38 mirodietiker Exp $
 
-/*
-* Submit advpoll forms with ajax
-*/
+/**
+ * Submit advpoll forms with ajax
+ */
 Drupal.behaviors.attachVoteAjax = function(context) {
   $("form.advpoll-vote", context).each(function() {
     var thisForm = this;
@@ -17,7 +17,7 @@ Drupal.behaviors.attachVoteAjax = function(context) {
           $(data.errors).insertBefore(thisForm).fadeIn();
         }
         else {
-          $(thisForm).hide(); 
+          $(thisForm).hide();
           $(data.statusMsgs).insertBefore(thisForm).fadeIn();
           $(data.response).insertBefore(thisForm);
         }
@@ -67,7 +67,7 @@ Drupal.behaviors.handleWriteins = function(context) {
         }
       }
     });
-  
+
     // Toggle display of the write-in text box for select boxes.
     // Fire on change() rather than click(), for Safari compatibility.
     $(".vote-choices select:last", poll).change(function() {

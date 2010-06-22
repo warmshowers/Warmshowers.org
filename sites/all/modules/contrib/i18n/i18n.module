@@ -1,9 +1,9 @@
 <?php
-// $Id: i18n.module,v 1.41.2.42 2010/03/04 12:38:46 jareyero Exp $
+// $Id: i18n.module,v 1.41.2.46 2010/06/08 17:30:30 jareyero Exp $
 
 /**
  * @file
- * Internationalization (i18n) module
+ * Internationalization (i18n) module.
  *
  * This module extends multilingual support being the base module for the i18n package.
  * - Multilingual variables
@@ -20,29 +20,78 @@ define('LANGUAGE_SUPPORT_EXTENDED', 2);
 define('LANGUAGE_SUPPORT_EXTENDED_NOT_DISPLAYED', 3);
 
 /**
+ * Implementation of hook_boot()
+ * 
+ * Initialize variables, that will be used to decide on site_frontpage
+ */
+function i18n_boot() {
+  drupal_bootstrap(DRUPAL_BOOTSTRAP_LANGUAGE);
+  _i18n_init();  
+}
+
+/**
  * Implementation of hook_init().
- *
- * Will initialize language dependent variables.
- * Modify rewriting conditions when viewing specific nodes.
  *
  * Special fix for site_frontpage, that may have been used before the language variables are loaded.
  */
 function i18n_init() {
-  global $language;
-
-  // If not in bootstrap, variable init.
+  // If not in bootstrap, variable init. Otherwise we are serving a cached page so we don't need anything else.
   if (!_i18n_is_bootstrap()) {
+    _i18n_init(TRUE);
+    _i18n_init_mode();
+  }
+}
+
+/**
+ * Initialize multilingual variables and use them for site_frontpage
+ * 
+ * Special fix for site_frontpage, that may have been used before the language variables are loaded.
+ */
+function _i18n_init($check_frontpage = FALSE) {
+  static $done;
+  
+  // Prevent this function from running twice;
+  if (!isset($done)) {
+    $done = TRUE;
     $default_frontpage = variable_get('site_frontpage', 'node');
 
     i18n_variable_init();
 
-    // Now we check whether this is the frontpage and it should be a different one.
-    if ($default_frontpage != variable_get('site_frontpage', 'node') && $_GET['q'] == drupal_get_normal_path($default_frontpage)) {
+    // We do aditional frontpage check if this has run after first bootstrap phase.
+    // But if this runs in hook_boot we should be ok
+    if ($check_frontpage && $default_frontpage != variable_get('site_frontpage', 'node') && $_GET['q'] == drupal_get_normal_path($default_frontpage)) {
       $_GET['q'] = drupal_get_normal_path(variable_get('site_frontpage', 'node'));
     }
   }
 }
 
+/**
+ * Initialize selection mode
+ */
+function _i18n_init_mode() {
+  if (i18n_selection_mode() != 'off') {
+    // Node language when loading specific nodes or creating translations.
+    if (arg(0) == 'node' ) {
+      if (($node = menu_get_object('node')) && $node->language) {
+        i18n_selection_mode('node', $node->language);
+      }
+      elseif (arg(1) == 'add' && !empty($_GET['translation']) && !empty($_GET['language'])) {
+        i18n_selection_mode('translation', db_escape_string($_GET['language']));
+      }
+    }
+    elseif (arg(0) == 'admin') {
+      // There are some exceptions for admin pages.
+      if (arg(1) == 'content' && user_access('administer all languages')) {
+        // No restrictions for administration pages.
+        i18n_selection_mode('off');
+      }
+      elseif (arg(1) == 'build' && (arg(2) == 'menu-customize' || arg(2) == 'menu')) {
+        // All nodes available when editing custom menu items.
+        i18n_selection_mode('off');
+      }
+    }
+  }  
+}
 /**
  * Implementation of hook_help().
  */
@@ -346,37 +395,13 @@ function i18n_node_language_list($node, $translate = FALSE) {
  *  custom = add custom where clause, like "%alias.language = 'en'".
  */
 function i18n_selection_mode($mode = NULL, $params = NULL) {
-  static $current_mode = NULL;
+  static $current_mode;
   static $current_value = '';
   static $store = array();
 
-  // Initialization, first time this runs with no explicit mode.
-  if (!$current_mode && !$mode) {
+  // Initialization, first time this runs
+  if (!isset($current_mode)) {
     $current_mode = variable_get('i18n_selection_mode', 'simple');
-    if ($current_mode != 'off') {
-      // Node language when loading specific nodes or creating translations.
-      if (arg(0) == 'node' ) {
-        if (($node = menu_get_object('node')) && $node->language) {
-          $current_mode = 'node';
-          $current_value = $node->language;
-        }
-        elseif (arg(1) == 'add' && !empty($_GET['translation']) && !empty($_GET['language'])) {
-          $current_mode = 'translation';
-          $current_value = db_escape_string($_GET['language']);
-        }
-      }
-      elseif (arg(0) == 'admin') {
-        // There are some exceptions for admin pages.
-        if (arg(1) == 'content' && user_access('administer all languages')) {
-          // No restrictions for administration pages.
-          $current_mode = 'off';
-        }
-        elseif (arg(1) == 'build' && arg(2) == 'menu-customize') {
-          // All nodes available when editing custom menu items.
-          $current_mode = 'off';
-        }
-      }
-    }
   }
 
   if (!$mode) {
@@ -606,7 +631,7 @@ function i18n_perm() {
 }
 
 /**
- * Implementation of hook_theme()
+ * Implementation of hook_theme().
  */
 function i18n_theme() {
   return array(
@@ -699,7 +724,7 @@ function i18n_variable_init($langcode = NULL, $prefix = '') {
 }
 
 /**
- * Get language from context
+ * Get language from context.
  */
 function _i18n_get_context_lang() {
   // Node language when loading specific nodes or creating translations.
@@ -732,17 +757,21 @@ function _i18n_language_select($value ='', $description ='', $weight = -20, $lan
  * Load language variables into array.
  */
 function _i18n_variable_init($language, $prefix = '') {
-  $variables = array();
+  static $variables;
+  
   $cacheid = 'variables:'. $language . ($prefix ? ':'. $prefix : '');
-  if ($cached = cache_get($cacheid)) {
-    $variables = $cached->data;
-  }
-  else {
-    $result = db_query("SELECT * FROM {i18n_variable} WHERE language='%s' AND name LIKE '%s%'", $language, $prefix);
-    while ($variable = db_fetch_object($result)) {
-      $variables[$variable->name] = unserialize($variable->value);
+  
+  if (!isset($variables[$cacheid])) {
+    if ($cached = cache_get($cacheid)) {
+      $variables = $cached->data;
     }
-    cache_set($cacheid, $variables);
+    else {
+      $result = db_query("SELECT * FROM {i18n_variable} WHERE language='%s' AND name LIKE '%s%'", $language, $prefix);
+      while ($variable = db_fetch_object($result)) {
+        $variables[$variable->name] = unserialize($variable->value);
+      }
+      cache_set($cacheid, $variables);
+    }
   }
   return $variables;
 }
@@ -772,14 +801,15 @@ function _i18n_variable_exit() {
 }
 
 /**
- * Check whether we are in bootstrap mode
+ * Check whether we are in bootstrap mode.
  */
 function _i18n_is_bootstrap() {
   return !function_exists('drupal_get_headers');
 }
 
 /**
- * Drupal 6, backwards compatibility layer
+ * Drupal 6, backwards compatibility layer.
+ *
  * @ TO DO Fully upgrade all the modules and remove
  */
 
@@ -798,7 +828,7 @@ function i18n_get_lang() {
  */
 
 /**
- * Returns language lists
+ * Returns language lists.
  */
 function i18n_language_list($type = 'enabled', $field = 'name') {
   switch ($type) {

@@ -1,5 +1,5 @@
 <?php
-// $Id: i18ntaxonomy.module,v 1.5.2.44 2010/04/07 19:45:52 jareyero Exp $
+// $Id: i18ntaxonomy.module,v 1.5.2.46 2010/06/08 19:42:34 jareyero Exp $
 
 /**
  * @file
@@ -500,8 +500,12 @@ function i18ntaxonomy_node_form(&$form) {
     if ($vid == 'tags') {
       // Special treatment for tags, add some help texts
       foreach (element_children($form['taxonomy']['tags']) as $vid) {
-        if (i18ntaxonomy_vocabulary($vid) == I18N_TAXONOMY_LOCALIZE) {
-          $form['taxonomy']['tags'][$vid]['#title'] = check_plain(i18nstrings("taxonomy:vocabulary:$vid:name", $form['taxonomy']['tags'][$vid]['#title']));
+        $type = i18ntaxonomy_vocabulary($vid);
+        if ($type == I18N_TAXONOMY_LOCALIZE || $type == I18N_TAXONOMY_TRANSLATE) {
+          $form['taxonomy']['tags'][$vid]['#title'] = i18nstrings_string("taxonomy:vocabulary:$vid:name", $form['taxonomy']['tags'][$vid]['#title']);
+          $form['taxonomy']['tags'][$vid]['#description'] = i18nstrings("taxonomy:vocabulary:$vid:help", $form['taxonomy']['tags'][$vid]['#description']);    
+        }
+        if ($type == I18N_TAXONOMY_LOCALIZE) {
           $form['taxonomy']['tags'][$vid]['#description'] .= ' '. t('This is a localizable vocabulary, so only terms in %language are allowed here.', array('%language' => language_default('name')));
         }
       }
@@ -516,10 +520,16 @@ function i18ntaxonomy_node_form(&$form) {
           $default_terms[$term->tid] = $term;
         }
       }
-
       $form['taxonomy'][$vid] = i18ntaxonomy_vocabulary_form($vocabulary->vid, array_keys($default_terms));
       $form['taxonomy'][$vid]['#weight'] = $vocabulary->weight;
       $form['taxonomy'][$vid]['#required'] = $vocabulary->required;
+      $form['taxonomy'][$vid]['#description'] = i18nstrings("taxonomy:vocabulary:$vid:help", $vocabulary->help);
+    }
+    elseif (is_numeric($vid) && i18ntaxonomy_vocabulary($vid) == I18N_TAXONOMY_TRANSLATE) {
+      // Rebuild this vocabulary's form.
+      $vocabulary = taxonomy_vocabulary_load($vid);
+      $form['taxonomy'][$vid]['#title'] = i18nstrings_string("taxonomy:vocabulary:$vid:name", $vocabulary->name);
+      $form['taxonomy'][$vid]['#description'] = i18nstrings("taxonomy:vocabulary:$vid:help", $vocabulary->help);
     }
   }
 }
@@ -649,28 +659,32 @@ function i18ntaxonomy_nodeapi(&$node, $op, $teaser, $page) {
   switch ($op) {
     case 'view':
       // This runs after taxonomy:nodeapi, so we just localize terms here.
-      if (array_key_exists('taxonomy', $node)) {
+      if (!empty($node->taxonomy)) {
         $node->taxonomy = i18ntaxonomy_localize_terms($node->taxonomy);
       }
       if ($node->type == 'forum' && ($vid = variable_get('forum_nav_vocabulary', '')) && i18ntaxonomy_vocabulary($vid)) {
         if ($page && taxonomy_node_get_terms_by_vocabulary($node, $vid) && $tree = taxonomy_get_tree($vid)) {
-          // Get the forum terms from the (cached) tree
-          foreach ($tree as $term) {
-            $forum_terms[] = $term->tid;
-          }
-          foreach ($node->taxonomy as $term_id => $term) {
-            if (in_array($term_id, $forum_terms)) {
-              $node->tid = $term_id;
-            }
-          }
           // Breadcrumb navigation
           $vocabulary = taxonomy_vocabulary_load($vid);
           $breadcrumb[] = l(t('Home'), NULL);
           $breadcrumb[] = l(i18nstrings("taxonomy:vocabulary:$vid:name", $vocabulary->name), 'forum');
-          if ($parents = taxonomy_get_parents_all($node->tid)) {
-            $parents = array_reverse($parents);
-            foreach ($parents as $p) {
-              $breadcrumb[] = l(i18nstrings("taxonomy:term:$term->tid:name", $p->name), 'forum/'. $p->tid);
+          // Translate node taxonomy terms. Sometimes there are no terms, like for search results...
+          if (!empty($node->taxonomy)) {          
+            // Get the forum terms from the (cached) tree
+            foreach ($tree as $term) {
+              $forum_terms[] = $term->tid;
+            }
+            foreach ($node->taxonomy as $term_id => $term) {
+              if (in_array($term_id, $forum_terms)) {
+                $node->tid = $term_id;
+              }
+            }
+  
+            if ($parents = taxonomy_get_parents_all($node->tid)) {
+              $parents = array_reverse($parents);
+              foreach ($parents as $p) {
+                $breadcrumb[] = l(i18nstrings("taxonomy:term:$term->tid:name", $p->name), 'forum/'. $p->tid);
+              }
             }
           }
           drupal_set_breadcrumb($breadcrumb);

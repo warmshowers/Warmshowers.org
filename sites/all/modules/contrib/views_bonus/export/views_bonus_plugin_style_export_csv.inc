@@ -1,5 +1,5 @@
 <?php
-// $Id: views_bonus_plugin_style_export_csv.inc,v 1.9 2009/10/06 05:21:13 neclimdul Exp $
+// $Id: views_bonus_plugin_style_export_csv.inc,v 1.10 2010/06/16 14:47:51 neclimdul Exp $
 /**
  * @file
  * Plugin include file for export style plugin.
@@ -74,6 +74,11 @@ class views_bonus_plugin_style_export_csv extends views_bonus_plugin_style_expor
       '#type' => 'checkbox',
       '#default_value' => !empty($this->options['quote']),
       '#title' => t('Quote values. Useful for output that might contain your seperator as part of one of the values.'),
+    );
+    $form['trim'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => !empty($this->options['trim']),
+      '#title' => t('Trim whitespace from rendered fields. Can be useful for some themes where output results in extra newlines.'),
     );
     $form['header'] = array(
       '#type' => 'checkbox',

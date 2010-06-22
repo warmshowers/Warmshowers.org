@@ -1,5 +1,5 @@
 <?php
-// $Id: taxonomy.views.inc,v 1.57.2.5 2010/04/06 19:59:29 merlinofchaos Exp $
+// $Id: taxonomy.views.inc,v 1.57.2.6 2010/04/29 18:17:37 merlinofchaos Exp $
 /**
  * @file
  *
@@ -462,6 +462,7 @@ function taxonomy_views_plugins() {
         'title' => t('Taxonomy Term ID from URL'),
         'handler' => 'views_plugin_argument_default_taxonomy_tid',
         'path' => drupal_get_path('module', 'views') . '/modules/taxonomy',
+        'parent' => 'fixed',
       ),
     ),
   );
