@@ -46,7 +46,14 @@ function omega_preprocess(&$vars, $hook) {
  * The default functionality can be found in preprocess/preprocess-page.inc
  */
 function omega_preprocess_page(&$vars, $hook) {
-  
+  if(theme_get_setting('omega_fixed_fluid') == 'fluid') {
+    $css_960 = drupal_get_path('theme', 'omega') .'/css/960-fluid.css';
+  }
+  else {
+  	$css_960 = drupal_get_path('theme', 'omega') .'/css/960.css';
+  }
+  drupal_add_css($css_960, 'theme', 'all');
+  $vars['styles'] = drupal_get_css();
 } // end preprocess_page
 function omega_preprocess_node(&$vars, $hook) {
   
