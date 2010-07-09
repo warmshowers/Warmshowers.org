@@ -107,7 +107,5 @@ function omega_starterkit_preprocess_block(&$vars, $hook) {
  * @return string
  */
 function omega_starterkit_render_attributes($attributes) {
-  // not sure why this has to be here anymore, investigating
-	return omega_render_attributes($attributes);
-  
+	return omega_render_attributes($attributes);  
 }
