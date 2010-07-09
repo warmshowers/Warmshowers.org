@@ -108,6 +108,6 @@ function omega_starterkit_preprocess_block(&$vars, $hook) {
  */
 function omega_starterkit_render_attributes($attributes) {
   // not sure why this has to be here anymore, investigating
-	omega_render_attributes($attributes);
+	return omega_render_attributes($attributes);
   
 }
