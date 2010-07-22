@@ -372,8 +372,8 @@ $vars['main_menu_links']      = theme('links', $vars['primary_links'], array('cl
 $vars['secondary_menu_links'] = theme('links', $vars['secondary_links'], array('class' => 'links secondary-menu'));
 
 // NINESIXTY - Make sure framework styles are placed above all others.
-$vars['css_alt'] = omega_css_reorder($vars['css']);
-$vars['styles'] = drupal_get_css($vars['css_alt']);
+//$vars['css_alt'] = omega_css_reorder($vars['css']);
+//$vars['styles'] = drupal_get_css($vars['css_alt']);
 
 // ACQUIA-MARINA
 // Set site title, slogan, mission, page title & separator (unless using Page Title module)

@@ -53,26 +53,28 @@ function omega_preprocess_page(&$vars, $hook) {
   else {
   	$css_960 = drupal_get_path('theme', 'omega') .'/css/960.css';
   }
-  drupal_add_css($css_960, 'theme', 'all');
+  drupal_add_css($css_960, 'module', 'all');
   
   // enable/disable optional CSS files
   if (theme_get_setting('reset_css') == '1') {
-    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/reset.css', 'theme', 'all');
+    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/reset.css', 'module', 'all');
   }
   if (theme_get_setting('text_css') == '1') {
-    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/text.css', 'theme', 'all');
+    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/text.css', 'module', 'all');
   }
   if (theme_get_setting('regions_css') == '1') {
-    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/regions.css', 'theme', 'all');
+    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/regions.css', 'module', 'all');
   }
   if (theme_get_setting('defaults_css') == '1') {
-    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/defaults.css', 'theme', 'all');
+    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/defaults.css', 'module', 'all');
   }
   if (theme_get_setting('custom_css') == '1') {
-    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/custom.css', 'theme', 'all');
+    drupal_add_css(drupal_get_path('theme', 'omega') .'/css/custom.css', 'module', 'all');
   }
   // redeclare $styles
+  //krumo($vars['styles']);
   $vars['styles'] = drupal_get_css();
+  //krumo($vars['styles']);
 } // end preprocess_page
 function omega_preprocess_node(&$vars, $hook) {
   
