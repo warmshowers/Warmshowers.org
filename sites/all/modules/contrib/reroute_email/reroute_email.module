@@ -1,0 +1,71 @@
+<?php
+
+// $Id: reroute_email.module,v 1.6 2008/07/24 14:32:35 kbahey Exp $
+
+define('REROUTE_EMAIL_ADDRESS',  'reroute_email_address');
+
+/**
+ * Implementation of hook_perm().
+ */
+function reroute_email_perm() {
+  return array('administer reroute email');
+}
+
+function reroute_email_menu() {
+  $items = array();
+
+  $items['admin/settings/reroute_email'] = array(
+    'title'              => t('Reroute Email'),
+    'description'        => t('Reroute emails to a test address.'),
+    'page callback'      => 'drupal_get_form',
+    'page arguments'     => array('reroute_email_settings'),
+    'access arguments'   => array('administer reroute email'),
+  );
+
+  return $items;
+}
+
+function reroute_email_settings() {
+  $form[REROUTE_EMAIL_ADDRESS] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Email address'),
+    '#required'      => TRUE,
+    '#default_value' => variable_get(REROUTE_EMAIL_ADDRESS, ini_get('sendmail_from')),
+    '#size'          => 35,
+    '#description'   => t('The email address to reroute all emails from the site to.')
+  );
+
+  return system_settings_form($form);
+}
+
+function reroute_email_mail_alter(&$message) {
+  global $base_url;
+
+  if (!empty($message) && is_array($message)) {
+    $mailkey = isset($message['id']) ? $message['id'] : t('<mail id> is missing');
+    $to = isset($message['to']) ? $message['to'] : t('<to> is missing');
+  // Suppress Bcc and Cc fields otherwise email will still go out to those addresses
+    if (isset($message['headers']) && is_array($message['headers'])) {
+      if (isset($message['headers']['Bcc'])) {
+        unset($message['headers']['Bcc']);
+      }
+      if (isset($message['headers']['Cc'])) {
+        unset($message['headers']['Cc']);
+      }
+    }
+  }
+  
+  // Format a message to show at the top
+  $msg[] = t("This email was rerouted.");
+  $msg[] = t("Web site: @site", array('@site' => $base_url));
+  $msg[] = t("Mail key: @key", array('@key' => $mailkey));
+  $msg[] = t("Originally to: <@to>", array('@to' => $to));
+  $msg[] = "-----------------------";
+
+  // Prepend to the body of the email
+  $message['body'] = array_merge($msg, isset($message['body']) ? (is_array($message['body']) ? $message['body'] : array($message['body'])) : array());
+
+  // Change the $to address to be the one we defined
+  $message['to'] = variable_get(REROUTE_EMAIL_ADDRESS, ini_get('sendmail_from'));
+}
+
