@@ -1,5 +1,5 @@
 <?php
-// $Id: binary.inc,v 1.7.2.32.2.6 2009/04/11 16:02:50 chriskennedy Exp $
+// $Id: binary.inc,v 1.7.2.32.2.7 2010/06/25 20:12:41 mirodietiker Exp $
 
 /**
  * @file
@@ -56,8 +56,6 @@ function advpoll_voting_binary_form(&$form_state, $node, $teaser, $page, $status
 
     $form['choice'] = array(
       '#options' => $list,
-      '#prefix' => '<div class="vote-choices">',
-      '#suffix' => '</div>',
       '#tree' => TRUE,
     );
 
@@ -77,8 +75,6 @@ function advpoll_voting_binary_form(&$form_state, $node, $teaser, $page, $status
   // Add write-in text field if write-ins are enabled and user has permission.
   if ($node->writeins && user_access('add write-ins')) {
     $form['writein_choice'] = array(
-      '#prefix' => '<div class="writein-choice">',
-      '#suffix' => '</div>',
       '#type' => 'textfield',
       '#title' => t('Write-in vote'),
       '#size' => 25,
@@ -303,18 +299,30 @@ function advpoll_voting_binary_form_validate($form, &$form_state) {
 }
 
 /**
- * Render the voting form.
+ * Process variables for advpoll-display-binary-form.tpl.php.
+ *
+ * The variables array contains the following arguments:
+ * - $form
+ *
+ * @see advpoll-display-binary-form.tpl.php
  */
-function theme_advpoll_voting_binary_form($form) {
-  $message = drupal_render($form['message']);
+function advpoll_preprocess_advpoll_voting_binary_form(&$variables) {
+  $form = &$variables['form'];
+  $variables['message'] = drupal_render($form['message']);
   
-  $output = "<div class=\"poll\">\n";
-  $output .= drupal_render($form);
-  if ($message) {
-    $output .= "<p class=\"message\">$message</p>\n";
+  // If write-ins are used on this form.
+  if (isset($form['writein_choice'])) {
+    $variables['writein_choice'] = drupal_render($form['writein_choice']);
   }
-  $output .= "</div>\n";
-  return $output;
+  $variables['form_id'] = $form['#id'];
+
+  // List of available choices in the poll.
+  $variables['choice_list'] = drupal_render($form['choice']);
+  // Take off the annoying colon & endlines that Drupal adds to each title.
+  $variables['choice_list'] = preg_replace('/[\n\r]*: <\/label>[\n\r]*/i', '</label>', $variables['choice_list']);
+  // All remaining form elements.
+  $variables['form_submit'] = drupal_render($form);
+
 }
 
 /**

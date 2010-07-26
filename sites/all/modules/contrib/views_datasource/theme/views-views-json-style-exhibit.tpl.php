@@ -1,5 +1,5 @@
 <?php
-//$Id $
+//$Id: views-views-json-style-exhibit.tpl.php,v 1.1.2.4 2010/07/15 07:34:48 allisterbeharry Exp $
 /**
  * @file views-views-json-style-exhibit.tpl.php
  * Default template for the Views JSON style plugin using the Simile/Exhibit format
@@ -12,12 +12,18 @@
  * @ingroup views_templates
  */
 
+
+$jsonp_prefix = $options['jsonp_prefix'];
+
 if ($view->override_path) {
 	// We're inside a live preview where the JSON is pretty-printed.
-  print '<code>'. _views_json_encode_formatted($rows) .'</code>';
+	$json = _views_json_encode_formatted($rows);
+	if ($jsonp_prefix) $json = "$jsonp_prefix($json)";	
+	print "<code>$json</code>";
 }
 else {
   $json = json_encode($rows);
+  if ($jsonp_prefix) $json = "$jsonp_prefix($json)";
   if ($options['using_views_api_mode']) {
     // We're in Views API mode.
     print $json;

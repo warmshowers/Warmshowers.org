@@ -1,5 +1,5 @@
 <?php
-// $Id: views_plugin_style_xhtml.inc,v 1.1.2.9 2010/06/08 06:02:48 allisterbeharry Exp $
+// $Id: views_plugin_style_xhtml.inc,v 1.1.2.10 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file
@@ -101,7 +101,27 @@ class views_plugin_style_xhtml extends views_plugin_style {
       '#description'    => ('Not using View API mode means the JSON gets output directly and the server ceases normal page processing.  Using it means the server does not cease processing after outputting the JSON.  This allows the Views API to be used with the view without having to prematurely terminate page processing.'),
     );    
   }
-  
+
+  /**
+   * Implementation of views_style_plugin::theme_functions(). Returns an array of theme functions to use.
+   * for the current style plugin
+   * @return array 
+   */
+  function theme_functions() {
+    $options = $this->options;
+    if ($options['format'] == 'hcard') $hook = 'views_views_xhtml_style_hcard';
+	  if ($options['format'] == 'hcalendar') $hook = 'views_views_xhtml_style_hcalendar'; 
+  	return views_theme_functions($hook, $this->view, $this->display);
+  }
+
+/**
+ * Implementation of views_style_plugin::additional_theme_functions(). Returns empty array.
+ * @return array
+ */  
+  function additional_theme_functions() {
+  	return array();
+  }
+    
   /**
    * Implementation of view_style_plugin::render()
    */
@@ -116,6 +136,6 @@ class views_plugin_style_xhtml extends views_plugin_style {
       $rows[] = _views_xhtml_render_fields($view, $row);
     }
     
- 	  return theme($this->theme_functions(), $this->view, $rows, $this->attachment, $this->options); 	  
+ 	  return theme($this->theme_functions(), $this->view, $this->options, $rows); 	  
  	}  
 }

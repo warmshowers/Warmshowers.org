@@ -1,5 +1,5 @@
 <?php
-// $Id: views_views_xhtml_style.theme.inc,v 1.1.2.3 2010/06/07 03:27:07 allisterbeharry Exp $
+// $Id: views_views_xhtml_style.theme.inc,v 1.1.2.4 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file
@@ -13,19 +13,6 @@
  * @ingroup views_templates
  * @see views_xhtml.views.inc
  */
-
-/**
- * Main theme function for the style plugin - just acts as a switch to pass control to the other themes
- * @param $view
- * @param $rows
- * @param $attachment
- * @param $options
- * @return unknown_type
- */
-function theme_views_views_xhtml_style($view, $rows = array(), $attachment = NULL, $options = array()) {
-	if ($options['format'] == 'hcard') return theme('views_views_xhtml_style_hcard', $view, $rows, $attachment, $options);
-	if ($options['format'] == 'hcalendar') return theme('views_views_xhtml_style_hcalendar', $view, $rows, $attachment, $options);
-}
 
 function template_preprocess_views_views_xhtml_style_hcard($vars) {
 	global $user;

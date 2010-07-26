@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield.theme.inc,v 1.10 2010/04/28 16:32:20 quicksketch Exp $
+// $Id: filefield.theme.inc,v 1.12 2010/06/30 01:37:29 quicksketch Exp $
 
 /**
  * @file
@@ -24,9 +24,8 @@ function theme_filefield_icon($file) {
   $dashed_mime = strtr($mime, array('/' => '-', '+' => '-'));
 
   if ($icon_url = filefield_icon_url($file)) {
-    $icon = '<img class="field-icon-'. $dashed_mime .'"  alt="'. $mime .' icon" src="'. $icon_url .'" />';
+    return '<img class="filefield-icon field-icon-'. $dashed_mime .'"  alt="'. t('@mime icon', array('@mime' => $mime)) .'" src="'. $icon_url .'" />';
   }
-  return '<div class="filefield-icon field-icon-'. $dashed_mime .'">'. $icon .'</div>';
 }
 
 /**
@@ -44,8 +43,8 @@ function theme_filefield_icon($file) {
 function _filefield_icon_url($file, $theme = NULL) {
   global $base_url;
 
-  if ($iconpath = _filefield_icon_path($file, $theme)) {
-    return $base_url .'/'. $iconpath;
+  if ($icon_path = _filefield_icon_path($file, $theme)) {
+    return $base_url .'/'. $icon_path;
   }
   return FALSE;
 }
@@ -64,41 +63,60 @@ function _filefield_icon_url($file, $theme = NULL) {
  */
 function _filefield_icon_path($file, $theme = NULL) {
   if (!isset($theme)) {
-    $theme = variable_get('filefield_icon_theme', 'protocons');
+    $theme = variable_get('filefield_icon_theme', 'default');
   }
 
   // If there's an icon matching the exact mimetype, go for it.
   $dashed_mime = strtr($file['filemime'], array('/' => '-'));
-  if ($iconpath = _filefield_create_icon_path($dashed_mime, $theme)) {
-    return $iconpath;
+  if ($icon_path = _filefield_create_icon_path($dashed_mime, $theme)) {
+    return $icon_path;
   }
   // For a couple of mimetypes, we can "manually" tell a generic icon.
   if ($generic_name = _filefield_generic_icon_map($file)) {
-    if ($iconpath = _filefield_create_icon_path($generic_name, $theme)) {
-      return $iconpath;
+    if ($icon_path = _filefield_create_icon_path($generic_name, $theme)) {
+      return $icon_path;
     }
   }
   // Use generic icons for each category that provides such icons.
   foreach (array('audio', 'image', 'text', 'video') as $category) {
     if (strpos($file['filemime'], $category .'/') === 0) {
-      if ($iconpath = _filefield_create_icon_path($category .'-x-generic', $theme)) {
-        return $iconpath;
+      if ($icon_path = _filefield_create_icon_path($category .'-x-generic', $theme)) {
+        return $icon_path;
       }
     }
   }
   // Try application-octet-stream as last fallback.
-  if ($iconpath = _filefield_create_icon_path('application-octet-stream', $theme)) {
-    return $iconpath;
+  if ($icon_path = _filefield_create_icon_path('application-octet-stream', $theme)) {
+    return $icon_path;
   }
   // Sorry, no icon can be found...
   return FALSE;
 }
 
-function _filefield_create_icon_path($iconname, $theme = 'protocons') {
-  $iconpath = drupal_get_path('module', 'filefield')
-    .'/icons/'. $theme .'/16x16/mimetypes/'. $iconname .'.png';
-  if (file_exists($iconpath)) {
-    return $iconpath;
+/**
+ * Internal function to convert a file icon theme name to a directory.
+ */
+function _filefield_icon_directory($theme = NULL) {
+  static $sets;
+
+  if (!isset($sets)) {
+    $sets = module_invoke_all('filefield_icon_sets');
+    drupal_alter('filefield_icon_sets', $sets);
+  }
+
+  if (!isset($theme) || !isset($sets[$theme])) {
+    $theme = 'default';
+  }
+
+  return $sets[$theme];
+}
+
+function _filefield_create_icon_path($icon_name, $theme = NULL) {
+  $icons_directory = _filefield_icon_directory($theme);
+  $icon_path = $icons_directory .'/'. $icon_name .'.png';
+
+  if (file_exists($icon_path)) {
+    return $icon_path;
   }
   return FALSE;
 }

@@ -1,5 +1,5 @@
 <?php
-// $Id: views-views-rdf-style-sioc.tpl.php,v 1.1.2.4 2010/06/07 03:27:07 allisterbeharry Exp $$
+// $Id: views-views-rdf-style-sioc.tpl.php,v 1.1.2.5 2010/07/15 07:34:48 allisterbeharry Exp $$
 /**
  * @file views-views-rdf-style-sioc.tpl.php
  * Default template for the Views RDF style plugin using the SIOC vocabulary

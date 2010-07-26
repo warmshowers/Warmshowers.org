@@ -1,4 +1,4 @@
-// $Id: advpoll-vote.js,v 1.1.2.11.2.5 2010/06/09 01:47:38 mirodietiker Exp $
+// $Id: advpoll-vote.js,v 1.1.2.11.2.9 2010/06/25 20:12:41 mirodietiker Exp $
 
 /**
  * Submit advpoll forms with ajax
@@ -8,7 +8,7 @@ Drupal.behaviors.attachVoteAjax = function(context) {
     var thisForm = this;
     var options = {
       dataType: "json",
-      after: function(data) {
+      success: function(data) {
         // Remove previous messages
         $("div.messages").remove(); 
         
@@ -26,7 +26,7 @@ Drupal.behaviors.attachVoteAjax = function(context) {
         $(".form-submit", thisForm).removeAttr("disabled");
 
       },
-      before: function() {
+      beforeSubmit: function() {
         // Disable the Vote button.
         $(".form-submit", thisForm).attr("disabled", "disabled");
       }
@@ -44,20 +44,13 @@ Drupal.behaviors.handleWriteins = function(context) {
       // No write-ins in this poll.
       return;
     }
-    var ranOnce = false;
     // Toggle display of the write-in text box for radios/checkboxes.
-    $(".vote-choices input[@type=radio], .vote-choices input[@type=checkbox]", poll).click(function() {
-      var isLast = $(this).val() == $(".vote-choices input[@type=radio]:last, .vote-choices input[@type=checkbox]:last", poll).val();
+    $(".vote-choices input[type=radio], .vote-choices input[type=checkbox]", poll).click(function() {
+      var isLast = $(this).val() == $(".vote-choices input[type=radio]:last, .vote-choices input[type=checkbox]:last", poll).val();
       var type = $(this).attr("type"); 
       // The logic here is tricky but intentional.
       if (isLast || type == "radio") {
         var showChoice = isLast && (type == "radio" || $(this).attr("checked"));
-        if (!ranOnce && showChoice) {
-          // If this is our first time, clone the Drupal-added write-in element
-          // and add a new one next to the checkbox, then delete the old one.
-          $(".writein-choice input", poll).clone().addClass("writein-choice").insertAfter($(this).parent()).end().parent().parent().remove();
-          ranOnce = true;
-        }
         $(".writein-choice", poll).css("display", showChoice ? "inline" : "none");
         if (showChoice) {
           $(".writein-choice", poll)[0].focus();
@@ -71,12 +64,6 @@ Drupal.behaviors.handleWriteins = function(context) {
     // Toggle display of the write-in text box for select boxes.
     // Fire on change() rather than click(), for Safari compatibility.
     $(".vote-choices select:last", poll).change(function() {
-      if (!ranOnce) {
-        // If this is our first time, clone the Drupal-added write-in element
-        // and add a new one next to the checkbox, then delete the old one.
-        $(".writein-choice input", poll).clone().addClass("writein-choice").insertAfter($(this)).end().parent().parent().remove();
-        ranOnce = true;
-      }
       var showChoice = $(this).val() > 0;
       var alreadyVisible = $(".writein-choice", poll).css("display") == "inline";
       $(".writein-choice", poll).css("display", showChoice ? "inline" : "none");
@@ -165,7 +152,7 @@ Drupal.behaviors.rankingDragAndDrop = function(context) {
         else {
           // Hack to have tabledrag.js parse the new table rows.
           $existingChoicesTable.removeClass('dragtable-processed');
-          Drupal.attachBehaviors();
+          Drupal.attachBehaviors($existingChoicesTable);
         }
         $(".vote-status", mainForm).show().html(Drupal.t("Choices remaining: %choices", {"%choices" : maxChoices - currentChoices}));
         if (currentChoices > maxChoices) {

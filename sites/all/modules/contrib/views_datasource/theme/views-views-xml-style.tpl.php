@@ -1,12 +1,17 @@
 <?php
-// $Id $
+// $Id: views-views-xml-style.tpl.php,v 1.1.2.2 2010/07/15 07:34:48 allisterbeharry Exp $
+
 /**
  * @file views-views-xml-style.tpl.php
- * If you want to override the style theme switcher in views_views_xml_style.theme.inc use this file and add
- * a template = views-views-xml-style.tpl.php to the theme declaration for views_views_xml_style.
+ * This template file is never used. The switch for choosing among the different
+ * views_views_xml_* themes based on schema is done in 
+ * views_plugin_style_xml->theme_functions()
  *
  * - $view: The View object.
  * - $rows: Array of row objects as rendered by _views_xml_render_fields 
+ *   $options: Array of plugin style options
  *
  * @ingroup views_templates
+ * @see views_plugin_style_xml.inc
+ * @see views_views_xml_style.theme.inc 
  */

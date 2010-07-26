@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield_widget.inc,v 1.97 2010/06/16 21:54:09 quicksketch Exp $
+// $Id: filefield_widget.inc,v 1.100 2010/06/29 21:38:10 quicksketch Exp $
 
 /**
  * @file
@@ -17,14 +17,15 @@ function filefield_widget_settings_form($widget) {
 
   // Convert the extensions list to be a human-friendly comma-separated list.
   $extensions = is_string($widget['file_extensions']) ? $widget['file_extensions'] : 'txt';
-  $extensions = implode(', ', explode(' ', $extensions));
   $form['file_extensions'] = array(
     '#type' => 'textfield',
     '#title' => t('Permitted upload file extensions'),
     '#default_value' => $extensions,
     '#size' => 64,
+    '#maxlength' => 512,
     '#description' => t('Extensions a user can upload to this field. Separate extensions with a space and do not include the leading dot. Leaving this blank will allow users to upload a file with any extension.'),
     '#element_validate' => array('_filefield_widget_settings_extensions_validate'),
+    '#pre_render' => array('_filefield_widget_settings_extensions_value'),
     '#weight' => 1,
   );
 
@@ -94,6 +95,17 @@ function filefield_widget_settings_save($widget) {
   return array('file_extensions', 'file_path', 'progress_indicator', 'max_filesize_per_file', 'max_filesize_per_node');
 }
 
+/**
+ * A FAPI #pre_render() function to set a cosmetic default value for extensions.
+ */
+function _filefield_widget_settings_extensions_value($element) {
+  $element['#value'] = implode(', ', explode(' ', $element['#value']));
+  return $element;
+}
+
+/**
+ * A FAPI #element_validate callback to strip commas from extension lists.
+ */
 function _filefield_widget_settings_extensions_validate($element, &$form_state) {
   // Remove commas from file extensions.
   $value = str_replace(',', ' ', $element['#value']);
@@ -204,7 +216,7 @@ function filefield_widget_value($element, $edit = FALSE) {
     $item = $element['#default_value'];
   }
   else {
-    $item = array_merge($element['#default_value'], $edit);
+    $item = $edit;
     $field = content_fields($element['#field_name'], $element['#type_name']);
 
     // Uploads take priority over value of fid text field.
@@ -236,6 +248,9 @@ function filefield_widget_value($element, $edit = FALSE) {
     }
   }
   // Merge file and item data so it is available to all widgets.
+  if (isset($item['data']) && isset($file['data'])) {
+    $file['data'] = array_merge($item['data'], $file['data']);
+  }
   $item = array_merge($item, $file);
 
   return $item;

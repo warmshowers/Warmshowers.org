@@ -1,5 +1,5 @@
 <?php
-// $Id: views_views_json_style.theme.inc,v 1.1.2.4 2010/06/07 03:27:07 allisterbeharry Exp $
+// $Id: views_views_json_style.theme.inc,v 1.1.2.5 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file
@@ -13,12 +13,6 @@
  * @ingroup views_templates
  * @see views_json.views.inc
  */ 
-
-function theme_views_views_json_style($view, $rows = array(), $attachment = NULL, $options = array()) {
-	//_views_json_debug_stop($options, "theme");
-if ($options['format'] == 'simple') return theme('views_views_json_style_simple', $view, $rows, $attachment, $options);
-if ($options['format'] == 'exhibit') return theme('views_views_json_style_exhibit', $view, $rows, $attachment, $options);
-}
 
 function template_preprocess_views_views_json_style_simple($vars) {	
   $view = $vars["view"];

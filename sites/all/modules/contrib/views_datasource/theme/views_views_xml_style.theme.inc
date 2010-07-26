@@ -1,5 +1,5 @@
 <?php
-// $Id: views_views_xml_style.theme.inc,v 1.1.2.10 2010/06/08 06:02:48 allisterbeharry Exp $
+// $Id: views_views_xml_style.theme.inc,v 1.1.2.15 2010/07/15 22:53:41 allisterbeharry Exp $
 
 /**
  * @file
@@ -14,27 +14,15 @@
  * @see views_xml.views.inc
  */
 
-/**
- * Main theme function for the style plugin - just acts as a switch to pass control to the other themes
- * @param $view
- * @param $rows
- * @param $attachment
- * @param $options
- * @return unknown_type
- */
-function theme_views_views_xml_style($view, $rows = array(), $attachment = NULL, $options = array()) {
-	if ($options['schema'] == 'raw') return theme('views_views_xml_style_raw', $view, $rows, $attachment, $options);
-	if ($options['schema'] == 'opml') return theme('views_views_xml_style_opml', $view, $rows, $attachment, $options);
-	if ($options['schema'] == 'atom') return theme('views_views_xml_style_atom', $view, $rows, $attachment, $options);
-}
-
 function template_preprocess_views_views_xml_style_raw($vars) {
 	$view = $vars["view"];
   $rows = $vars["rows"];
   $options = $vars["options"];  
   $base = $view->base_table;
   $root = $options['root_element'];
-  $top_child_object = $options["top_child_object"];  
+  $endroot = preg_replace("/\s+.*/", "", $root);
+  $top_child_object = $options["top_child_object"];
+  $end_top_child_object = preg_replace("/\s+.*/", "", $top_child_object);    
   $plaintext_output = $options["plaintext_output"];
   $content_type = ($options['content_type'] == 'default') ? 'text/xml' : $options['content_type'];
   $header = $options['header'];
@@ -65,17 +53,17 @@ function template_preprocess_views_views_xml_style_raw($vars) {
 		    	foreach($object->raw as $n=>$oc) $content[$n] = ($plaintext_output ? check_plain(html_entity_decode(strip_tags($oc))) : _views_xml_xmlEntities($oc));
 		    }
 		  }
-		  
+		  $endlabel = preg_replace("/\s+.*/", "", $label);
 		  if ($options['element_output'] == 'nested') {		  	
 			  if (!is_array($content)) {
-			  	$xml .= "      <$label>".(($options['escape_as_CDATA'] == 'yes') ? "<![CDATA[$content]]>\n": $content)."</$label>\n";
+			  	$xml .= "    <$label>".(($options['escape_as_CDATA'] == 'yes') ? "<![CDATA[$content]]>": $content)."</$endlabel>\n";
 			  	//_views_xml_debug_stop($xml);
 			  }
 			  else {
 			  	foreach ($content as $c) {
-		  	    $xml .= "    <$label>\n";
-			      $xml .= "      ".(($options['escape_as_CDATA'] == 'yes') ? "<![CDATA[$c]]>\n": $c."\n");
-			      $xml .= "    </$label>\n";			  		
+		  	    $xml .= "    <$label>";
+			      $xml .= "".(($options['escape_as_CDATA'] == 'yes') ? "<![CDATA[$c]]>": $c."");
+			      $xml .= "</$endlabel>\n";			  		
 			  	}			  	
 			  }
 		  }
@@ -94,9 +82,9 @@ function template_preprocess_views_views_xml_style_raw($vars) {
 		  }
 	  }
 
-	  $xml .= ($options['element_output'] == 'nested') ? "  </$top_child_object>\n": "/>\n";
+	  $xml .= ($options['element_output'] == 'nested') ? "  </$end_top_child_object>\n": "/>\n";
 	}
-	$xml .= "</$root>\n";
+	$xml .= "</$endroot>\n";
 	$vars["xml"] = $xml;
 }
 
@@ -215,8 +203,8 @@ function template_preprocess_views_views_xml_style_opml($vars) {
 //          $outline["created"] = $value;
 //	  	    continue;
 //	      }
-	  	   $outline["created"] = $value;
-	  	   continue;	      	      	      
+	  	   if ($value) $outline["created"] = $value;
+	  	   //continue;	      	      	      
 	  	   
 	  	} 
       //Otherwise just use the $label and $content as attribute nam and value
@@ -253,7 +241,7 @@ function template_preprocess_views_views_xml_style_atom($vars) {
   	$vars["title"] = check_plain(($view->get_title() ? $view->get_title(): $view->name));
   	$vars["id"] = check_url($view->get_url());
   	$vars["updated"] = format_date(time(), 'custom', DATE_ATOM);
-  	$vars["author"] = _views_xml_format_author($options["author"]);  
+  	if ($options["author"]) $vars["author"] = _views_xml_format_author($options["author"]);  
     $vars['link'] = check_url(url($view->display_handler->get_path(), $url_options));
   } else $vars["header"] = $header;
 	$entries = array();

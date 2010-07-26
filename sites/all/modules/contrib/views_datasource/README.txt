@@ -1,57 +1,28 @@
-$Id: README.txt,v 1.1.2.9 2010/06/08 06:02:48 allisterbeharry Exp $
+$Id: README.txt,v 1.1.2.11 2010/07/16 05:05:27 allisterbeharry Exp $
 
 Views Datasource README
 -------------------------------------------------------------------------------
 
 Current Version
 ---------------
-6.x-1.0-BETA1
+6.x-1.0-BETA2
 
 Release Notes
 -------------
 Fixed:
- http://drupal.org/node/533808
- http://drupal.org/node/459628
- http://drupal.org/node/384906
- http://drupal.org/node/296279
- http://drupal.org/node/607730
- http://drupal.org/node/286673
- http://drupal.org/node/647282
- http://drupal.org/node/646424
- http://drupal.org/node/680110
- http://drupal.org/node/318864
- http://drupal.org/node/633702
- http://drupal.org/node/687714
- http://drupal.org/node/685506
- http://drupal.org/node/682782
- http://drupal.org/node/614354
- http://drupal.org/node/290879
- http://drupal.org/node/734142
- http://drupal.org/node/725304
- http://drupal.org/node/768916
- http://drupal.org/node/620964
- http://drupal.org/node/627716
- http://drupal.org/node/730776
- http://drupal.org/node/790610
- http://drupal.org/node/790610
- http://drupal.org/node/800744
- http://drupal.org/node/801828
- http://drupal.org/node/804916
- http://drupal.org/node/803186
- http://drupal.org/node/805902
- http://drupal.org/node/449904
-  
-
-This first beta release has significant changes from the alpha releases. 
-To upgrade from the previous version you should first:
-  1. Set your view's style to Unformatted or any one of the built-in
-     view styles.
-  2. Disable all 4 Views Datasource modules.
-  3. Delete each Views Datasource module folder from your modules folder.
-  4. Place the new versions of the modules in your modules folder.
-  5. Reenable each module.
-  6. Set your views' style to whichever plugin you were using. Check the
-     settings to see the new options available for the plugin.
+http://drupal.org/node/838264 Patch by levjj to add DOAP support to views_rdf
+http://drupal.org/node/844442 Views theme overriding now works as it should
+http://drupal.org/node/855166 author element is now included in Atom doc header
+http://drupal.org/node/847716: Closing tag of an XML element does not include
+xmlns or any additional attributes defined on the starting tag.
+ 
+Upgrade Notes
+-------------
+ To upgrade from the beta1 release you can simply drop in the new files into
+ the modules folder, however if you have views that rely on theme overriding
+ you should rescan template files for your view in the view's Theme:information. 
+ Otherwise if you notice anything screwy or breakage try rescanning template
+ files also .
  
 About
 -----
@@ -61,14 +32,14 @@ formats allow content in a Drupal site to be easily used as data sources for
 Semantic Web clients and web mash-ups. Views Datasource plugins output content 
 from node lists created in Drupal Views as:
   1)XML data documents using schemas like OPML and Atom;
-  2)RDF/XML data documents using vocabularies like FOAF and SIOC;
+  2)RDF/XML data documents using vocabularies like FOAF, SIOC and DOAP;
   3)JSON data documents in plain JSON or in a format like MIT Simile/Exhibit;
   4)XHTML data documents using microformat like hCard and hCalendar
   
 The project consists of 4 Views style plugins:
   1)views_xml - Output as raw XML, OPML, and Atom;
   2)views_json - Output as simple JSON and Simile/Exhibit JSON;
-  3)views_rdf - Output as FOAF and SIOC;
+  3)views_rdf - Output as FOAF, SIOC and DOAP;
   4)views_xhtml - Output as hCard and hCalendar.
   
 In Drupal 6.x, to use these plugins you should:
@@ -76,7 +47,7 @@ In Drupal 6.x, to use these plugins you should:
 2) In the Views UI set the view style (in Basic Settings) to one of:
    i)  JSON data document (render as Simple JSON or Simile/Exhibit JSON)
    ii) XML data document (render as raw XML, OPML, or Atom)
-   iii) RDF data document (render as a FOAF or SIOC RDF/XML document)
+   iii) RDF data document (render as a FOAF or SIOC or DOAP RDF/XML document)
    iv) XHTML data document (render as hCard or hCalendar XHTML)
 3) In the view style options choose the options or vocabulary for your format 
    (like raw or the OPML or Atom vocabulary for XML rendering.)
@@ -226,16 +197,18 @@ The views_xml plugin has the following options:
 The views_rdf plugin has the following options:
   1. RDF vocabulary:
      This indicates what RDF vocabulary to use in the document: either
-     FOAF or SIOC. FOAF (Friend of a Friend) is useful for sharing a list of 
-     users or people, while SIOC 
+     FOAF or SIOC or DOAP . FOAF (Friend of a Friend) is useful for sharing a 
+     list of  users or people, while SIOC 
      (Semantically-Interlinked Online Communities Project) is most useful for 
      describing a set of pages, stories, blogs,
      or forum posts with comments from different people. SIOC itself uses
-     FOAF to describe the posts and comments from different people. See
-     these links for more info:
-     http://www.foaf-project.org/
-     http://sioc-project.org/
-     
+     FOAF to describe the posts and comments from different people. DOAP
+     (Description of a Project) is useful for - as the name suggests - projects.
+     See these links for more info:
+      http://www.foaf-project.org/
+      http://sioc-project.org/
+      http://trac.usefulinc.com/doap
+          
      The following fields are recognized when using the FOAF vocabulary 
      (fallbacks in brackets):
      name, firstname, surname, title, nick, mbox (mail, email), mbox_sha1sum,
@@ -246,6 +219,11 @@ The views_rdf plugin has the following options:
      id (nid), created(node_created, Post date, title, type (node_type), 
      changed (node_changed, updated/commented date) last_updated(updated date), 
      body(node_body, node_revisions_body), uid (users_uid). 
+     
+     The following fields are recognized when using the DOAP vocabulary:
+     (optional fields in square brackets)
+     nid, name, homepage, [license], [shortdesc], [language], [repositories],
+     [developers]
      
 The views_xhtml plugin has the following options:
   1. Microformat
@@ -268,4 +246,7 @@ The views_xhtml plugin has the following options:
 Proper date handling for each format
 Check for separator in profile fields
 Properly handle grouped multiple values in views_xhtml et. al
+Strict conformance with Atom spec
+Recognize when field rewriting rules are used
+Represent multiple-valued fields using nested child elements  
      

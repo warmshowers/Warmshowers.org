@@ -1,5 +1,5 @@
 <?php
-// $Id: imagefield_widget.inc,v 1.43 2010/05/01 22:39:42 quicksketch Exp $
+// $Id: imagefield_widget.inc,v 1.44 2010/06/29 22:46:18 quicksketch Exp $
 
 /**
  * @file
@@ -57,7 +57,7 @@ function imagefield_widget_settings_form($widget) {
     '#title' => t('Default ALT text'),
     '#default_value' => !empty($widget['alt']) ? $widget['alt'] : '',
     '#description' => t('This value will be used for alternate text by default.'),
-    '#suffix' => theme('token_help', 'file'),
+    '#suffix' => theme('token_help', array('user')),
   );
 
   $form['title_settings'] = array(
@@ -87,7 +87,7 @@ function imagefield_widget_settings_form($widget) {
     '#title' => t('Default Title text'),
     '#default_value' => !empty($widget['title']) ? $widget['title'] : '',
     '#description' => t('This value will be used as the image title by default.'),
-    '#suffix' =>  theme('token_help', 'file'),
+    '#suffix' => theme('token_help', array('user')),
   );
 
   // Default image settings.

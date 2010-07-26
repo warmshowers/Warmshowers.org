@@ -1,5 +1,5 @@
 <?php
-// $Id: views_json.views.inc,v 1.1.2.9 2010/06/06 00:14:24 allisterbeharry Exp $
+// $Id: views_json.views.inc,v 1.1.2.10 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file
@@ -26,6 +26,7 @@ function views_json_views_plugins() {
 		      'theme'           => 'views_views_json_style',
 	        'theme file'      => 'views_views_json_style.theme.inc',
 	        'theme path'      => $path.'/theme',
+	        'additional themes' => array ('views_views_json_style_simple' => 'style', 'views_views_json_style_exhibit' => 'style'),
           'uses row plugin' => FALSE,
           'uses fields'     => TRUE,
           'uses options'    => TRUE,

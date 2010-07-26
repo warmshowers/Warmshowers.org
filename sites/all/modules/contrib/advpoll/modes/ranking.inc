@@ -1,5 +1,5 @@
 <?php
-// $Id: ranking.inc,v 1.8.2.37.2.11 2009/04/11 16:02:50 chriskennedy Exp $
+// $Id: ranking.inc,v 1.8.2.37.2.12 2010/06/25 20:12:41 mirodietiker Exp $
 
 /**
  * @file
@@ -171,28 +171,27 @@ function advpoll_voting_ranking_form(&$form_state, &$node, $teaser, $page, $stat
  *
  * @see advpoll-display-ranking-form.tpl.php
  */
-function template_preprocess_advpoll_voting_ranking_form(&$variables) {
+function advpoll_preprocess_advpoll_voting_ranking_form(&$variables) {
   $form = &$variables['form'];
   $variables['message'] = drupal_render($form['message']);
-    // If write-ins are used on this form.
+
+  // If write-ins are used on this form.
   if (isset($form['writein_choice'])) {
     $variables['writein_choice'] = drupal_render($form['writein_choice']);
   }
+
   $variables['form_id'] = $form['#id'];
-  // Every form element that should be carried in drag needs this class.
-  $variables['tabledrag_group_class'] = $form['#id'] . '-tabledrag-group';
-  foreach (element_children($form['choice']) as $i) {
-    $choice = &$variables['form']['choice'][$i];
-    // Add draggable class - TODO: fix this.
-    $choice['#attributes']['class'] = $variables['tabledrag_group_class'];
-    //$form['choice'][$i]['#attributes']['class'] = $variables['tabledrag_group_class'];
-  }
+
   // List of available choices in the poll.
   $variables['choice_list'] = drupal_render($form['choice']);
   // Take off the annoying colon & endlines that Drupal adds to each title.
   $variables['choice_list'] = preg_replace('/[\n\r]*: <\/label>[\n\r]*/i', '</label>', $variables['choice_list']);
   // All remaining form elements.
   $variables['form_submit'] = drupal_render($form);
+
+  // Add tabledrag JavaScript.
+  drupal_add_tabledrag($form['#id'] . '-table', 'order', 'self', 'advpoll-choice-order', NULL, NULL, FALSE);
+
 }
 
 function advpoll_view_results_ranking($node, $teaser, $page) {

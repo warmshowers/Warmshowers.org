@@ -1,5 +1,5 @@
 <?php
-// $Id: filefield_formatter.inc,v 1.18 2010/06/17 19:30:45 pwolanin Exp $
+// $Id: filefield_formatter.inc,v 1.20 2010/06/29 23:49:11 quicksketch Exp $
 /**
  * @file
  * FileField: Defines a CCK file field type.
@@ -90,7 +90,7 @@ function theme_filefield_formatter_url_plain($element) {
  * in any case, please use theme('filefield_file') instead.
  */
 function theme_filefield_item($file, $field) {
-  if (filefield_view_access($field['field_name'], node_load($file['nid'])) && filefield_file_listed($file, $field)) {
+  if (filefield_view_access($field['field_name']) && filefield_file_listed($file, $field)) {
     return theme('filefield_file', $file);
   }
   return '';
@@ -143,5 +143,5 @@ function theme_filefield_file($file) {
     $options['attributes']['title'] = $file['filename'];
   }
 
-  return '<div class="filefield-file clear-block">'. $icon . l($link_text, $url, $options) .'</div>';
+  return '<div class="filefield-file">'. $icon . l($link_text, $url, $options) .'</div>';
 }

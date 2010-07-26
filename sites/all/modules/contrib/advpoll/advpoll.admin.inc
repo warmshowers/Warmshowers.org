@@ -1,5 +1,5 @@
 <?php
-// $Id: advpoll.admin.inc,v 1.1.2.1 2010/06/09 01:47:38 mirodietiker Exp $
+// $Id: advpoll.admin.inc,v 1.1.2.3 2010/06/24 22:21:30 mirodietiker Exp $
 
 /**
  * @file

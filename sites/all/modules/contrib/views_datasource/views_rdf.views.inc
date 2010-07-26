@@ -1,5 +1,5 @@
 <?php
-// $Id: views_rdf.views.inc,v 1.1.2.8 2010/06/06 00:14:24 allisterbeharry Exp $
+// $Id: views_rdf.views.inc,v 1.1.2.10 2010/07/16 04:39:03 allisterbeharry Exp $
 
 /**
  * @file
@@ -26,6 +26,7 @@ function views_rdf_views_plugins() {
         'theme'           => 'views_views_rdf_style',
   	    'theme file'      => 'views_views_rdf_style.theme.inc',
 	      'theme path'      => $path.'/theme',
+        'additional themes' => array('views_views_rdf_style_foaf' => 'style', 'views_views_rdf_style_sioc' => 'style', 'views_views_rdf_style_doap' => 'style'),
         'uses row plugin' => FALSE,
         'uses fields'     => TRUE,
         'uses options'    => TRUE,

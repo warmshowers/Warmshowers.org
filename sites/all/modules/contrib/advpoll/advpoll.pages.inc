@@ -1,5 +1,5 @@
 <?php
-// $Id: advpoll.pages.inc,v 1.1.2.1 2010/06/09 01:47:38 mirodietiker Exp $
+// $Id: advpoll.pages.inc,v 1.1.2.2 2010/06/22 11:33:06 mirodietiker Exp $
 
 /**
  * @file
@@ -95,8 +95,27 @@ function advpoll_votes_page($node) {
     $header[] = array('data' => t('Visitor'), 'field' => 'u.name');
     $header[] = array('data' => t('Date'), 'field' => 'v.timestamp');
     $header[] = array('data' => t('Vote'), '');
-  
-    $result = pager_query("SELECT v.uid, v.vote_source, v.timestamp, u.name FROM {votingapi_vote} v LEFT JOIN {users} u ON v.uid = u.uid WHERE v.content_type = 'advpoll' AND v.content_id = %d GROUP BY v.uid, v.vote_source, v.timestamp, u.name". tablesort_sql($header), 20, 0, NULL, $node->nid);
+
+    // added pager query because of pre-grouping as an intermediate fix.
+    $result = pager_query("
+      SELECT v.uid, v.vote_source, v.timestamp, u.name
+      FROM {votingapi_vote} v
+      LEFT JOIN {users} u
+        ON v.uid = u.uid
+      WHERE v.content_type = 'advpoll'
+        AND v.content_id = %d
+      GROUP BY v.uid, v.vote_source, v.timestamp, u.name"
+      .tablesort_sql($header),
+      20, 0, "
+      SELECT COUNT( DISTINCT v.uid, v.vote_source, v.timestamp, u.name )
+      FROM {votingapi_vote} v
+      LEFT JOIN {users} u
+        ON v.uid = u.uid
+      WHERE v.content_type = 'advpoll'
+        AND v.content_id =%d",
+      $node->nid
+    );
+
     $uids = array();
     $hostnames = array();
     $timestamp = array();
@@ -105,7 +124,7 @@ function advpoll_votes_page($node) {
       $hostnames[$vote->vote_source] = $vote->vote_source;
       $timestamps[$vote->timestamp] = $vote->timestamp;
     }
-    
+
     $rows = array();
     if (count($uids) > 0) {
       // Use db_query()'s placeholder syntax to prevent any potential SQL
@@ -116,8 +135,17 @@ function advpoll_votes_page($node) {
 
       // Here we have to select votes based on their uid+hostname+timestamp
       // combination because there no unique id for the set of rankings that
-      // corresponds to a uesr's full vote on a given poll.
-      $query = "SELECT v.vote_id, v.tag, v.uid, v.vote_source, v.timestamp, v.value, u.name FROM {votingapi_vote} v LEFT JOIN {users} u ON v.uid = u.uid WHERE v.content_id = %d AND v.uid IN(". implode(', ', $uid_placeholders) .") AND v.vote_source IN(". implode(', ', $host_placeholders) .") AND v.timestamp IN(". implode(', ', $time_placeholders) .")". tablesort_sql($header);
+      // corresponds to a user's full vote on a given poll.
+      $query = "
+        SELECT v.vote_id, v.tag, v.uid, v.vote_source, v.timestamp, v.value, u.name
+        FROM {votingapi_vote} v
+        LEFT JOIN {users} u
+          ON v.uid = u.uid
+        WHERE v.content_id = %d
+          AND v.uid IN(". implode(', ', $uid_placeholders) .")
+          AND v.vote_source IN(". implode(', ', $host_placeholders) .")
+          AND v.timestamp IN(". implode(', ', $time_placeholders) .")"
+        . tablesort_sql($header);
       $parameters = array_merge(array($query, $node->nid), array_values($uids), array_values($hostnames), array_values($timestamps));
       $result = call_user_func_array('db_query', $parameters);
       while ($vote = db_fetch_object($result)) {

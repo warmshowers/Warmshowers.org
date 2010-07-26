@@ -1,5 +1,5 @@
 <?php
-// $Id: views_xml.views.inc,v 1.1.2.8 2010/06/06 00:14:24 allisterbeharry Exp $
+// $Id: views_xml.views.inc,v 1.1.2.9 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file
@@ -26,6 +26,7 @@ function views_xml_views_plugins() {
 	        'theme'           => 'views_views_xml_style',
 	        'theme file'      => 'views_views_xml_style.theme.inc',
 	        'theme path'      => $path.'/theme',
+	        'additional themes' => array ('views_views_xml_style_raw' => 'style', 'views_views_xml_style_opml' => 'style', 'views_views_xml_style_atom' => 'style'),
           'uses row plugin' => FALSE,
           'uses fields'     => TRUE,
           'uses options'    => TRUE,

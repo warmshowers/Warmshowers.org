@@ -1,5 +1,5 @@
 <?php
-// $Id: views-views-xml-style-atom.tpl.php,v 1.1.2.4 2010/06/07 03:27:07 allisterbeharry Exp $
+// $Id: views-views-xml-style-atom.tpl.php,v 1.1.2.5 2010/07/15 22:53:41 allisterbeharry Exp $
 /**
  * @file views-views-xml-style-atom.tpl.php
  * Default template for the Views XML style plugin using the Atom schema
@@ -23,7 +23,13 @@ if (!$header) { //build our own header
 	$xml .= "  <link rel =\"self\" type=\"application/atom+xml\" href=\"$link\" />\n";
 	$xml .= "  <id>tag:$link</id> \n";
 	$xml .= "  <updated>$updated</updated>\n";
-	        
+	if ($author) {
+		$xml .= "  <author>\n";
+		$xml .= "    <name>".$author["name"]."</name>\n"; 
+		if (array_key_exists("email", $author))
+		  $xml .= "    <email>".$author["email"]."</email>\n";
+	  $xml .= "  </author>\n";
+	}        
 }
 else {  
   $xml .= "  $header\n";
