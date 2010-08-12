@@ -1,9 +1,47 @@
 <?php
-// $Id: actions.inc,v 1.8.2.10 2009/11/06 08:14:05 goba Exp $
+// $Id: actions.inc,v 1.8.2.13 2010/08/11 20:35:47 goba Exp $
 
 /**
  * @file
  * This is the actions engine for executing stored actions.
+ */
+
+/**
+ * @defgroup actions Actions
+ * @{
+ * Functions that perform an action on a certain system object.
+ *
+ * All modules should declare their action functions to be in this group and
+ * each action function should reference its configuration form, validate, and
+ * submit functions using \@see. Conversely, form, validate, and submit
+ * functions should reference the action function using \@see. For examples of
+ * this see comment_unpublish_by_keyword_action(), which has the following in
+ * its doxygen documentation:
+ *
+ * \@ingroup actions
+ * \@see comment_unpublish_by_keyword_action_form().
+ * \@see comment_unpublish_by_keyword_action_submit().
+ *
+ * @} End of "defgroup actions".
+ */
+
+/**
+ * @defgroup actions Actions
+ * @{
+ * Functions that perform an action on a certain system object.
+ *
+ * All modules should declare their action functions to be in this group and
+ * each action function should reference its configuration form, validate, and
+ * submit functions using \@see. Conversely, form, validate, and submit
+ * functions should reference the action function using \@see. For examples of
+ * this see comment_unpublish_by_keyword_action(), which has the following in
+ * its doxygen documentation:
+ *
+ * \@ingroup actions
+ * \@see comment_unpublish_by_keyword_action_form().
+ * \@see comment_unpublish_by_keyword_action_submit().
+ *
+ * @} End of "defgroup actions".
  */
 
 /**
@@ -81,8 +119,13 @@ function actions_do($action_ids, &$object, $context = NULL, $a1 = NULL, $a2 = NU
     foreach ($actions as $action_id => $params) {
       if (is_numeric($action_id)) { // Configurable actions need parameters.
         $function = $params['callback'];
-        $context = array_merge($context, $params);
-        $result[$action_id] = $function($object, $context, $a1, $a2);
+        if (function_exists($function)) {
+          $context = array_merge($context, $params);
+          $actions_result[$action_id] = $function($object, $context, $a1, $a2);
+        }
+        else {
+          $actions_result[$action_id] = FALSE;
+        }
       }
       // Singleton action; $action_id is the function name.
       else {
@@ -96,8 +139,13 @@ function actions_do($action_ids, &$object, $context = NULL, $a1 = NULL, $a2 = NU
     if (is_numeric($action_ids)) {
       $action = db_fetch_object(db_query("SELECT * FROM {actions} WHERE aid = '%s'", $action_ids));
       $function = $action->callback;
-      $context = array_merge($context, unserialize($action->parameters));
-      $result[$action_ids] = $function($object, $context, $a1, $a2);
+      if (function_exists($function)) {
+        $context = array_merge($context, unserialize($action->parameters));
+        $actions_result[$action_ids] = $function($object, $context, $a1, $a2);
+      }
+      else {
+        $actions_result[$action_ids] = FALSE;
+      }
     }
     // Singleton action; $action_ids is the function name.
     else {
@@ -280,7 +328,7 @@ function actions_synchronize($actions_in_code = array(), $delete_orphans = FALSE
       else {
         // This is a new singleton that we don't have an aid for; assign one.
         db_query("INSERT INTO {actions} (aid, type, callback, parameters, description) VALUES ('%s', '%s', '%s', '%s', '%s')", $callback, $array['type'], $callback, '', $array['description']);
-        watchdog('actions', "Action '%action' added.", array('%action' => filter_xss_admin($array['description'])));
+        watchdog('actions', "Action '%action' added.", array('%action' => $array['description']));
       }
     }
   }
@@ -302,7 +350,7 @@ function actions_synchronize($actions_in_code = array(), $delete_orphans = FALSE
       $results = db_query("SELECT a.aid, a.description FROM {actions} a WHERE callback IN ($placeholders)", $orphaned);
       while ($action = db_fetch_object($results)) {
         actions_delete($action->aid);
-        watchdog('actions', "Removed orphaned action '%action' from database.", array('%action' => filter_xss_admin($action->description)));
+        watchdog('actions', "Removed orphaned action '%action' from database.", array('%action' => $action->description));
       }
     }
     else {

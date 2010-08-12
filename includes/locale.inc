@@ -1,5 +1,5 @@
 <?php
-// $Id: locale.inc,v 1.174.2.12 2010/03/04 00:15:28 goba Exp $
+// $Id: locale.inc,v 1.174.2.14 2010/08/11 19:42:26 goba Exp $
 
 /**
  * @file
@@ -1145,7 +1145,7 @@ function _locale_import_read_po($op, $file, $mode = NULL, $lang = NULL, $group =
       $context = "MSGID_PLURAL";
     }
     elseif (!strncmp("msgid", $line, 5)) {
-      if ($context == "MSGSTR") {   // End current entry, start a new one
+      if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) { // End current entry, start a new one
         _locale_import_one_string($op, $current, $mode, $lang, $file, $group);
         $current = array();
       }
@@ -1287,15 +1287,21 @@ function _locale_import_one_string($op, $value = NULL, $mode = NULL, $lang = NUL
     case 'db-store':
       // We got header information.
       if ($value['msgid'] == '') {
-        $header = _locale_import_parse_header($value['msgstr']);
+        $languages = language_list();
+        if (($mode != LOCALE_IMPORT_KEEP) || empty($languages[$lang]->plurals)) {
+          // Since we only need to parse the header if we ought to update the
+          // plural formula, only run this if we don't need to keep existing
+          // data untouched or if we don't have an existing plural formula.
+          $header = _locale_import_parse_header($value['msgstr']);
 
-        // Get the plural formula and update in database.
-        if (isset($header["Plural-Forms"]) && $p = _locale_import_parse_plural_forms($header["Plural-Forms"], $file->filename)) {
-          list($nplurals, $plural) = $p;
-          db_query("UPDATE {languages} SET plurals = %d, formula = '%s' WHERE language = '%s'", $nplurals, $plural, $lang);
-        }
-        else {
-          db_query("UPDATE {languages} SET plurals = %d, formula = '%s' WHERE language = '%s'", 0, '', $lang);
+          // Get the plural formula and update in database.
+          if (isset($header["Plural-Forms"]) && $p = _locale_import_parse_plural_forms($header["Plural-Forms"], $file->filename)) {
+            list($nplurals, $plural) = $p;
+            db_query("UPDATE {languages} SET plurals = %d, formula = '%s' WHERE language = '%s'", $nplurals, $plural, $lang);
+          }
+          else {
+            db_query("UPDATE {languages} SET plurals = %d, formula = '%s' WHERE language = '%s'", 0, '', $lang);
+          }
         }
         $headerdone = TRUE;
       }

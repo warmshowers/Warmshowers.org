@@ -1,5 +1,5 @@
 <?php
-// $Id: bootstrap.inc,v 1.206.2.14 2010/02/01 16:49:14 goba Exp $
+// $Id: bootstrap.inc,v 1.206.2.29 2010/08/06 11:50:24 goba Exp $
 
 /**
  * @file
@@ -35,19 +35,92 @@ define('CACHE_NORMAL', 1);
 define('CACHE_AGGRESSIVE', 2);
 
 /**
+ * Log message severity -- Emergency: system is unusable.
  *
- * Severity levels, as defined in RFC 3164 http://www.faqs.org/rfcs/rfc3164.html
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
  * @see watchdog()
  * @see watchdog_severity_levels()
  */
-define('WATCHDOG_EMERG',    0); // Emergency: system is unusable
-define('WATCHDOG_ALERT',    1); // Alert: action must be taken immediately
-define('WATCHDOG_CRITICAL', 2); // Critical: critical conditions
-define('WATCHDOG_ERROR',    3); // Error: error conditions
-define('WATCHDOG_WARNING',  4); // Warning: warning conditions
-define('WATCHDOG_NOTICE',   5); // Notice: normal but significant condition
-define('WATCHDOG_INFO',     6); // Informational: informational messages
-define('WATCHDOG_DEBUG',    7); // Debug: debug-level messages
+define('WATCHDOG_EMERG', 0);
+
+/**
+ * Log message severity -- Alert: action must be taken immediately.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_ALERT', 1);
+
+/**
+ * Log message severity -- Critical: critical conditions.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_CRITICAL', 2);
+
+/**
+ * Log message severity -- Error: error conditions.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_ERROR', 3);
+
+/**
+ * Log message severity -- Warning: warning conditions.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_WARNING', 4);
+
+/**
+ * Log message severity -- Notice: normal but significant condition.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_NOTICE', 5);
+
+/**
+ * Log message severity -- Informational: informational messages.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_INFO', 6);
+
+/**
+ * Log message severity -- Debug: debug-level messages.
+ *
+ * The WATCHDOG_* constant definitions correspond to the logging severity levels
+ * defined in RFC 3164, section 4.1.1: http://www.faqs.org/rfcs/rfc3164.html
+ *
+ * @see watchdog()
+ * @see watchdog_severity_levels()
+ */
+define('WATCHDOG_DEBUG', 7);
 
 /**
  * First bootstrap phase: initialize configuration.
@@ -140,6 +213,11 @@ define('LANGUAGE_LTR', 0);
  * Language written right to left. Possible value of $language->direction.
  */
 define('LANGUAGE_RTL', 1);
+
+// Hide E_DEPRECATED messages.
+if (defined('E_DEPRECATED')) {
+  error_reporting(error_reporting() & ~E_DEPRECATED);
+}
 
 /**
  * Start the timer with the specified name. If you start and stop
@@ -366,6 +444,13 @@ function conf_init() {
     // We escape the hostname because it can be modified by a visitor.
     if (!empty($_SERVER['HTTP_HOST'])) {
       $cookie_domain = check_plain($_SERVER['HTTP_HOST']);
+      // Strip leading periods, www., and port numbers from cookie domain.
+      $cookie_domain = ltrim($cookie_domain, '.');
+      if (strpos($cookie_domain, 'www.') === 0) {
+        $cookie_domain = substr($cookie_domain, 4);
+      }
+      $cookie_domain = explode(':', $cookie_domain);
+      $cookie_domain = '.'. $cookie_domain[0];
     }
   }
   // To prevent session cookies from being hijacked, a user can configure the
@@ -377,13 +462,6 @@ function conf_init() {
   if (ini_get('session.cookie_secure')) {
     $session_name .= 'SSL';
   }
-  // Strip leading periods, www., and port numbers from cookie domain.
-  $cookie_domain = ltrim($cookie_domain, '.');
-  if (strpos($cookie_domain, 'www.') === 0) {
-    $cookie_domain = substr($cookie_domain, 4);
-  }
-  $cookie_domain = explode(':', $cookie_domain);
-  $cookie_domain = '.'. $cookie_domain[0];
   // Per RFC 2109, cookie domains must contain at least one dot other than the
   // first. For hosts such as 'localhost' or IP Addresses we don't set a cookie domain.
   if (count(explode('.', $cookie_domain)) > 2 && !is_numeric(str_replace('.', '', $cookie_domain))) {
@@ -488,7 +566,11 @@ function variable_init($conf = array()) {
 }
 
 /**
- * Return a persistent variable.
+ * Returns a persistent variable.
+ *
+ * Case-sensitivity of the variable_* functions depends on the database
+ * collation used. To avoid problems, always use lower case for persistent
+ * variable names.
  *
  * @param $name
  *   The name of the variable to return.
@@ -506,7 +588,11 @@ function variable_get($name, $default) {
 }
 
 /**
- * Set a persistent variable.
+ * Sets a persistent variable.
+ *
+ * Case-sensitivity of the variable_* functions depends on the database
+ * collation used. To avoid problems, always use lower case for persistent
+ * variable names.
  *
  * @param $name
  *   The name of the variable to set.
@@ -531,7 +617,11 @@ function variable_set($name, $value) {
 }
 
 /**
- * Unset a persistent variable.
+ * Unsets a persistent variable.
+ *
+ * Case-sensitivity of the variable_* functions depends on the database
+ * collation used. To avoid problems, always use lower case for persistent
+ * variable names.
  *
  * @param $name
  *   The name of the variable to undefine.
@@ -674,14 +764,18 @@ function drupal_page_cache_header($cache) {
   header("Expires: Sun, 19 Nov 1978 05:00:00 GMT");
   header("Cache-Control: must-revalidate");
 
-  if (variable_get('page_compression', TRUE)) {
+  if (variable_get('page_compression', TRUE) && extension_loaded('zlib')) {
     // Determine if the browser accepts gzipped data.
-    if (@strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') === FALSE && function_exists('gzencode')) {
-      // Strip the gzip header and run uncompress.
-      $cache->data = gzinflate(substr(substr($cache->data, 10), 0, -8));
-    }
-    elseif (function_exists('gzencode')) {
+    if (isset($_SERVER['HTTP_ACCEPT_ENCODING']) && strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== FALSE) {
+      // $cache->data is already gzip'ed, so make sure zlib.output_compression
+      // does not compress it once more.
+      ini_set('zlib.output_compression', '0');
       header('Content-Encoding: gzip');
+    }
+    else {
+      // The client does not support compression, so unzip the data in the
+      // cache. Strip the gzip header and run uncompress.
+      $cache->data = gzinflate(substr(substr($cache->data, 10), 0, -8));
     }
   }
 
@@ -714,7 +808,7 @@ function bootstrap_hooks() {
 function drupal_unpack($obj, $field = 'data') {
   if ($obj->$field && $data = unserialize($obj->$field)) {
     foreach ($data as $key => $value) {
-      if (!isset($obj->$key)) {
+      if (!empty($key) && !isset($obj->$key)) {
         $obj->$key = $value;
       }
     }
@@ -734,11 +828,35 @@ function referer_uri() {
 /**
  * Encode special characters in a plain-text string for display as HTML.
  *
- * Uses drupal_validate_utf8 to prevent cross site scripting attacks on
+ * Also validates strings as UTF-8 to prevent cross site scripting attacks on
  * Internet Explorer 6.
+ *
+ * @param $text
+ *   The text to be checked or processed.
+ * @return
+ *   An HTML safe version of $text, or an empty string if $text is not
+ *   valid UTF-8.
+ *
+ * @see drupal_validate_utf8().
  */
 function check_plain($text) {
-  return drupal_validate_utf8($text) ? htmlspecialchars($text, ENT_QUOTES) : '';
+  static $php525;
+
+  if (!isset($php525)) {
+    $php525 = version_compare(PHP_VERSION, '5.2.5', '>=');
+  }
+  // We duplicate the preg_match() to validate strings as UTF-8 from
+  // drupal_validate_utf8() here. This avoids the overhead of an additional
+  // function call, since check_plain() may be called hundreds of times during
+  // a request. For PHP 5.2.5+, this check for valid UTF-8 should be handled
+  // internally by PHP in htmlspecialchars().
+  // @see http://www.php.net/releases/5_2_5.php
+  // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
+
+  if ($php525) {
+    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+  }
+  return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
 }
 
 /**
@@ -774,6 +892,7 @@ function drupal_validate_utf8($text) {
   if (strlen($text) == 0) {
     return TRUE;
   }
+  // For performance reasons this logic is duplicated in check_plain().
   return (preg_match('/^./us', $text) == 1);
 }
 
@@ -807,7 +926,8 @@ function request_uri() {
  * Log a system message.
  *
  * @param $type
- *   The category to which this message belongs.
+ *   The category to which this message belongs. Can be any string, but the
+ *   general practice is to use the name of the module calling watchdog().
  * @param $message
  *   The message to store in the log. See t() for documentation
  *   on how $message and $variables interact. Keep $message
@@ -817,7 +937,8 @@ function request_uri() {
  *   NULL if message is already translated or not possible to
  *   translate.
  * @param $severity
- *   The severity of the message, as per RFC 3164
+ *   The severity of the message, as per RFC 3164. Possible values are
+ *   WATCHDOG_ERROR, WATCHDOG_WARNING, etc.
  * @param $link
  *   A link to associate with the message.
  *
@@ -841,7 +962,7 @@ function watchdog($type, $message, $variables = array(), $severity = WATCHDOG_NO
     );
 
   // Call the logging hooks to log/process the message
-  foreach (module_implements('watchdog', TRUE) as $module) {
+  foreach (module_implements('watchdog') as $module) {
     module_invoke($module, 'watchdog', $log_message);
   }
 }
@@ -1020,6 +1141,10 @@ function _drupal_bootstrap($phase) {
       // Initialize the default database.
       require_once './includes/database.inc';
       db_set_active();
+      // Allow specifying alternate lock implementations in settings.php, like
+      // those using APC or memcached.
+      require_once variable_get('lock_inc', './includes/lock.inc');
+      lock_init();
       break;
 
     case DRUPAL_BOOTSTRAP_ACCESS:
@@ -1060,8 +1185,6 @@ function _drupal_bootstrap($phase) {
         exit;
       }
       // Prepare for non-cached page workflow.
-      require_once variable_get('lock_inc', './includes/lock.inc');
-      lock_init();
       drupal_page_header();
       break;
 
@@ -1200,7 +1323,8 @@ function ip_address() {
       if (!empty($reverse_proxy_addresses) && in_array($ip_address, $reverse_proxy_addresses, TRUE)) {
         // If there are several arguments, we need to check the most
         // recently added one, i.e. the last one.
-        $ip_address = array_pop(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
+        $ip_address_parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        $ip_address = array_pop($ip_address_parts);
       }
     }
   }
