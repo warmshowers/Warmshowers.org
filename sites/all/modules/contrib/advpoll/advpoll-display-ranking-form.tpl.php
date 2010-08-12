@@ -1,5 +1,5 @@
 <?php
-// $Id: advpoll-display-ranking-form.tpl.php,v 1.1.2.2 2010/06/25 20:12:41 mirodietiker Exp $
+// $Id: advpoll-display-ranking-form.tpl.php,v 1.1.2.3 2010/07/31 23:19:55 mirodietiker Exp $
 
 /**
  * @file advpoll-display-ranking-form.tpl.php
@@ -14,22 +14,22 @@
 ?>
 <div class="poll">
   <div class="advpoll-available-choices">
-    <div class="choice-header"><?php print t('Choices') ?></div>
+    <div class="choice-header"><?php print t('Choices'); ?></div>
     <div class="vote-choices">
-      <?php print $choice_list ?>
+      <?php print $choice_list; ?>
     </div>
     <?php if (isset($writein_choice)): ?>
-    <div class="writein-choice"><?php print $writein_choice ?></div>
+    <div class="writein-choice"><?php print $writein_choice; ?></div>
     <?php endif; ?>
   </div>
   <!-- table-drag re-ordering if JavaScript is enabled. -->
   <div class="advpoll-drag-box">
-    <div class="advpoll-vote-header"><?php print t('Your Vote') ?></div>
-    <table cellspacing=0 id="<?php print $form_id ?>-table" class="advpoll-existing-choices-table">
+    <div class="advpoll-vote-header"><?php print t('Your Vote'); ?></div>
+    <table cellspacing="0" id="<?php print $form_id ?>-table" class="advpoll-existing-choices-table">
     </table>
     <div class="vote-status"></div>
   </div>
-  <?php print $form_submit ?>
-  <br/>
-  <?php if ($message): ?><p class="message"><?php print $message ?><?php endif; ?>
+  <?php print $form_submit; ?>
+  <br />
+  <?php if ($message): ?><p class="message"><?php print $message; ?></p><?php endif; ?>
 </div>
