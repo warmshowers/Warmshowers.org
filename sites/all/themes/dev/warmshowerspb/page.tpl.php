@@ -103,6 +103,9 @@ function warmshowerspb_welcome_page_pics() {
         <?php endif; ?>
 
       <!-- start main content -->
+      <?php if (!empty($before_content)) : ?>
+      <div id="before_content"><?php print $before_content; ?></div>
+      <?php endif; ?>
       <?php print $content; ?>
       <?php print $feed_icons; ?>
       <!-- end main content -->
