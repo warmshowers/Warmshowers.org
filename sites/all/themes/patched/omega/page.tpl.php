@@ -102,7 +102,9 @@
     
     <div id="main-content-container" class="container-<?php print $content_container_width; ?> clearfix">
       <div id="main-wrapper" class="column <?php print $main_content_classes; ?>">
-        <?php print $mission; ?>
+        <?php if (!empty($mission)) {
+          print $mission;
+        }?>
         <?php if($content_top): ?>
         <div id="content-top">
           <?php print $content_top; ?>

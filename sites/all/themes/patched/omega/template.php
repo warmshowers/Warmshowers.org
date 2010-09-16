@@ -137,7 +137,7 @@ function static_region_builder($region_data, $container_width, $vars) {
     if ($info['data']) {
       $vars[$region .'_classes'] = ns('grid-'. $info['width']);
     }
-    if (is_array($info['spacing'])) {
+    if (!empty($info['spacing']) && is_array($info['spacing'])) {
       foreach ($info['spacing'] AS $attribute => $value) {
         if ($value) {
           $vars[$region .'_classes'] .= ' '. $attribute .'-'. $value;
@@ -179,8 +179,8 @@ function dynamic_region_builder($region_data, $container_width, $vars) {
     // if we do have content for this region, let's create it.
     if ($info['data']) {
       
-      $width = $info['primary'] ? $container_width : $info['width'];
-      $vars[$region .'_classes'] = $info['primary'] ?  ns('grid-'. _omega_dynamic_widths($width, $info['related'], $vars)) : ns('grid-'. $info['width']);
+      $width = !empty($info['primary']) ? $container_width : $info['width'];
+      $vars[$region .'_classes'] = !empty($info['primary']) ?  ns('grid-'. _omega_dynamic_widths($width, $info['related'], $vars)) : ns('grid-'. $info['width']);
       // we know we have stuff to put here, so we can check for push & pull options
       if($info['pull']) {
       	// looks like we do wanna pull, or this value would have been false, so let's boogie
@@ -197,7 +197,7 @@ function dynamic_region_builder($region_data, $container_width, $vars) {
     }
     // currently ignored becuase we have not given prefix/suffix class options
     // to the primary content zones... this will become active again later
-    if (is_array($info['spacing'])) {
+    if (!empty($info['spacing']) && is_array($info['spacing'])) {
       foreach ($info['spacing'] AS $attribute => $value) {
         if ($value) {
           $vars[$region .'_classes'] .= ' '. $attribute .'-'. $value;
