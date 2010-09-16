@@ -245,7 +245,7 @@ function omega_settings($saved_settings, $subtheme_defaults = array()) {
       '#collapsible' => TRUE,
       '#collapsed' => FALSE,
     );
-    $default_omega_layout = $saved_settings['omega_fixed_fluid'] ? $saved_settings['omega_fixed_fluid'] : 'fixed';
+    $default_omega_layout = !empty($saved_settings['omega_fixed_fluid']) ? $saved_settings['omega_fixed_fluid'] : 'fixed';
       $form['omega_container']['omega_regions']['omega_fixed_fluid'] = array(
           '#type'          => 'radios',
           '#description'   => t('You may select fluid layout, or the default fixed width layout.'),

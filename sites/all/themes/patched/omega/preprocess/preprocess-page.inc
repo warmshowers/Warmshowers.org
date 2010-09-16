@@ -91,7 +91,7 @@ $preface_regions = array(
       'suffix' => $settings['omega_preface_last_suffix'])
   ),
 );
-$vars = static_region_builder($preface_regions, $settings['preface_wrapper_grids'], $vars);
+$vars = static_region_builder($preface_regions, $vars['preface_wrapper_grids'], $vars);
 
 /**
  * Body Region
@@ -317,7 +317,7 @@ $postscript_regions = array(
       'suffix' => $settings['omega_postscript_four_suffix'])
   ),
 );
-$vars = static_region_builder($postscript_regions, $settings['postscript_container_width'], $vars);
+$vars = static_region_builder($postscript_regions, $vars['postscript_container_width'], $vars);
 
 /**
  * Footer Region
