@@ -1,5 +1,5 @@
 <?php
-// $Id: export.inc,v 1.19.2.20 2010/07/23 19:44:53 merlinofchaos Exp $
+// $Id: export.inc,v 1.19.2.23 2010/08/12 20:48:31 merlinofchaos Exp $
 
 /**
  * @file
@@ -186,7 +186,7 @@ function ctools_export_crud_delete($table, $object) {
     // If we were sent an object, get the export key from it. Otherwise
     // assume we were sent the export key.
     $value = is_object($object) ? $object->{$export['key']} : $object;
-    db_query("DELETE FROM {$table} WHERE " . $export['key'] . " = '%s'", $value);
+    db_query("DELETE FROM {" . $table . "} WHERE " . $export['key'] . " = '%s'", $value);
   }
 }
 
@@ -241,7 +241,7 @@ function ctools_export_crud_import($table, $code) {
   $export = $schema['export'];
 
   if (!empty($export['import callback']) && function_exists($export['import callback'])) {
-    return $export['import callback']($object, $indent);
+    return $export['import callback']($code);
   }
   else {
     ob_start();
@@ -769,14 +769,6 @@ function ctools_export_get_schema($table) {
       'bulk export' => TRUE,
       'list callback' => "$schema[module]_{$table}_list",
       'to hook code callback' => "$schema[module]_{$table}_to_hook_code",
-      'api' => array(),
-    );
-
-    $schema['export']['api'] += array(
-      'owner' => $table,
-      'api' => $table,
-      'minimum_version' => 1,
-      'current_version' => 1,
     );
 
     // If the export definition doesn't have the "primary key" then the CRUD

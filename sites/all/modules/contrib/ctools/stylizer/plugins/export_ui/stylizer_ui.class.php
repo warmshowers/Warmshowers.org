@@ -1,5 +1,5 @@
 <?php
-// $Id: stylizer_ui.class.php,v 1.1.2.2 2010/07/14 23:10:16 merlinofchaos Exp $
+// $Id: stylizer_ui.class.php,v 1.1.2.3 2010/08/20 22:11:40 merlinofchaos Exp $
 
 /**
  * UI class for Stylizer.
@@ -8,11 +8,9 @@ class stylizer_ui extends ctools_export_ui {
 
   function access($op, $item) {
     $access = parent::access($op, $item);
-    if ($op == 'add' & $access && empty($this->base_types)) {
+    if ($op == 'add' && $access && empty($this->base_types)) {
      // Make sure there are base styles defined.
      $access = FALSE;
-     // Give a warning about the missing base styles.
-     drupal_set_message($this->plugin['strings']['message']['missing base type'], 'warning');
     }
     return $access;
   }
@@ -22,6 +20,11 @@ class stylizer_ui extends ctools_export_ui {
     parent::list_form($form, $form_state);
 
     $all = array('all' => t('- All -'));
+
+    if (empty($this->base_types)) {
+      // Give a warning about the missing base styles.
+      drupal_set_message($this->plugin['strings']['message']['missing base type'], 'warning');
+    }
 
     $types = $all;
     foreach ($this->base_types as $module => $info) {

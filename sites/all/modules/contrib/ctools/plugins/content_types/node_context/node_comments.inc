@@ -1,5 +1,5 @@
 <?php
-// $Id: node_comments.inc,v 1.2.2.5 2010/07/23 17:47:12 merlinofchaos Exp $
+// $Id: node_comments.inc,v 1.2.2.7 2010/10/29 20:13:15 merlinofchaos Exp $
 
 if (module_exists('comment')) {
   /**
@@ -17,6 +17,7 @@ if (module_exists('comment')) {
       'mode' => variable_get('comment_default_mode', COMMENT_MODE_THREADED_EXPANDED),
       'order' => variable_get('comment_default_order', COMMENT_ORDER_NEWEST_FIRST),
       'comments_per_page' => variable_get('comment_default_per_page', '50'),
+      'anchor' => 1,
     ),
   );
 }
@@ -42,19 +43,27 @@ function ctools_node_comments_content_type_render($subtype, $conf, $panel_args, 
 
 function ctools_node_comments_content_type_edit_form(&$form, &$form_state) {
   $conf = $form_state['conf'];
+  $form['anchor'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('HTML anchor'),
+    '#description' => t('If checked, an HTML anchor is added to allow linking within the same page. For example, http://example.com/node/2345#comment will take you to the comment area of the page.'),
+      // The anchor is enabled by default, but only on new panes.
+    '#default_value' => isset($conf['anchor']) ? $conf['anchor'] : 0,
+    '#weight' => 1,
+  );
   $form['mode'] = array(
     '#type' => 'select',
     '#title' => t('Mode'),
     '#default_value' => $conf['mode'],
     '#options' => _comment_get_modes(),
-    '#weight' => 1,
+    '#weight' => 2,
   );
   $form['order'] = array(
     '#type' => 'select',
     '#title' => t('Sort'),
     '#default_value' => $conf['order'],
     '#options' => _comment_get_orders(),
-    '#weight' => 2,
+    '#weight' => 3,
   );
   foreach (_comment_per_page() as $i) {
     $options[$i] = t('!a comments per page', array('!a' => $i));
@@ -63,7 +72,7 @@ function ctools_node_comments_content_type_edit_form(&$form, &$form_state) {
     '#title' => t('Pager'),
     '#default_value' => $conf['comments_per_page'],
     '#options' => $options,
-    '#weight' => 3,
+    '#weight' => 4,
   );
 }
 
@@ -175,6 +184,9 @@ function ctools_comment_render($node, $conf) {
   }
   $output .= theme('pager', NULL, $comments_per_page, 0);
 
+  if (!empty($conf['anchor'])) {
+    $output = '<div id="comments">' . $output . '</div>';
+  }
   return $output;
 }
 

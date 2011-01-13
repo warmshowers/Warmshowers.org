@@ -1,5 +1,5 @@
 <?php
-// $Id: wizard.inc,v 1.12.2.8 2010/07/13 23:55:22 merlinofchaos Exp $
+// $Id: wizard.inc,v 1.12.2.9 2010/09/10 18:25:13 merlinofchaos Exp $
 
 /**
  * @file
@@ -296,7 +296,7 @@ function ctools_wizard_wrapper(&$form, &$form_state) {
     }
 
     // If we are allowed to cancel, place a cancel button.
-    if (isset($form_info['cancel path']) || !empty($form_info['show cancel'])) {
+    if ((isset($form_info['cancel path']) && !isset($form_info['show cancel'])) || !empty($form_info['show cancel'])) {
       $form['buttons']['cancel'] = array(
         '#type' => 'submit',
         '#value' => $form_info['cancel text'],

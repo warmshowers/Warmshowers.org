@@ -1,5 +1,5 @@
 <?php
-// $Id: user.inc,v 1.4.2.5 2010/07/16 20:09:48 merlinofchaos Exp $
+// $Id: user.inc,v 1.4.2.6 2010/08/03 18:45:21 merlinofchaos Exp $
 
 /**
  * @file
@@ -43,6 +43,7 @@ function ctools_context_create_user($empty, $data = NULL, $conf = FALSE) {
     if ($data['type'] == 'current') {
       global $user;
       $data = $user;
+      $data->logged_in_user = TRUE;
     }
     else {
       $data = user_load(array('uid' => $data['uid']));

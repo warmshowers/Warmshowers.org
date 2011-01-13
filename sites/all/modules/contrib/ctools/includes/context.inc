@@ -1,5 +1,5 @@
 <?php
-// $Id: context.inc,v 1.33.2.15 2010/07/20 22:42:22 merlinofchaos Exp $
+// $Id: context.inc,v 1.33.2.17 2010/09/10 17:07:52 merlinofchaos Exp $
 
 /**
  * @file
@@ -614,17 +614,25 @@ function ctools_context_keyword_substitute($string, $keywords, $contexts) {
         continue;
       }
 
+      // If the keyword is already set by something passed in, don't try to
+      // overwrite it.
+      if (!empty($keywords['%' . $keyword])) {
+        continue;
+      }
+
       // Figure out our keyword and converter, if specified.
       if (strpos($keyword, ':')) {
         list($context, $converter) = explode(':', $keyword);
       }
       else {
         $context = $keyword;
-        $plugin = ctools_get_context($context_keywords[$context]->plugin);
+        if (isset($context_keywords[$keyword])) {
+          $plugin = ctools_get_context($context_keywords[$context]->plugin);
 
-        // Fall back to a default converter, if specified.
-        if ($plugin && !empty($plugin['convert default'])) {
-          $converter = $plugin['convert default'];
+          // Fall back to a default converter, if specified.
+          if ($plugin && !empty($plugin['convert default'])) {
+            $converter = $plugin['convert default'];
+          }
         }
       }
 
@@ -639,7 +647,6 @@ function ctools_context_keyword_substitute($string, $keywords, $contexts) {
       }
     }
   }
-
   return strtr($string, $keywords);
 }
 
@@ -1133,6 +1140,10 @@ function ctools_context_match_required_contexts($required, $contexts) {
  *   An array of pre-existing contexts that will be part of the return value.
  */
 function ctools_context_load_contexts($object, $placeholders = TRUE, $contexts = array()) {
+  if (!empty($object->base_contexts)) {
+    $contexts += $object->base_contexts;
+  }
+
   if ($placeholders) {
     // This will load empty contexts as placeholders for arguments that come
     // from external sources. If this isn't set, it's assumed these context

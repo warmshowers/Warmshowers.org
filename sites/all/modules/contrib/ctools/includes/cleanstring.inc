@@ -132,7 +132,7 @@ function ctools_cleanstring($string, $settings = array()) {
 
   // Reduce to the subset of ASCII96 letters and numbers
   if ($settings['reduce ascii']) {
-    $pattern = '/[^a-zA-Z0-9\/]+/ ';
+    $pattern = '/[^a-zA-Z0-9\/]+/';
     $output = preg_replace($pattern, $settings['separator'], $output);
   }
 

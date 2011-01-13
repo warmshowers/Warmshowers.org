@@ -1,5 +1,5 @@
 <?php
-// $Id: plugins.inc,v 1.18.2.27 2010/07/25 19:01:02 merlinofchaos Exp $
+// $Id: plugins.inc,v 1.18.2.30 2010/08/25 20:22:22 merlinofchaos Exp $
 
 /**
  * @file
@@ -338,7 +338,7 @@ function ctools_plugin_load_includes($info, $filename = NULL) {
       else {
         // Parse a hook.
         $plugin = NULL; // ensure that we don't have something leftover from earlier.
-        require_once './' . $file->filename;
+        include_once './' . $file->filename;
         // .inc files have a special format for the hook identifier.
         // For example, 'foo.inc' in the module 'mogul' using the plugin
         // whose hook is named 'borg_type' should have a function named (deep breath)
@@ -784,4 +784,31 @@ function ctools_plugin_get_class($plugin_definition, $class_name, $abstract = FA
 function ctools_plugin_load_class($module, $type, $id, $class_name, $abstract = FALSE) {
   $plugin = ctools_get_plugins($module, $type, $id);
   return ctools_plugin_get_class($plugin, $class_name, $abstract);
+}
+
+/**
+ * Sort callback for sorting plugins naturally.
+ *
+ * Sort first by weight, then by title.
+ */
+function ctools_plugin_sort($a, $b) {
+  if (is_object($a)) {
+    $a = (array) $a;
+  }
+  if (is_object($b)) {
+    $b = (array) $b;
+  }
+
+  if (empty($a['weight'])) {
+    $a['weight'] = 0;
+  }
+
+  if (empty($b['weight'])) {
+    $b['weight'] = 0;
+  }
+
+  if ($a['weight'] == $b['weight']) {
+    return strnatcmp(strtolower($a['title']), strtolower($b['title']));
+  }
+  return ($a['weight'] < $b['weight']) ? -1 : 1;
 }

@@ -1,5 +1,5 @@
 <?php
-/* $Id: css.inc,v 1.10.2.4 2010/07/16 20:44:31 merlinofchaos Exp $ */
+/* $Id: css.inc,v 1.10.2.7 2010/10/15 21:10:11 merlinofchaos Exp $ */
 
 /*
  * @file
@@ -191,7 +191,14 @@ function ctools_css_add_css($filename = NULL, $type = 'module', $media = 'all', 
       drupal_add_css($filename, $type, $media, $preprocess);
       break;
     case FILE_DOWNLOADS_PRIVATE:
-      $url = file_create_url($filename);
+      $path = file_create_path($filename);
+      if ($path) {
+        $url = file_create_url($path);
+      }
+      else {
+        $url = $filename;
+      }
+
       $output = '<link type="text/css" rel="stylesheet" media="' . $media . '" href="' . $url . '" />'."\n";
       drupal_set_html_head($output);
   }
@@ -324,7 +331,13 @@ function ctools_css_disassemble($css) {
       }
 
       // Disassemble the declaration, check it and tuck it into an array.
-      $disassembled_css[$selector_str] = _ctools_css_disassemble_declaration($declaration);
+      $declarations = _ctools_css_disassemble_declaration($declaration);
+      if (!isset($disassembled_css[$selector_str])) {
+        $disassembled_css[$selector_str] = $declarations;
+      }
+      else {
+        $disassembled_css[$selector_str] += $declarations;
+      }
     }
   }
   return $disassembled_css;
@@ -368,7 +381,7 @@ function _ctools_css_disassemble_declaration($declaration) {
       // Clean up the current property-value pair.
       $propval_pair = preg_replace("/[\n|\t|\\|\s]+/", ' ', trim($propval_pair));
       // Explode the remaining fragements some more, but clean them up first.
-      list($property, $value) = explode(':', $propval_pair);
+      list($property, $value) = explode(':', $propval_pair, 2);
       // If the property survived, toss it onto the stack.
       if (!empty($property)) {
         $formatted_statement[trim($property)] = trim($value);

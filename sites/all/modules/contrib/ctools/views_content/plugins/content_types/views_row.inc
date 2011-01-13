@@ -1,5 +1,5 @@
 <?php
-// $Id: views_row.inc,v 1.1.2.2 2010/07/21 17:37:04 merlinofchaos Exp $
+// $Id: views_row.inc,v 1.1.2.3 2010/08/27 16:20:30 merlinofchaos Exp $
 
 /**
  * @file
@@ -60,7 +60,9 @@ function views_content_views_row_content_type_render($subtype, $conf, $panel_arg
     // Rerender just the rows we need.
     foreach ($conf['rows'] as $row) {
       $view->row_index = $row - 1;
-      $block->content .= $view->style_plugin->row_plugin->render($view->result[$row - 1]);
+      if (!empty($view->result[$row - 1])) {
+        $block->content .= $view->style_plugin->row_plugin->render($view->result[$row - 1]);
+      }
     }
   }
 

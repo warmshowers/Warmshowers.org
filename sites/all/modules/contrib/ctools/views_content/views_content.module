@@ -1,5 +1,5 @@
 <?php
-// $Id: views_content.module,v 1.4.2.2 2010/07/20 00:17:08 merlinofchaos Exp $
+// $Id: views_content.module,v 1.4.2.3 2010/08/12 20:35:37 merlinofchaos Exp $
 
 /**
  * @file views_content.module
@@ -51,16 +51,77 @@ function views_ctools_block_info($module, $delta, &$info) {
   }
 
   if (substr($delta, 0, 1) != '-') {
-    // Right now, 'special' blocks are all exposed forms. Let's
-    // call those widgets.
-    $info['category'] = t('Widgets');
-    $info['icon'] = 'icon_views_block_legacy.png';
-    $info['path'] = drupal_get_path('module', 'views_content');
+    $info = NULL;
   }
   else {
     $info['category'] = t('Views');
     $info['icon'] = 'icon_views_block_legacy.png';
     $info['path'] = drupal_get_path('module', 'views_content');
+    $info['edit form'] = 'views_content_exposed_form_pane_edit';
+    $info['add form'] = 'views_content_exposed_form_pane_edit';
+    $info['render callback'] = 'views_content_exposed_form_pane_render';
+  }
+}
+
+/**
+ * Add settings to the "exposed form in block" views.
+ */
+function views_content_exposed_form_pane_edit(&$form, &$form_state) {
+  // This is a cheesy way to add defaults only to new versions of the block
+  // but leave older blocks without the setting alone. We can tell because
+  // all older content will have something set for override_title which is
+  // the only pre-existing setting.
+  if (!isset($form_state['conf']['inherit_path']) && !isset($form_state['conf']['override_title'])) {
+    $form_state['conf']['inherit_path'] = TRUE;
+  }
+
+  $form['inherit_path'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Inherit path'),
+    '#default_value' => !empty($form_state['conf']['inherit_path']),
+  );
+}
+
+/**
+ * Store data for the exposed form in block settings page.
+ */
+function views_content_exposed_form_pane_edit_submit(&$form, &$form_state) {
+  $form_state['conf']['inherit_path'] = $form_state['values']['inherit_path'];
+}
+
+/**
+ * Render function for 'special' view blocks.
+ *
+ * We took over the render for the special view blocks so that we could
+ * add options to it.
+ */
+function views_content_exposed_form_pane_render($subtype, $conf, $panel_args, $contexts) {
+  $delta = str_replace('views-', '', $subtype);
+
+  if (strlen($delta) == 32) {
+    $hashes = variable_get('views_block_hashes', array());
+    if (!empty($hashes[$delta])) {
+      $delta = $hashes[$delta];
+    }
+  }
+
+  list($nothing, $type, $name, $display_id) = explode('-', $delta);
+  // Put the - back on. For views special blocks, the first character is always - but
+  // the explode killed it. Note that this code is mostly copied from views_block().
+  $type = '-' . $type;
+  if ($view = views_get_view($name)) {
+    if ($view->access($display_id)) {
+      if (!empty($conf['inherit_path'])) {
+        $view->override_path = $_GET['q'];
+      }
+
+      $view->set_display($display_id);
+      if (isset($view->display_handler)) {
+        $block = (object) $view->display_handler->view_special_blocks($type);
+        return $block;
+      }
+    }
+    $view->destroy();
   }
 }
 

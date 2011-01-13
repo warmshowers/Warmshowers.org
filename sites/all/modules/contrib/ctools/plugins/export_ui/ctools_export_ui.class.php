@@ -1,5 +1,5 @@
 <?php
-// $Id: ctools_export_ui.class.php,v 1.1.2.13 2010/07/23 21:47:20 merlinofchaos Exp $
+// $Id: ctools_export_ui.class.php,v 1.1.2.20 2010/10/15 21:05:55 merlinofchaos Exp $
 
 /**
  * Base class for export UI.
@@ -38,6 +38,25 @@ class ctools_export_ui {
     return $title;
   }
 
+  /**
+   * Add text on the top of the page.
+   */
+  function help_area($form_state) {
+      // If needed add advanced help strings.
+    $output = '';
+    if (!empty($this->plugin['use advanced help'])) {
+      $config = $this->plugin['advanced help'];
+      if ($config['enabled']) {
+        $output = theme('advanced_help_topic', $config['module'], $config['topic']);
+        $output .= '&nbsp;' . $this->plugin['strings']['advanced help']['enabled'];
+      }
+      else {
+        $output = $this->plugin['strings']['advanced help']['disabled'];
+      }
+    }
+    return $output;
+  }
+
   // ------------------------------------------------------------------------
   // Menu item manipulation
 
@@ -48,22 +67,30 @@ class ctools_export_ui {
    * probably call parent::hook_menu($items) and then modify as needed.
    */
   function hook_menu(&$items) {
-    $prefix = ctools_export_ui_plugin_base_path($this->plugin);
-
-    $my_items = array();
-    foreach ($this->plugin['menu']['items'] as $item) {
-      // Add menu item defaults.
-      $item += array(
-        'file' => 'export-ui.inc',
-        'file path' => drupal_get_path('module', 'ctools') . '/includes',
-      );
-
-      $path = !empty($item['path']) ? $prefix . '/' . $item['path'] : $prefix;
-      unset($item['path']);
-      $my_items[$path] = $item;
+    // During upgrades, the schema can be empty as this is called prior to
+    // actual update functions being run. Ensure that we can cope with this
+    // situation.
+    if (empty($this->plugin['schema'])) {
+      return;
     }
 
-    $items += $my_items;
+    $prefix = ctools_export_ui_plugin_base_path($this->plugin);
+
+    if (isset($this->plugin['menu']['items']) && is_array($this->plugin['menu']['items'])) {
+      $my_items = array();
+      foreach ($this->plugin['menu']['items'] as $item) {
+        // Add menu item defaults.
+        $item += array(
+          'file' => 'export-ui.inc',
+          'file path' => drupal_get_path('module', 'ctools') . '/includes',
+        );
+
+        $path = !empty($item['path']) ? $prefix . '/' . $item['path'] : $prefix;
+        unset($item['path']);
+        $my_items[$path] = $item;
+      }
+      $items += $my_items;
+    }
   }
 
   /**
@@ -170,6 +197,8 @@ class ctools_export_ui {
       'object' => &$this,
     );
 
+    $help_area = $this->help_area($form_state);
+
     ctools_include('form');
     $form = ctools_build_form('ctools_export_ui_list_form', $form_state);
 
@@ -177,7 +206,7 @@ class ctools_export_ui {
 
     if (!$js) {
       $this->list_css();
-      return $form . $output;
+      return $help_area . $form . $output;
     }
 
     ctools_include('ajax');
@@ -817,7 +846,7 @@ class ctools_export_ui {
       $form_state['step'] = reset(array_keys($form_info['order']));
     }
 
-    if (empty($form_info['order'][$form_state['step']])) {
+    if (empty($form_info['order'][$form_state['step']]) && empty($form_info['forms'][$form_state['step']])) {
       return MENU_NOT_FOUND;
     }
 
@@ -976,7 +1005,7 @@ class ctools_export_ui {
       '#title' => t($schema['export']['key name']),
       '#type' => 'textfield',
       '#default_value' => $item->{$export_key},
-      '#description' => t('The unique ID for this @export.', array('@export' => $this->plugin['title'])),
+      '#description' => t('The unique ID for this @export.', array('@export' => $this->plugin['title singular'])),
       '#required' => TRUE,
       '#maxlength' => 255,
     );
@@ -1184,75 +1213,6 @@ class ctools_export_ui {
     }
 
     return $output;
-
-
-    return;
-
-    $form_info = array(
-      'id' => 'ctools_export_ui_import',
-      'path' => ctools_export_ui_plugin_menu_path($this->plugin, 'import') . '/%step',
-      'return path' => $this->plugin['redirect']['import'],
-      'show trail' => TRUE,
-      'show back' => TRUE,
-      'show return' => FALSE,
-      'show cancel' => TRUE,
-      'finish callback' => 'ctools_export_ui_import_finish',
-      'cancel callback' => 'ctools_export_ui_import_cancel',
-      'order' => array(
-        'code' => t('Import code'),
-        'edit' => t('Edit'),
-      ),
-      'forms' => array(
-        'code' => array(
-          'form id' => 'ctools_export_ui_import_code'
-        ),
-        'edit' => array(
-          'form id' => 'ctools_export_ui_import_edit'
-        ),
-      ),
-    );
-
-    $form_state = array(
-      'plugin' => $this->plugin,
-      'input' => $input,
-      'rerender' => TRUE,
-      'no_redirect' => TRUE,
-      'object' => &$this,
-      'export' => '',
-      'overwrite' => FALSE,
-      // Store these in case additional args are needed.
-      'function args' => func_get_args(),
-    );
-
-    if ($step == 'code') {
-      // This is only used if the BACK button was hit.
-      if (!empty($_SESSION['ctools_export_ui_import'][$this->plugin['name']])) {
-        $form_state['item'] = $_SESSION['ctools_export_ui_import'][$this->plugin['name']];
-        $form_state['export'] = $form_state['item']->export_ui_code;
-        $form_state['overwrite'] = $form_state['item']->export_ui_allow_overwrite;
-      }
-    }
-    else if ($step == 'begin') {
-      $step = 'code';
-      if (!empty($_SESSION['ctools_export_ui_import'][$this->plugin['name']])) {
-        unset($_SESSION['ctools_export_ui_import'][$this->plugin['name']]);
-      }
-    }
-    else if ($step != 'code') {
-      $form_state['item'] = $_SESSION['ctools_export_ui_import'][$this->plugin['name']];
-      $form_state['op'] = 'add';
-      if (!empty($form_state['item']->export_ui_allow_overwrite)) {
-        // if allow overwrite was enabled, set this to 'edit' only if the key already existed.
-        $export_key = $this->plugin['export']['key'];
-
-        if (ctools_export_crud_load($this->plugin['schema'], $form_state['item']->{$export_key})) {
-          $form_state['op'] = 'edit';
-        }
-      }
-    }
-
-    ctools_include('wizard');
-    return ctools_wizard_multistep_form($form_info, $step, $form_state);
   }
 
   /**
@@ -1372,8 +1332,9 @@ function ctools_export_ui_edit_item_form_submit(&$form, &$form_state) {
  */
 function ctools_export_ui_edit_item_form_delete(&$form, &$form_state) {
   $export_key = $form_state['plugin']['export']['key'];
+  $path = $form_state['item']->export_type & EXPORT_IN_CODE ? 'revert' : 'delete';
 
-  drupal_goto(ctools_export_ui_plugin_menu_path($form_state['plugin'], 'delete', $form_state['item']->{$export_key}), array('cancel_path' => $_GET['q']));
+  drupal_goto(ctools_export_ui_plugin_menu_path($form_state['plugin'], $path, $form_state['item']->{$export_key}), array('cancel_path' => $_GET['q']));
 }
 
 /**
@@ -1415,114 +1376,6 @@ function ctools_export_ui_delete_confirm_form(&$form_state) {
     $plugin['allowed operations'][$form_state['op']]['title'], t('Cancel')
   );
   return $form;
-}
-
-
-// ---------------------------------------------------------------------------
-// @todo All of the import wizard related forms are scheduled for removal.
-
-/**
- * Import form. Provides simple helptext instructions and textarea for
- * pasting a export definition.
- *
- * This is a wizard form so its input is slightly different.
- */
-function ctools_export_ui_import_code(&$form, &$form_state) {
-  $plugin = $form_state['plugin'];
-
-  $form['help'] = array(
-    '#type' => 'item',
-    '#value' => $plugin['strings']['help']['import'],
-  );
-
-  $form['import'] = array(
-    '#title' => t('@plugin object', array('@plugin' => $plugin['title singular proper'])),
-    '#type' => 'textarea',
-    '#rows' => 10,
-    '#required' => TRUE,
-    '#default_value' => $form_state['export'],
-  );
-
-  $form['overwrite'] = array(
-    '#title' => t('Allow import to overwrite an existing record.'),
-    '#type' => 'checkbox',
-    '#default_value' => $form_state['overwrite'],
-  );
-}
-
-/**
- * Import edit form
- *
- * This is a wizard form so its input is slightly different. But it just
- * passes through to the normal edit form.
- */
-function ctools_export_ui_import_edit(&$form, &$form_state) {
-  $form_state['object']->edit_form($form, $form_state);
-}
-
-/**
- * Validate handler for ctools_export_ui_import_edit.
- */
-function ctools_export_ui_import_edit_validate(&$form, &$form_state) {
-  $form_state['object']->edit_form_validate($form, $form_state);
-}
-
-/**
- * Submit handler for ctools_export_ui_import_edit.
- */
-function ctools_export_ui_import_edit_submit(&$form, &$form_state) {
-  $form_state['object']->edit_form_submit($form, $form_state);
-}
-
-/**
- * Import form validate handler.
- *
- * Evaluates code and make sure it creates an object before we continue.
- */
-function ctools_export_ui_import_code_validate($form, &$form_state) {
-  $plugin = $form_state['plugin'];
-  $item = ctools_export_crud_import($plugin['schema'], $form_state['values']['import']);
-  if (is_string($item)) {
-    form_error($form['import'], t('Unable to get an import from the code. Errors reported: @errors', array('@errors' => $item)));
-    return;
-  }
-
-  $form_state['item'] = $item;
-  $form_state['item']->export_ui_allow_overwrite = $form_state['values']['overwrite'];
-  $form_state['item']->export_ui_code = $form_state['values']['import'];
-}
-
-/**
- * Submit callback for import form.
- *
- * Stores the item in the session.
- */
-function ctools_export_ui_import_code_submit($form, &$form_state) {
-  $_SESSION['ctools_export_ui_import'][$form_state['plugin']['name']] = $form_state['item'];
-}
-
-/**
- * Wizard finish callback for import of exportable item.
- */
-function ctools_export_ui_import_finish(&$form_state) {
-  // This indicates that overwrite was allowed, so we should delete the
-  // original item.
-  if ($form_state['op'] == 'edit') {
-    ctools_export_crud_delete($form_state['plugin']['schema'], $form_state['item']);
-  }
-
-  $form_state['object']->edit_save_form($form_state);
-
-  // Clear temporary data from session.
-  unset($_SESSION['ctools_export_ui_import'][$form_state['plugin']['name']]);
-}
-
-/**
- * Wizard cancel callback for import of exportable item.
- */
-function ctools_export_ui_import_cancel(&$form_state) {
-  // Clear temporary data from session.
-  unset($_SESSION['ctools_export_ui_import'][$form_state['plugin']['name']]);
 }
 
 // --------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 <?php
-// $Id: stylizer.inc,v 1.1.2.10 2010/07/26 17:24:29 merlinofchaos Exp $
+// $Id: stylizer.inc,v 1.1.2.12 2010/10/15 20:52:02 merlinofchaos Exp $
 /**
  * @file
  * Create customized CSS and images from palettes created by user input.
@@ -422,7 +422,7 @@ class ctools_stylizer_image_processor {
 
   function command_fill($color, $x, $y, $width, $height) {
     $this->log("Fill: $color ($x, $y, $width, $height)");
-    imagefilledrectangle($this->workspace, $x, $y, $x + $width, $y + $height, _color_gd($this->workspace, $this->palette[$color]));
+    imagefilledrectangle($this->workspace, $x, $y, $x + $width, $y + $height, ctools_color_gd($this->workspace, $this->palette[$color]));
   }
 
   function command_gradient($from, $to, $x, $y, $width, $height, $direction = 'down') {
@@ -430,13 +430,13 @@ class ctools_stylizer_image_processor {
 
     if ($direction == 'down') {
       for ($i = 0; $i < $height; ++$i) {
-        $color = _color_blend($this->workspace, $this->palette[$from], $this->palette[$to], $i / ($height - 1));
+        $color = ctools_color_blend($this->workspace, $this->palette[$from], $this->palette[$to], $i / ($height - 1));
         imagefilledrectangle($this->workspace, $x, $y + $i, $x + $width, $y + $i + 1, $color);
       }
     }
     else {
       for ($i = 0; $i < $width; ++$i) {
-        $color = _color_blend($this->workspace, $this->palette[$from], $this->palette[$to], $i / ($width - 1));
+        $color = ctools_color_blend($this->workspace, $this->palette[$from], $this->palette[$to], $i / ($width - 1));
         imagefilledrectangle($this->workspace, $x + $i, $y, $x + $i + 1, $y + $height, $color);
       }
     }
@@ -459,7 +459,7 @@ class ctools_stylizer_image_processor {
     }
     $this->log("Colorize: $color ($x, $y, $width, $height)");
 
-    $c = _color_unpack($this->palette[$color]);
+    $c = ctools_color_unpack($this->palette[$color]);
 
     imagealphablending($this->workspace, FALSE);
     imagesavealpha($this->workspace, TRUE);
@@ -495,7 +495,7 @@ class ctools_stylizer_image_processor {
     }
     $this->log("Hue: $color ($x, $y, $width, $height)");
 
-    list($red, $green, $blue) = _color_unpack($this->palette[$color]);
+    list($red, $green, $blue) = ctools_color_unpack($this->palette[$color]);
 
     // We will create a monochromatic palette based on the input color
     // which will go from black to white.
@@ -1650,3 +1650,91 @@ function ctools_stylizer_padding_apply_style(&$stylesheet, $selector, $settings)
   }
 
 }
+
+/**
+ * Check to see that a directory exists.
+ *
+ * This is an exact copy of core's, but without the stupid drupal_set_message
+ * because we need this to be silent.
+ *
+ * @todo this should probably be in another file.
+ */
+function ctools_file_check_directory(&$directory, $mode = 0, $form_item = NULL) {
+  $directory = rtrim($directory, '/\\');
+
+  // Check if directory exists.
+  if (!is_dir($directory)) {
+    if (($mode & FILE_CREATE_DIRECTORY) && @mkdir($directory)) {
+      @chmod($directory, 0775); // Necessary for non-webserver users.
+    }
+    else {
+      if ($form_item) {
+        form_set_error($form_item, t('The directory %directory does not exist.', array('%directory' => $directory)));
+      }
+      return FALSE;
+    }
+  }
+
+  // Check to see if the directory is writable.
+  if (!is_writable($directory)) {
+    if (($mode & FILE_MODIFY_PERMISSIONS) && @chmod($directory, 0775)) {
+      drupal_set_message(t('The permissions of directory %directory have been changed to make it writable.', array('%directory' => $directory)));
+    }
+    else {
+      form_set_error($form_item, t('The directory %directory is not writable', array('%directory' => $directory)));
+      watchdog('file system', 'The directory %directory is not writable, because it does not have the correct permissions set.', array('%directory' => $directory), WATCHDOG_ERROR);
+      return FALSE;
+    }
+  }
+
+  if ((file_directory_path() == $directory || file_directory_temp() == $directory) && !is_file("$directory/.htaccess")) {
+    $htaccess_lines = "SetHandler Drupal_Security_Do_Not_Remove_See_SA_2006_006\nOptions None\nOptions +FollowSymLinks";
+    if (($fp = fopen("$directory/.htaccess", 'w')) && fputs($fp, $htaccess_lines)) {
+      fclose($fp);
+      chmod($directory .'/.htaccess', 0664);
+    }
+    else {
+      $variables = array('%directory' => $directory, '!htaccess' => '<br />'. nl2br(check_plain($htaccess_lines)));
+      form_set_error($form_item, t("Security warning: Couldn't write .htaccess file. Please create a .htaccess file in your %directory directory which contains the following lines: <code>!htaccess</code>", $variables));
+      watchdog('security', "Security warning: Couldn't write .htaccess file. Please create a .htaccess file in your %directory directory which contains the following lines: <code>!htaccess</code>", $variables, WATCHDOG_ERROR);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Blend two hex colors and return the GD color.
+ */
+function ctools_color_blend($img, $hex1, $hex2, $alpha) {
+  $in1 = ctools_color_unpack($hex1);
+  $in2 = ctools_color_unpack($hex2);
+  $out = array($img);
+  for ($i = 0; $i < 3; ++$i) {
+    $out[] = $in1[$i] + ($in2[$i] - $in1[$i]) * $alpha;
+  }
+  return call_user_func_array('imagecolorallocate', $out);
+}
+
+/**
+ * Convert a hex color into an RGB triplet.
+ */
+function ctools_color_unpack($hex, $normalize = false) {
+  if (strlen($hex) == 4) {
+    $hex = $hex[1] . $hex[1] . $hex[2] . $hex[2] . $hex[3] . $hex[3];
+  }
+  $c = hexdec($hex);
+  for ($i = 16; $i >= 0; $i -= 8) {
+    $out[] = (($c >> $i) & 0xFF) / ($normalize ? 255 : 1);
+  }
+  return $out;
+}
+
+/**
+ * Convert a hex triplet into a GD color.
+ */
+function ctools_color_gd($img, $hex) {
+  $c = array_merge(array($img), ctools_color_unpack($hex));
+  return call_user_func_array('imagecolorallocate', $c);
+}
+
