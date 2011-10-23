@@ -163,6 +163,7 @@ if (module_exists('userreference')) {
       $tokens['user reference']['link']  = t('Formatted HTML link to referenced user');
       $tokens['user reference']['path']  = t("Relative path alias to the referenced user.");
       $tokens['user reference']['url']  = t("Absolute path alias to the referenced user.");
+      $tokens['user reference']['mail'] = t('Referenced user email address');
 
       return $tokens;
     }
@@ -177,6 +178,9 @@ if (module_exists('userreference')) {
       $tokens['link']  = isset($item['view']) ? $item['view'] : '';
       $tokens['path'] = is_numeric($item['uid']) ? url('user/' . $item['uid']) : '';
       $tokens['url'] = is_numeric($item['uid']) ? url('user/' . $item['uid'], array('absolute' => TRUE)) : '';
+
+      $user = user_load(array('uid' => $item['uid']));
+      $tokens['mail'] = $user ? $user->mail : '';
 
       return $tokens;
     }
