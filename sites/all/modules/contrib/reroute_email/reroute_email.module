@@ -1,8 +1,10 @@
 <?php
 
-// $Id: reroute_email.module,v 1.6 2008/07/24 14:32:35 kbahey Exp $
 
-define('REROUTE_EMAIL_ADDRESS',  'reroute_email_address');
+define('REROUTE_EMAIL_ADDRESS', 'reroute_email_address');
+define('REROUTE_EMAIL_ENABLE_MESSAGE', 'reroute_email_enable_message');
+define('REROUTE_EMAIL_ENABLE',  'reroute_email_enable');
+
 
 /**
  * Implementation of hook_perm().
@@ -27,45 +29,87 @@ function reroute_email_menu() {
 
 function reroute_email_settings() {
   $form[REROUTE_EMAIL_ADDRESS] = array(
-    '#type'          => 'textfield',
-    '#title'         => t('Email address'),
-    '#required'      => TRUE,
+    '#type'          => 'textarea',
+    '#title'         => t('Email addresses'),
     '#default_value' => variable_get(REROUTE_EMAIL_ADDRESS, ini_get('sendmail_from')),
-    '#size'          => 35,
-    '#description'   => t('The email address to reroute all emails from the site to.')
+    '#cols'          => 35,
+    '#rows'          => 5,
+    '#description'   => t('Provide a list of email addresses to pass through. Any email addresses not on this list will be rerouted to the first address on the list.')
+  );
+
+  $form[REROUTE_EMAIL_ENABLE_MESSAGE] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show message in mail body'),
+    '#default_value' => variable_get(REROUTE_EMAIL_ENABLE_MESSAGE, 1),
+    '#description' => t('Check this box if you want a message to be prepended to the email body when the mail is being rerouted.'),
+  );
+
+  $form[REROUTE_EMAIL_ENABLE] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Enable routing'),
+    '#default_value' => variable_get(REROUTE_EMAIL_ENABLE, 1),
+    '#description'   => t('Check this box if you want to enable email rerouting. Uncheck to disable rerouting.'),
   );
 
   return system_settings_form($form);
 }
 
 function reroute_email_mail_alter(&$message) {
-  global $base_url;
+  if (variable_get(REROUTE_EMAIL_ENABLE, 1)) {
+    global $base_url;
 
-  if (!empty($message) && is_array($message)) {
+    if (!variable_get(REROUTE_EMAIL_ADDRESS, '')) {
+      // If email address not in settings, then do nothing.
+      return;
+    }
+
+    if (empty($message)) {
+      return;
+    }
+
+    if (!is_array($message)) {
+      return;
+    }
+
     $mailkey = isset($message['id']) ? $message['id'] : t('<mail id> is missing');
     $to = isset($message['to']) ? $message['to'] : t('<to> is missing');
-  // Suppress Bcc and Cc fields otherwise email will still go out to those addresses
+
+    $message['headers']['X-Rerouted-Mail-Key'] = $mailkey;
+    $message['headers']['X-Rerouted-Website'] = $base_url;
+
+    // Suppress Bcc and Cc fields otherwise email will still go out to those addresses
     if (isset($message['headers']) && is_array($message['headers'])) {
       if (isset($message['headers']['Bcc'])) {
+        $message['headers']['X-Rerouted-Original-Bcc'] = $message['headers']['Bcc'];
         unset($message['headers']['Bcc']);
       }
       if (isset($message['headers']['Cc'])) {
+        $message['headers']['X-Rerouted-Original-Cc'] = $message['headers']['Cc'];
         unset($message['headers']['Cc']);
       }
     }
+
+    // Split the address string on whitespace, ignoring any empty results
+    $addresslist = preg_split('/\s/', variable_get(REROUTE_EMAIL_ADDRESS, ini_get('sendmail_from')), -1, PREG_SPLIT_NO_EMPTY);
+
+    if (!in_array($to, $addresslist)) {
+      // Not on the list, so reroute to the first address in the list
+      $message['headers']['X-Rerouted-Original-To'] = $to;
+      $message['to'] = $addresslist[0];
+
+      if (variable_get(REROUTE_EMAIL_ENABLE_MESSAGE, 1)) {
+        // Format a message to show at the top
+        $msg[] = t("This email was rerouted.");
+        $msg[] = t("Web site: @site", array('@site' => $base_url));
+        $msg[] = t("Mail key: @key", array('@key' => $mailkey));
+        $msg[] = t("Originally to: @to", array('@to' => $to));
+        $msg[] = "-----------------------";
+
+        // Prepend to the body of the email
+        // -- I really think we should simply this a bit -- Khalid
+        $message['body'] = array_merge($msg, isset($message['body']) ? (is_array($message['body']) ? $message['body'] : array($message['body'])) : array());
+      }
+    }
   }
-  
-  // Format a message to show at the top
-  $msg[] = t("This email was rerouted.");
-  $msg[] = t("Web site: @site", array('@site' => $base_url));
-  $msg[] = t("Mail key: @key", array('@key' => $mailkey));
-  $msg[] = t("Originally to: <@to>", array('@to' => $to));
-  $msg[] = "-----------------------";
-
-  // Prepend to the body of the email
-  $message['body'] = array_merge($msg, isset($message['body']) ? (is_array($message['body']) ? $message['body'] : array($message['body'])) : array());
-
-  // Change the $to address to be the one we defined
-  $message['to'] = variable_get(REROUTE_EMAIL_ADDRESS, ini_get('sendmail_from'));
 }
 
