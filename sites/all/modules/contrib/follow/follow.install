@@ -1,0 +1,182 @@
+<?php
+
+/**
+ * @file
+ *   Follow module's install and uninstall code.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function follow_install() {
+  drupal_install_schema('follow');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function follow_schema() {
+  $schema['follow_links'] = array(
+    'description' => 'Stores sitewide and user follow links.',
+    'fields' => array(
+      'lid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Unique identifier for the {follow_links}.',
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The machine name of the {follow_links}.",
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "User's {users} uid.  Sitewide {follow_links} use uid 0",
+      ),
+      'path' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The Drupal path or extenal URL the {follow_links} should point to.',
+      ),
+      'options' => array(
+        'description' => 'A serialized array of options to be passed to the url() or l() function, such as a query string or HTML attributes.',
+        'type' => 'text',
+        'translatable' => TRUE,
+        'serialize' => TRUE,
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The human readable name for the link.',
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+        'description' => 'The weight of this {follow_links}.',
+      ),
+    ),
+    'primary key' => array('lid'),
+    'unique keys' => array(
+      'uid_name' => array('uid', 'name'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function follow_uninstall() {
+  drupal_uninstall_schema('follow');
+  variable_del('follow_user_block_title');
+  variable_del('follow_site_block_title');
+  variable_del('follow_site_block_user');
+}
+
+/**
+ * Update for caching and schema changes.
+ */
+function follow_update_6000() {
+  $ret = array();
+
+  if (drupal_get_installed_schema_version('follow') == 5000) {
+    drupal_set_installed_schema_version('follow', 6003);
+
+    return $ret;
+  }
+
+  // We no longer cache the follow networks.
+  cache_clear_all('follow:networks', 'cache');
+
+  $schema = follow_schema();
+  $path = $schema['follow_links']['fields']['path'];
+  $options = $schema['follow_links']['fields']['options'];
+
+  // Since we match against just uid in queries, this field must
+  // come first for the index to be used.
+  db_drop_unique_key($ret, 'follow_links', 'name_uid');
+  db_add_unique_key($ret, 'follow_links', 'uid_name', array('uid', 'name'));
+  db_add_field($ret, 'follow_links', 'path', $path);
+  db_add_field($ret, 'follow_links', 'options', $options);
+
+  // We need to populate current rows' options col with an empty array.
+  $ret[] = update_sql("UPDATE {follow_links} SET options = 'a:0:{}'");
+  
+  return $ret;
+}
+
+/**
+ * Update existing data to the new schema.
+ */
+function follow_update_6001(&$sandbox = NULL) {
+  $ret = array();
+
+  // Check to make sure the url column exists before running this update. The only
+  // instance I can think of where this might happen is a D5 to D6 upgrade.
+  if (db_column_exists('follow_links', 'url')) {
+    if (!isset($sandbox['max_lid'])) {
+      $sandbox['current_lid'] = 0;
+      $sandbox['max_lid'] = db_result(db_query('SELECT MAX(lid) FROM {follow_links}'));
+    }
+    $result = db_query("SELECT lid, url FROM {follow_links} WHERE lid > %d ORDER BY lid ASC LIMIT 100", $sandbox['current_lid']);
+
+    while ($link = db_fetch_object($result)) {
+      $parsed_url = follow_parse_url($link->url);
+      $path = db_escape_string($parsed_url['path']);
+      $options = serialize($parsed_url['options']);
+
+      // We can't actually pass this directly to update_sql() because of the 
+      // serialized array options. @see http://j.mp/b9yAxH and http://j.mp/bR3uOe
+      $result = db_query("UPDATE {follow_links} SET path = '%s', options = '%s' WHERE lid = %d", $path, $options, $link->lid);
+      $ret[] = array('success' => $result !== FALSE, 'query' => check_plain("UPDATE {follow_links} SET path = '$path', options = '$options' WHERE lid = {$link->lid}"));
+
+      $sandbox['current_lid'] = $link->lid;
+    }
+  
+    $ret['#finished'] = empty($sandbox['max_lid']) ? 1 : ($sandbox['current_lid'] / $sandbox['max_lid']);
+  }
+
+  return $ret;
+}
+
+
+/**
+ * Drop old schema column.
+ */
+function follow_update_6002() {
+  $ret = array();
+
+  db_drop_field($ret, 'follow_links', 'url');
+
+  return $ret;
+}
+
+/**
+ * Add a title field.
+ */
+function follow_update_6003() {
+  $ret = array();
+
+  // Check to make sure the title column doesn't exists before running this 
+  // update. The only instance I can think of where this might happen is a D5 to 
+  // D6 upgrade.
+  if (!db_column_exists('follow_links', 'title')) {
+    $schema = follow_schema();
+    $title = $schema['follow_links']['fields']['title'];
+  
+    db_add_field($ret, 'follow_links', 'title', $title);
+  }
+
+  return $ret;
+}

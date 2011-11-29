@@ -1,0 +1,890 @@
+<?php
+
+/**
+ * @file
+ *   Allows users to add links to their social network profiles.
+ */
+
+define('FOLLOW_NAME', 0);
+define('FOLLOW_ME', 1);
+define('FOLLOW_US', 2);
+
+/**
+ * Implementation of hook_help().
+ */
+function follow_help($path, $arg) {
+  switch ($path) {
+    case 'admin/build/follow':
+    case 'user/%/follow':
+      return t('Please copy and paste the url for your public profile or page for each service you would like to display in the block. Links need to match the domain of the service in question.');
+    case 'admin/settings/follow':
+      return t('Here you can set what the default titles are for the "follow" blocks.  If you would like a custom title, edit the individual blocks <a href="!href">here</a>.', array('!href' => url('admin/build/block')));
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function follow_init() {
+  drupal_add_css(drupal_get_path('module', 'follow') .'/follow.css');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function follow_menu() {
+  $items = array();
+
+  $items['admin/build/follow'] = array(
+    'title' => 'Site follow links',
+    'description' => 'Add sitewide follow links',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('follow_links_form'),
+    'access arguments' => array('edit site follow links'),
+  );
+
+  $items['user/%/follow'] = array(
+    'title' => 'My follow links',
+    'description' => 'edit follow links',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('follow_links_form', 1),
+    'access callback' => 'follow_links_user_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  // No settings!
+  /* $items['admin/settings/follow'] = array(
+    'title' => 'Follow',
+    'description' => 'Administer the follow module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('follow_settings_form'),
+    'access arguments' => array('administer follow'),
+  ); */
+
+  return $items;
+}
+
+/**
+ * Access callback for user follow links editing.
+ */
+function follow_links_user_access($uid) {
+  return ((($GLOBALS['user']->uid == $uid) && user_access('edit own follow links')) || user_access('edit any user follow links')) && $uid > 0;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function follow_perm() {
+  return array('edit own follow links', 'edit site follow links', 'edit any user follow links', 'administer follow', 'change follow link titles');
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function follow_theme() {
+  $items = array();
+
+  $items['follow_links_form'] = array(
+    'arguments' => array('form' => array()),
+  );
+  $items['follow_links'] = array(
+    'arguments' => array('variables' => array()),
+  );
+  $items['follow_link'] = array(
+    'arguments' => array('variables' => array()),
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_preprocess_page().
+ */
+function follow_preprocess_page(&$variables) {
+  // Expose the site follow links as a variable to the page template.
+  if ($links = follow_links_load()) {
+    $args = array(
+      'links' => $links,
+      'networks' => follow_networks_load(),
+    );
+    $variables['follow_site'] = theme('follow_links', $args);
+  }
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function follow_block($op = 'list', $delta = 'site', $edit = array()) {
+  // We pass this function through to the D7 versions to ease the process of 
+  // keeping the branches in sync.
+  switch($op) {
+    case 'list':
+      return follow_block_info();
+    default: 
+      $fnc = 'follow_block_'. $op;
+      if (function_exists($fnc)) {
+        return $fnc($delta, $edit);
+      }
+  }
+}
+
+/**
+ * Implementation of hook_block_info().
+ */
+function follow_block_info() {
+  $blocks['site'] = array(
+    'info' => t('Follow Site'),
+    // We need to cache per role so the edit/configure links display only if user
+    // has access.
+    'cache' => BLOCK_CACHE_PER_ROLE,
+  );
+
+  $blocks['user'] = array(
+    'info' => t('Follow User'),
+    // Here we need to cache per user so the edit link only shows for the associated
+    // account.
+    'cache' => BLOCK_CACHE_PER_USER,
+  );
+
+  return $blocks;
+}
+
+
+/**
+ * Implementation of hook_block_configure().
+ */
+function follow_block_configure($delta = '') {
+  switch($delta) {
+    case 'site':
+      $form['follow_title'] = array(
+        '#type' => 'radios',
+        '#title' => t('Default block title'),
+        '#default_value' => variable_get('follow_site_block_title', FOLLOW_NAME),
+        '#options' => array(
+          FOLLOW_NAME => t('Follow @name on', array('@name' => variable_get('site_name', 'Drupal'))),
+          FOLLOW_ME => t('Follow me on'),
+          FOLLOW_US => t('Follow us on'),
+        ),
+      );
+      $form['follow_user'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('User pages'),
+        '#description' => t('Should this block display on user profile pages?'),
+        '#default_value' => variable_get('follow_site_block_user', TRUE),
+      );
+      return $form;
+
+    case 'user':
+      $form['follow_title'] = array(
+        '#type' => 'radios',
+        '#title' => t('Default block title'),
+        '#default_value' => variable_get('follow_user_block_title', FOLLOW_NAME),
+        '#options' => array(
+          FOLLOW_NAME => t('Follow [username] on'),
+          FOLLOW_ME => t('Follow me on'),
+        ),
+      );
+      return $form;
+  }
+}
+
+/**
+ * Implementation of hook_block_save().
+ */
+function follow_block_save($delta = '', $edit = array()) {
+  variable_set('follow_'. $delta .'_block_title', $edit['follow_title']);
+  if ($delta == 'site') {
+    variable_set('follow_site_block_user', $edit['follow_user']);
+  }
+}
+
+/**
+ * Implementation of hook_block_view().
+ */
+function follow_block_view($delta = '') {
+  switch ($delta) {
+    case 'site':
+      if (($content = _follow_block_content())
+          && (variable_get('follow_site_block_user', TRUE) || !(arg(0) == 'user' && is_numeric(arg(1))))) {
+        return array(
+          'subject' => _follow_block_subject(),
+          'content' => $content,
+        );
+      }
+      break;
+    case 'user':
+      $uid = arg(1);
+      if (arg(0) == 'user' && is_numeric($uid) && ($content = _follow_block_content($uid))) {
+        return array(
+          'subject' => _follow_block_subject($uid),
+          'content' => $content,
+        );
+      }
+      break;
+  }
+}
+
+/**
+ * Helper function to build the block title.
+ *
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ */
+function _follow_block_subject($uid = 0) {
+  return follow_link_title($uid) .':';
+}
+
+/**
+ * Helper function to create a link or block title.
+ *
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ */
+function follow_link_title($uid = 0) {
+  // Check to see if we have a valid username.
+  if ($uid) {
+    $setting = variable_get('follow_user_block_title', FOLLOW_NAME);
+    // Special handling for usernames.
+    if ($setting == FOLLOW_NAME) {
+      $account = user_load($uid);
+      // Set plain to TRUE for realname module support.
+      return t('Follow !name on', array('!name' => theme('username', array('account' => $account))));
+    }
+    return t('Follow me on');
+  }
+
+  switch(variable_get('follow_site_block_title', FOLLOW_NAME)) {
+    case FOLLOW_NAME:
+      return t('Follow @name on', array('@name' => variable_get('site_name', 'Drupal')));
+
+    case FOLLOW_ME:
+      return t('Follow me on');
+
+    case FOLLOW_US:
+      return t('Follow us on');
+  }
+}
+
+/**
+ * Default tooltip callback function to format a tooltip for a follow link.
+ *
+ * The tooltip is the title attribute on the anchor. By default it will display 
+ * as "Follow us on Twitter" or similar, depending on the network and your 
+ * settings, but networks can define custom tooltip callbacks to change this 
+ * text. For instance, an RSS feed or newsletter may want the tooltip to read 
+ * "Subscribe to our Feed" or "Subscribe to our Newsletter".
+ *
+ * @param $title
+ *   The translated string title of this link
+ * @param $variables
+ *   An array containing the link object and network data.
+ * @return
+ *   A translated string for the tooltip.
+ */
+function follow_link_tooltip($title, $variables) {
+  $link = $variables['link'];
+
+  // No need to run through t() since both of these already have. We do need to 
+  // strip tags however, since theme_username might have output a link.
+  return strip_tags(follow_link_title($link->uid) .' '. $title);
+}
+
+/**
+ * Tooltip for the 'This site' or RSS link.
+ */
+function follow_link_tooltip_rss($title, $variables) {
+  return t('Subscribe to feed: @title', array('@title' => $title));
+}
+
+/**
+ * Tooltip for the Newsletter.
+ */
+function follow_link_tooltip_newsletter($title, $variables) {
+  $string = ($title == t('Newsletter')) ? 'Subscribe to @title' : 'Subscribe to newsletter: @title';
+  return t($string, array('@title' => $title));
+}
+
+/**
+ * Helper function to build the block content display.
+ *
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ */
+function _follow_block_content($uid = 0) {
+  $output = '';
+
+  if ($links = follow_links_load($uid)) {
+    $output = theme('follow_links', array('links' => $links, 'networks' => follow_networks_load($uid)));
+    $output .= _follow_block_config_links($uid);
+  }
+
+  return $output;
+}
+
+/**
+ * Theme function to output a list of links.
+ *
+ * @param $variables
+ *   An array of follow link objects.
+ * @param $networks
+ *   An array of network names, keys are machine names, values are visible titles.
+ *
+ * @ingroup themeable
+ */
+function theme_follow_links($variables) {
+  $links = $variables['links'];
+  $networks = $variables['networks'];
+  $output = '<div class="follow-links clearfix">';
+
+  foreach($links as $link) {
+    $output .= theme('follow_link', array('link' => $link, 'network' => $networks[$link->name]));
+  }
+
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Theme function to print an individual link.
+ *
+ * @param $link
+ *   A follow link object.
+ * @param $title
+ *   The translated title of the social network.
+ *
+ * @ingroup themable
+ */
+function theme_follow_link($variables) {
+  $link = $variables['link'];
+  $network = $variables['network'];
+  $title = !empty($link->title) ? $link->title : $network['title'];
+
+  // @see follow_link_tooltip().
+  $tooltip_callback = (isset($network['tooltip callback']) && function_exists($network['tooltip callback'])) ? $network['tooltip callback'] : 'follow_link_tooltip';
+  $tooltip = $tooltip_callback($title, $variables);
+
+  $classes = array();
+  $classes[] = 'follow-link';
+  $classes[] = "follow-link-{$link->name}";
+  $classes[] = $link->uid ? 'follow-link-user' : 'follow-link-site';
+
+  $attributes = array(
+    'class' => implode(' ', $classes),
+    'title' => $tooltip,
+  );
+  $link->options['attributes'] = $attributes;
+
+  return l($title, $link->path, $link->options) . "\n";
+}
+
+/**
+ * Outputs a list of configuration links for users with appropriate permissions
+ *
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ * @return
+ *   A string containing the links, output with theme_links().
+ */
+function _follow_block_config_links($uid) {
+  $links = array();
+
+  if ($uid == 0 && user_access('edit site follow links')) {
+    $links['follow_edit'] = array(
+      'title' => t('Edit'),
+      'href' => 'admin/build/follow',
+      'query' => drupal_get_destination(),
+    );
+  }
+  elseif (follow_links_user_access($uid)) {
+    $links['follow_edit'] = array(
+      'title' => t('Edit'),
+      'href' => 'user/'. $uid .'/follow',
+      'query' => drupal_get_destination(),
+    );
+  }
+
+  if (user_access('administer blocks')) {
+    $links['follow_configure'] = array(
+      'title' => t('Configure'),
+      'href' => $uid ? 'admin/build/block/configure/follow/user' : 'admin/build/block/configure/follow/site',
+      'query' => drupal_get_destination(),
+    );
+  }
+
+  return theme('links', $links, array('class' => 'links inline'));
+}
+
+
+/**
+ * The form for editing follow links.
+ *
+ * @param $form_state
+ *   A keyed array containing the current state of the form.
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ *
+ * @ingroup forms
+ */
+function follow_links_form(&$form_state, $uid = 0) {
+  $form = array();
+
+  $form['uid'] = array('#type' => 'hidden', '#value' => $uid);
+  $form['follow_links']['#tree'] = TRUE;
+
+  $links = follow_links_load($uid);
+  $networks = follow_networks_load($uid, TRUE);
+
+  // Put all our existing links at the top, sorted by weight.
+  if (is_array($links)) {
+    foreach ($links as $name => $link) {
+      $title = $networks[$name]['title'];
+      $form['follow_links'][$name] = _follow_links_form_link($link, $title, $uid);
+      // Unset this specific network so we don't add the same one again below.
+      unset($networks[$name]);
+    }
+  }
+  // Now add all the empty ones.
+  foreach ($networks as $name => $info) {
+    $link = new stdClass();
+    $link->name = $name;
+    $form['follow_links'][$name] = _follow_links_form_link($link, $info['title'], $uid);
+  }
+
+  $form['submit'] = array('#type' => 'submit', '#value' => t('Submit'));
+
+  return $form;
+}
+
+/**
+ * Helper function to create an individual link form element.
+ */
+function _follow_links_form_link($link, $title, $uid) {
+  $elements = array();
+
+  $elements['name'] = array(
+    '#type' => 'markup',
+    '#value' => $title,
+  );
+  if (isset($link->lid)) {
+    $elements['lid'] = array(
+      '#type' => 'hidden',
+      '#value' =>  $link->lid,
+    );
+    $elements['weight'] = array(
+      '#type' => 'weight',
+      '#default_value' => $link->weight,
+    );
+  }
+  $elements['url'] = array(
+    '#type' => 'textfield',
+    '#follow_network' => $link->name,
+    '#follow_uid' => $uid,
+    '#default_value' => isset($link->url) ? $link->url : '',
+    '#element_validate' => array('follow_url_validate'),
+  );
+  // Provide the title of the link only if the link URL is there and the user
+  // has the appropriate access.
+  $elements['title'] = array(
+    '#type' => 'textfield',
+    '#default_value' => isset($link->title) ? $link->title : '',
+    '#size' => 15,
+    '#access' => user_access('change follow link titles') && !empty($link->url),
+  );
+
+  return $elements;
+}
+
+/**
+ * Like drupal_http_build_query() but without urlencodings.
+ */
+function follow_build_query(array $query, $parent = '') {
+  $params = array();
+
+  foreach ($query as $key => $value) {
+    $key = ($parent ? $parent . '[' . $key . ']' : $key);
+
+    // Recurse into children.
+    if (is_array($value)) {
+      $params[] = follow_build_query($value, $key);
+    }
+    // If a query parameter value is NULL, only append its key.
+    elseif (!isset($value)) {
+      $params[] = $key;
+    }
+    else {
+      $params[] = $key . '=' . $value;
+    }
+  }
+  return implode('&', $params);
+}
+
+/**
+ * Build a url for use in the form.
+ */
+function follow_build_url($path, $options) {
+  $url = $path;
+  if (!empty($options['query'])) {
+    $url .= (strpos($path, '?') !== FALSE ? '&' : '?') . follow_build_query($options['query']);
+  }
+  if (!empty($options['fragment'])) {
+    $url .= '#' . $options['fragment'];
+  }
+  return $url;
+}
+
+/**
+ * Split a Drupal path or external link into path and options like a menu link.
+ */
+function follow_parse_url($url) {
+  $parsed_url = parse_url($url);
+  $defaults = array(
+    'scheme' => '',
+    'host' => '',
+    'port' => '',
+    'path' => '/',
+    'query' => '',
+    'fragment' => '',
+  );
+  $parsed_url += $defaults;
+  $options = array('query' => array(), 'fragment' => $parsed_url['fragment']);
+  // Parse the query string into an array.
+  parse_str($parsed_url['query'], $options['query']);
+  if ($parsed_url['scheme']) {
+    $parsed_url['scheme'] .= '://';
+  }
+  // Throw away port for now.
+  $path = $parsed_url['scheme'] . $parsed_url['host'] . $parsed_url['path'];
+  return array('path' => $path, 'options' => $options);
+}
+
+/**
+ * Validates the url field to verify it's actually a url.
+ */
+function follow_url_validate($form) {
+  $url = trim($form['#value']);
+  $networks = follow_networks_load($form['#follow_uid']);
+  $info = $networks[$form['#follow_network']];
+
+  // @see follow_network_regex().
+  $regex_callback = (isset($info['regex callback']) && function_exists($info['regex callback'])) ? $info['regex callback'] : 'follow_network_regex';
+  $regex = $regex_callback($info);
+
+  $parsed = follow_parse_url($url);
+  if($url && !preg_match($regex, $parsed['path'])) {
+    if (!empty($info['domain'])) {
+      $message = t('The specified url is invalid for the domain %domain.  Make sure you use http://.', array('%domain' => $info['domain']));
+    }
+    else {
+      $message = t('The specified path is invalid.');
+    }
+    form_error($form, $message);
+  }
+}
+
+/**
+ * The default regex callback for a follow network. This simply returns a regular 
+ * expression to be used in validating the saved url.
+ *
+ * @param $network_info
+ *   An array of data about this network.
+ * @return
+ *   A string, regular expression used to validate the submitted url.
+ */
+function follow_network_regex($network_info) {
+  // An external link.
+  return '@^https?://([a-z0-9\-_.]+\\.|)' . str_replace('.', '\\.', $network_info['domain']) . '/@i';
+}
+
+/**
+ * Verify that a url is relative.
+ */
+function follow_network_regex_internal() {
+  // An internal link should not have ':'.
+  return '@^[^:]+$@';
+}
+
+/**
+ * Verify that a url isÉ a url.
+ */
+function follow_network_regex_external() {
+  // @see http://j.mp/2Ol4gj
+  return '
+    /^(https?|ftp):\/\/(?#                                      protocol
+    )(([a-z0-9$_\.\+!\*\'\(\),;\?&=-]|%[0-9a-f]{2})+(?#         username
+    )(:([a-z0-9$_\.\+!\*\'\(\),;\?&=-]|%[0-9a-f]{2})+)?(?#      password
+    )@)?(?#                                                     auth requires @
+    )((([a-z0-9][a-z0-9-]*[a-z0-9]\.)*(?#                       domain segments AND
+    )[a-z]{2}[a-z0-9-]*[a-z0-9](?#                              top level domain OR
+    )|(\d|[1-9]\d|1\d{2}|2[0-4][0-9]|25[0-5]\.){3}(?#
+    )(\d|[1-9]\d|1\d{2}|2[0-4][0-9]|25[0-5])(?#                 IP address
+    ))(:\d+)?(?#                                                port
+    ))(((\/+([a-z0-9$_\.\+!\*\'\(\),;:@&=-]|%[0-9a-f]{2})*)*(?# path
+    )(\?([a-z0-9$_\.\+!\*\'\(\),;:@&=-]|%[0-9a-f]{2})*)(?#      query string
+    )?)?)?(?#                                                   path and query string optional
+    )(#([a-z0-9$_\.\+!\*\'\(\),;:@&=-]|%[0-9a-f]{2})*)?(?#      fragment
+    )$/i';
+}
+
+/**
+ * Submit handler for the follow_links_form.
+ */
+function follow_links_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $links = $values['follow_links'];
+
+  foreach($links as $name => $link) {
+    $link = (object) $link;
+    $link->url = trim($link->url);
+
+    // Check to see if there's actually a link
+    if (empty($link->url)) {
+      // If there's an lid, delete the link.
+      if (isset($link->lid)) {
+        follow_link_delete($link->lid);
+      }
+      // Continue to the next link.
+      continue;
+    }
+    // Otherwise save the link.
+    else {
+      $link->uid = $values['uid'];
+      $link->name = $name;
+      follow_link_save($link);
+    }
+  }
+}
+
+/**
+ * Theme the drag-and-drop form.
+ *
+ * Arranges records in a table, and adds the css and js for draggable sorting.
+ *
+ * @ingroup themeable
+ * @ingroup forms
+ */
+function theme_follow_links_form($form) {
+  $rows = array();
+  $disabled_rows = array();
+
+  foreach (element_children($form['follow_links']) as $key) {
+    $row = array();
+
+    if (isset($form['follow_links'][$key]['weight'])) {
+      $row[] = drupal_render($form['follow_links'][$key]['lid']) . drupal_render($form['follow_links'][$key]['name']);
+      $row[] = drupal_render($form['follow_links'][$key]['url']);
+      if (user_access('change follow link titles')) {
+        $row[] = drupal_render($form['follow_links'][$key]['title']);
+      }
+
+      // Now, render the weight row.
+      $form['follow_links'][$key]['weight']['#attributes']['class'] = 'follow-links-weight';
+      $row[] = drupal_render($form['follow_links'][$key]['weight']);
+
+      // Add the new row to our collection of rows, and give it the 'draggable' class.
+      $rows[] = array(
+        'data' => $row,
+        'class' => 'draggable',
+      );
+    }
+    else {
+      $disabled_rows[] = array(drupal_render($form['follow_links'][$key]['name']), drupal_render($form['follow_links'][$key]['url']));
+    }
+  }
+
+  // Render a list of header titles, and our array of rows, into a table.
+  $header = array(t('Name'), t('URL'));
+  if (user_access('change follow link titles')) {
+    $header[] = t('Customized Name');
+  }
+  $header[] = t('Weight');
+  $disabled_header = array(t('Name'), t('URL'));
+
+  $output = '';
+  if (count($rows)) {
+    $output .= theme('table', $header, $rows, array('id' => 'follow-links-weighted-form'));
+  }
+  if (count($disabled_rows)) {
+    $output .= theme('table', $disabled_header, $disabled_rows);
+  }
+  $output .= drupal_render($form);
+
+  drupal_add_tabledrag('follow-links-weighted-form', 'order', 'self', 'follow-links-weight');
+
+  return $output;
+}
+
+/**
+ * Follow settings form.
+ *
+ * @ingroup forms
+ */
+function follow_settings_form() {
+  $form = array();
+
+  return system_settings_form($form);
+}
+
+
+/**
+ * Loader function for individual links.
+ *
+ * @param $uid
+ *   An int containing the uid of the user. uid 0 pulls the site follow links.
+ * @return
+ *   A single link in array format, or FALSE if none matched the incoming ID.
+ */
+function follow_links_load($uid = 0) {
+  $links = array();
+
+  $sql = "SELECT * FROM {follow_links} WHERE uid = %d ORDER BY weight ASC";
+  $result = db_query($sql, $uid);
+
+  while ($link = db_fetch_object($result)) {
+    $link->options = unserialize($link->options);
+    $link->url = follow_build_url($link->path, $link->options);
+    $links[$link->name] = $link;
+  }
+
+  return $links;
+}
+
+/**
+ * Inserts a new link, or updates an existing one.
+ *
+ * @param $link
+ *   A link object to be saved.
+ */
+function follow_link_save($link) {
+  $parsed = follow_parse_url($link->url);
+  $link->path = $parsed['path'];
+  $link->options = $parsed['options'];
+
+  if (isset($link->lid)) {
+    drupal_write_record('follow_links', $link, 'lid');
+  }
+  else {
+    drupal_write_record('follow_links', $link);
+  }
+  return $link;
+}
+
+/**
+ * Deletes a link, given its unique ID.
+ *
+ * @param $lid
+ *   An int containing the ID of a link.
+ */
+function follow_link_delete($lid) {
+  $sql = 'DELETE FROM {follow_links} WHERE lid = %d';
+  db_query($sql, $lid);
+}
+
+/**
+ * Loads all follow networks
+ *
+ * @param $uid
+ *   The uid of the user. uid 0 pulls the site follow links.
+ * @param $reset
+ *   Boolean.  If TRUE, flushes the follow networks cache.
+ *
+ * @return
+ *   An array of network names, keys are machine names, values are visible titles.
+ */
+function follow_networks_load($uid = 0, $reset = FALSE) {
+  static $networks = array();
+
+  // Clear cache if $reset is TRUE;
+  if ($reset) {
+    $networks = array();
+  }
+  // Return presets if the array is populated.
+  if (empty($networks[$uid])) {
+    // We call hook_follow_networks_alter() to allow other modules to create
+    // or alter networks.
+    $networks[$uid] = follow_default_networks($uid);
+    drupal_alter('follow_networks', $networks, $uid);
+  }
+
+  return $networks[$uid];
+}
+
+/**
+ * Retrieves the default networks available.
+ *
+ * @return
+ *   An associative array, keyed by the machine name. The values are an array
+ *   including title of the network, along with the domain to be used for
+ *   input validation of the network.
+ */
+function follow_default_networks($uid) {
+  $networks = array(
+    'facebook'  => array(
+      'title' => t('Facebook'),
+      'domain' => 'facebook.com',
+    ),
+    'virb'      => array(
+      'title' => t('Virb'),
+      'domain' => 'virb.com',
+    ),
+    'myspace'   => array(
+      'title' => t('MySpace'),
+      'domain' => 'myspace.com',
+    ),
+    'twitter'   => array(
+      'title' => t('Twitter'),
+      'domain' => 'twitter.com',
+    ),
+    'picasa'    => array(
+      'title' => t('Picasa'),
+      'domain' => 'picasaweb.google.com',
+    ),
+    'flickr'    => array(
+      'title' => t('Flickr'),
+      'domain' => 'flickr.com',
+    ),
+    'youtube'   => array(
+      'title' => t('YouTube'),
+      'domain' => 'youtube.com',
+    ),
+    'vimeo'     => array(
+      'title' => t('Vimeo'),
+      'domain' => 'vimeo.com',
+    ),
+    'bliptv'    => array(
+      'title' => t('blip.tv'),
+      'domain' => 'blip.tv',
+    ),
+    'lastfm'    => array(
+      'title' => t('last.fm'),
+      'domain' => 'last.fm',
+    ),
+    'linkedin'  => array(
+      'title' => t('LinkedIn'),
+      'domain' => 'linkedin.com',
+    ),
+    'delicious' => array(
+      'title' => t('Delicious'),
+      'domain' => 'delicious.com',
+    ),
+    'tumblr'    => array(
+      'title' => t('Tumblr'),
+      'domain' => 'tumblr.com',
+    ),
+  );
+  if ($uid == 0) {
+    $networks['this-site'] = array(
+      'title' => t('This site (RSS)'),
+      'domain' => '',
+      'regex callback' => 'follow_network_regex_internal', 
+      'tooltip callback' => 'follow_link_tooltip_rss',
+    );
+    $networks['newsletter'] = array(
+      'title' => t('Newsletter'),
+      'domain' => '',
+      'regex callback' => 'follow_network_regex_external', 
+      'tooltip callback' => 'follow_link_tooltip_newsletter',
+    );
+  }
+  return $networks;
+}
