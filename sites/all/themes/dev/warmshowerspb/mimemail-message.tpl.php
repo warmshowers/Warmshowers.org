@@ -29,7 +29,7 @@
     <div id="center">
       <div id="main">
 
-	<img src="http://dl.dropbox.com/u/43128215/WSL_header.jpg" alt="WSL Header" width="725" height="100" />
+	<img src="http://www.warmshowers.org/sites/all/modules/dev/warmshowers_site/images/WSL_header.jpg" alt="WSL Header" width="725" height="100" />
         
 	 <?php print $body ?>
 
