@@ -1,5 +1,4 @@
 <?php
-// $Id: database.mysql-common.inc,v 1.17.2.4 2010/03/01 10:37:30 goba Exp $
 
 /**
  * @file
@@ -60,7 +59,16 @@ function db_query($query) {
 function db_create_table_sql($name, $table) {
 
   if (empty($table['mysql_suffix'])) {
-    $table['mysql_suffix'] = "/*!40100 DEFAULT CHARACTER SET UTF8 */";
+    $table['mysql_suffix'] = '/*!40100 DEFAULT CHARACTER SET utf8';
+    // By default, MySQL uses the default collation for new tables, which is
+    // 'utf8_general_ci' for utf8. If an alternate collation has been set, it
+    // needs to be explicitly specified.
+    // @see db_connect()
+    $collation = (!empty($table['collation']) ? $table['collation'] : (!empty($GLOBALS['db_collation']) ? $GLOBALS['db_collation'] : ''));
+    if ($collation) {
+      $table['mysql_suffix'] .= ' COLLATE ' . $collation;
+    }
+    $table['mysql_suffix'] .= ' */';
   }
 
   $sql = "CREATE TABLE {". $name ."} (\n";
@@ -281,7 +289,7 @@ function db_drop_table(&$ret, $table) {
  *   table along with adding the field. The format is the same as a
  *   table specification but without the 'fields' element.  If you are
  *   adding a type 'serial' field, you MUST specify at least one key
- *   or index including it in this array. @see db_change_field for more
+ *   or index including it in this array. See db_change_field() for more
  *   explanation why.
  */
 function db_add_field(&$ret, $table, $field, $spec, $keys_new = array()) {

@@ -1,28 +1,8 @@
 <?php
-// $Id: actions.inc,v 1.8.2.13 2010/08/11 20:35:47 goba Exp $
 
 /**
  * @file
  * This is the actions engine for executing stored actions.
- */
-
-/**
- * @defgroup actions Actions
- * @{
- * Functions that perform an action on a certain system object.
- *
- * All modules should declare their action functions to be in this group and
- * each action function should reference its configuration form, validate, and
- * submit functions using \@see. Conversely, form, validate, and submit
- * functions should reference the action function using \@see. For examples of
- * this see comment_unpublish_by_keyword_action(), which has the following in
- * its doxygen documentation:
- *
- * \@ingroup actions
- * \@see comment_unpublish_by_keyword_action_form().
- * \@see comment_unpublish_by_keyword_action_submit().
- *
- * @} End of "defgroup actions".
  */
 
 /**
@@ -356,7 +336,7 @@ function actions_synchronize($actions_in_code = array(), $delete_orphans = FALSE
     else {
       $link = l(t('Remove orphaned actions'), 'admin/settings/actions/orphan');
       $count = count($actions_in_db);
-      watchdog('actions', format_plural($count, 'One orphaned action (%orphans) exists in the actions table. !link', '@count orphaned actions (%orphans) exist in the actions table. !link'), array('@count' => $count, '%orphans' => $orphans, '!link' => $link), WATCHDOG_WARNING);
+      watchdog('actions', format_plural($count, 'One orphaned action (%orphans) exists in the actions table. !link', '@count orphaned actions (%orphans) exist in the actions table. !link'), array('@count' => $count, '%orphans' => $orphans, '!link' => $link), WATCHDOG_INFO);
     }
   }
 }

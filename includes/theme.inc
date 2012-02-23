@@ -1,5 +1,4 @@
 <?php
-// $Id: theme.inc,v 1.415.2.27 2010/03/01 10:02:01 goba Exp $
 
 /**
  * @file
@@ -12,14 +11,27 @@
  */
 
 /**
- * @name Content markers
+ * @defgroup content_flags Content markers
  * @{
  * Markers used by theme_mark() and node_mark() to designate content.
  * @see theme_mark(), node_mark()
  */
-define('MARK_READ',    0);
-define('MARK_NEW',     1);
+
+/**
+ * Mark content as read.
+ */
+define('MARK_READ', 0);
+
+/**
+ * Mark content as being new.
+ */
+define('MARK_NEW', 1);
+
+/**
+ * Mark content as being updated.
+ */
 define('MARK_UPDATED', 2);
+
 /**
  * @} End of "Content markers".
  */
@@ -511,7 +523,7 @@ function list_themes($refresh = FALSE) {
 }
 
 /**
- * Generate the themed output.
+ * Generates the themed output.
  *
  * All requests for theme hooks must go through this function. It examines
  * the request and routes it to the appropriate theme function. The theme
@@ -527,14 +539,14 @@ function list_themes($refresh = FALSE) {
  * functions may be used to modify the $variables array. They are processed in
  * this order when available:
  *
- * - template_preprocess(&$variables)
+ * - template_preprocess(&$variables, $hook)
  *   This sets a default set of variables for all template implementations.
  *
  * - template_preprocess_HOOK(&$variables)
  *   This is the first preprocessor called specific to the hook; it should be
  *   implemented by the module that registers it.
  *
- * - MODULE_preprocess(&$variables)
+ * - MODULE_preprocess(&$variables, $hook)
  *   This will be called for all templates; it should only be used if there
  *   is a real need. It's purpose is similar to template_preprocess().
  *
@@ -545,7 +557,7 @@ function list_themes($refresh = FALSE) {
  *   preprocess function of foo_preprocess_node() can be created to intercept
  *   and alter the variable.
  *
- * - ENGINE_engine_preprocess(&$variables)
+ * - ENGINE_engine_preprocess(&$variables, $hook)
  *   This function should only be implemented by theme engines and exists
  *   so that it can set necessary variables for all hooks.
  *
@@ -553,7 +565,7 @@ function list_themes($refresh = FALSE) {
  *   This is the same as the previous function, but it is called for a single
  *   theming hook.
  *
- * - ENGINE_preprocess(&$variables)
+ * - ENGINE_preprocess(&$variables, $hook)
  *   This is meant to be used by themes that utilize a theme engine. It is
  *   provided so that the preprocessor is not locked into a specific theme.
  *   This makes it easy to share and transport code but theme authors must be
@@ -569,7 +581,7 @@ function list_themes($refresh = FALSE) {
  *   The same applies from the previous function, but it is called for a
  *   specific hook.
  *
- * - THEME_preprocess(&$variables)
+ * - THEME_preprocess(&$variables, $hook)
  *   These functions are based upon the raw theme; they should primarily be
  *   used by themes that do not use an engine or by sub-themes. It serves the
  *   same purpose as ENGINE_preprocess().
@@ -594,6 +606,7 @@ function list_themes($refresh = FALSE) {
  *   implementations for named objects.
  * @param ...
  *   Additional arguments to pass along to the theme function.
+ * 
  * @return
  *   An HTML string that generates the themed output.
  */
@@ -1244,6 +1257,7 @@ function theme_links($links, $attributes = array('class' => 'links')) {
  *
  * @param $path
  *   Either the path of the image file (relative to base_path()) or a full URL.
+ *   If this is a full URL, $getsize must be set to FALSE or nothing will be returned.
  * @param $alt
  *   The alternative text for text-based browsers.
  * @param $title
@@ -1252,6 +1266,8 @@ function theme_links($links, $attributes = array('class' => 'links')) {
  *   Associative array of attributes to be placed in the img tag.
  * @param $getsize
  *   If set to TRUE, the image's dimension are fetched and added as width/height attributes.
+ *   Defaults to TRUE. Must be set to FALSE if $path is a full URL.
+ * 
  * @return
  *   A string containing the image tag.
  */

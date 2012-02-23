@@ -1,5 +1,4 @@
 <?php
-// $Id: menu.inc,v 1.255.2.34 2010/02/01 18:00:49 goba Exp $
 
 /**
  * @file
@@ -49,8 +48,9 @@
  * Access to the callback functions is also protected by the menu system.
  * The "access callback" with an optional "access arguments" of each menu
  * item is called before the page callback proceeds. If this returns TRUE,
- * then access is granted; if FALSE, then access is denied. Menu items may
- * omit this attribute to use the value provided by an ancestor item.
+ * then access is granted; if FALSE, then access is denied. Default local task
+ * menu items (see next paragraph) may omit this attribute to use the value
+ * provided by the parent item.
  *
  * In the default Drupal interface, you will notice many links rendered as
  * tabs. These are known in the menu system as "local tasks", and they are
@@ -72,7 +72,7 @@
  */
 
 /**
- * @name Menu flags
+ * @defgroup menu_flags Menu flags
  * @{
  * Flags for use in the "type" attribute of menu items.
  */
@@ -90,8 +90,10 @@ define('MENU_IS_LOCAL_TASK', 0x0080);
  */
 
 /**
- * @name Menu item types
+ * @defgroup menu_item_types Menu item types
  * @{
+ * Definitions for various menu item types.
+ *
  * Menu item definitions provide one of these constants, which are shortcuts for
  * combinations of the above flags.
  */
@@ -135,7 +137,7 @@ define('MENU_DEFAULT_LOCAL_TASK', MENU_IS_LOCAL_TASK | MENU_LINKS_TO_PARENT);
  */
 
 /**
- * @name Menu status codes
+ * @defgroup menu_status_codes Menu status codes
  * @{
  * Status codes for menu callbacks.
  */
@@ -150,9 +152,9 @@ define('MENU_SITE_OFFLINE', 4);
  */
 
 /**
- * @Name Menu tree parameters
+ * @defgroup menu_tree_parameters Menu tree parameters
  * @{
- * Menu tree
+ * Parameters for a menu tree.
  */
 
  /**
@@ -550,7 +552,7 @@ function _menu_item_localize(&$item, $map, $link_translate = FALSE) {
  *   path from the menu table, for example tabs.
  * @return
  *   Returns the map with objects loaded as defined in the
- *   $item['load_functions. $item['access'] becomes TRUE if the item is
+ *   $item['load_functions']. $item['access'] becomes TRUE if the item is
  *   accessible, FALSE otherwise. $item['href'] is set according to the map.
  *   If an error occurs during calling the load_functions (like trying to load
  *   a non existing node) then this function return FALSE.
@@ -1509,14 +1511,15 @@ function menu_set_active_item($path) {
  * @param $new_trail
  *   Menu trail to set, or NULL to use previously-set or calculated trail. If
  *   supplying a trail, use the same format as the return value (see below).
+ *
  * @return
  *   Path to menu root of the current page, as an array of menu link items,
  *   starting with the site's home page. Each link item is an associative array
  *   with the following components:
- *   - 'title': Title of the item.
- *   - 'href': Drupal path of the item.
- *   - 'localized_options': Options for passing into the l() function.
- *   - 'type': A menu type constant, such as MENU_DEFAULT_LOCAL_TASK, or 0 to
+ *   - title: Title of the item.
+ *   - href: Drupal path of the item.
+ *   - localized_options: Options for passing into the l() function.
+ *   - type: A menu type constant, such as MENU_DEFAULT_LOCAL_TASK, or 0 to
  *     indicate it's not really in the menu (used for the home page item).
  *   If $new_trail is supplied, the value is saved in a static variable and
  *   returned. If $new_trail is not supplied, and there is a saved value from
@@ -1886,13 +1889,14 @@ function _menu_delete_item($item, $force = FALSE) {
  * @param $item
  *   An array representing a menu link item. The only mandatory keys are
  *   link_path and link_title. Possible keys are:
- *   - menu_name   default is navigation
- *   - weight      default is 0
- *   - expanded    whether the item is expanded.
- *   - options     An array of options, @see l for more.
- *   - mlid        Set to an existing value, or 0 or NULL to insert a new link.
- *   - plid        The mlid of the parent.
- *   - router_path The path of the relevant router item.
+ *   - menu_name: Default is navigation.
+ *   - weight: Default is 0.
+ *   - expanded: Whether the item is expanded.
+ *   - options: An array of options, see l() for more.
+ *   - mlid: Set to an existing value, or 0 or NULL to insert a new link.
+ *   - plid: The mlid of the parent.
+ *   - router_path: The path of the relevant router item.
+ *
  * @return
  *   The mlid of the saved menu link, or FALSE if the menu link could not be 
  *   saved.
@@ -2430,6 +2434,7 @@ function _menu_router_build($callbacks) {
       'file' => '',
       'file path' => '',
       'include file' => '',
+      'module' => '',
     );
 
     // Calculate out the file to be included for each callback, if any.

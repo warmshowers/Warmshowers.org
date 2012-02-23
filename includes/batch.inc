@@ -1,5 +1,4 @@
 <?php
-// $Id: batch.inc,v 1.14.2.1 2010/08/06 11:52:19 goba Exp $
 
 /**
  * @file Batch processing API for processes to run in multiple HTTP requests.
@@ -190,7 +189,7 @@ function _batch_process() {
       call_user_func_array($function, array_merge($args, array(&$batch_context)));
     }
 
-    if ($finished == 1) {
+    if ($finished >= 1) {
       // Make sure this step isn't counted double when computing $current.
       $finished = 0;
       // Remove the operation and clear the sandbox.
@@ -245,7 +244,7 @@ function _batch_process() {
       '@percentage' => $percentage,
       );
     $message = strtr($progress_message, $values) .'<br/>';
-    $message .= $task_message ? $task_message : '&nbsp';
+    $message .= $task_message ? $task_message : '&nbsp;';
 
     return array($percentage, $message);
   }

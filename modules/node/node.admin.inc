@@ -1,5 +1,4 @@
 <?php
-// $Id: node.admin.inc,v 1.19.2.3 2009/06/08 16:45:34 goba Exp $
 
 /**
  * @file
@@ -182,7 +181,7 @@ function node_build_filter_query() {
       case 'category':
         $table = "tn$index";
         $where[] = "$table.tid = %d";
-        $join .= "INNER JOIN {term_node} $table ON n.nid = $table.nid ";
+        $join .= "INNER JOIN {term_node} $table ON n.vid = $table.vid ";
         break;
       case 'type':
         $where[] = "n.type = '%s'";
