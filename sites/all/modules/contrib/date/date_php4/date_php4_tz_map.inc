@@ -1,5 +1,4 @@
 <?php
-//$Id: date_php4_tz_map.inc,v 1.1.6.1 2009/01/12 11:53:35 karens Exp $
 /**
  * @file
  * Map timezone names to zid and dst_region as used in Event module and previous timezone handling.

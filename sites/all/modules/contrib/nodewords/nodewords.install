@@ -1,9 +1,9 @@
 <?php
-// $Id: nodewords.install,v 1.10.2.154 2009/12/30 17:38:44 kiam Exp $
+// $Id$
 
 /**
  * @file
- * Installation file for Nodewords.
+ * Installation file for nodewords.module.
  */
 
 /**
@@ -16,12 +16,22 @@ function nodewords_requirements($phase) {
     drupal_load('module', 'nodewords');
 
     if (!count(nodewords_get_possible_tags())) {
-      $requirements['nodewords'] = array(
-        'title' => t('Nodewords'),
-        'description' => t('There are no modules that implement meta tags, or that support the current API version.'),
-        'severity' => REQUIREMENT_ERROR,
-        'value' => t('Check if there are enabled modules listed under the category <em>Meta tags</em> in the <a href="@modules-page">modules page</a>. If nodewords.module is not the only enabled module listed under the category <em>Meta tags</em>, then <a href="@bug-report">file an issue</a>.', array('@modules-page' => url('admin/build/modules'), '@bug-report' => 'http://drupal.org/node/add/project-issue/nodewords?title=There%20are%20no%20modules%20supporting%20the%20current%20API%20version&component=Code&categories=bug&version=212852')),
-      );
+      if (!count(module_implements('nodewords_tags_info'))) {
+        $requirements['nodewords'] = array(
+          'title' => t('Nodewords'),
+          'description' => t('There are no modules that implement meta tags.'),
+          'severity' => REQUIREMENT_ERROR,
+          'value' => t('Enable at least a module listed under the category <em>Meta tags</em> in <a href="@modules-page">modules page</a>'. array('@modules-page' => url('admin/build/modules'))),
+        );
+      }
+      else {
+        $requirements['nodewords'] = array(
+          'title' => t('Nodewords'),
+          'description' => t('There are no modules that support the current API version.'),
+          'severity' => REQUIREMENT_ERROR,
+          'value' => t('There should be at least one module that supports the current API version. Verify you correctly copied the files in the server.'),
+        );
+      }
     }
     elseif (module_exists('nodewords_bypath')) {
       $requirements['nodewords'] = array(
@@ -100,7 +110,7 @@ function nodewords_schema() {
       'name' => array(
         'description' => 'The page name as shown in the list of custom pages.',
         'type' => 'varchar',
-        'length' => 60,
+        'length' => 128,
         'not null' => TRUE,
         'default' => '',
       ),
@@ -113,14 +123,15 @@ function nodewords_schema() {
       'weight' => array(
         'description' => 'The weight of the page.',
         'type' => 'int',
-        'size' => 'tiny',
+        'size' => 'small',
         'not null' => TRUE,
         'default' => 0,
       ),
       'enabled' => array(
         'description' => 'A flag set when the page is enabled.',
         'type' => 'int',
-        'size' => 'tiny',
+        'size' => 'small',
+        'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 1,
       ),
@@ -137,6 +148,8 @@ function nodewords_schema() {
 function nodewords_install() {
   drupal_install_schema('nodewords');
   db_query("UPDATE {system} SET weight = 10 WHERE name = 'nodewords' AND type = 'module'");
+
+  drupal_set_message(t('The Nodewords module has been installed. Now you can <a href="@settings-page">configure it</a>, after you have enabled at least one module implementing meta tags.', array('@settings-page' => url('admin/content/nodewords'))));
 }
 
 /**
@@ -252,7 +265,7 @@ function nodewords_update_6102() {
 
   $metatags['copyright'] = empty($settings['copyright']) ? '' : $settings['copyright'];
   $metatags['geourl'] = $coordinates[0] . ',' . $coordinates[1];
-  $metatags['keywords'] = empty($settings['keywords']) ? '' : nodewords_unique($settings['keywords']);
+  $metatags['keywords'] = empty($settings['keywords']) ? '' : nodewords_unique_values($settings['keywords']);
   $metatags['robots'] = empty($settings['robots']) ? '' : $settings['robots'];
 
   foreach ($metatags as $name => $content) {
@@ -504,13 +517,13 @@ function nodewords_update_6115() {
           ),
           'weight' => array(
             'type' => 'int',
-            'size' => 'tiny',
+            'size' => 'small',
             'not null' => TRUE,
             'default' => 0,
           ),
           'enabled' => array(
             'type' => 'int',
-            'size' => 'tiny',
+            'size' => 'small',
             'not null' => TRUE,
             'default' => 1,
           ),
@@ -595,7 +608,7 @@ function nodewords_update_6120() {
   db_change_field($ret, 'nodewords_custom', 'weight', 'weight',
     array(
       'type' => 'int',
-      'size' => 'tiny',
+      'size' => 'small',
       'not null' => TRUE,
       'default' => 0,
     )
@@ -605,7 +618,7 @@ function nodewords_update_6120() {
     db_add_field($ret, 'nodewords_custom', 'enabled',
       array(
         'type' => 'int',
-        'size' => 'tiny',
+        'size' => 'small',
         'not null' => TRUE,
         'default' => 1,
       )
@@ -715,7 +728,7 @@ function nodewords_update_6136() {
       $bool = (
         db_result(
           db_query(
-            "SELECT COUNT(1) FROM {nodewords} WHERE name IN (" . db_placeholders($module_tags, 'varchar') . ")",
+            "SELECT COUNT(*) FROM {nodewords} WHERE name IN (" . db_placeholders($module_tags, 'varchar') . ")",
             $module_tags
           )
         )
@@ -773,21 +786,12 @@ function nodewords_update_6140() {
 /**
  * Implements hook_update_N().
  */
-function nodewords_update_6141() {
+function nodewords_update_6143() {
   $ret = array();
 
   if (db_table_exists('nodewords_10')) {
     db_drop_table($ret, 'nodewords_10');
   }
-
-  return $ret;
-}
-
-/**
- * Implements hook_update_N().
- */
-function nodewords_update_6143() {
-  $ret = array();
 
   // Only update if the setting have the default value, and if it has been
   // previously set.
@@ -799,24 +803,6 @@ function nodewords_update_6143() {
     $ret[] = array(
       'success' => TRUE,
       'query' => check_plain('The default maximum meta tags length has been extended to 350 characters to improve Google results pages. See http://googleblog.blogspot.com/2009/03/two-new-improvements-to-google-results.html for more information'),
-    );
-  }
-
-  return $ret;
-}
-
-/**
- * Implements hook_update_N().
- */
-function nodewords_update_6144() {
-  $ret = array();
-
-  if (!variable_get('menu_rebuild_needed', FALSE)) {
-    variable_set('menu_rebuild_needed', TRUE);
-
-    $ret[] = array(
-      'success' => TRUE,
-      'query' => 'Updated the menu callback definitions',
     );
   }
 
@@ -963,18 +949,22 @@ function nodewords_update_6151(&$sandbox) {
 
   if (!isset($sandbox['progress'])) {
     $sandbox['progress'] = 0;
+    $sandbox['current_pid'] = 0;
     $sandbox['max'] = db_result(db_query("SELECT COUNT(*) FROM {nodewords_custom} WHERE name = ''"));
   }
 
   if ($sandbox['max']) {
-    $pages = db_query_range("SELECT * FROM {nodewords_custom} WHERE name = '' ORDER BY pid ASC", $sandbox['progress'], 10);
+    $pages = db_query_range(
+      "SELECT * FROM {nodewords_custom} WHERE name = '' AND pid > %d ORDER BY pid ASC",
+      $sandbox['current_pid'], 0, 10
+    );
 
     while ($page = db_fetch_object($pages)) {
-      db_query(
-        "UPDATE {nodewords_custom} SET name = '%s' WHERE pid = %d",
-        "Custom page #{$sandbox['progress']}", $page->pid
+      $ret[] = update_sql(
+        "UPDATE {nodewords_custom} SET name = '" . db_escape_string("Custom page #{$sandbox['progress']}") . "' WHERE pid = " . $page->pid
       );
 
+      $sandbox['current_pid'] = $page->pid;
       $sandbox['progress']++;
     }
   }
@@ -1010,13 +1000,13 @@ function nodewords_update_6153() {
       ),
       'weight' => array(
         'type' => 'int',
-        'size' => 'tiny',
+        'size' => 'small',
         'not null' => TRUE,
         'default' => 0,
       ),
       'enabled' => array(
         'type' => 'int',
-        'size' => 'tiny',
+        'size' => 'small',
         'not null' => TRUE,
         'default' => 1,
       ),
@@ -1194,7 +1184,7 @@ function nodewords_update_6160(&$sandbox) {
   );
 
   $ret[] = update_sql(
-    "UPDATE {nodewords} SET type = " . $new_types[$sandbox['progress']] . " WHERE type = '" . $old_types[$sandbox['progress']++] . "'"
+    "UPDATE {nodewords} SET type = '" . $new_types[$sandbox['progress']] . "' WHERE type = '" . $old_types[$sandbox['progress']++] . "'"
   );
 
   $ret['#finished'] = ($sandbox['progress'] / 10);
@@ -1225,7 +1215,7 @@ function nodewords_update_6161(&$sandbox) {
     );
 
     while ($metatag = db_fetch_object($metatags)) {
-      $ret[] = update_sql("UPDATE {nodewords} SET id = " . $metatag->pid . " WHERE id = '" . db_escape_string(drupal_truncate_bytes($metatag->path, 255)) . "'");
+      $ret[] = update_sql("UPDATE {nodewords} SET id = '" . $metatag->pid . "' WHERE id = '" . db_escape_string(drupal_truncate_bytes($metatag->path, 255)) . "'");
       $sandbox['current_pid'] = $metatag->pid;
       $sandbox['progress']++;
     }
@@ -1239,47 +1229,6 @@ function nodewords_update_6161(&$sandbox) {
       'query' => 'Corrected the values saved in the database',
     );
   }
-
-  return $ret;
-}
-
-/**
- * Implements hook_update_N().
- */
-function nodewords_update_6162() {
-  $ret = array();
-
-  db_drop_index($ret, 'nodewords', 'nodewords_type_id');
-  db_drop_unique_key($ret, 'nodewords', 'nodewords_type_id_name');
-
-  db_change_field($ret, 'nodewords', 'type', 'type',
-    array(
-      'type' => 'int',
-      'size' => 'small',
-      'unsigned' => TRUE,
-      'not null' => TRUE,
-      'default' => 0,
-    )
-  );
-
-  db_change_field($ret, 'nodewords', 'id', 'id',
-    array(
-      'type' => 'int',
-      'size' => 'small',
-      'unsigned' => TRUE,
-      'not null' => TRUE,
-      'default' => 0,
-    )
-  );
-
-  db_add_index($ret, 'nodewords', 'nodewords_type_id',
-    array('type', 'id')
-  );
-  db_add_unique_key($ret, 'nodewords', 'nodewords_type_id_name',
-    array('type', 'id', 'name')
-  );
-
-  variable_set('nodewords_update_6162', TRUE);
 
   return $ret;
 }
@@ -1342,6 +1291,303 @@ function nodewords_update_6167() {
 }
 
 /**
+ * Implements hook_update_N().
+ */
+function nodewords_update_6168() {
+  $ret = array();
+
+  drupal_load('module', 'nodewords');
+
+  $bool = (
+    db_result(
+      db_query('SELECT COUNT(*) FROM {nodewords} WHERE type = %d', NODEWORDS_TYPE_TRACKER)
+    ) &&
+    !db_result(
+      db_query("SELECT COUNT(*) FROM {nodewords_custom} WHERE name = 'tracker'")
+    )
+  );
+
+  if ($bool) {
+    $row = new stdClass();
+    $row->name = 'tracker';
+    $row->path = "user/*/track\ntracker\ntracker/*";
+
+    if (drupal_write_record('nodewords_custom', $row)) {
+      $ret[] = update_sql(
+        "UPDATE {nodewords} SET type = '" . NODEWORDS_TYPE_PAGE . "', id = '" . $row->pid . "' WHERE type = '" . NODEWORDS_TYPE_TRACKER . "'"
+      );
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function nodewords_update_6169() {
+  $ret = array();
+
+  if (!db_column_exists('nodewords_custom', 'weight')) {
+    db_add_field($ret, 'nodewords_custom', 'weight',
+      array(
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0,
+      )
+    );
+  }
+  else {
+    db_change_field($ret, 'nodewords_custom', 'weight', 'weight',
+      array(
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0,
+      )
+    );
+  }
+
+  if (!db_column_exists('nodewords_custom', 'enabled')) {
+    db_add_field($ret, 'nodewords_custom', 'enabled',
+      array(
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      )
+    );
+  }
+  else {
+    db_change_field($ret, 'nodewords_custom', 'enabled', 'enabled',
+      array(
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      )
+    );
+
+  }
+
+  if (!db_column_exists('nodewords', 'type')) {
+    db_add_field($ret, 'nodewords', 'type',
+      array(
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      )
+    );
+    db_add_index($ret, 'nodewords', 'nodewords_type_id',
+      array('type', 'id')
+    );
+    db_add_unique_key($ret, 'nodewords', 'nodewords_type_id_name',
+      array('type', 'id', 'name')
+    );
+  }
+  else {
+    db_drop_index($ret, 'nodewords', 'nodewords_type_id');
+    db_drop_unique_key($ret, 'nodewords', 'nodewords_type_id_name');
+    db_change_field($ret, 'nodewords', 'type', 'type',
+      array(
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      )
+    );
+    db_add_index($ret, 'nodewords', 'nodewords_type_id',
+      array('type', 'id')
+    );
+    db_add_unique_key($ret, 'nodewords', 'nodewords_type_id_name',
+      array('type', 'id', 'name')
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function nodewords_update_6170() {
+  $ret = array();
+
+  db_drop_index($ret, 'nodewords', 'nodewords_type_id');
+  db_drop_unique_key($ret, 'nodewords', 'nodewords_type_id_name');
+
+  db_change_field($ret, 'nodewords', 'type', 'type',
+    array(
+      'type' => 'int',
+      'size' => 'small',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    )
+  );
+
+  db_change_field($ret, 'nodewords', 'id', 'id',
+    array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    )
+  );
+
+  db_add_index($ret, 'nodewords', 'nodewords_type_id',
+    array('type', 'id')
+  );
+  db_add_unique_key($ret, 'nodewords', 'nodewords_type_id_name',
+    array('type', 'id', 'name')
+  );
+
+  variable_set('nodewords_update', 6169);
+
+  return $ret;
+}
+
+/**
+ * Implements hook_update_N().
+ */
+function nodewords_update_6173() {
+  $ret = array();
+
+  if (!variable_get('menu_rebuild_needed', FALSE)) {
+    variable_set('menu_rebuild_needed', TRUE);
+
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => 'Updated the menu callback definitions',
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Remove the site verification functionality.
+ */
+function nodewords_update_6174() {
+  $ret = array();
+
+  // Delete the unnecessary variables.
+  $engines = array(
+    'alexa_verification_code',
+    'bing_webmaster_center',
+    'google_webmaster_tools',
+    'yahoo_site_explorer',
+    'yandex_webmaster_tools',
+  );
+  $nodewords_admin_edit = variable_get('nodewords_admin_edit', array());
+  $nodewords_head = variable_get('nodewords_head', array());
+  $nodewords_search_index = variable_get('nodewords_search_index', array());
+  foreach ($engines as $engine) {
+    variable_del('nodewords_admin_use_default_value_'. $engine);
+    unset($nodewords_admin_edit[$engine]);
+    unset($nodewords_head[$engine]);
+    unset($nodewords_search_index[$engine]);
+  }
+  // Update the three settings arrays.
+  variable_set('nodewords_admin_edit', $nodewords_admin_edit);
+  variable_set('nodewords_head', $nodewords_head);
+  variable_set('nodewords_search_index', $nodewords_search_index);
+
+  // Remove the module definition from the system table.
+  $ret[] = update_sql("DELETE FROM {system} WHERE name IN ('nodewords_verification_tags')");
+
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => 'Search engine site verification support has been removed from Nodewords, please make sure to replace this functionality with e.g. the <a href="http://drupal.org/project/site_verify">Site_Verify</a> module.  Note that the verification tags have not been removed, only some anciliary variables, allowing the other modules to convert the settings as needed.',
+  );
+
+  return $ret;
+}
+
+/**
+ * Make the custom tags 'name' field larger.
+ */
+function nodewords_update_6175() {
+  $ret = array();
+  $schema = nodewords_schema();
+  $table = 'nodewords_custom';
+  $spec = $schema[$table];
+  $field = 'name';
+
+  // Resize the 'name' field.
+  db_change_field($ret, $table, $field, $field, $spec['fields'][$field]);
+
+  // Clear the schema cache.
+  cache_clear_all('schema', 'cache');
+
+  return $ret;
+}
+
+/**
+ * Update old versions to 6.x-1.13-x. We had to jump to 6180 because 6.x-1.12-
+ * releases had already jumped to 6179, so updating would try running *all*
+ * updates and could potentially break the site.
+ */
+function nodewords_update_6180() {
+  $ret = array();
+
+  // Work out what the last version was.
+  $old_rev = intval(db_result(db_query("SELECT schema_version FROM {system} WHERE name='nodewords'")));
+
+  // Updating from a 6.x-1.12-x release.
+  if ($old_rev == 6179) {
+    drupal_set_message(t('You are updating from 6.x-1.12. A lot of code has been reverted, specifically the Tokens support has temporarily been removed. You should not have lost any data, but please be aware that any meta tags which depended upon Tokens will not work correctly. As a temporary solution you may wish to test the <a href="@v2alpha1">6.x-2.0-alpha1</a> version, until <a href="@tokens_link">Token support can be added to 6.x-1.x again</a>.', array('@v2alpha1' => 'http://drupal.org/node/1145986', '@tokens_link' => 'http://drupal.org/node/1380362')));
+    $ret[] = update_sql("DELETE FROM {system} WHERE name IN ('nodewords_ui')");
+    $ret[] = update_sql("DELETE FROM {system} WHERE name IN ('nodewords_admin')");
+    $ret[] = update_sql("DELETE FROM {system} WHERE name IN ('nodewords_tokens')");
+    $ret[] = update_sql("DELETE FROM {system} WHERE name IN ('nodewords_custom_pages')");
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => 'Some of the redundant submodules from the 6.x-1.12 codebase have been removed, though their variables have been left for future use.',
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * In 6.x-1.12-x the custom-path functionality was managed by a submodule, so
+ * it is possible for sites to be updated and not have the table.
+ */
+function nodewords_update_6181() {
+  $ret = array();
+  $table = 'nodewords_custom';
+
+  // Ensure the table exists.
+  if (db_table_exists($table)) {
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => "The {$table} table already exists so nothing needs to be done.",
+    );
+  }
+  else {
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => "The {$table} table doesn't exist so it will be added.",
+    );
+    $schema = nodewords_schema();
+    db_create_table($ret, $table, $schema[$table]);
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => "The {$table} table has been created.",
+    );
+  }
+
+  return $ret;
+}
+
+/**
  * Implements hook_uninstall().
  */
 function nodewords_uninstall() {
@@ -1359,7 +1605,6 @@ function nodewords_uninstall() {
   variable_del('nodewords_global');
   variable_del('nodewords_global_keywords');
   variable_del('nodewords_head');
-  variable_del('nodewords_icra_validation_content');
   variable_del('nodewords_keyword_vids');
   variable_del('nodewords_list_repeat');
   variable_del('nodewords_list_robots');
@@ -1385,6 +1630,7 @@ function nodewords_uninstall() {
     'nodewords_edit_metatags_',
     'nodewords_filter_modules_output_',
     'nodewords_filter_regexp_',
+    'nodewords_use_alt_attribute_',
     'nodewords_use_teaser_',
   );
 

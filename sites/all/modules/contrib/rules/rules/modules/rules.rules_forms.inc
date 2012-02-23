@@ -1,5 +1,5 @@
 <?php
-// $Id: rules.rules_forms.inc,v 1.1.2.9 2009/08/25 14:52:52 fago Exp $
+// $Id: rules.rules_forms.inc,v 1.1.2.10 2009/08/29 08:56:30 fago Exp $
 
 
 /**
@@ -49,6 +49,7 @@ function rules_action_invoke_set_features_export(&$export, &$pipe, $settings, $e
   $set_name = $element['#info']['set'];
   if (!isset($export['features']['rules_sets'][$set_name])) {
     $export['features']['rules_sets'][$set_name] = $set_name;
+    rules_features_process_set($set_name, $export, $pipe);
   }
 }
 

@@ -1,5 +1,4 @@
 <?php
-// $Id: date_php4_lib.inc,v 1.4.4.7 2009/02/24 17:14:06 karens Exp $
 
 /**
  * Date Library, extended date functions.
@@ -69,7 +68,7 @@ function _date_getdate($timestamp = false, $timezone = false) {
   }
 
   $timestamp_in = $timestamp;
-    
+
   $_day_power = 86400;
   $_hour_power = 3600;
   $_min_power = 60;
@@ -118,7 +117,7 @@ function _date_getdate($timestamp = false, $timezone = false) {
       1620 => -11044944000,
       1610 => -11360476800,
       1600 => -11676096000);
-    
+
     // The valid range of a 32bit signed timestamp is typically from
     // Fri, 13 Dec 1901 20:45:54 GMT to Tue, 19 Jan 2038 03:14:07 GMT
     //
@@ -162,11 +161,11 @@ function _date_getdate($timestamp = false, $timezone = false) {
     $hour = floor($timestamp/$_hour_power);
   }
   else {
-    
+
     if ($timezone != 'UTC') {
       $timestamp += date_get_gmt_diff_ts($timestamp, $timezone);
     }
-    
+
     for ($a = 1970 ;; $a++) {
       $lastd = $timestamp;
       if ($leap = date_is_leap_year($a)) $timestamp -= $d366;
@@ -237,7 +236,7 @@ function _date_date($format, $timestamp = false, $timezone = false) {
   $secs = $arr['second'];
   $max = strlen($format);
   $dates = '';
-  
+
   /*
     at this point, we have the following integer vars to manipulate:
     $year, $month, $day, $hour, $min, $secs
@@ -407,7 +406,7 @@ function _date_mktime($hr, $min, $sec, $mon = false, $day = false, $year = false
     $_total_date +=$day-1;
     $ret = ($_total_date * $_day_power) + ($hr * $_hour_power) + ($min * $_min_power) + $sec;
     $ret -= date_get_gmt_diff_ts($ret, $timezone);
-    
+
   }
   else {
     for ($a = 1969 ; $a >= $year; $a--) {

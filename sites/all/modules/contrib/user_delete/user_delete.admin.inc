@@ -1,5 +1,4 @@
 <?php
-// $Id: user_delete.admin.inc,v 1.1.2.4 2010/01/12 07:44:29 sanduhrs Exp $
 
 /**
  * @file
@@ -29,7 +28,7 @@ function user_delete_settings() {
         0 => t('Let users choose action'),
         'user_delete_block' => t('Disable the account and keep all content.'),
         'user_delete_block_unpublish' => t('Disable the account and unpublish all content.'),
-        'user_delete_reassign' => t('Delete the account and make all content belong to the <em>Anonymous user</em>.'),
+        'user_delete_reassign' => t('Delete the account and make all content belong to the Anonymous user.'),
         'user_delete_delete' => t('Delete the account and all content.'),
       ),
   );

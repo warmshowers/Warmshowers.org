@@ -1,4 +1,3 @@
-// $Id: README.txt,v 1.18.2.5 2009/11/24 15:53:44 jareyero Exp $
 
 README.txt
 ==========

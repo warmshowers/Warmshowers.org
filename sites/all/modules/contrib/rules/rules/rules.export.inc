@@ -1,5 +1,5 @@
 <?php
-// $Id: rules.export.inc,v 1.1.2.5 2009/08/25 16:05:03 fago Exp $
+// $Id: rules.export.inc,v 1.1.2.12 2010/11/25 11:14:52 fago Exp $
 
 /**
  * @file
@@ -41,8 +41,7 @@ function rules_item_rule_set_export($set_name, &$rule_set, &$export, $module = N
 
 
 /**
- * Prefix exported rules with the module name (if given) and change the status to default.
- * If used through the features integration the module name is given.
+ * Change the status of the rules to default.
  */
 function rules_item_rule_export($rule_name, &$rule, &$export, $module = NULL) {
   static $counter = 0;
@@ -50,151 +49,45 @@ function rules_item_rule_export($rule_name, &$rule, &$export, $module = NULL) {
   // Be sure the exported rule has the right version specified, which is
   // important if the export is used as default.
   $rule['#version'] = 6003;
-  
+
   if (!empty($module)) {
     // Change #status to 'default'.
     $rule['#status'] = 'default';
     // Add the module name as category.
-    $rule += array('#categories' => array());
-    $rule['#categories'][$module] = $module;
-    
-    // We increase the counter in any case. As already renamed rules are passed
-    // in first, this makes sure to not overwrite the names of those even if
-    // they aren't saved yet.
-    $counter++;
-    
-    if (strpos($rule_name, $module) !== 0) {
-      // Make sure the name isn't already taken.
-      $rules = rules_get_items('rules');
-      while (isset($rules[$module .'_'. $counter])) {
-        $counter++;
-      }
-
-      // Rename the rule.
-      $export['rules'][$module .'_'. $counter] = $rule;
-      // Unset the non-prefixed item.
-      unset($export['rules'][$rule_name]);
+    if (empty($rule['#categories']) || !in_array($module, $rule['#categories'])) {
+      $rule['#categories'][$module] = $module;
     }
   }
-}
-
-
-
-/**
- * Implementation of hook_features_export_options() for rules.
- */
-function rules_features_export_options() {
-  // Only export active rules.
-  $rules = array_filter(rules_get_configured_items('rules'), '_rules_rule_is_active');
-  rules_include('rules_admin');
-  // Only export event-triggered rules and omit rules within rule sets.
-  $rules = array_filter($rules, 'rules_admin_is_event_rule');
-  return rules_admin_get_grouped_labels($rules, '');
-}
-
-/**
- * Implementation of hook_features_export_options() for rule sets.
- */
-function rules_sets_features_export_options() {
-  rules_include('rules_admin');
-  return rules_admin_get_grouped_labels(rules_get_configured_items('rule_sets'), '');
 }
 
 /**
  * Implementation of hook_features_export_options() for tags.
  */
 function rules_categories_features_export_options() {
+  rules_include('rules_admin');
   return rules_admin_get_categories('rules') + rules_admin_get_categories('rule_sets');
 }
 
-
 /**
- * Implementation of hook_features_export_render() for rules.
+ * Implementation of hook_features_export_render() for categories.
  */
-function rules_features_export_render($module = 'foo', $data, $features_export) {
+function rules_categories_features_export_render($module = 'foo', $data) {
   $code = array();
   $code[] = '  $rules = array();';
   $code[] = '';
-  
-  // Build the usual rules $export structure for rule sets.
-  $export = array();
+
+  // Build the usual rules $export structure for sets and categories.
+  $rules_export = array();
   $items = rules_get_configured_items('rule_sets');
-  if (isset($features_export['features']['rules_sets'])) {
-    $export['rule_sets'] = array_intersect_key($items, $features_export['features']['rules_sets']);
-  }
+  rules_include('rules_admin');
+  module_load_include('inc', 'rules_admin', 'rules_admin.export');
+  rules_admin_export_by_category($rules_export, $data);
 
   $module = strpos($module, '_features_comparison') === 0 ? '' : $module;
-  $export = rules_export_items($export, $module);
-  $export += array('rules' => array());
-  $export['rules'] += $data;
+  $export = rules_export_items($rules_export, $module);
   $defaults = features_var_export($export, '  ');
-  
+
   return array('rules_defaults' => "  return $defaults;");
-}
-
-/**
- * Implementation of hook_features_export_render() for sets.
- */
-function rules_sets_features_export_render($module = 'foo', $data, $features_export) {
-  if (empty($features_export['features']['rules'])) {
-    // If there are no rules selected yet, manually
-    // invoke the rules export render callback.
-    return rules_features_export_render($module, array(), $features_export);
-  }
-}
-
-
-/**
- * Implementation of hook_features_export() for rules.
- */
-function rules_features_export($data, &$export, $module_name = '') {
-  $module = strpos($module_name, '_features_comparison') === 0 ? '' : $module_name;
-  
-  // First be sure $data contains only rules we have not handled yet.
-  $new_data = drupal_map_assoc(array_filter($data, 'is_string'));
-  
-  // Fire up the rules export already here, so we have the rules
-  // renamed *now* so that features knows the right component names.
-  $items = rules_get_configured_items('rules');
-  // Also pass in the old rules again, so the export knows those rule
-  // names are already taken when finding new rule names.
-  $rules_export['rules'] = array_filter($data, 'is_array');
-  $rules_export['rules'] += array_intersect_key($items, $new_data);
-
-  $rules_export = rules_export_items($rules_export, $module);
-  
-  // Add to exports
-  $export['features']['rules'] = $rules_export['rules'];
-  
-  // Add rules as a dependency
-  $export['dependencies']['rules'] = 'rules';
-  
-  // Closer look at the rules to be exported...
-  $pipe = array();
-  rules_include('rules_forms');
-  foreach ($export['features']['rules'] as $rule) {
-    rules_features_process_rule($rule, $export, $pipe);
-  }
-  return $pipe;
-}
-
-/**
- * Implementation of hook_features_export() for sets.
- */
-function rules_sets_features_export($data, &$export, $module_name = '') {
-  // Add to exports
-  $export['features']['rules_sets'] = drupal_map_assoc($data);
-  // Add rules as a dependency
-  $export['dependencies']['rules'] = 'rules';
-  
-  
-  // Closer look at the sets to be exported...
-  $pipe = array();
-  foreach ($export['features']['rules_sets'] as $set_name) {
-    rules_features_process_set($set_name, $export, $pipe);
-  }
-  
-  return $pipe;
 }
 
 /**
@@ -206,10 +99,16 @@ function rules_categories_features_export($data, &$export, $module_name = '') {
 
   $rules_export = array();
   rules_admin_export_by_category($rules_export, $data);
-  // Pipe through the needed rules and sets.
+
+  // Process the rules and sets to be exported for dependencies.
+  $pipe = array();
   $rules_export += array('rules' => array(), 'rule_sets' => array());
-  $pipe['rules'] = drupal_map_assoc(array_keys($rules_export['rules']));
-  $pipe['rules_sets'] = drupal_map_assoc(array_keys($rules_export['rule_sets']));
+  foreach ($rules_export['rules'] as $rule) {
+    rules_features_process_rule($rule, $export, $pipe);
+  }
+  foreach ($rules_export['rule_sets'] as $set_name => $set) {
+    rules_features_process_set($set_name, $export, $pipe);
+  }
 
   $export['features']['rules_categories'] = drupal_map_assoc($data);
   $export['dependencies']['rules'] = 'rules';
@@ -218,30 +117,27 @@ function rules_categories_features_export($data, &$export, $module_name = '') {
 }
 
 /**
- * Implementation of hook_features_revert().
+ * Implementation of hook_features_revert() for rule categories.
  *
  * @param $module
  * name of module to revert content for
  */
-function rules_features_revert($module = NULL) {
-  // Get default rules items from feature
-  if (module_hook($module, 'rules_defaults')) {
-    $defaults = module_invoke($module, 'rules_defaults');
+function rules_categories_features_revert($module = NULL) {
+  rules_include('rules_admin');
+  module_load_include('inc', 'rules_admin', 'rules_admin.export');
+  $rules_export = array();
+  rules_admin_export_by_category($rules_export, array($module));
 
-    // Delete Normal / Overridden rules items that are defined in code
-    foreach ($defaults as $item_type => $items) {
-      foreach ($items as $item_name => $item) {
-        rules_item_delete($item_type, $item_name);
-      }
+  // Delete Normal / Overridden rules items that are defined in code
+  foreach ($rules_export as $item_type => $items) {
+    foreach ($items as $item_name => $item) {
+      rules_item_delete($item_type, $item_name);
     }
-    rules_clear_cache();
   }
-  else {
-    drupal_set_message(t('Could not load default rules items.'), 'error');
-    return FALSE;
-  }
+  rules_clear_cache();
   return TRUE;
 }
+
 
 /**
  * Retrieves all necessary module dependencies for a list of rule sets.
@@ -268,7 +164,7 @@ function rules_features_process_rule($rule, &$export, &$pipe) {
     }
   }
   foreach (array('condition', 'action') as $type) {
-    _rules_features_process_rule($rule['#'. $type .'s'], $export, $pipe);
+    _rules_features_process_rule((array)$rule['#'. $type .'s'], $export, $pipe);
   }
 }
 
@@ -290,10 +186,10 @@ function _rules_features_process_rule($element, &$export, &$pipe) {
       $export['dependencies'][$module] = $module;
     }
   }
-  
+
   // Recurse
   foreach (element_children($element) as $key) {
-    _rules_features_process_rule($element[$key], $export, $pipe);
+    _rules_features_process_rule((array)$element[$key], $export, $pipe);
   }
 }
 
@@ -314,8 +210,9 @@ function rules_features_providing_module($hook, $name) {
   if (!isset($map[$hook])) {
     $map[$hook] = array();
     foreach (module_implements('rules_'. $hook ) as $module) {
-      $module_info = array_keys(module_invoke($module, 'rules_'. $hook));
-      $map[$hook] += array_combine($module_info, array_fill(0, count($module_info), $module));
+      if ($info = module_invoke($module, 'rules_'. $hook)) {
+        $map[$hook] += array_combine(array_keys($info), array_fill(0, count($info), $module));
+      }
     }
   }
   return isset($map[$hook][$name]) ? $map[$hook][$name] : FALSE;

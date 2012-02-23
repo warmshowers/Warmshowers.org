@@ -1,5 +1,4 @@
 <?php
-// $Id: i18ntaxonomy.admin.inc,v 1.1.2.10 2009/08/29 21:08:24 hass Exp $
 
 /**
  * @file

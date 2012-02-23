@@ -1,5 +1,4 @@
 <?php
-// $Id: wymeditor.inc,v 1.4.2.3 2010/02/04 17:17:30 twod Exp $
 
 /**
  * @file
@@ -53,6 +52,9 @@ function wysiwyg_wymeditor_editor() {
  */
 function wysiwyg_wymeditor_version($editor) {
   $script = $editor['library path'] . '/jquery.wymeditor.js';
+  if (!file_exists($script)) {
+    return;
+  }
   $script = fopen($script, 'r');
   fgets($script);
   $line = fgets($script);
@@ -110,10 +112,10 @@ function wysiwyg_wymeditor_settings($editor, $config, $theme) {
   }
 
   // Add configured buttons.
+  $settings['toolsItems'] = array();
   if (!empty($config['buttons'])) {
     $buttoninfo = _wysiwyg_wymeditor_button_info();
     $plugins = wysiwyg_get_plugins($editor['name']);
-    $settings['toolsItems'] = array();
     foreach ($config['buttons'] as $plugin => $buttons) {
       foreach ($buttons as $button => $enabled) {
         // Iterate separately over buttons and extensions properties.

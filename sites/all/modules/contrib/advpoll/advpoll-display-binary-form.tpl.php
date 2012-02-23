@@ -1,5 +1,4 @@
 <?php
-// $Id: advpoll-display-binary-form.tpl.php,v 1.1.2.1 2010/06/25 23:17:14 mirodietiker Exp $
 
 /**
  * @file advpoll-display-binary-form.tpl.php

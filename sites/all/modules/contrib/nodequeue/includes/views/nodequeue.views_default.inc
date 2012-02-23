@@ -1,5 +1,4 @@
 <?php
-// $Id: nodequeue.views_default.inc,v 1.5 2010/03/16 22:07:26 ezrag Exp $
 
 /**
  * @file
@@ -196,4 +195,3 @@ function nodequeue_views_default_views() {
   }
   return $views;
 }
-

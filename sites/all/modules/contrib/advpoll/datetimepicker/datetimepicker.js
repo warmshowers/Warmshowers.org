@@ -1,4 +1,3 @@
-// $Id: datetimepicker.js,v 1.1.2.2 2007/09/08 18:09:46 fajerstarter Exp $
 
 /* JavaScript files used by the date and time picker. 
  * 

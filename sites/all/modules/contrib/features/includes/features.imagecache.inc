@@ -1,5 +1,4 @@
 <?php
-// $Id: features.imagecache.inc,v 1.1.2.14 2010/07/21 00:45:15 yhahn Exp $
 
 /**
  * Implementation of hook_features_api().

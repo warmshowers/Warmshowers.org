@@ -1,5 +1,4 @@
 <?php
-// $Id: tinymce.inc,v 1.35.2.3 2010/02/10 21:16:50 twod Exp $
 
 /**
  * @file
@@ -82,16 +81,18 @@ function wysiwyg_tinymce_editor() {
  */
 function wysiwyg_tinymce_version($editor) {
   $script = $editor['library path'] . '/tiny_mce.js';
+  if (!file_exists($script)) {
+    return;
+  }
   $script = fopen($script, 'r');
-  // Version is contained in the first 100 chars.
-  $line = fgets($script, 100);
+  // Version is contained in the first 200 chars.
+  $line = fgets($script, 200);
+  fclose($script);
   // 2.x: this.majorVersion="2";this.minorVersion="1.3"
   // 3.x: majorVersion:'3',minorVersion:'2.0.1'
   if (preg_match('@majorVersion[=:]["\'](\d).+?minorVersion[=:]["\']([\d\.]+)@', $line, $version)) {
-    fclose($script);
     return $version[1] . '.' . $version[2];
   }
-  fclose($script);
 }
 
 /**
@@ -177,7 +178,7 @@ function wysiwyg_tinymce_settings($editor, $config, $theme) {
     $settings['remove_linebreaks'] = $config['remove_linebreaks'];
   }
   if (isset($config['verify_html'])) {
-    $settings['verify_html'] = $config['verify_html'];
+    $settings['verify_html'] = (bool) $config['verify_html'];
   }
 
   if (!empty($config['css_classes'])) {
@@ -196,11 +197,10 @@ function wysiwyg_tinymce_settings($editor, $config, $theme) {
   // Find the enabled buttons and the button row they belong on.
   // Also map the plugin metadata for each button.
   // @todo What follows is a pain; needs a rewrite.
+  // $settings['buttons'] are stacked into $settings['theme_advanced_buttons1']
+  // later.
+  $settings['buttons'] = array();
   if (!empty($config['buttons']) && is_array($config['buttons'])) {
-    // $settings['buttons'] are stacked into
-    // $settings['theme_advanced_buttons1'] later.
-    // @todo Add a toolbar designer based on jQuery UI.
-    $settings['buttons'] = array();
     // Only array keys in $settings['extensions'] matter; added to
     // $settings['plugins'] later.
     $settings['extensions'] = array();
@@ -291,11 +291,9 @@ function wysiwyg_tinymce_settings($editor, $config, $theme) {
   unset($settings['buttons']);
 
   // Convert the config values into the form expected by TinyMCE.
-  foreach ($settings as $key => $value) {
-    if (is_bool($value)) {
-      continue;
-    }
-    if (is_array($value)) {
+  $csv_settings = array('plugins', 'extended_valid_elements', 'theme_advanced_buttons1', 'theme_advanced_buttons2', 'theme_advanced_buttons3');
+  foreach ($csv_settings as $key) {
+    if (isset($settings[$key]) && is_array($settings[$key])) {
       $settings[$key] = implode(',', $settings[$key]);
     }
   }
@@ -316,7 +314,17 @@ function wysiwyg_tinymce_plugin_settings($editor, $profile, $plugins) {
       // Add path for native external plugins; internal ones are loaded
       // automatically.
       if (empty($plugin['internal']) && isset($plugin['path'])) {
-        $settings[$name] = base_path() . $plugin['path'];
+        // TinyMCE plugins commonly use the filename editor_plugin.js, but there
+        // is no default. Previously, Wysiwyg's API documentation suggested to
+        // have the 'path' contain the 'filename' property, so if 'filename' is
+        // not defined, automatically extract it from 'path' for backwards
+        // compatibility.
+        if (!isset($plugin['filename'])) {
+          $parts = explode('/', $plugin['path']);
+          $plugin['filename'] = array_pop($parts);
+          $plugin['path'] = implode('/', $parts);
+        }
+        $settings[$name] = base_path() . $plugin['path'] . '/' . $plugin['filename'];
       }
     }
   }
@@ -334,9 +342,10 @@ function wysiwyg_tinymce_proxy_plugin_settings($editor, $profile, $plugins) {
       'title' => $plugin['title'],
       'icon' => base_path() . $plugin['icon path'] . '/' . $plugin['icon file'],
       'iconTitle' => $plugin['icon title'],
-      // @todo These should only be set if the plugin defined them.
-      'css' => base_path() . $plugin['css path'] . '/' . $plugin['css file'],
     );
+    if (isset($plugin['css file'])) {
+      $settings[$name]['css'] = base_path() . $plugin['css path'] . '/' . $plugin['css file'];
+    }
   }
   return $settings;
 }
@@ -407,7 +416,7 @@ function wysiwyg_tinymce_plugins($editor) {
     'advimage' => array(
       'path' => $editor['library path'] . '/plugins/advimage',
       'extensions' => array('advimage' => t('Advanced image')),
-      'extended_valid_elements' => array('img[src|alt|title|align|width|height|hspace|vspace|border|style|class|onmouseover|onmouseout|id|name]'),
+      'extended_valid_elements' => array('img[src|alt|title|align|width|height|usemap|hspace|vspace|border|style|class|onmouseover|onmouseout|id|name]'),
       'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/advimage',
       'internal' => TRUE,
       'load' => TRUE,
@@ -476,8 +485,8 @@ function wysiwyg_tinymce_plugins($editor) {
       'path' => $editor['library path'] . '/plugins/insertdatetime',
       'buttons' => array('insertdate' => t('Insert date'), 'inserttime' => t('Insert time')),
       'options' => array(
-        'plugin_insertdate_dateFormat' => array('%Y-%m-%d'),
-        'plugin_insertdate_timeFormat' => array('%H:%M:%S'),
+        'plugin_insertdate_dateFormat' => '%Y-%m-%d',
+        'plugin_insertdate_timeFormat' => '%H:%M:%S',
       ),
       'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/insertdatetime',
       'internal' => TRUE,
@@ -577,11 +586,29 @@ function wysiwyg_tinymce_plugins($editor) {
       );
     }
   }
+  if (version_compare($editor['installed version'], '3.2.5', '>=')) {
+    $plugins['autoresize'] = array(
+      'path' => $editor['library path'] . '/plugins/autoresize',
+      'extensions' => array('autoresize' => t('Auto resize')),
+      'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/autoresize',
+      'internal' => TRUE,
+      'load' => TRUE,
+    );
+  }
   if (version_compare($editor['installed version'], '3.3', '>=')) {
     $plugins['advlist'] = array(
       'path' => $editor['library path'] . '/plugins/advlist',
       'extensions' => array('advlist' => t('Advanced list')),
       'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/advlist',
+      'internal' => TRUE,
+      'load' => TRUE,
+    );
+  }
+  if (version_compare($editor['installed version'], '3.2.6', '>=')) {
+    $plugins['wordcount'] = array(
+      'path' => $editor['library path'] . '/plugins/wordcount',
+      'extensions' => array('wordcount' => t('Word count')),
+      'url' => 'http://wiki.moxiecode.com/index.php/TinyMCE:Plugins/wordcount',
       'internal' => TRUE,
       'load' => TRUE,
     );

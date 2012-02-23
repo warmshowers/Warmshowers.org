@@ -1,5 +1,4 @@
 <?php
-// $Id: faq-new-page.tpl.php,v 1.1.2.1 2008/06/12 11:16:30 snpower Exp $
 
 /**
  * @file

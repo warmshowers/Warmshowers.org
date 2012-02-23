@@ -1,5 +1,4 @@
 <?php
-// $Id: date-navigation.tpl.php,v 1.1.4.10 2009/04/30 10:44:43 karens Exp $
 /**
  * @file
  * Template to display date navigation links.

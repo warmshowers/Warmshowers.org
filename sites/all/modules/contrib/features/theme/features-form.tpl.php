@@ -1,5 +1,4 @@
 <?php
-// $Id: features-form.tpl.php,v 1.1.2.3 2009/11/18 04:36:36 yhahn Exp $
 ?>
 <div class='features-form clear-block'>
   <?php if (count($packages) > 1): ?>

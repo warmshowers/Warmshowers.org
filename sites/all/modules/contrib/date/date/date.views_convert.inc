@@ -1,5 +1,4 @@
 <?php
-// $Id: date.views_convert.inc,v 1.1.2.1 2009/04/30 11:44:52 karens Exp $
 
 /**
  * Implementation of hook_views_convert().

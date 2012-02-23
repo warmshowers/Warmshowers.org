@@ -1,4 +1,3 @@
-// $Id: advpoll-vote.js,v 1.1.2.11.2.9 2010/06/25 20:12:41 mirodietiker Exp $
 
 /**
  * Submit advpoll forms with ajax

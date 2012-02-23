@@ -1,5 +1,4 @@
 <?php
-// $Id: date-views-filter-form.tpl.php,v 1.1.2.4 2008/12/08 12:15:57 karens Exp $
 /**
  * @file
  * Template to display the Views date filter form.

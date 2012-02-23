@@ -1,0 +1,459 @@
+<?php
+/**
+ * @file
+ * OpenGraph support for Nodewords.
+ */
+
+/**
+ * Implements hook_nodewords_api().
+ */
+function nodewords_og_nodewords_api() {
+  return array(
+    'version' => '1.13',
+  );
+}
+
+/**
+ * Implementation of hook_nodewords_tags_info()
+ * @return void
+ */
+function nodewords_og_nodewords_tags_info() {
+  $cached = cache_get('nodewords_og:tags');
+  if (!$cached || empty($cache->data) || time() > $cache->expire) {
+    $tagsrc = nodewords_og_get_tags();
+
+    $tags = array();
+    foreach ($tagsrc as $key => $value) {
+      $callback = 'nodewords_og_' . strtr($key, ':-', '__');
+      $label = t('Open Graph: !labelsuffix', array('!labelsuffix' => (!empty($value['labelsuffix']) ? $value['labelsuffix'] : $key)));
+      $tags[$key] = $value + array(
+        'callback' => $callback,
+        'context' => array(
+          'allowed' => array(
+            NODEWORDS_TYPE_DEFAULT,
+            NODEWORDS_TYPE_ERRORPAGE,
+            NODEWORDS_TYPE_FRONTPAGE,
+            NODEWORDS_TYPE_NODE,
+            NODEWORDS_TYPE_OFFLINE,
+            NODEWORDS_TYPE_PAGE,
+            NODEWORDS_TYPE_PAGER,
+            NODEWORDS_TYPE_TERM,
+            NODEWORDS_TYPE_TRACKER,
+            NODEWORDS_TYPE_USER,
+            NODEWORDS_TYPE_VOCABULARY,
+          ),
+          'deny' => array(),
+        ),
+        'label' => $label,
+        'templates' => array(
+          'head' => array(
+            $key => NODEWORDS_META_PROPERTY,
+          ),
+        ),
+      );
+    }
+
+    cache_set('nodewords_og:tags', $tags);
+  }
+  else {
+    $tags = $cached->data;
+  }
+
+  return $tags;
+}
+
+function nodewords_og_get_tags() {
+  $tags = array(
+    // site_name can only be set via the defaults and defined site-wide.
+    'og:site_name' => array(
+      'labelsuffix' => t('Site Name'),
+      'description' => t('A human readable name for your site, e.g. "IMDB".'),
+      'context' => array(
+        'allowed' => array(
+          NODEWORDS_TYPE_DEFAULT,
+        ),
+      ),
+    ),
+
+    // All other tags can be used throughout the site.
+    'og:title' => array(
+      'labelsuffix' => t('Title'),
+      'description' => t('The title of the object as it should appear in the graph.'),
+    ),
+    'og:type' => array(
+      'labelsuffix' => t('Type'),
+      'description' => t('The type of your object e.g. movie. <a href="@url" target="_blank">See the list of supported types</a>.', array('@url' => 'https://developers.facebook.com/docs/opengraph/#types')),
+    ),
+    'og:image' => array(
+      'labelsuffix' => t('Image'),
+      'description' => t('An image URL which should represent your object within the graph. The image must be at least 50px by 50px and have a max aspect ratio of 3:1.'),
+    ),
+    'og:url' => array(
+      'labelsuffix' => t('URL'),
+      'description' => t("The canonical URL of your object that will be used as it's permanent ID in the graph. Use <code>&lt;front&gt;</code> for the front page."),
+    ),
+    'og:description' => array(
+      'labelsuffix' => t('Description'),
+      'description' => t('A one to two sentence description of your page.'),
+    ),
+    'og:email' => array(
+      'labelsuffix' => t('Email'),
+      'description' => t('Should only be used when appropriate.'),
+    ),
+    'og:phone_number' => array(
+      'labelsuffix' => t('Phone Number'),
+      'description' => t('Should only be used when appropriate.'),
+    ),
+    'og:fax_number' => array(
+      'labelsuffix' => t('Fax Number'),
+      'description' => t('Should only be used when appropriate.'),
+    ),
+    'og:latitude' => array(
+      'labelsuffix' => t('Latitude'),
+      'description' => t('Latitude of the location this page refers to.'),
+    ),
+    'og:longitude' => array(
+      'labelsuffix' => t('Longitude'),
+      'description' => t('Longitude of the location this page refers to.'),
+    ),
+    'og:street-address' => array(
+      'labelsuffix' => t('Street Address'),
+      'description' => t('Street address of the location this page refers to.'),
+    ),
+    'og:locality' => array(
+      'labelsuffix' => t('Locality'),
+      'description' => t('Locality, city or suburb of the location this page refers to.'),
+    ),
+    'og:region' => array(
+      'labelsuffix' => t('Region'),
+      'description' => t('Region or state of the location this page refers to.'),
+    ),
+    'og:postal-code' => array(
+      'labelsuffix' => t('Postal Code'),
+      'description' => t('Post code or zip of the location this page refers to.'),
+    ),
+    'og:country-name' => array(
+      'labelsuffix' => t('Country Name'),
+      'description' => t('Country name of the location this page refers to.'),
+    ),
+    'og:video' => array(
+      'labelsuffix' => t('Video URL'),
+      'description' => t('URL of a video. Facebook only supports SWF (Shockwave Flash) format videos.'),
+    ),
+    'og:video:width' => array(
+      'labelsuffix' => t('Video Width'),
+      'description' => t('Width of the video in pixels, e.g 640.'),
+    ),
+    'og:video:height' => array(
+      'labelsuffix' => t('Video Height'),
+      'description' => t('Height of the video in pixels, e.g 385.'),
+    ),
+    'og:video:type' => array(
+      'labelsuffix' => t('Video Type'),
+      'description' => t('Content type of the video, e.g "application/x-shockwave-flash"'),
+    ),
+    'fb:admins' => array(
+      'label' => t('Facebook: Admins'),
+      'description' => t('A comma-separated list of either Facebook user IDs that administer this page.'),
+    ),
+    'fb:app_id' => array(
+      'label' => t('Facebook: App ID'),
+      'description' => t('A comma-separated list of Facebook Platform application IDs that administer this page.'),
+    ),
+  );
+
+  return $tags;
+}
+
+function nodewords_og_form_default(&$form, &$content, $name, $elemtype = 'textfield') {
+  $form[$name] = array(
+    '#tree' => TRUE,
+  );
+
+  $form[$name]['value'] = array(
+    '#type' => 'textfield',
+    '#title' => nodewords_og_get_tag_label($name),
+    '#default_value' => empty($content['value']) ? '' : $content['value'],
+    '#description' => nodewords_og_get_tag_description($name),
+  );
+
+  if ($elemtype == 'textfield') {
+    $form[$name]['value']['#maxlength'] = variable_get('nodewords_max_size', 350);
+  }
+}
+
+/**
+ * Load a requested meta tag, first checking if a default value exists.  This
+ * is called from an individual meta tag's "prepare" function, so has all of
+ * the same data available.
+ *
+ * @param $tag_name The tag to check.
+ * @param $tags The meta tags that have been processed so far.
+ * @param $content Details of the piece of content currently being processed.
+ * @param $options Settings that have been defined for this tag.
+ */
+function nodewords_og_tag_prepare($tag_name, &$tags, $content, $options) {
+  // Load the default setting.
+  if (!empty($options['default'][$tag_name]['value'])) {
+    $tags[$tag_name] = $options['default'][$tag_name]['value'];
+  }
+
+  // Load the per-object value & possibly override the default.
+  if (!empty($content['value'])) {
+    $tags[$tag_name] = $content['value'];
+  }
+}
+
+function nodewords_og_get_tag_label($name) {
+  $tags = nodewords_og_nodewords_tags_info();
+  return (isset($tags[$name]['label']) ? $tags[$name]['label'] : t('Unknown tag: @name', array('@name' => $name)));
+}
+
+function nodewords_og_get_tag_description($name) {
+  $tags = nodewords_og_nodewords_tags_info();
+  return (isset($tags[$name]['description']) ? $tags[$name]['description'] : '');
+}
+
+function nodewords_og_og_title_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:title');
+}
+
+function nodewords_og_og_title_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:title', $tags, $content, $options);
+}
+
+function nodewords_og_og_type_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:type');
+}
+
+function nodewords_og_og_type_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:type', $tags, $content, $options);
+}
+
+function nodewords_og_og_image_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:image');
+
+  $form['og:image']['value'] += array(
+    '#element_validate' => array('nodewords_validate_element'),
+    '#validate_args' => array(
+      'module' => 'nodewords_og',
+      'callback' => 'nodewords_og_og_image_form_validate',
+    ),
+  );
+}
+
+function nodewords_og_og_image_form_validate($element, &$form_state) {
+  if (!empty($element['#value'])) {
+    $canonical_url = trim($element['#value'], '/');
+
+    if (!empty($canonical_url) && !valid_url(drupal_urlencode($canonical_url))) {
+      form_error($element, t('Image URL must be a relative URL.'));
+    }
+  }
+}
+
+function nodewords_og_og_image_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:image', $tags, $content, $options);
+}
+
+function nodewords_og_og_url_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:url');
+
+  $form['og:url']['value'] += array(
+    '#element_validate' => array('nodewords_validate_element'),
+    '#validate_args' => array(
+      'module' => 'nodewords_basic',
+      'callback' => 'nodewords_basic_canonical_form_validate',
+    ),
+  );
+}
+
+function nodewords_og_og_url_prepare(&$tags, $content, $options) {
+  if (!empty($content['value'])) {
+    $tags['og:url'] = check_url(nodewords_url(trim($content['value']), $options));
+  }
+}
+
+function nodewords_og_og_site_name_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:site_name');
+}
+
+function nodewords_og_og_site_name_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:site_name', $tags, $content, $options);
+}
+
+function nodewords_og_og_description_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:description', 'textarea');
+
+  $form['og:description']['value'] += array(
+    '#cols' => 60,
+    '#rows' => 6,
+    '#wysiwyg' => FALSE,
+  );
+}
+
+function nodewords_og_og_description_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:description', $tags, $content, $options);
+}
+
+function nodewords_og_og_email_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:email');
+}
+
+function nodewords_og_og_email_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:email', $tags, $content, $options);
+}
+
+function nodewords_og_og_phone_number_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:phone_number');
+}
+
+function nodewords_og_og_phone_number_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:phone_number', $tags, $content, $options);
+}
+
+function nodewords_og_og_fax_number_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:fax_number');
+}
+
+function nodewords_og_og_fax_number_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:fax_number', $tags, $content, $options);
+}
+
+function nodewords_og_og_latitude_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:latitude');
+}
+
+function nodewords_og_og_latitude_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:latitude', $tags, $content, $options);
+}
+
+function nodewords_og_og_longitude_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:longitude');
+}
+
+function nodewords_og_og_longitude_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:longitude', $tags, $content, $options);
+}
+
+function nodewords_og_og_street_address_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:street-address');
+}
+
+function nodewords_og_og_street_address_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:street-address', $tags, $content, $options);
+}
+
+function nodewords_og_og_locality_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:locality');
+}
+
+function nodewords_og_og_locality_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:locality', $tags, $content, $options);
+}
+
+function nodewords_og_og_region_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:region');
+}
+
+function nodewords_og_og_region_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:region', $tags, $content, $options);
+}
+
+function nodewords_og_og_postal_code_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:postal-code');
+}
+
+function nodewords_og_og_postal_code_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:postal-code', $tags, $content, $options);
+}
+
+function nodewords_og_og_country_name_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:country-name');
+}
+
+function nodewords_og_og_country_name_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:country-name', $tags, $content, $options);
+}
+
+function nodewords_og_og_video_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:video');
+
+  $form['og:video']['value'] += array(
+    '#element_validate' => array('nodewords_validate_element'),
+    '#validate_args' => array(
+      'module' => 'nodewords_og',
+      'callback' => 'nodewords_og_og_video_form_validate',
+    ),
+  );
+}
+
+function nodewords_og_og_video_form_validate($element, &$form_state) {
+  if (!empty($element['#value'])) {
+    $url = trim($element['#value'], '/');
+
+    if (!empty($url) && !valid_url($canonical_url)) {
+      form_error($element, t('Video URL must be a valid URL.'));
+    }
+  }
+}
+
+function nodewords_og_og_video_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:video', $tags, $content, $options);
+}
+
+function nodewords_og_og_video_width_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:video:width');
+}
+
+function nodewords_og_og_video_width_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:video:width', $tags, $content, $options);
+}
+
+function nodewords_og_og_video_height_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:video:height');
+}
+
+function nodewords_og_og_video_height_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:video:height', $tags, $content, $options);
+}
+
+function nodewords_og_og_video_type_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'og:video:type');
+}
+
+function nodewords_og_og_video_type_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('og:video:type', $tags, $content, $options);
+}
+
+function nodewords_og_fb_admins_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'fb:admins');
+
+  $form['fb:admins']['value'] += array(
+    '#validate_args' => array(
+      'module' => 'nodewords_og',
+      'callback' => 'nodewords_og_fb_admins_form_validate',
+    ),
+  );
+}
+
+/**
+ * Validate the values passed as facebook user IDs.
+ */
+function nodewords_og_fb_admins_form_validate($element, &$form_state) {
+  if (!preg_match('/^($|([0-9]+)(,[0-9])*$)/', $element['#value'])) {
+    form_error($element, t('The Facebook admins value must be a comma separated list of Facebook user IDs.'));
+  }
+}
+
+function nodewords_og_fb_admins_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('fb:admins', $tags, $content, $options);
+}
+
+function nodewords_og_fb_app_id_form(&$form, $content, $options) {
+  nodewords_og_form_default($form, $content, 'fb:app_id');
+}
+
+function nodewords_og_fb_app_id_prepare(&$tags, $content, $options) {
+  nodewords_og_tag_prepare('fb:app_id', $tags, $content, $options);
+}

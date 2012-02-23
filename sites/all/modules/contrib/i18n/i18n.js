@@ -1,4 +1,3 @@
-// $Id: i18n.js,v 1.1.2.3 2009/01/20 20:35:55 nedjo Exp $
 
 /**
  * Rewrite autocomplete inputs to pass the language of the node currently being

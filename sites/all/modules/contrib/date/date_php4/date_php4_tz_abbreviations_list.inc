@@ -1,5 +1,4 @@
 <?php
-//$Id: date_php4_tz_abbreviations_list.inc,v 1.1 2007/10/31 19:06:42 karens Exp $
 /**
  * Timezone data for PHP 4.
  *   This huge arrays is serialized and included only when needed for PHP 4 timezone compatibility.

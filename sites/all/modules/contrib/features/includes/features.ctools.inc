@@ -1,5 +1,4 @@
 <?php
-// $Id: features.ctools.inc,v 1.1.2.28 2010/08/19 21:55:48 yhahn Exp $
 
 /**
  * This is a wild hack, but effective.
@@ -168,13 +167,12 @@ function ctools_component_features_export_render($component, $module, $data) {
     $code = implode('}', $code);
   }
   else {
-    $code = '  $export = array();'."\n";
+    $code = '  $export = array();'."\n\n";
     foreach ($data as $object_name) {
       if ($object = _ctools_features_export_crud_load($component, $object_name)) {
         $identifier = $schema['export']['identifier'];
         $code .= _ctools_features_export_crud_export($component, $object, '  ');
-        $code .= "\n";
-        $code .= "  \$export[" . ctools_var_export($object_name) . "] = \${$identifier};\n";
+        $code .= "  \$export[" . ctools_var_export($object_name) . "] = \${$identifier};\n\n";
       }
     }
     $code .= '  return $export;';
@@ -210,14 +208,18 @@ function _ctools_features_get_info($identifier = NULL, $reset = FALSE) {
           $api_module = isset($schema['export']['api']['owner']) ? $schema['export']['api']['owner'] : $module;
           $components[$table] = array(
             'name' => isset($modules[$api_module]->info['name']) ? $modules[$api_module]->info['name'] : $api_module,
-            'api' => $schema['export']['api']['api'],
             'default_hook' => $schema['export']['default hook'],
             'default_file' => FEATURES_DEFAULTS_CUSTOM,
-            'default_filename' => $schema['export']['api']['api'],
-            'current_version' => $schema['export']['api']['current_version'],
             'module' => $api_module,
             'feature_source' => TRUE,
           );
+          if (isset($schema['export']['api'])) {
+            $components[$table] += array(
+              'api' => $schema['export']['api']['api'],
+              'default_filename' => $schema['export']['api']['api'],
+              'current_version' => $schema['export']['api']['current_version'],
+            );
+          }
         }
       }
     }
@@ -303,4 +305,16 @@ function page_manager_pages_features_export_render($module, $data) {
   // Ensure that handlers have their code included before exporting.
   page_manager_get_tasks();
   return ctools_component_features_export_render('page_manager_pages', $module, $data);
+}
+
+/**
+ * Implementation of hook_features_revert() for page_manager.
+ */
+function page_manager_pages_features_revert($module) {
+  if ($pages = features_get_default('page_manager_pages', $module)) {
+    require_once drupal_get_path('module','ctools').'/page_manager/plugins/tasks/page.inc';
+    foreach ($pages as $page) {
+      page_manager_page_delete($page);
+    }
+  }
 }

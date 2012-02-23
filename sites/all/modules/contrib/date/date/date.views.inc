@@ -1,5 +1,4 @@
 <?php
-//$Id: date.views.inc,v 1.1.2.3.2.2 2008/11/12 14:19:40 karens Exp $
 
 /**
  * Implementation of hook_views_handlers().

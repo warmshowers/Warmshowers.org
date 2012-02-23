@@ -1,5 +1,4 @@
 <?php
-// $Id: faq.questions_top.inc,v 1.1.2.7 2009/11/17 23:00:52 snpower Exp $
 
 /**
  * @file
@@ -22,6 +21,14 @@ function template_preprocess_faq_questions_top(&$variables) {
   $links = variable_get('faq_show_node_links', FALSE);
   $disable_node_links = variable_get('faq_disable_node_links', FALSE);
 
+  // Configure labels.
+  $variables['question_label'] = '';
+  $variables['answer_label'] = '';
+  if (variable_get('faq_qa_mark', FALSE)) {
+    $variables['question_label'] = check_plain(variable_get('faq_question_label', "Q:"));
+    $variables['answer_label'] = check_plain(variable_get('faq_answer_label', "A:"));
+  }
+
   // Configure "back to top" link.
   $this_page = $_GET['q'];
   $back_to_top = faq_init_back_to_top($this_page);
@@ -31,9 +38,9 @@ function template_preprocess_faq_questions_top(&$variables) {
   $answers = array();
   $key = 0;
   foreach ($data as $node) {
-    $anchor = "n". $node->nid;
+    $anchor = 'n' . $node->nid;
     $questions[$key] = l($node->title, $this_page, array('fragment' => $anchor));
-    faq_view_question($answers[$key], $node, '', $anchor);
+    faq_view_question($answers[$key], $node, NULL, $anchor);
     faq_view_answer($answers[$key], $node, $back_to_top, $teaser, $links);
     $key++;
   }
@@ -143,7 +150,7 @@ function template_preprocess_faq_category_questions_top(&$variables) {
   }
 
   if (!count($data)) {
-    $variables['question_count'] = 0;
+    $variables['question_count'] = $count;
     return;
   }
 
@@ -153,9 +160,9 @@ function template_preprocess_faq_category_questions_top(&$variables) {
     if (!$hide_child_terms) {
       $count++;
     }
-    $anchor = $term->tid ."n". $node->nid;
+    $anchor = 't' . $term->tid . 'n' . $node->nid;
     $node_var = array();
-    faq_view_question($node_var, $node, '', $anchor);
+    faq_view_question($node_var, $node, NULL, $anchor);
     if ($group_questions_top || $category_display == 'hide_qa') {
       faq_view_answer($node_var, $node, $back_to_top, $teaser, $links);
     }
@@ -199,6 +206,14 @@ function template_preprocess_faq_category_questions_top_answers(&$variables) {
   $show_term_page_children = variable_get('faq_show_term_page_children', FALSE);
   $group_questions_top = variable_get('faq_group_questions_top', FALSE);
   $default_sorting = variable_get('faq_default_sorting', 'DESC');
+
+  // Configure labels.
+  $variables['question_label'] = '';
+  $variables['answer_label'] = '';
+  if (variable_get('faq_qa_mark', FALSE)) {
+    $variables['question_label'] = check_plain(variable_get('faq_question_label', "Q:"));
+    $variables['answer_label'] = check_plain(variable_get('faq_answer_label', "A:"));
+  }
 
   // Initialise some variables.
   $default_weight = 0;
@@ -248,9 +263,9 @@ function template_preprocess_faq_category_questions_top_answers(&$variables) {
 
   $nodes = array();
   foreach ($data as $node) {
-    $anchor = $term->tid ."n". $node->nid;
     $node_var = array();
-    faq_view_question($node_var, $node, '', $anchor);
+    $anchor = 't' . $term->tid . 'n' . $node->nid;
+    faq_view_question($node_var, $node, NULL, $anchor);
     faq_view_answer($node_var, $node, $back_to_top, $teaser, $links);
     $nodes[] = $node_var;
   }

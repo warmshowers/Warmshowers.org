@@ -1,5 +1,5 @@
 <?php
-// $Id: job_queue.module,v 1.7 2008/08/18 07:35:59 drumm Exp $
+// $Id: job_queue.module,v 1.7.2.2 2009/10/04 23:39:05 drumm Exp $
 
 /**
  * @file job_queue.module
@@ -106,7 +106,8 @@ function job_queue_dequeue() {
   if (function_exists($job->function)) {
     $arguments = unserialize($job->arguments);
     call_user_func_array($job->function, $arguments);
-    watchdog('job_queue', 'Ran queued job "!description"', array('!description' => t($job->description, $arguments)));
+    // Filter objects out of arguments
+    watchdog('job_queue', 'Ran queued job "!description"', array('!description' => t($job->description, array_filter($arguments, 'is_scalar'))));
   }
   else {
     watchdog('job_queue', 'Failed to run queued job "!description" because the function %function is not defined.', array('!description' => $job->description, '%function' => $job->function), WATCHDOG_ERROR);
@@ -118,8 +119,12 @@ function job_queue_dequeue() {
 
 function job_queue_cron() {
   $job_count = db_result(db_query('SELECT count(*) FROM {job_queue}'));
+  $max_execution_time = ini_get('max_execution_time');
+  if (empty($max_execution_time)) {
+    $max_execution_time = 5 * 60;
+  }
   while ($job_count > 0 && job_queue_dequeue()) {
-    if ((timer_read('page') / 1000) > (ini_get('max_execution_time') / 2)) {
+    if ((timer_read('page') / 1000) > ($max_execution_time / 2)) {
       break; // Stop once we have used over half of the maximum execution time or exceeds the original number of jobs.
     }
     $job_count -= 1;
@@ -142,9 +147,10 @@ function job_queue_list() {
     $result = pager_query('SELECT created, description, arguments FROM {job_queue} ORDER BY priority, jqid', 20);
     $rows = array();
     while ($job = db_fetch_object($result)) {
+      // Filter objects out of arguments
       $rows[] = array(
         format_date($job->created),
-        t($job->description, unserialize($job->arguments)),
+        t($job->description, array_filter(unserialize($job->arguments), 'is_scalar')),
       );
     }
     $output .= theme('table', $header, $rows);

@@ -1,5 +1,4 @@
 <?php
-// $Id: faq-category-questions-inline.tpl.php,v 1.1.2.6 2009/02/08 17:24:49 snpower Exp $
 
 /**
  * @file
@@ -122,12 +121,16 @@ else {
   <?php if (count($nodes)): ?>
     <?php foreach ($nodes as $i => $node): ?>
       <div class="faq-question">
-      <strong><?php print $question_label; ?></strong>
+      <?php if (!empty($question_label)): ?>
+        <strong class="faq-question-label"><?php print $question_label; ?></strong>
+      <?php endif; ?>
       <?php print $node['question']; ?>
       </div> <!-- Close div: faq-question -->
 
       <div class="faq-answer">
-      <strong><?php print $answer_label; ?></strong>
+      <?php if (!empty($answer_label)): ?>
+        <strong class="faq-answer-label"><?php print $answer_label; ?></strong>
+      <?php endif; ?>
       <?php print $node['body']; ?>
       <?php if (isset($node['links'])): ?>
         <?php print $node['links']; ?>

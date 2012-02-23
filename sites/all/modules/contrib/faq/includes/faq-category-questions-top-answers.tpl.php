@@ -1,5 +1,4 @@
 <?php
-// $Id: faq-category-questions-top-answers.tpl.php,v 1.1.2.4 2008/12/21 18:58:26 snpower Exp $
 
 /**
  * @file
@@ -42,6 +41,10 @@
  *     $node['links'] represents the node links, e.g. "Read more".
  * $use_teaser
  *   Whether $node['body'] contains the full body or just the teaser text.
+ * $question_label
+ *   The question label, intended to be pre-pended to the question text.
+ * $answer_label
+ *   The answer label, intended to be pre-pended to the answer text.
  * $container_class
  *   The class attribute of the element containing the sub-categories, either
  *   'faq-qa' or 'faq-qa-hide'. This is used by javascript to open/hide
@@ -97,12 +100,17 @@ $depth = 0;
     <?php if (count($nodes)): ?>
       <?php foreach ($nodes as $i => $node): ?>
 
-        <div class="faq-question"><?php // Strong question label here? ?>
+        <div class="faq-question">
+        <?php if (!empty($question_label)): ?>
+          <strong class="faq-question-label"><?php print $question_label; ?></strong>
+        <?php endif; ?>
         <?php print $node['question']; ?>
         </div> <!-- Close div: faq-question -->
 
         <div class="faq-answer">
-        <strong><?php print $answer_label; ?></strong>
+        <?php if (!empty($answer_label)): ?>
+          <strong class="faq-answer-label"><?php print $answer_label; ?></strong>
+        <?php endif; ?>
         <?php print $node['body']; ?>
         <?php if (isset($node['links'])): ?>
           <?php print $node['links']; ?>

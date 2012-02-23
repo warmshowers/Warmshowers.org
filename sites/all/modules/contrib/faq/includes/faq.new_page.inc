@@ -1,5 +1,4 @@
 <?php
-// $Id: faq.new_page.inc,v 1.1.2.7 2009/11/17 23:00:52 snpower Exp $
 
 /**
  * @file
@@ -40,6 +39,7 @@ function template_preprocess_faq_category_new_page(&$variables) {
   $term = $variables['term'];
   $parent_term = $variables['parent_term'];
   $class = $variables['class'];
+  $this_page = $_GET['q'];
 
   // Fetch configuration.
   $display_faq_count = variable_get('faq_count', FALSE);
@@ -116,7 +116,7 @@ function template_preprocess_faq_category_new_page(&$variables) {
   }
 
   if (!count($data)) {
-    $variables['question_count'] = 0;
+    $variables['question_count'] = $count;
     return;
   }
 

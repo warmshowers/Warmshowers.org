@@ -1,0 +1,142 @@
+<?php
+
+/**
+ * @file
+ * Installation for HTML Mail module.
+ */
+
+/**
+ * Implements hook_requirements().
+ *
+ * Ensures that the autoload and mailsystem modules are available, and
+ * that HTML Mail uses its own MailSystemInterface class.
+ */
+function htmlmail_requirements($phase) {
+  $result = array();
+  if ($phase === 'install') {
+    return $result;
+  }
+  if ( module_exists('autoload')
+    && module_load_include('inc', 'mailsystem', 'html_to_text') !== FALSE
+  ) {
+    return $result;
+  }
+  $args = array(
+    '%autoload' => 'Autoload',
+    '!autoload' => 'http://drupal.org/project/autoload',
+    '%htmlmail' => 'HTML Mail',
+    '!htmlmail' => 'http://drupal.org/project/htmlmail',
+    '%mailsystem' => 'Mail System',
+    '!mailsystem' => 'http://drupal.org/project/mailsystem',
+  );
+  if (!module_exists('autoload')) {
+    if ( module_enable(array('autoload'))
+      && module_load_include('module', 'autoload')
+    ) {
+      autoload_boot();
+      autoload_registry_rebuild();
+      drupal_set_message(
+        t('The %autoload module has been enabled because the %htmlmail module now requires it.', $args)
+      );
+      return $result;
+    }
+    $result['htmlmail_autoload'] = array(
+      'title' => t('%autoload module', $args),
+      'value' => t('Not installed'),
+      'description' => t(
+        'The <a href="!htmlmail">%htmlmail</a> module dependencies have changed.  Please download and install the required <a href="!autoload">%autoload</a> module, then re-enable the <a href="!htmlmail">%htmlmail</a> module.', $args
+      ),
+      'severity' => REQUIREMENT_ERROR,
+    );
+  }
+  if (!function_exists('mailsystem_html_to_text')) {
+    $result['htmlmail_mailsystem'] = array(
+      'title' => t('%mailsystem module', $args),
+      'value' => t('6.x-1.x'),
+      'description' => t(
+        '<a href="!htmlmail">%htmlmail</a> new requires <a href="!mailsystem">%mailsystem</a> 6.x-2.6 or later.  Please download and install a recent version of <a href+"!mailsystem">%mailsystem</a>, then re-enable the <a href="!htmlmail">%htmlmail</a> module.', $args
+      ),
+      'severity' => REQUIREMENT_ERROR,
+    );
+  }
+  return $result;
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Removes variables that are no longer used.
+ */
+function htmlmail_update_6200() {
+  variable_del('htmlmail_header');
+  variable_del('htmlmail_footer');
+  variable_del('htmlmail_css');
+  return array();
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * Increase module weight so dependent modules get loaded first.
+ */
+function htmlmail_update_6202() {
+  return array(
+    update_sql("UPDATE {system} SET weight = 10 WHERE type = 'module' AND name = 'htmlmail'")
+  );
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * @see htmlmail_requirements()
+ */
+function htmlmail_update_6204() {
+  if ($requirements = htmlmail_requirements('runtime')) {
+    $requirement = array_shift($requirements);
+    return array(
+      '#abort' => array(
+        'success' => FALSE,
+        'query' => $requirement['description'],
+      )
+    );
+  }
+  return array();
+}
+
+/**
+ * Implements hook_enable().
+ */
+function htmlmail_enable() {
+  // Make sure the class include file gets listed in the registry.
+  autoload_registry_update();
+  // Load mailsystem if necessary.
+  module_load_include('module', 'mailsystem');
+  mailsystem_set(array('htmlmail' => 'HTMLMailSystem'));
+  mailsystem_get_classes(TRUE);
+}
+
+/**
+ * Implements hook_disable().
+ */
+function htmlmail_disable() {
+  // Check is necessary because a 6.x-1.x to 6.x-2.x upgrade
+  // may not have mailsystem installed.
+  if (function_exists('mailsystem_clear')) {
+    mailsystem_clear(array('htmlmail' => 'HTMLMailSystem'));
+  }
+}
+
+/**
+ * Implements hook_install().
+ */
+function htmlmail_install() {
+  htmlmail_update_6202();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function htmlmail_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'htmlmail_%'");
+  cache_clear_all('variables', 'cache');
+}

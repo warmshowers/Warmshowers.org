@@ -1,5 +1,4 @@
 <?php
-// $Id: faq.hide_answer.inc,v 1.1.2.7 2009/11/10 00:17:45 snpower Exp $
 
 /**
  * @file
@@ -24,7 +23,8 @@ function template_preprocess_faq_hide_answer(&$variables) {
   $nodes = array();
   $count = 0;
   foreach ($data as $node) {
-    faq_view_question($nodes[$count], $node, $this_page);
+    $anchor = 'n' . $node->nid;
+    faq_view_question($nodes[$count], $node, $this_page, $anchor);
     faq_view_answer($nodes[$count], $node, array(), $teaser, $links);
     $count++;
   }
@@ -47,6 +47,7 @@ function template_preprocess_faq_category_hide_answer(&$variables) {
 
   // Fetch configuration.
   $teaser = variable_get('faq_use_teaser', FALSE);
+  $variables['use_teaser'] = $teaser;
   $links = variable_get('faq_show_node_links', FALSE);
   $disable_node_links = variable_get('faq_disable_node_links', FALSE);
   $display_faq_count = variable_get('faq_count', FALSE);
@@ -125,7 +126,8 @@ function template_preprocess_faq_category_hide_answer(&$variables) {
   }
 
   if (!count($data)) {
-    $variables['question_count'] = 0;
+    $variables['question_count'] = $count;
+    $variables['nodes'] = array();
     return;
   }
 
@@ -135,12 +137,12 @@ function template_preprocess_faq_category_hide_answer(&$variables) {
       $count++;
     }
     $node_var = array();
-    faq_view_question($node_var, $node, $this_page);
+    $anchor = 't' . $term->tid . 'n' . $node->nid;
+    faq_view_question($node_var, $node, $this_page, $anchor);
     faq_view_answer($node_var, $node, array(), $teaser, $links);
     $nodes[] = $node_var;
   }
   $variables['nodes'] = $nodes;
   $variables['question_count'] = $count;
-  $variables['use_teaser'] = $teaser;
 }
 

@@ -1,31 +1,19 @@
 <?php
-// $Id: googleanalytics.install,v 1.6.2.9 2009/03/08 11:38:26 hass Exp $
 
 /**
  * @file
  * Installation file for Google Analytics module.
  */
 
-function googleanalytics_install() {
-  variable_set('googleanalytics_visibility', 0);
-
-  // Remove tracking from all administrative pages, see http://drupal.org/node/34970.
-  $pages = array(
-    'admin',
-    'admin/*',
-    'user/*/*',
-    'node/add*',
-    'node/*/*',
-  );
-  variable_set('googleanalytics_pages', implode("\n", $pages));
-}
-
 function googleanalytics_uninstall() {
   variable_del('googleanalytics_account');
+  variable_del('googleanalytics_custom_var');
   variable_del('googleanalytics_codesnippet_before');
   variable_del('googleanalytics_codesnippet_after');
+  variable_del('googleanalytics_domain_mode');
   variable_del('googleanalytics_segmentation');
   variable_del('googleanalytics_trackoutgoing');
+  variable_del('googleanalytics_trackoutboundaspageview');
   variable_del('googleanalytics_trackmailto');
   variable_del('googleanalytics_trackfiles');
   variable_del('googleanalytics_trackfiles_extensions');
@@ -37,19 +25,43 @@ function googleanalytics_uninstall() {
   variable_del('googleanalytics_custom');
   variable_del('googleanalytics_roles');
   variable_del('googleanalytics_visibility');
+  variable_del('googleanalytics_visibility_roles');
   variable_del('googleanalytics_pages');
+  variable_del('googleanalytics_tracker_anonymizeip');
+  variable_del('googleanalytics_privacy_donottrack');
   variable_del('googleanalytics_translation_set');
+
+  // Remove backup variables if exits. Remove this code in D8.
+  variable_del('googleanalytics_codesnippet_before_backup_6300');
+  variable_del('googleanalytics_codesnippet_after_backup_6300');
 }
 
 /**
  * Remove cache directory if module is disabled (or uninstalled).
  */
 function googleanalytics_disable() {
-  $path = file_directory_path() .'/googleanalytics';
-  if (file_exists($path)) {
-    file_delete($path .'/ga.js');
-    rmdir($path);
+  googleanalytics_clear_js_cache();
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function googleanalytics_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    // Raise warning if Google user account has not been set yet.
+    if (!preg_match('/^UA-\d{4,}-\d+$/', variable_get('googleanalytics_account', 'UA-'))) {
+      $requirements['googleanalytics'] = array(
+        'title' => t('Google Analytics module'),
+        'description' => t('Google Analytics module has not been configured yet. Please configure its settings from the <a href="@url">Google Analytics settings page</a>.', array('@url' => url('admin/settings/googleanalytics'))),
+        'severity' => REQUIREMENT_ERROR,
+        'value' => t('Not configured'),
+      );
+    }
   }
+
+  return $requirements;
 }
 
 
@@ -68,11 +80,14 @@ function googleanalytics_update_1() {
   return $ret;
 }
 
+/**
+ * Upgrade old extension variable to new and use old name as enabled/disabled flag.
+ */
 function googleanalytics_update_6000() {
   $ret = array();
 
-  variable_set('googleanalytics_trackfiles_extensions', variable_get('googleanalytics_trackfiles', GA_TRACKFILES_EXTENSIONS));
-  $trackfiles = variable_get('googleanalytics_trackfiles', GA_TRACKFILES_EXTENSIONS) ? TRUE : FALSE;
+  variable_set('googleanalytics_trackfiles_extensions', variable_get('googleanalytics_trackfiles', '7z|aac|avi|csv|doc|exe|flv|gif|gz|jpe?g|js|mp(3|4|e?g)|mov|pdf|phps|png|ppt|rar|sit|tar|torrent|txt|wma|wmv|xls|xml|zip'));
+  $trackfiles = variable_get('googleanalytics_trackfiles', '7z|aac|avi|csv|doc|exe|flv|gif|gz|jpe?g|js|mp(3|4|e?g)|mov|pdf|phps|png|ppt|rar|sit|tar|torrent|txt|wma|wmv|xls|xml|zip') ? TRUE : FALSE;
   variable_set('googleanalytics_trackfiles', $trackfiles);
   $ret[] = array('success' => TRUE, 'query' => 'Updated download tracking settings.');
 
@@ -225,7 +240,7 @@ function googleanalytics_update_6006() {
 
 /**
  * Remove "User identifier" and "User name" from segmentation fields.
- * 
+ *
  * This is a data protection and privacy law change. For more information see Google Analytics
  * terms of use section 8.1 (http://www.google.com/analytics/en-GB/tos.html).
  */
@@ -254,6 +269,122 @@ function googleanalytics_update_6200() {
   variable_del('googleanalytics_legacy_version');
 
   $ret[] = array('success' => TRUE, 'query' => 'Removed legacy support.');
+
+  return $ret;
+}
+
+/**
+ * Update list of default file extensions.
+ */
+function googleanalytics_update_6201() {
+  $ret = array();
+
+  if (variable_get('googleanalytics_trackfiles_extensions', '') == '7z|aac|avi|csv|doc|exe|flv|gif|gz|jpe?g|js|mp(3|4|e?g)|mov|pdf|phps|png|ppt|rar|sit|tar|torrent|txt|wma|wmv|xls|xml|zip') {
+    variable_set('googleanalytics_trackfiles_extensions', '7z|aac|arc|arj|asf|asx|avi|bin|csv|doc|exe|flv|gif|gz|gzip|hqx|jar|jpe?g|js|mp(2|3|4|e?g)|mov(ie)?|msi|msp|pdf|phps|png|ppt|qtm?|ra(m|r)?|sea|sit|tar|tgz|torrent|txt|wav|wma|wmv|wpd|xls|xml|z|zip');
+  }
+  $ret[] = array('success' => TRUE, 'query' => 'The default extensions for download tracking have been updated.');
+
+  return $ret;
+}
+
+/**
+ * Try to update Google Analytics custom code snippet to async version.
+ */
+function googleanalytics_update_6300() {
+  $ret = array();
+
+  // TODO: Backup synchronous code snippets. Remove variables in D8.
+  variable_set('googleanalytics_codesnippet_before_backup_6300', variable_get('googleanalytics_codesnippet_before', ''));
+  variable_set('googleanalytics_codesnippet_after_backup_6300', variable_get('googleanalytics_codesnippet_after', ''));
+
+  // Upgrade of BEFORE code snippet.
+  $code_before = variable_get('googleanalytics_codesnippet_before', '');
+  if (!empty($code_before)) {
+    // No value, e.g. _setLocalRemoteServerMode()
+    $code_before = preg_replace('/(.*)pageTracker\.(\w+)\(\);(.*)/i', '$1_gaq.push(["$2"]);$3', $code_before);
+    // One value, e.g. _setCookiePath()
+    $code_before = preg_replace('/(.*)pageTracker\.(\w+)\(("|\'?)(\w+)("|\'?)\);(.*)/i', '$1_gaq.push(["$2", $3$4$5]);$6', $code_before);
+    // Multiple values e.g. _trackEvent()
+    $code_before = preg_replace('/(.*)pageTracker\.(\w+)\((.*)\);(.*)/i', '$1_gaq.push(["$2", $3]);$4', $code_before);
+
+    variable_set('googleanalytics_codesnippet_before', $code_before);
+
+    $ret[] = array('success' => TRUE, 'query' => 'Upgraded custom "before" code snippet.');
+    drupal_set_message(db_prefix_tables("<strong>Attempted</strong> to upgrade Google Analytics custom 'before' code snippet. Backup of previous code snippet has been saved in database table '{variable}' as 'googleanalytics_codesnippet_before_backup_6300'. Please consult Google's <a href='http://code.google.com/intl/de-DE/apis/analytics/docs/tracking/asyncUsageGuide.html'>Asynchronous Tracking Usage Guide</a> if the upgrade was successfully."), 'warning');
+  }
+
+  // Upgrade of AFTER code snippet.
+  // We cannot update this code snippet automatically. Show message that the upgrade has been skipped.
+  $code_after = variable_get('googleanalytics_codesnippet_after', '');
+  if (!empty($code_after)) {
+    $ret[] = array('success' => TRUE, 'query' => 'Skipped custom "after" code snippet.');
+    drupal_set_message(db_prefix_tables("Automatic upgrade of Google Analytics custom 'after' code snippet has been skipped. Backup of previous code snippet has been saved in database table '{variable}' as 'googleanalytics_codesnippet_after_backup_6300'. You need to manually upgrade the custom 'after' code snippet."), 'error');
+  }
+
+  return $ret;
+}
+
+/**
+ * Upgrade "User roles" tracking to custom variables.
+ */
+function googleanalytics_update_6301() {
+  $ret = array();
+
+  // Read previous segmentation settings.
+  $segmentation = variable_get('googleanalytics_segmentation', array());
+
+  if (module_exists('token') && in_array('roles', $segmentation)) {
+    // Upgrade previous segmentation settings to new custom variables settings.
+    $googleanalytics_custom_vars = variable_get('googleanalytics_custom_var', array());
+
+    $googleanalytics_custom_vars['slots'][1]['slot'] = 1;
+    $googleanalytics_custom_vars['slots'][1]['name'] = 'User roles';
+    $googleanalytics_custom_vars['slots'][1]['value'] = '[user-role-names]';
+    $googleanalytics_custom_vars['slots'][1]['scope'] = 1; // Sets the scope to visitor-level.
+
+    variable_set('googleanalytics_custom_var', $googleanalytics_custom_vars);
+    $ret[] = array('success' => TRUE, 'query' => t('The deprecated profile segmentation setting for "User roles" has been added to custom variables. You need to deselect all selected profile fields in <a href="@admin">Google Analytics settings</a> and upgrade other profile fields manually or you may loose tracking data in future! See Google Analytics <a href="@customvar">Custom Variables</a> for more information.', array('@customvar' => 'http://code.google.com/intl/en/apis/analytics/docs/tracking/gaTrackingCustomVariables.html', '@admin' => url('admin/settings/googleanalytics'))));
+  }
+  else {
+    $ret[] = array('success' => TRUE, 'query' => t('You need to deselect all selected profile fields in <a href="@admin">Google Analytics settings</a> and upgrade other profile fields manually or you may loose tracking data in future! See Google Analytics <a href="@customvar">Custom Variables</a> for more information.', array('@customvar' => 'http://code.google.com/intl/en/apis/analytics/docs/tracking/gaTrackingCustomVariables.html', '@admin' => url('admin/settings/googleanalytics'))));
+    $ret[] = array('success' => TRUE, 'query' => t('<a href="@token">Token</a> module is recommended for custom variables.', array('@token' => 'http://drupal.org/project/token')));
+  }
+
+  return $ret;
+}
+
+/**
+ * Path visibility filter setting should hide "batch" path.
+ */
+function googleanalytics_update_6302() {
+  $ret = array();
+
+  // Current pages setting.
+  $pages = array(
+    'admin',
+    'admin/*',
+    'user/*/*',
+    'node/add*',
+    'node/*/*',
+  );
+
+  $diff = array_diff($pages, preg_split('/(\r\n?|\n)/', variable_get('googleanalytics_pages', implode("\n", $pages))));
+  if (empty($diff)) {
+    // No diff to previous settings found. Update with new settings.
+    $pages = array(
+      'admin',
+      'admin/*',
+      'batch',
+      'node/add*',
+      'node/*/*',
+      'user/*/*',
+    );
+    variable_set('googleanalytics_pages', implode("\n", $pages));
+    $ret[] = array('success' => TRUE, 'query' => 'Added "batch" to path visibility filter setting.');
+  }
+  else {
+    $ret[] = array('success' => TRUE, 'query' => 'Custom path visibility filter setting found. Update skipped!');
+  }
 
   return $ret;
 }

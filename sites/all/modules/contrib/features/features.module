@@ -1,5 +1,4 @@
 <?php
-// $Id: features.module,v 1.1.2.79 2010/08/05 20:50:03 yhahn Exp $
 
 /**
  * @file
@@ -395,44 +394,33 @@ function features_get_components($feature_source = FALSE, $reset = FALSE) {
 }
 
 /**
- * Like module_invoke() but for arbitrary callback base names.
+ * Invoke a component callback.
  */
-function features_invoke() {
+function features_invoke($component, $callback) {
   $args = func_get_args();
-  $base = $args[0];
-  $hook = $args[1];
   unset($args[0], $args[1]);
-  $function = $base .'_'. $hook;
-  if (features_hook($base, $hook)) {
+  // Append the component name to the arguments.
+  $args[] = $component;
+  if ($function = features_hook($component, $callback)) {
     return call_user_func_array($function, $args);
   }
 }
 
 /**
- * Like module_invoke_all() but for arbitrary callback base names.
+ * Checks whether a component implements the given hook.
+ *
+ * @return
+ *   The function implementing the hook, or FALSE.
  */
-function features_invoke_all() {
-  $args = func_get_args();
-  $hook = $args[0];
-  unset($args[0]);
-  $return = array();
-  foreach (features_get_components() as $component => $info) {
-    $result = features_invoke($component, $hook);
-    if (isset($result) && is_array($result)) {
-      $return = array_merge_recursive($return, $result);
-    }
-    else if (isset($result)) {
-      $return[] = $result;
-    }
-  }
-  return $return;
-}
+function features_hook($component, $hook, $reset = FALSE) {
+  static $info;
 
-/**
- * Like module_hook() but for arbitrary callback base names.
- */
-function features_hook($base, $hook) {
-  return function_exists($base .'_'. $hook);
+  if (!isset($info) || $reset) {
+    $info = module_invoke_all('features_api');
+  }
+  // Determine the function callback base.
+  $base = isset($info[$component]['base']) ? $info[$component]['base'] : $component;
+  return function_exists($base . '_' . $hook) ? $base . '_' . $hook : FALSE;
 }
 
 /**
@@ -576,18 +564,21 @@ function features_get_conflicts($reset = FALSE) {
   $map = features_get_component_map(NULL, $reset);
 
   foreach ($map as $type => $components) {
-    foreach ($components as $component => $modules) {
-      if (isset($component_info[$type]['duplicates']) && $component_info[$type]['duplicates'] == FEATURES_DUPLICATES_ALLOWED) {
-        continue;
-      }
-      else if (count($modules) > 1) {
-        foreach ($modules as $module) {
-          if (!isset($conflicts[$module])) {
-            $conflicts[$module] = array();
-          }
-          foreach ($modules as $m) {
-            if ($m != $module) {
-              $conflicts[$module][$m][$type][] = $component;
+    // Only check conflicts for components we know about.
+    if (isset($component_info[$type])) {
+      foreach ($components as $component => $modules) {
+        if (isset($component_info[$type]['duplicates']) && $component_info[$type]['duplicates'] == FEATURES_DUPLICATES_ALLOWED) {
+          continue;
+        }
+        else if (count($modules) > 1) {
+          foreach ($modules as $module) {
+            if (!isset($conflicts[$module])) {
+              $conflicts[$module] = array();
+            }
+            foreach ($modules as $m) {
+              if ($m != $module) {
+                $conflicts[$module][$m][$type][] = $component;
+              }
             }
           }
         }
@@ -751,7 +742,7 @@ function features_rebuild($rebuild = array()) {
  */
 function _features_get_roles() {
   $roles = array();
-  $result = db_query("SELECT r.rid, r.name, p.perm FROM {role} r LEFT JOIN {permission} p ON r.rid = p.rid");
+  $result = db_query("SELECT r.rid, r.name, p.perm FROM {role} r LEFT JOIN {permission} p ON r.rid = p.rid ORDER BY r.name");
   while ($row = db_fetch_object($result)) {
     $roles[$row->name] = array(
       'rid' => $row->rid,

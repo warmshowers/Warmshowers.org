@@ -1,5 +1,4 @@
 <?php
-// $Id: features.menu.inc,v 1.1.2.13 2010/08/12 19:30:35 yhahn Exp $
 
 /**
  * Implementation of hook_features_api().
@@ -107,14 +106,14 @@ function menu_custom_features_export_render($module, $data) {
 }
 
 /**
- * Implementation of hook_features_export_revert().
+ * Implementation of hook_features_revert().
  */
 function menu_custom_features_revert($module) {
   menu_custom_features_rebuild($module);
 }
 
 /**
- * Implementation of hook_features_export_rebuild().
+ * Implementation of hook_features_rebuild().
  */
 function menu_custom_features_rebuild($module) {
   if ($defaults = features_get_default('menu_custom', $module)) {
@@ -129,17 +128,67 @@ function menu_custom_features_rebuild($module) {
  * Implementation of hook_features_export_options().
  */
 function menu_links_features_export_options() {
-  $menu_links = menu_parent_options(array_reverse(menu_get_menus()), NULL);
-  $options = array();
-  foreach ($menu_links as $key => $name) {
-    list($menu_name, $mlid) = explode(':', $key, 2);
-    if ($mlid != 0) {
-      $link = menu_link_load($mlid);
-      $identifier = menu_links_features_identifier($link);
-      $options[$identifier] = "{$menu_name}: {$name}";
+  // We can't use the menu_tree_all_data function as it statically caches it's menu items
+  // so if something calls the function before now without $menu_admin set to true we 
+  // won't see all the links. Instead we reproduce the essential parts of the
+  // function here.
+
+  $menu_links = array();
+  foreach (array_reverse(menu_get_menus()) as $menu_name => $menu_title) {
+    $data = array();
+    $cid = 'links:' . $menu_name . ':all-cid:0';
+    $cache = cache_get($cid, 'cache_menu');
+    if ($cache && isset($cache->data)) {
+      // If the cache entry exists, it will just be the cid for the actual data.
+      // This avoids duplication of large amounts of data.
+      $cache = cache_get($cache->data, 'cache_menu');
+      if ($cache && isset($cache->data)) {
+        $data = $cache->data;
+      }
+    } else {
+      $data['tree'] = menu_tree_data(db_query("
+        SELECT m.load_functions, m.to_arg_functions, m.access_callback, m.access_arguments, m.page_callback, m.page_arguments, m.title, m.title_callback, m.title_arguments, m.type, m.description, ml.*
+        FROM {menu_links} ml LEFT JOIN {menu_router} m ON m.path = ml.router_path
+        WHERE ml.menu_name = '%s'
+        ORDER BY p1 ASC, p2 ASC, p3 ASC, p4 ASC, p5 ASC, p6 ASC, p7 ASC, p8 ASC, p9 ASC", $menu_name));
+
+      $data['node_links'] = array();
+      menu_tree_collect_node_links($data['tree'], $data['node_links']);
+      // May as well cache the data, if it is not already in the cache.
+      $tree_cid = _menu_tree_cid($menu_name, $data);
+      if (!cache_get($tree_cid, 'cache_menu')) {
+        cache_set($tree_cid, $data, 'cache_menu');
+      }
+      // Cache the cid of the (shared) data using the menu and item-specific cid.
+      cache_set($cid, $tree_cid, 'cache_menu');
     }
+    
+    $GLOBALS['menu_admin'] = TRUE;
+    menu_tree_check_access($data['tree'], $data['node_links']);
+    $GLOBALS['menu_admin'] = FALSE;
+    
+    _menu_links_features_export_options_recurse($data['tree'], $menu_name, '--', $menu_links);
   }
-  return $options;
+  return $menu_links;
+}
+
+function _menu_links_features_export_options_recurse($tree, $menu_name, $indent, &$menu_links) {
+  // We don't want to use _menu_parents_recurse as that could potentially cut out some 
+  // options as not being suitable for parents which we still want to export. Also we can
+  // save on additional calls to the database.
+
+  foreach ($tree as $data) {
+    if ($data['link']['hidden'] >= 0) {
+      $title = $indent . ' ' . truncate_utf8($data['link']['title'], 30, TRUE, FALSE);
+      if ($data['link']['hidden']) {
+        $title .= ' (' . t('disabled') . ')';
+      }
+      $menu_links[menu_links_features_identifier($data['link'])] = "{$menu_name}: {$title}";
+      if ($data['below']) {
+        _menu_links_features_export_options_recurse($data['below'], $menu_name, $indent . '--', $menu_links);
+      }
+    }
+  } 
 }
 
 /**
@@ -215,14 +264,14 @@ function menu_links_features_export_render($module, $data) {
 }
 
 /**
- * Implementation of hook_features_export_revert().
+ * Implementation of hook_features_revert().
  */
 function menu_links_features_revert($module) {
   menu_links_features_rebuild($module);
 }
 
 /**
- * Implementation of hook_features_export_rebuild().
+ * Implementation of hook_features_rebuild().
  */
 function menu_links_features_rebuild($module) {
   if ($menu_links = features_get_default('menu_links', $module)) {
@@ -247,7 +296,7 @@ function menu_links_features_rebuild_ordered($menu_links, $reset = FALSE) {
         foreach ($unordered as $key => $link) {
           $identifier = menu_links_features_identifier($link);
           $parent = isset($link['parent_path']) ? "{$link['menu_name']}:{$link['parent_path']}" : '';
-          if (empty($parent)) {
+          if (empty($parent) || (!empty($parent) && !isset($unordered[$parent]) && !isset($ordered[$parent]))) {
             $ordered[$identifier] = 0;
             $all_links[$identifier] = $link;
             unset($unordered[$key]);

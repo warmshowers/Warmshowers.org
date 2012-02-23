@@ -1,5 +1,5 @@
 <?php
-// $Id: rules_scheduler.rules.inc,v 1.1.2.5 2009/07/13 13:34:27 fago Exp $
+// $Id: rules_scheduler.rules.inc,v 1.1.2.7 2009/09/06 16:24:13 klausi Exp $
 
 
 /**
@@ -20,7 +20,7 @@ function rules_scheduler_rules_action_info() {
       'set' => $name,
     );
     $item = &$items['rules_action_schedule_set_'. $name];
-    $item['label'] = t('Schedule @set', array('@set' => $set_info['label']));
+    $item['label'] = t('Schedule "@set"', array('@set' => $set_info['label']));
     $item += array('arguments' => array());
     $date_arg = array('task_date' => array(
         'type' => 'date',
@@ -30,14 +30,14 @@ function rules_scheduler_rules_action_info() {
     $identifier_arg = array('task_identifier' => array(
         'type' => 'string',
         'label' => t('Identifier'),
-        'description' => t('User provided string to identify the task. Existing tasks for this rule set with the same identifier will be replaced'),
+        'description' => t('User provided string to identify the task. Existing tasks for this rule set with the same identifier will be replaced.'),
       ));
     $item['arguments'] = array_merge($identifier_arg, $item['arguments']);
   }
   
-  // Add action to delete scheduled rule sets
+  // Add action to delete scheduled tasks
   $items['rules_action_delete_scheduled_set'] = array(
-    'label' => t('Delete scheduled rule sets'),
+    'label' => t('Delete scheduled tasks'),
     'module' => 'Rule Scheduler',
     'base' => 'rules_scheduler_action_delete',
     'arguments' => array(

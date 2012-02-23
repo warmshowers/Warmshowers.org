@@ -1,5 +1,4 @@
 <?php
-// $Id: features-admin-components.tpl.php,v 1.1.2.3 2010/06/30 22:57:47 yhahn Exp $
 ?>
 <div class='clear-block features-components'>
   <div class='column'>

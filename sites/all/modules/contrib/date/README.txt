@@ -239,7 +239,6 @@ calculation function that will parse the RRULE and return an array of dates
 that match those rules. The API is implemented in the Date module as a
 new date widget if the Date Repeat API is installed.
 
-
 ============================================================================
 Install file for dependent modules
 ============================================================================
@@ -306,6 +305,3 @@ function calendar_update_5000() {
   $ret[] = update_sql("UPDATE {system} SET weight = 1 WHERE name = 'calendar'");
   return $ret;
 }
-
-
-

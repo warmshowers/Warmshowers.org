@@ -1,5 +1,5 @@
 <?php
-// $Id: custom_url.inc,v 1.1.2.2 2009/06/26 18:31:00 aaron Exp $
+// $Id: custom_url.inc,v 1.1.2.3 2010/12/08 18:47:27 kleinmp Exp $
 
 /**
  * @file
@@ -110,6 +110,10 @@ function emaudio_custom_url_rss($item, $teaser = NULL) {
 }
 
 function theme_emaudio_custom_url_flash($url = NULL, $width = 0, $height = 0, $field = NULL, $data = array(), $node = NULL, $autoplay = FALSE) {
+  // Validate url
+  if (!valid_url($url, TRUE) && !valid_url($url)) {
+    return '';
+  }
   // Display the audio using Flowplayer if it's available.
   if (module_exists('flowplayer')) {
     $config = array(

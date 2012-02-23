@@ -1,5 +1,4 @@
 <?php
-// $Id: faq-hide-answer.tpl.php,v 1.1.2.5 2009/10/26 03:19:44 snpower Exp $
 
 /**
  * @file

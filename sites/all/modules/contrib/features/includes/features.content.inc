@@ -1,5 +1,4 @@
 <?php
-// $Id: features.content.inc,v 1.1.2.19 2010/08/04 22:39:55 yhahn Exp $
 
 /**
  * Implementation of hook_features_api().
@@ -61,7 +60,7 @@ function content_features_export($data, &$export, $module_name = '') {
       $field_name = $split[1];
       $field = content_fields($field_name, $type_name);
 
-      if ($field) {
+      if (!empty($field)) {
         // Add field item instance for later export.
         $export['features']['content'][$instance] = $instance;
 
@@ -153,12 +152,12 @@ function content_features_rebuild($module) {
       // fields too. We can't just pass $field to it as the fnc will add every
       // item of the array to the WHERE clause.
       $param = array('field_name' => $field['field_name'], 'type_name' => $field['type_name']);
-      $existing_instance = content_field_instance_read($param, TRUE);
+      $existing_instance = array_shift(content_field_instance_read($param, TRUE));
 
-      if ($existing_instance) {
+      if (!empty($existing_instance)) {
         // If this existing instance is inactive, we need to activate it before
         // running content_field_instance_update().
-        if (!$existing_instance['widget_active']) {
+        if (empty($existing_instance['widget_active'])) {
           db_query("UPDATE {". content_instance_tablename() ."} SET widget_active = 1 WHERE field_name = '%s' AND type_name = '%s'", $field['field_name'], $field['type_name']);
           // We need to clear the type cache again, unfortunately.
           content_clear_type_cache(TRUE);

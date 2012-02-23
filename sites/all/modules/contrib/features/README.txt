@@ -1,4 +1,3 @@
-$Id: README.txt,v 1.1.2.5 2010/07/05 14:28:33 yhahn Exp $
 
 Features 1.x for Drupal 6.x
 ---------------------------

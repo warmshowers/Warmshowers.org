@@ -1,20 +1,15 @@
 <?php
-// $Id: nodewords.admin.inc,v 1.1.2.132 2009/12/30 18:28:20 kiam Exp $
+// $Id$
 
 /**
  * @file
- * Assign META tags to nodes, vocabularies, terms and pages.
- */
-
-/**
- * @addtogroup nodewords
- * @{
+* Administration interface for nodewords.module.
  */
 
 /**
  * Show the confirmation form for the page meta tags delete operation.
  */
-function nodewords_pages_confirm_delete(&$form_state, $page) {
+function nodewords_custom_pages_confirm_delete(&$form_state, $page) {
   $form['pid'] = array(
     '#type' => 'value',
     '#value' => $page->pid,
@@ -22,37 +17,34 @@ function nodewords_pages_confirm_delete(&$form_state, $page) {
 
   return confirm_form($form,
     t('Are you sure you want to delete the meta tags for the page %name?', array('%name' => $page->name)),
-    isset($_GET['destination']) ? $_GET['destination'] : 'admin/content/nodewords/meta-tags/other',
-    t('This action cannot be undone.'),
-    t('Delete'),
-    t('Cancel')
+    'admin/content/nodewords/meta-tags/custom',
+    NULL,
+    t('Delete')
   );
 }
 
 /**
- *
+ * Submit processor for the confirm-delete page.
  */
-function nodewords_pages_confirm_delete_submit($form, &$form_state) {
-  if ($form_state['values']['confirm']) {
-    nodewords_delete_tags(NODEWORDS_TYPE_PAGE, $form_state['values']['pid']);
-  }
+function nodewords_custom_pages_confirm_delete_submit($form, &$form_state) {
+  nodewords_delete_tags(NODEWORDS_TYPE_PAGE, $form_state['values']['pid']);
 
   if (db_affected_rows()) {
     drupal_set_message(t('The configuration options have been saved.'), 'status');
   }
 
-  $form_state['redirect'] = 'admin/content/nodewords/meta-tags/other';
+  $form_state['redirect'] = 'admin/content/nodewords/meta-tags/custom';
 }
 
 /**
  * Return the list of pages with custom meta tags settings.
  */
-function nodewords_pages_overview() {
+function nodewords_custom_pages_overview() {
   $enabled = array();
   $form = array('#tree' => TRUE);
   $pages = array();
 
-  foreach (_nodewords_get_pages_data() as $pid => $page) {
+  foreach (_nodewords_get_custom_pages_data() as $pid => $page) {
     $pages[$pid] = '';
 
     if ($page->enabled) {
@@ -73,17 +65,10 @@ function nodewords_pages_overview() {
       '#delta' => 10,
       '#default_value' => $page->weight,
     );
-
-    $form['edit'][$pid] = array(
-      '#value' => l(t('edit'), "admin/content/nodewords/meta-tags/other/edit/$page->pid"),
-    );
-    $form['delete'][$pid] = array(
-      '#value' => l(t('delete'), "admin/content/nodewords/meta-tags/other/delete/$page->pid"),
-    );
   }
 
   $form['add_meta_tags'] = array(
-    '#value' => t(' <a href="@add_metatags">Add meta tags</a> for a new page.', array('@add_metatags' => url('admin/content/nodewords/meta-tags/other/add'))),
+    '#value' => t(' <a href="@add_metatags">Add meta tags</a> for a new page.', array('@add_metatags' => url('admin/content/nodewords/meta-tags/custom/add'))),
     '#prefix' => '<div>',
     '#suffix' => '</div>',
   );
@@ -105,7 +90,7 @@ function nodewords_pages_overview() {
   return $form;
 }
 
-function nodewords_pages_overview_submit($form, &$form_state) {
+function nodewords_custom_pages_overview_submit($form, &$form_state) {
   $row = new stdClass();
 
   foreach ($form_state['values']['path'] as $pid => $value) {
@@ -124,9 +109,9 @@ function nodewords_pages_overview_submit($form, &$form_state) {
 }
 
 /**
- *
+ * Edit form for custom pages.
  */
-function nodewords_pages_edit($form_state, $page = NULL) {
+function nodewords_custom_pages_edit($form_state, $page = NULL) {
   $form = array();
 
   if (!isset($page)) {
@@ -154,6 +139,11 @@ function nodewords_pages_edit($form_state, $page = NULL) {
   );
 
   if (empty($nodewords_form)) {
+    $form['warning'] = array(
+      '#value' => t('You have not yet enabled any <a href="@url">meta tags for edit forms</a>.', array('@url' => url('admin/content/nodewords'))),
+      '#prefix' => '<div class="messages warning">',
+      '#suffix' => '</div>',
+    );
     return $form;
   }
   else {
@@ -163,7 +153,7 @@ function nodewords_pages_edit($form_state, $page = NULL) {
       '#description' => t("A name to better identify the page in the list of custom pages. The name must contains at least one alpha-numeric character."),
       '#default_value' => $page->name,
       '#size' => 60,
-      '#maxlength' => 60,
+      '#maxlength' => 128,
       '#required' => TRUE,
     );
 
@@ -173,6 +163,7 @@ function nodewords_pages_edit($form_state, $page = NULL) {
       '#description' => t("Enter the Drupal paths associated with the page. The character <q>*</q> is a wildcard. Example paths are <em>blog</em> for the blog page and <em>blog/*</em> for every personal blog. The list must contain at least one path."),
       '#default_value' => $page->path,
       '#size' => 60,
+      '#wysiwyg' => FALSE,
       '#required' => TRUE,
     );
 
@@ -206,16 +197,17 @@ function nodewords_pages_edit($form_state, $page = NULL) {
 /**
  * Validate function for the meta tags edit page.
  */
-function nodewords_pages_edit_validate($form, &$form_state) {
+function nodewords_custom_pages_edit_validate($form, &$form_state) {
   if (trim($form_state['values']['name']) == '') {
     form_set_error('name', t('The name contains only spaces, and other not printable characters.'));
   }
 
   if (($path = trim($form_state['values']['path'])) != '') {
     $bool = db_result(
-      db_query("SELECT 1 FROM {nodewords_custom} WHERE path = '%s' AND pid <> %d",
+      db_query_range("SELECT 1 FROM {nodewords_custom} WHERE path = '%s' AND pid <> %d",
         $path,
-        isset($form_state['values']['pid']) ? $form_state['values']['pid'] : 0
+        isset($form_state['values']['pid']) ? $form_state['values']['pid'] : 0,
+        0, 1
       )
     );
 
@@ -231,15 +223,27 @@ function nodewords_pages_edit_validate($form, &$form_state) {
 /**
  * Submission function for the meta tags edit page.
  */
-function nodewords_pages_edit_submit($form, &$form_state) {
+function nodewords_custom_pages_edit_submit($form, &$form_state) {
   $form_state['values']['path'] = trim($form_state['values']['path']);
 
-  drupal_write_record('nodewords_custom', $form_state['values'], isset($form_state['values']['pid']) ? 'pid' : array());
-  nodewords_save_tags(NODEWORDS_TYPE_PAGE, $form_state['values']['pid'], $form_state['values']['nodewords'], TRUE);
+  $row = new stdClass();
+
+  if (isset($form_state['values']['pid'])) {
+    $row->pid = $form_state['values']['pid'];
+  }
+
+  $row->name = $form_state['values']['name'];
+  $row->path = $form_state['values']['path'];
+  $row->weight = $form_state['values']['weight'];
+  $row->enabled = $form_state['values']['enabled'];
+
+  drupal_write_record('nodewords_custom', $row, isset($row->pid) ? 'pid' : array());
+  nodewords_save_tags(NODEWORDS_TYPE_PAGE, $row->pid, $form_state['values']['nodewords'], TRUE);
 
   drupal_set_message(t('The configuration options have been saved.'));
 
-  $form_state['redirect'] = 'admin/content/nodewords/meta-tags/other';
+  $form_state['values']['pid'] = $row->pid;
+  $form_state['redirect'] = 'admin/content/nodewords/meta-tags/custom';
 }
 
 /**
@@ -254,7 +258,7 @@ function nodewords_settings_form() {
 
   if (!empty($tags_info)) {
     foreach ($tags_info as $name => $info) {
-      $options[$name] = $info['widget:label'];
+      $options[$name] = $info['label'];
     }
 
     uasort($options, 'strnatcmp');
@@ -309,7 +313,7 @@ function nodewords_settings_form() {
   $form['metatags_creation'] = array(
     '#type' => 'fieldset',
     '#title' => t('Meta tags creation options'),
-    '#description' => t('These options change the way the meta tags are generated.'),
+    '#description' => t('These options change the way the meta tags are created.'),
     '#collapsible' => TRUE,
     '#group' => 'nodewords',
   );
@@ -348,79 +352,21 @@ function nodewords_settings_form() {
   );
 
   if ($default_size < 350) {
-    $form['metatags_creation']['nodewords_max_size']['#description'] .= ' ' . t('Most of the search engines are now indexing 350 characters, which is not the maximum length actually set for the meta tags. See <a href="@google-blog">Official Google Blog: Two new improvements to Google results pages</a> for more information.', array('@google-blog' => 'http://googleblog.blogspot.com/2009/03/two-new-improvements-to-google-results.html'));
+    $form['metatags_creation']['nodewords_max_size']['#description'] .= ' ' . t('Google Search now uses the first 350 characters of the meta tag DESCRIPTION 350 characters, which is not the maximum length actually set for the meta tags. See <a href="@google-blog">Official Google Blog: Two new improvements to Google results pages</a> for more information.', array('@google-blog' => 'http://googleblog.blogspot.com/2009/03/two-new-improvements-to-google-results.html'));
   }
 
-  $form['metatags_creation']['metatags_generation'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Meta tags content generation options'),
-    '#description' => t('These options change how a meta tag content is generated from the node content. These settings apply to specific meta tags.'),
-    '#collapsible' => TRUE,
-  );
-
-  $options = array(
-    NODEWORDS_GENERATION_NONE => t('Do not generate meta tags content'),
-    NODEWORDS_GENERATION_WHEN_EMPTY => t('Generate meta tag content when the meta tag content is empty'),
-  );
-
-  $form['metatags_creation']['metatags_generation']['nodewords_metatags_generation_method'] = array(
-    '#type' => 'radios',
-    '#options' => $options,
-    '#default_value' => variable_get(
-      'nodewords_metatags_generation_method', NODEWORDS_GENERATION_NONE
-    ),
-  );
-
-  $options = array(
-    NODEWORDS_GENERATION_BODY => t('Generate meta tags content from the node body'),
-    NODEWORDS_GENERATION_TEASER => t('Generate meta tags content from the node teaser'),
-    NODEWORDS_GENERATION_TEASER_BODY => t('Generate meta tags content from the node teaser, or the node body when the node teaser is empty'),
-  );
-
-  $form['metatags_creation']['metatags_generation']['nodewords_metatags_generation_source'] = array(
-    '#type' => 'radios',
-    '#title' => t('Generation source'),
-    '#options' => $options,
-    '#default_value' => variable_get(
-      'nodewords_metatags_generation_source', NODEWORDS_GENERATION_TEASER
-    ),
-  );
-
-  $form['metatags_creation']['metatags_generation']['nodewords_use_alt_attribute'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Replace the tag IMG content with the attribute ALT'),
-    '#default_value' => variable_get('nodewords_use_alt_attribute', TRUE),
-  );
-
-  $options = array(
-    'imagebrowser' => 'imagebrowser.module',
-    'img_assist' => 'img_assist.module',
-  );
-
-  $form['metatags_creation']['metatags_generation']['nodewords_filter_modules_output'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Filter the text added by third-party modules in the node teaser'),
-    '#options' => $options,
-    '#default_value' => variable_get('nodewords_filter_modules_output', array()),
-    '#checkall' => TRUE,
-  );
-
-  $form['metatags_creation']['metatags_generation']['nodewords_filter_regexp'] = array(
+  $form['metatags_creation']['nodewords_base_url'] = array(
     '#type' => 'textfield',
-    '#title' => t('Custom regular expression'),
-    '#description' => t('A regular expression used to filter the text added in the node teaser from a third-party module. The regular expression uses the <a href="http://www.php.net/manual/en/pcre.pattern.php">Perl compatible</a> syntax.'),
-    '#element_validate' => array('nodewords_filter_regexp_validate'),
-    '#default_value' => variable_get('nodewords_filter_regexp', ''),
+    '#title' => t('Base URL'),
+    '#description' => t('Enter the base URL that will be used for any URL generated by the module.'),
+    '#default_value' => variable_get('nodewords_base_url', ''),
+    '#element_validate' => array('nodewords_base_url_validate'),
     '#size' => 60,
   );
 
-  $form['metatags_creation']['taxonomy'] = array();
-
   foreach ($tags_info as $name => $info) {
-    $function = $info['tag:function:prefix'] . '_settings_form';
-    $options = array(
-      'parameters' => !empty($info['tag:function:parameters']) ? $info['tag:function:parameters'] : array(),
-    );
+    $function = $info['callback'] . '_settings_form';
+    $options = array();
 
     if (function_exists($function)) {
       $function($form, 'nodewords_settings_form', $options);
@@ -435,11 +381,21 @@ function nodewords_settings_form() {
 }
 
 /**
- * Function to validate the regular expression.
- *
+ * Function to validate the base URL.
  */
-function nodewords_filter_regexpr_validate($element, &$form_state) {
+function nodewords_base_url_validate($element, &$form_state) {
+  if (!empty($element['#value']) && !($base_url = rtrim($element['#value'], '/'))) {
+    form_error($element, t('Invalid base URL.'));
+  }
+  elseif (!empty($base_url) && !valid_url($base_url, TRUE)) {
+    form_error($element, t('Invalid base URL.'));
+  }
+}
 
+/**
+ * Function to validate the regular expression.
+ */
+function nodewords_filter_regex_validate($element, &$form_state) {
   if (!empty($element['#value'])) {
     $value = trim($element['#value']);
 
@@ -451,7 +407,6 @@ function nodewords_filter_regexpr_validate($element, &$form_state) {
 
 /**
  * Function to validate the value entered for the maximum meta tags length.
- *
  */
 function nodewords_max_size_validate($element, &$form_state) {
   if (!empty($element['#value'])) {
@@ -479,7 +434,14 @@ function nodewords_tags_form(&$form_state, $type = NODEWORDS_TYPE_DEFAULT, $id =
     )
   );
 
-  if (!empty($form['nodewords'])) {
+  if (empty($form['nodewords'])) {
+    $form['warning'] = array(
+      '#value' => t('You have not yet enabled any <a href="@url">meta tags for edit forms</a>.', array('@url' => url('admin/content/nodewords'))),
+      '#prefix' => '<div class="messages warning">',
+      '#suffix' => '</div>',
+    );
+  }
+  else {
     $form['nodewords']['#tree'] = TRUE;
 
     $form['submit'] = array(
@@ -519,7 +481,7 @@ function nodewords_tags_form_submit($form, &$form_state) {
 /**
  * Render the list of pages with meta tags.
  */
-function theme_nodewords_pages_overview($form) {
+function theme_nodewords_custom_pages_overview($form) {
   $has_pages = isset($form['name']) && is_array($form['name']);
   $rows = array();
 
@@ -532,8 +494,8 @@ function theme_nodewords_pages_overview($form) {
 
       $row[] = drupal_render($form['weight'][$key]);
       $row[] = drupal_render($form['enabled'][$key]);
-      $row[] = drupal_render($form['edit'][$key]);
-      $row[] = drupal_render($form['delete'][$key]);
+      $row[] = l(t('edit'), "admin/content/nodewords/meta-tags/custom/$key/edit");
+      $row[] = l(t('delete'), "admin/content/nodewords/meta-tags/custom/$key/delete");
 
       $rows[] = array(
         'data' => $row,
@@ -546,7 +508,7 @@ function theme_nodewords_pages_overview($form) {
     $rows[] = array(
       array(
         'data' => t('There are currently no meta tags defined.'),
-        'colspan' => '5'
+        'colspan' => '5',
       )
     );
   }
@@ -570,5 +532,75 @@ function theme_nodewords_pages_overview($form) {
 }
 
 /**
- * @} End of "addtogroup nodewords" .
+ * Add the fieldset for the generation settings to the form passed as argument.
+ *
+ * @param &$form
+ *  The form to which add the fieldset. If the fieldset has been already added,
+ *  then it will not be added.
  */
+function nodewords_add_generation_fieldset(&$form) {
+  if (!isset($form['generation'])) {
+    $form['generation'] = array(
+    );
+  }
+}
+
+
+/**
+ * Internal functions
+ */
+
+
+/**
+ *
+ */
+function _nodewords_mass_delete_batch_process($ids, $type, &$context) {
+  if (!isset($context['sandbox']['progress'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = count($ids);
+    $context['sandbox']['ids'] = $ids;
+  }
+
+  $count = min(5, count($context['sandbox']['ids']));
+
+  if (!isset($context['results']['count'])) {
+    $context['results']['count'] = 0;
+  }
+
+  for ($i = 1; $i <= $count; $i++) {
+    $id = array_shift($context['sandbox']['ids']);
+
+    db_query("DELETE FROM {nodewords} WHERE type = %d AND id = %d", $type, $id);
+
+    if ($type == NODEWORDS_TYPE_PAGE) {
+      db_query("DELETE FROM {nodewords_custom} WHERE pid = %d", $type, $id);
+    }
+
+    $context['results']['count']++;
+    $context['sandbox']['progress']++;
+  }
+
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+}
+
+/**
+ *
+ */
+function _nodewords_mass_update_batch_finished($success, $results, $operations) {
+  if ($success) {
+    drupal_set_message(t('The update has been performed.'));
+  }
+  else {
+    drupal_set_message(t('An error occurred and processing did not complete.'), 'error');
+
+    $message = format_plural(
+      $results['count'],
+      '1 item successfully processed.',
+      '@count items successfully processed.'
+    );
+
+    drupal_set_message($message);
+  }
+}

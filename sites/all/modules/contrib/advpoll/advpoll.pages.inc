@@ -1,5 +1,4 @@
 <?php
-// $Id: advpoll.pages.inc,v 1.1.2.2 2010/06/22 11:33:06 mirodietiker Exp $
 
 /**
  * @file

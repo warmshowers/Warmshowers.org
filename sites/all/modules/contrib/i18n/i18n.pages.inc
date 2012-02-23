@@ -1,5 +1,4 @@
 <?php
-// $Id: i18n.pages.inc,v 1.1.2.7 2010/06/01 14:15:16 jareyero Exp $
 
 /**
  * @file

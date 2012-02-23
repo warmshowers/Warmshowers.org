@@ -1,4 +1,3 @@
-// $Id: advpoll-form.js,v 1.1.2.9 2007/12/16 14:59:28 chriskennedy Exp $
 
 if (!Drupal.advpoll) {
   Drupal.advpoll = {};

@@ -1,5 +1,4 @@
 <?php
-// $Id: features.filter.inc,v 1.1.2.12 2010/07/24 21:46:24 yhahn Exp $
 
 /**
  * Implementation of hook_features_api().

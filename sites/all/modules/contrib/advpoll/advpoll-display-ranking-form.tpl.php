@@ -1,5 +1,4 @@
 <?php
-// $Id: advpoll-display-ranking-form.tpl.php,v 1.1.2.3 2010/07/31 23:19:55 mirodietiker Exp $
 
 /**
  * @file advpoll-display-ranking-form.tpl.php

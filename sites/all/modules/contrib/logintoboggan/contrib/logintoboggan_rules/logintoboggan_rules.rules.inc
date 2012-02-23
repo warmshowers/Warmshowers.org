@@ -1,5 +1,4 @@
 <?php
-// $Id: logintoboggan_rules.rules.inc,v 1.1.2.1 2010/03/25 20:03:15 thehunmonkgroup Exp $
 
 /**
  * Implement hook_rules_event_info().

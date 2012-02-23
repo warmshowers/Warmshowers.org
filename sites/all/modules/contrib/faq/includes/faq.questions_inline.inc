@@ -1,5 +1,4 @@
 <?php
-// $Id: faq.questions_inline.inc,v 1.1.2.7 2009/12/23 18:13:12 snpower Exp $
 
 /**
  * @file
@@ -35,7 +34,8 @@ function template_preprocess_faq_questions_inline(&$variables) {
   $nodes = array();
   $count = 0;
   foreach ($data as $node) {
-    faq_view_question($nodes[$count], $node);
+    $anchor = 'n' . $node->nid;
+    faq_view_question($nodes[$count], $node, NULL, $anchor);
     faq_view_answer($nodes[$count], $node, $back_to_top, $teaser, $links);
     $count++;
   }
@@ -146,7 +146,7 @@ function template_preprocess_faq_category_questions_inline(&$variables) {
   }
 
   if (!count($data)) {
-    $variables['question_count'] = 0;
+    $variables['question_count'] = $count;
     return;
   }
 
@@ -156,7 +156,8 @@ function template_preprocess_faq_category_questions_inline(&$variables) {
       $count++;
     }
     $node_var = array();
-    faq_view_question($node_var, $node);
+    $anchor = 't' . $term->tid . 'n' . $node->nid;
+    faq_view_question($node_var, $node, NULL, $anchor);
     faq_view_answer($node_var, $node, $back_to_top, $teaser, $links);
     $nodes[] = $node_var;
   }

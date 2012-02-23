@@ -1,5 +1,4 @@
 <?php
-// $Id: date_navigation_plugin_style.inc,v 1.1.2.9 2009/01/24 00:41:45 karens Exp $
 /**
  * Style plugin to create date back/next navigation.
  * 
@@ -8,13 +7,13 @@
  * value is set to the current date.
  */
 class date_navigation_plugin_style extends views_plugin_style {
-  
+
   /**
    * Style validation.
    */
   function validate() {
     $errors = parent::validate();
-    
+
     $arguments = $this->display->handler->get_option('arguments');
     $count = 0;
     $found = FALSE;
@@ -35,10 +34,10 @@ class date_navigation_plugin_style extends views_plugin_style {
     }
     return $errors;
   }
-  
+
   function query() {
     require_once('./'. drupal_get_path('module', 'date_api') .'/date_api_sql.inc');
-        
+
     // Bring the argument information into the view so our theme can access it.
     $i = 0;    
     foreach ($this->view->argument as $id => $argument) {
@@ -56,9 +55,9 @@ class date_navigation_plugin_style extends views_plugin_style {
       }
       $i++;
     }
-     
+
     // bring the node type into the query so we can use it in the theme
     $this->view->query->add_field('node', 'type');
-     
+
   }
 }

@@ -1,5 +1,4 @@
 <?php
-// $Id: faq-questions-top.tpl.php,v 1.1.2.5 2008/12/21 18:58:26 snpower Exp $
 
 /**
  * @file
@@ -23,6 +22,10 @@
  *   Is true if $answer['body'] is a teaser.
  * $list_style
  *   Represents the style of list, ul for unordered, ol for ordered.
+ * $question_label
+ *   The question label, intended to be pre-pended to the question text.
+ * $answer_label
+ *   The answer label, intended to be pre-pended to the answer text.
  * $limit
  *   Represents the number of items.
  */
@@ -34,10 +37,16 @@
 <?php while ($key < $limit): ?>
   <?php // Cycle through all the answers and "more" links. $key will represent the applicable position in the arrays. ?>
   <div class="faq-question">
+  <?php if (!empty($question_label)): ?>
+    <strong class="faq-question-label"><?php print $question_label; ?></strong>
+  <?php endif; ?>
   <?php print $answers[$key]['question']; ?>
   </div> <!-- Close div: faq-question -->
 
   <div class="faq-answer">
+  <?php if (!empty($answer_label)): ?>
+    <strong class="faq-answer-label"><?php print $answer_label; ?></strong>
+  <?php endif; ?>
   <?php print $answers[$key]['body']; ?>
   <?php print $answers[$key]['links']; ?>
   </div> <!-- Close div: faq-answer -->

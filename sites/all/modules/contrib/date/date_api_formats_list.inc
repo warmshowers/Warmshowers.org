@@ -1,5 +1,4 @@
 <?php
-// $Id: date_api_formats_list.inc,v 1.1.2.1 2009/01/25 13:03:13 karens Exp $
 /**
  * @file
  * Initialize the list of date formats and their locales.

@@ -1,4 +1,3 @@
-// $Id: comment_notify.js,v 1.1 2009/02/13 21:43:16 greggles Exp $
 if (Drupal.jsEnabled) {
   $(document).ready(function() {
     $("#edit-notify-type-1").bind("click", function() {

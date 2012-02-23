@@ -1,5 +1,4 @@
 <?php
-// $Id: theme.inc,v 1.1.4.38 2010/11/20 13:25:54 karens Exp $
 /**
  *  Preprocessor to construct back and next navigation from the date argument.
  */
@@ -10,7 +9,7 @@ function template_preprocess_date_navigation(&$vars) {
   $pos = $view->date_info->date_arg_pos;
   $min_date = is_object($view->date_info->min_date) ? $view->date_info->min_date : date_now();
   $max_date = is_object($view->date_info->max_date) ? $view->date_info->max_date : date_now();
-  
+
   if (empty($view->date_info->hide_nav)) {
     $prev_date = drupal_clone($min_date);
     date_modify($prev_date, '-1 '. $view->date_info->granularity);
@@ -43,7 +42,7 @@ function template_preprocess_date_navigation(&$vars) {
     $vars['prev_url'] = '';
     $vars['next_options'] = $vars['prev_options'] = array();
   }
-    
+
   // Check whether navigation links would point to 
   // a date outside the allowed range.
   if (!empty($next_date) && !empty($vars['next_url']) && date_format($next_date, 'Y') > $view->date_info->max_allowed_year) {
@@ -79,17 +78,17 @@ function template_preprocess_date_navigation(&$vars) {
   }
   $vars['prev_options']['attributes'] += array('title' => $prev_title);
   $vars['next_options']['attributes'] += array('title' => $next_title);
-  
+
   // Add nofollow for next/prev links.
   $vars['prev_options']['attributes'] += array('rel' => 'nofollow');
   $vars['next_options']['attributes'] += array('rel' => 'nofollow');
-  
+
   $link = FALSE;
   // Month navigation titles are used as links in the block view.
 	if (!empty($view->date_info->block) && $view->date_info->granularity == 'month') {
 	  $link = TRUE;
   }
-  
+
   $nav_title = theme('date_nav_title', $view->date_info->granularity, $view, $link);
   $vars['nav_title'] = $nav_title;
   $vars['block'] = !empty($view->date_info->block);
@@ -167,12 +166,12 @@ function theme_date_nav_title($granularity, $view, $link = FALSE, $format = NULL
  * 
  */
 function template_preprocess_date_vcalendar(&$vars) {
-    
+
   $vars['current_date'] = date_format(date_now(), DATE_FORMAT_ICAL);
   $vars['current_date_utc'] = date_format(date_now('UTC'), DATE_FORMAT_ICAL);
   $vars['site_timezone'] = date_default_timezone_name();
   $vars['calname'] = date_ical_escape_text(!empty($vars['calname']) ? $vars['calname'] : variable_get('site_name', ''));
-  
+
   // Format the event results as iCal expects.
   $events_in = $vars['events'];
   $events = array();
@@ -184,7 +183,7 @@ function template_preprocess_date_vcalendar(&$vars) {
       $events[$uid] = $event;
       $timezone = timezone_name_get(date_timezone_get($event['start']));
       if (!empty($timezone)) {
-        $events[$uid]['timezone'] = "TZID=$timezone:";
+        $events[$uid]['timezone'] = "TZID=$timezone;";
       }
       else {
         $events[$uid]['timezone'] = '';
@@ -202,7 +201,7 @@ function template_preprocess_date_vcalendar(&$vars) {
           $event[trim($key)] = trim($value);
         }
       }
-      
+
       // Escape text values.
       foreach ($event as $key => $value) {
         if ($key == 'alarm') {
@@ -218,7 +217,7 @@ function template_preprocess_date_vcalendar(&$vars) {
       }
     }
   }
-  
+
   $vars['events'] = $events;  
 }
 
@@ -384,7 +383,7 @@ function theme_date_time_ago($start_date, $end_date, $interval = 2) {
   $now = date_format(date_now(), DATE_FORMAT_DATETIME);
   $start = date_format($start_date, DATE_FORMAT_DATETIME);
   $end = date_format($end_date, DATE_FORMAT_DATETIME);
-  
+
   // 1) The date is entirely in the future
   if ($now < $start) {
     return t('!time from now', array('!time' => date_format_interval($start_date, $interval)));

@@ -1,4 +1,3 @@
-$Id: README.txt 505 2009-05-24 18:55:09Z rfay $
 
 PREPOPULATE MODULE
 ==================

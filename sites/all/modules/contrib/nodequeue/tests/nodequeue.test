@@ -1,0 +1,1230 @@
+<?php
+
+/**
+ * @file
+ * Tests for the Nodequeue module.
+ */
+
+/**
+ * Class with common helper methods.
+ */
+class NodequeueWebTestCase extends DrupalWebTestCase {
+
+  /**
+   * Follows an image link by alt or title text.
+   *
+   * Index behavior is the same as clickLink()'s.
+   *
+   * @param $label
+   *   Text between the anchor tags.
+   * @param $index
+   *   Link position counting from zero.
+   * @return
+   *   Page on success, or FALSE on failure.
+   */
+  protected function clickImage($label, $index = 0) {
+    $url_before = $this->getUrl();
+    $urls = $this->xpath('//img[@title="' . $label . '"]/ancestor::a|//img[@alt="' . $label . '"]/ancestor::a');
+
+    if (isset($urls[$index])) {
+      $url_target = $this->getAbsoluteUrl($urls[$index]['href']);
+    }
+
+    $this->assertTrue(isset($urls[$index]), t('Clicked image link "!label" (!url_target) from !url_before', array('!label' => $label, '!url_target' => $url_target, '!url_before' => $url_before)), t('Browser'));
+
+    if (isset($urls[$index])) {
+      return $this->drupalGet($url_target);
+    }
+    return FALSE;
+  }
+
+  /**
+   * @param array $types
+   *   An array of content types that can be put in the queue.
+   * @param int $size
+   *   The size of the queue, 0 for infinite.
+   * @param int $rid
+   *   The role ID allowed to manipulate this queue.
+   * @param bool $reverse
+   *   Reverse the queue in the admin view.
+   * @return object
+   *   A nodequeue object.
+   */
+  function createNodequeue($types, $rids = array(2), $size = 10, $reverse = FALSE, $owner = 'nodequeue') {
+    $queue = new stdClass();
+
+    $queue->title          = $this->randomName();
+    $queue->subqueue_title = '';
+    $queue->size           = $size;
+    $queue->reverse        = $reverse;
+    $queue->types          = array('page', 'story');
+    $queue->roles          = $rids;
+    $queue->add_subqueue   = array(0 => $queue->title);
+    $queue->link           = 'Add to '. $queue->title;
+    $queue->link_remove    = 'Remove from '. $queue->title;
+    $queue->show_in_links  = TRUE;
+    $queue->show_in_tab    = TRUE;
+    $queue->show_in_ui     = TRUE;
+    $queue->i18n           = TRUE;
+    $queue->reference      = 0;
+    $queue->owner          = $owner;
+    $queue->new            = TRUE;
+
+    $qid = nodequeue_save($queue);
+
+    $this->assertTrue(is_numeric($qid), t('Nodequeue was created and assigned a qid.'), t('Nodequeue'));
+
+    return $queue;
+  }
+
+  /**
+   * @param int $qid
+   *   The QID of the queue to populate.
+   * @param int $count
+   *   The number of nodes to create. Deafult is 10.
+   * @return array
+   *   An array of node IDs
+   */
+  function populateNodequeue($qid, $count = 10) {
+    $nodes = array();
+    for ($i = 0; $i < $count; $i++) {
+      $node = $this->drupalCreateNode(array('type' => 'story', 'promote' => 1));
+      $nodes[$node->nid] = node_load($node->nid);
+    }
+
+    $queue = nodequeue_load($qid);
+    $this->assertTrue($queue->subqueues == 1, t('Nodequeue has no subqueues.'), t('Nodequeue'));
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $this->assertTrue(count($subqueues) == 1, t('Loaded one subqueue.'), t('Nodequeue'));
+
+    $subqueue = array_shift($subqueues);
+    foreach ($nodes as $node) {
+      nodequeue_subqueue_add($queue, &$subqueue, $node->nid);
+    }
+    $this->assertTrue($subqueue->count == $count, t('Subqueue contains %count nodes.', array('%count' => $count)), t('Nodequeue'));
+
+    return $nodes;
+  }
+}
+
+class NodequeueManipulateTestCase extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name'        => t('User'),
+      'description' => t('Manipulate a nodequeue.'),
+      'group'       => t('Nodequeue'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue', 'translation');
+
+    $user = $this->drupalCreateUser(array('manipulate queues'));
+    $this->drupalLogin($user);
+  }
+
+  function testNodequeueInterface() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 6);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    // is the "remove from nodequeue" link present on the front page?
+    $this->drupalGet('node');
+    $this->assertText('Remove from '. $queue->title, t('Found nodequeue link on front page.'), t('Nodequeue'));
+
+    // do we have access to the nodequeue tab on a node page?
+    $this->drupalGet('node/'. $nids[0]);
+    $this->assertRaw('<a href="' . base_path() . 'node/1/nodequeue">Nodequeue', t('Found nodequeue tab on node page.'), t('Nodequeue'));
+    $this->assertText('Remove from '. $queue->title, t('Found nodequeue link on node page.'), t('Nodequeue'));
+
+    // is the table present on the nodequeue tab?
+    $this->drupalGet('node/'. $nids[0] .'/nodequeue');
+    $this->assertText($queue->title, t('Found nodequeue in table on nodequeue tab.'), t('Nodequeue'));
+    $this->assertRaw('"nodequeue-max-nodes">'. $queue->size, t('Nodequeue table reports correct queue size.'), t('Nodequeue'));
+    $this->assertRaw('"nodequeue-in-queue">'. count($nids), t('Nodequeue table reports correct number of elements in queue.'), t('Nodequeue'));
+    $this->assertText('Remove from queue', t('"Remove from queue" link is present.'), t('Nodequeue'));
+  }
+
+  function testNodequeueAddNode() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 6);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    // create a new node and add it to the queue using the 'add to queue' link
+    // in the table on the nodequeue tab.
+    $node = $this->drupalCreateNode(array('type' => 'story'));
+    $this->drupalGet('node/'. $node->nid .'/nodequeue');
+    $this->assertText('Add to queue', t('"Add to queue" link is present.'), t('Nodequeue'));
+    $this->clickLink('Add to queue');
+    $this->assertRaw('"nodequeue-in-queue">'. (count($nodes) + 1), t('Nodequeue table reports correct number of elements in queue.'), t('Nodequeue'));
+    $this->assertText('Remove from queue', t('"Remove from queue" link is present.'), t('Nodequeue'));
+
+    // fill up the queue
+    $node = $this->drupalCreateNode(array('type' => 'story'));
+    $this->drupalGet('node/'. $node->nid .'/nodequeue');
+    $this->assertText('Add to queue', t('"Add to queue" link is present.'), t('Nodequeue'));
+    $this->clickLink('Add to queue');
+    $this->assertRaw('"nodequeue-in-queue">Queue full', t('Nodequeue table reports the queue as full.'), t('Nodequeue'));
+  }
+
+  function testNodequeueRemoveNode() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 1);
+    $nodes = $this->populateNodequeue($queue->qid, 1);
+    $nids  = array_keys($nodes);
+
+    // remove a node by clicking the "Remove" link
+    $this->drupalGet('node/'. $nids[0] .'/nodequeue');
+    $this->assertRaw('"nodequeue-in-queue">Queue full', t('Nodequeue table reports the queue as full.'), t('Nodequeue'));
+    $this->clickLink('Remove from queue');
+    $this->assertText('Queue empty', t('Nodequeue table reports the queue as empty.'), t('Nodequeue'));
+    $this->assertText('Add to queue', t('"Add to queue" link is present.'), t('Nodequeue'));
+  }
+
+  function testNodequeueAccess() {
+    // create two nodequeues; one the user can access and one she can't access.
+    $queue1 = $this->createNodequeue(array('page', 'story'), array(2));
+    $queue2 = $this->createNodequeue(array('page', 'story'), array());
+
+    $node = $this->drupalCreateNode(array('type' => 'story', 'promote' => 1));
+
+    // create a new queue that this user doesn't have access to.
+    $this->drupalGet('node');
+    $this->assertNoText('Add to '. $queue2->title, t('Nodequeue link is not present on front page.'), t('Nodequeue'));
+
+    // delete the first queue and make sure the nodequeue tab doesn't show up
+    // (since the user doesn't have access to the remaining queue).
+    nodequeue_delete($queue1->qid);
+    $this->drupalGet('node/'. $node->nid);
+    $this->assertNoRaw('nodequeue">Nodequeue</a>', t('Nodequeue tab is not present on node page.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueManipulateAllTestCase extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Privileged user'),
+      'description' => t('Manipulate all nodequeues.'),
+      'group' => t('Nodequeue'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+
+    $user = $this->drupalCreateUser(array('manipulate queues', 'manipulate all queues'));
+    $this->drupalLogin($user);
+  }
+
+  function testNodequeueAccess() {
+    // create and populate a nodequeue not associated with any roles.
+    $queue = $this->createNodequeue(array('page', 'story'), array());
+    $node = $this->drupalCreateNode(array('type' => 'story', 'promote' => 1));
+
+    // user should still have access to add nodes to the queue
+    $this->drupalGet('node');
+    $this->assertText('Add to '. $queue->title, t('Nodequeue link present on front page.'), t('Nodequeue'));
+
+    // do we have access to the nodequeue tab on a node page?
+    $this->drupalGet('node/'. $node->nid);
+    $this->assertRaw('<a href="' . base_path() . 'node/1/nodequeue">Nodequeue', t('Nodequeue tab is present on node page.'), t('Nodequeue'));
+  }
+
+  function testNodequeueAddNode() {
+    // create two nodequeues; one associated with no roles and one associated
+    // with the authenticated user role.
+    $queue1 = $this->createNodequeue(array('page', 'story'), array());
+    $queue2 = $this->createNodequeue(array('page', 'story'), array(2));
+
+    $node = $this->drupalCreateNode(array('type' => 'story', 'promote' => 1));
+
+    // add the node to both queues.
+    $this->drupalGet('node/'. $node->nid .'/nodequeue');
+    $this->clickLink('Add to queue', 0);
+    $this->assertRaw('"nodequeue-count-1" class="nodequeue-in-queue">1', t('Nodequeue table reports correct number of elements in queue.'), t('Nodequeue'));
+    $this->assertText('Remove from queue', t('"Remove from queue" link is present.'), t('Nodequeue'));
+    $this->clickLink('Add to queue', 0); // since the first link has changed
+    $this->assertRaw('"nodequeue-count-2" class="nodequeue-in-queue">1', t('Nodequeue table reports correct number of elements in queue.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueAdministerTestCase extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Administrator'),
+      'description' => t('Administer nodequeues.'),
+      'group' => t('Nodequeue'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+
+    $user = $this->drupalCreateUser(array('access administration pages', 'manipulate queues', 'manipulate all queues', 'administer nodequeue'));
+    $this->drupalLogin($user);
+  }
+
+  function testNodequeueAddQueue() {
+    // make sure we can access the administration page
+    $this->drupalGet('admin/content/nodequeue');
+    $this->assertText('Add nodequeue', t('"Add nodequeue" link is present.'), t('Nodequeue'));
+    $this->assertText('Settings', t('"Settings" link is present.'), t('Nodequeue'));
+    $this->assertText('No nodequeues exist.', t('Nodequeue table is empty.'), t('Nodequeue'));
+
+    // create a nodequeue...
+    $edit = array(
+      'title'        => 'Testqueue',
+      'size'         => 10,
+      'link'         => 'Add to %subqueue',
+      'link_remove'  => 'Remove from %subqueue',
+//      'roles[2]'     => '2', // FIXME: this makes the test fail...
+      'types[story]' => 'story',
+      'types[page]'  => 'page',
+    );
+    $this->drupalPost('admin/content/nodequeue/add/nodequeue', $edit, 'Submit');
+
+    // ...and make sure we can add a node to it
+    $node = $this->drupalCreateNode(array('type' => 'story', 'promote' => 1));
+    $this->drupalGet('node/'. $node->nid);
+    $this->assertRaw('<a href="' . base_path() . 'node/1/nodequeue">Nodequeue', t('Nodequeue tab is present.'), t('Nodequeue'));
+
+    // add the node to the queue
+    $this->drupalGet('node/'. $node->nid .'/nodequeue');
+    $this->assertText('Testqueue', t('Nodequeue is shown in table.'), t('Nodequeue'));
+    $this->assertText('Queue empty', t('Nodequeue is currently empty.'), t('Nodequeue'));
+    $this->clickLink('Add to queue');
+    $this->assertRaw('class="nodequeue-in-queue">1', t('Nodequeue table reports correct number of elements in queue.'), t('Nodequeue'));
+
+    // try sorting by queue size
+    $this->drupalGet('admin/content/nodequeue');
+    $this->clickLink('Max nodes');
+    $this->assertRaw('Max nodes<img src="' . base_path() . 'misc/arrow-desc.png"', t('Nodequeue table is sorted by max rows descending.'), t('Nodequeue'));
+
+    $this->drupalGet('admin/content/nodequeue');
+    $this->clickLink('Subqueues');
+    $this->assertRaw('Subqueues<img src="' . base_path() . 'misc/arrow-desc.png"', t('Nodequeue table is sorted by subqueues descending.'), t('Nodequeue'));
+  }
+
+  function testNodequeueAddQueueNoTitle() {
+    // make sure we can access the administration page
+    $this->drupalGet('admin/content/nodequeue');
+    $this->assertText('Add nodequeue', t('"Add nodequeue" link is present.'), t('Nodequeue'));
+    $this->assertText('Settings', t('"Settings" link is present.'), t('Nodequeue'));
+    $this->assertText('No nodequeues exist.', t('Nodequeue table is empty.'), t('Nodequeue'));
+
+    // create a nodequeue with no title...
+    $edit = array(
+      'title'        => '',
+      'size'         => 10,
+      'link'         => 'Add to %subqueue',
+      'link_remove'  => 'Remove from %subqueue',
+      'types[story]' => 'story',
+      'types[page]'  => 'page',
+    );
+    $this->drupalPost('admin/content/nodequeue/add/nodequeue', $edit, 'Submit');
+
+    $this->assertText('Please enter a title for this queue.', t("We got an error because we didn't supply a title."), t('Nodequeue'));
+  }
+
+  function testNodequeueEditForm() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid);
+
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/edit');
+    $this->assertRaw("<h2 class=\"with-tabs\">Nodequeue '". $queue->title ."'</h2>", t('Got correct page title on edit form.'), t('Nodequeue'));
+  }
+
+  // make sure that the label of the nodequeue tab can be modified
+  function testNodequeueModifyLabel() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid);
+    $nids  = array_keys($nodes);
+
+    // modify the label of the nodequeue tab...
+    $edit = array(
+      'nodequeue_use_tab'         => TRUE,
+      'nodequeue_tab_display_max' => TRUE,
+      'nodequeue_tab_name'        => 'Nodequeue Test Label',
+    );
+    $this->drupalPost('admin/content/nodequeue/settings', $edit, 'Save configuration');
+
+    // ...and make sure the new label shows up on the node page
+    $this->drupalGet('node/'. $nids[0]);
+    $this->assertRaw('<a href="' . base_path() . 'node/1/nodequeue">Nodequeue', t('Nodequeue tab label has been set.'), t('Nodequeue'));
+  }
+
+  // make sure menu tab is not shown if it is disabled under settings
+  function testNodequeueMenuTab() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid);
+    $nids  = array_keys($nodes);
+
+    // make sure that the tab is present
+    $this->drupalGet('node/'. $nids[0]);
+    $this->assertRaw('<a href="' . base_path() . 'node/1/nodequeue">Nodequeue', t('Nodequeue tab is present.'), t('Nodequeue'));
+
+    // now hide the menu tab
+    $edit = array(
+      'nodequeue_use_tab'         => FALSE,
+      'nodequeue_tab_display_max' => TRUE,
+      'nodequeue_tab_name'        => 'Nodequeue Test Label',
+    );
+    $this->drupalPost('admin/content/nodequeue/settings', $edit, 'Save configuration');
+
+    // make sure that the tab is not present
+    $this->drupalGet('node/'. $nids[0]);
+    $this->assertNoText('Nodequeue', t('Nodequeue tab is not present.'), t('Nodequeue'));
+    $this->assertText('Remove from '. $queue->title, t('Nodequeue link is present.'), t('Nodequeue'));
+  }
+
+  // make sure node count is not shown if it is disabled under settings
+  function testNodequeueTableColumn() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid);
+    $nids  = array_keys($nodes);
+
+    // make sure node count is shown
+    $this->drupalGet('node/'. $nids[0] .'/nodequeue');
+    $this->assertRaw('"nodequeue-max-nodes">'. $queue->size, t('Nodequeue table reports correct queue size.'), t('Nodequeue'));
+
+    // now hide the count
+    $edit = array(
+      'nodequeue_use_tab'         => TRUE,
+      'nodequeue_tab_display_max' => FALSE,
+      'nodequeue_tab_name'        => 'Nodequeue Test Label',
+    );
+    $this->drupalPost('admin/content/nodequeue/settings', $edit, 'Save configuration');
+
+    // make sure node count is not shown
+    $this->drupalGet('node/'. $nids[0] .'/nodequeue');
+    $this->assertNoRaw('"nodequeue-max-nodes">'. $queue->size, t('Nodequeue table reports correct queue size.'), t('Nodequeue'));
+  }
+
+  function testNodequeueTableSort() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+
+    // create two subqueues
+    nodequeue_add_subqueue(&$queue, 'Subqueue 1');
+    nodequeue_add_subqueue(&$queue, 'Subqueue 2', 42);
+
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/view');
+    $this->assertText('Subqueue 1', t('Subqueue 1 is present in subqueue table.'), t('Nodequeue'));
+    $this->assertText('Subqueue 2', t('Subqueue 1 is present in subqueue table.'), t('Nodequeue'));
+  }
+
+  function testNodequeueEditFormRoles() {
+    $queue = $this->createNodequeue(array('page', 'story'), array());
+    $nodes = $this->populateNodequeue($queue->qid);
+
+    $this->drupalLogout();
+    $user = $this->drupalCreateUser(array('access administration pages', 'administer nodequeue'));
+    $this->drupalLogin($user);
+
+    // get rid of any existing roles with permission to manipulate queues
+    $rid = db_result(db_query("SELECT r.rid FROM {role} r LEFT JOIN {permission} p ON p.rid = r.rid WHERE p.perm LIKE '%manipulate queues%' ORDER BY r.name"));
+    if ($rid > 0) {
+      db_query('DELETE FROM {role} WHERE rid = %d', $rid);
+      db_query('DELETE FROM {permission} WHERE rid = %d', $rid);
+    }
+
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/edit');
+    $this->assertText('No roles have the "manipulate queues" permission', t('No roles have permission to modify this nodequeue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueDeleteConfirm() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid);
+
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/delete');
+    $this->assertRaw('<h2>Are you sure you want to delete "<em>'. $queue->title .'</em>"?</h2>', t('Delete confirmation form displayed.'), t('Nodequeue'));
+  }
+
+  // TODO: test nodequeue_admin_delete_submit()
+
+  function testNodequeueViewSubqueue() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/view/'. $subqueue->sqid);
+  }
+
+  function testNodequeueAddNode() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $path = 'admin/content/nodequeue/'. $queue->qid .'/view/'. $subqueue->sqid;
+
+    $node1 = $this->drupalCreateNode(array('title' => 'Bar', 'type' => 'story', 'promote' => 1));
+    $node2 = $this->drupalCreateNode(array('title' => 'Baz', 'type' => 'story', 'promote' => 1));
+
+    // deliberately use an ambiguous title
+    $this->drupalGet($path);
+    $this->drupalPost(NULL, array('add[nid]' => 'B'), 'Add node & save queue');
+    $this->assertRaw('Please enter a valid node title.', t('Got an error message.'), t('Nodequeue'));
+
+    $this->drupalPost(NULL, array('add[nid]' => 'Unknown'), 'Add node & save queue');
+    $this->assertRaw('Please enter a valid node title.', t('Got an error message.'), t('Nodequeue'));
+
+    $this->drupalPost(NULL, array('add[nid]' => $node1->title . ' [nid: ' . $node1->nid . ']'), 'Add node & save queue');
+    $this->assertRaw('<a href="' . base_path() . 'node/'. $node1->nid .'">'. $node1->title .'</a>', t('Node has been added to the nodequeue.'), t('Nodequeue'));
+
+    $this->drupalPost(NULL, array('add[nid]' => $node2->title . ' [nid: ' . $node2->nid . ']'), 'Add node & save queue');
+    $this->assertRaw('<a href="' . base_path() . 'node/'. $node2->nid .'">'. $node2->title .'</a>', t('Node has been added to the nodequeue.'), t('Nodequeue'));
+
+  }
+
+  // @TODO: The admin UI has changed. Is there a better way to test the draggable stuff?
+  /*
+  function testNodequeueQueueActions() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/down/'. $subqueue->sqid);
+
+    $this->clickImage('Move down', 0);
+    $this->clickImage('Move up', 1);
+    $this->clickImage('Move to front', 3);
+    $this->clickImage('Move to back', 0);
+    $this->clickImage('Remove from queue', 3);
+
+    // same as the above, but without valid tokens
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/down/'. $subqueue->sqid .'/1');
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/up/'. $subqueue->sqid .'/2');
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/front/'. $subqueue->sqid .'/4');
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/back/'. $subqueue->sqid .'/1');
+    $this->drupalGet('admin/content/nodequeue/'. $queue->qid .'/remove/'. $subqueue->sqid .'/4');
+  }
+   */
+
+  function testNodequeueQueueOperations() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $path = 'admin/content/nodequeue/'. $queue->qid .'/view/'. $subqueue->sqid;
+
+    $this->drupalPost($path, array(), 'Reverse');
+    $this->assertRaw('The queue has been reversed.', t('The queue has been reversed.'), t('Nodequeue'));
+
+    $this->drupalPost($path, array(), 'Shuffle');
+    $this->assertRaw('The queue has been shuffled.', t('The queue has been shuffled.'), t('Nodequeue'));
+
+    $this->drupalPost($path, array(), 'Clear');
+    $this->assertRaw('<h2>Are you sure you want to clear the nodequeue <em>'. $subqueue->title .'</em>?</h2>', t('Got confirmation form.'), t('Nodequeue'));
+
+    $this->drupalPost($path, array(), 'Save');
+    $this->assertRaw('The queue has been updated', t('The nodequeue has been saved.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueAPIAccessUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Access'),
+      'description' => t('User access restrictions.'),
+      'group' => t('Nodequeue API'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+
+  function testNodequeueNodeTabAccess() {
+    global $user;
+    $user = $this->drupalCreateUser();
+
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 6);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $this->assertFalse(nodequeue_node_tab_access($nodes[1]), t("Don't run queries unless user has 'manipulate queues' permission."), t('Nodequeue'));
+
+    // create a user with permission to manipulate queues
+    $user = $this->drupalCreateUser(array('access administration pages', 'manipulate queues', 'administer nodequeue'));
+
+    $this->assertTrue(nodequeue_node_tab_access($nodes[1]), t("User is granted access to the node tab."), t('Nodequeue'));
+
+    // TODO: case where subqueue is empty
+    //       case where user doesn't have access to subqueue (nodequeue_api_subqueue_access)
+  }
+
+  function testNodequeueQueueAccess() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2));
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    // test using the currenlty logged in user
+    $this->assertTrue(nodequeue_queue_access($queue), t('Access granted to currently logged in user.'), t('Nodequeue'));
+    $this->assertTrue(nodequeue_queue_access($queue, $subqueue), t('Access granted to currently logged in user.'), t('Nodequeue'));
+
+    // a user without nodequeue-related permissions should be denied access
+    $user = $this->drupalCreateUser();
+    $this->assertFalse(nodequeue_queue_access($queue, NULL, $user), t('Access denied because of missing permissions.'), t('Nodequeue'));
+    $this->assertFalse(nodequeue_queue_access($queue, $subqueue, $user), t('Access denied because of missing permissions.'), t('Nodequeue'));
+
+    // create a user with permission to manipulate queues
+    $user = $this->drupalCreateUser(array('manipulate all queues'));
+    $this->assertTrue(nodequeue_queue_access($queue, NULL, $user), t('Access granted because of permission.'), t('Nodequeue'));
+    $this->assertTrue(nodequeue_queue_access($queue, $subqueue, $user), t('Access granted because of permission.'), t('Nodequeue'));
+
+    // TODO: case where nodequeue_api_queue_access() returns FALSE
+  }
+
+  function testNodequeueNodeAndQueueAccess() {
+    // TODO: nodequeue_node_and_queue_access($node, $queue, $subqueue = NULL)
+  }
+
+  function testNodequeueNodeAccess() {
+    // TODO: nodequeue_node_access($type, $location = NULL, $account = NULL)
+  }
+}
+
+class NodequeueAPICRUDUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Nodequeue API CRUD'),
+      'description' => t('Basic Create, Read, Update, Delete functionality.'),
+      'group' => t('Nodequeue'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+
+  function testNodequeueModify() {
+    $queue = $this->createNodequeue(array('story'), array(2));
+    $this->assertTrue(variable_get('nodequeue_links', FALSE), t('hook_link is enabled.'), t('Nodequeue'));
+
+    // update the nodequeue
+    $queue = nodequeue_load($queue->qid);
+    $queue->title = 'New title';
+    $queue->size  = 5;
+    $queue->link  = '';
+    $qid = nodequeue_save(&$queue);
+    $this->assertTrue(is_numeric($qid), t('Nodequeue was updated.'), t('Nodequeue'));
+    $this->assertFalse(variable_get('nodequeue_links', FALSE), t('hook_link is disabled.'), t('Nodequeue'));
+
+    // load the nodequeue and compare it to the one we saved.
+    // this also tests nodequeue_load_queues().
+    $compare = nodequeue_load($qid);
+    $this->assertEqual($queue->title, $compare->title, t('Nodequeue titles are equal.'), t('Nodequeue'));
+    $this->assertEqual($queue->size, $compare->size, t('Nodequeue sizes are equal.'), t('Nodequeue'));
+
+    // delete the nodequeue
+    nodequeue_delete($qid);
+    $deleted = nodequeue_load_queues(array($qid), TRUE);
+    $this->assertTrue(empty($deleted), t('Nodequeue has been deleted.'), t('Nodequeue'));
+
+    // TODO: case for nodequeue_load_queues() with $bypass_cache = FALSE
+  }
+
+  function testNodequeueSubqueueLoad() {
+    // TODO: subqueue_load($sqid)
+  }
+
+  function testNodequeueAddSubqueue() {
+    // TODO: nodequeue_add_subqueue(&$queue, $title, $reference = NULL)
+  }
+
+  function testNodequeueSubqueueUpdateTitle() {
+    // TODO: nodequeue_subqueue_update_title($sqid, $title)
+  }
+
+  function testNodequeueRemoveSubqueue() {
+    // TODO: nodequeue_remove_subqueue($sqid)
+  }
+
+  function testNodequeueLoadQueue() {
+    // TODO:
+    // nodequeue_load_queues_by_type($type, $location = NULL, $account = NULL, $bypass_cache = FALSE)
+    // nodequeue_load_subqueues($sqids, $bypass_cache = FALSE)
+    // nodequeue_load_subqueue($sqid, $bypass_cache = FALSE)
+    // nodequeue_load_subqueues_by_queue($qids, $page_size = 0)
+    // nodequeue_load_subqueues_by_reference($references, $bypass_cache = FALSE)
+  }
+
+  function testNodequeueGetQIDs() {
+    // TODO: nodequeue_get_qids($type, $account = NULL, $bypass_cache = FALSE)
+  }
+
+  function testNodequeueGetAllQIDs() {
+    // TODO: nodequeue_get_all_qids($page_size = 25, $pager_element = 0, $bypass_cache = FALSE)
+  }
+
+  function testNodequeueFilterQIDs() {
+    // TODO: nodequeue_filter_qids(&$qids, $location)
+  }
+}
+
+class NodequeueAPISubqueueUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Subqueue'),
+      'description' => t('Manipulate subqueue elements.'),
+      'group' => t('Nodequeue API'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+
+  function testNodequeueSubqueueAdd() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 3);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $nodes = array();
+    for ($i = 0; $i < 4; $i++) {
+      $nodes[] = $this->drupalCreateNode(array('type' => 'story'));
+    }
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[0]->nid);
+    $this->assertEqual($subqueue->count, 1, t('Subqueue contains 1 element.'), t('Nodequeue'));
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[1]->nid);
+    $this->assertEqual($subqueue->count, 2, t('Subqueue is full.'), t('Nodequeue'));
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[2]->nid);
+    $this->assertEqual($subqueue->count, 3, t('Subqueue is full.'), t('Nodequeue'));
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[3]->nid);
+    $this->assertEqual($subqueue->count, 3, t('Subqueue is full.'), t('Nodequeue'));
+
+    $pos = nodequeue_subqueue_position($subqueue->sqid, $nodes[0]->nid);
+    $this->assertFalse($pos, t('First node has been pushed out of the queue.'), t('Nodequeue'));
+
+    $pos = nodequeue_subqueue_position($subqueue->sqid, $nodes[1]->nid);
+    $this->assertEqual($pos, 1, t('Second node is now at the front of the queue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueSubqueueRemove() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 3);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $nodes = array();
+    for ($i = 0; $i < 4; $i++) {
+      $nodes[] = $this->drupalCreateNode(array('type' => 'story'));
+    }
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[0]->nid);
+    $this->assertEqual($subqueue->count, 1, t('Subqueue contains one element.'), t('Nodequeue'));
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[1]->nid);
+    $this->assertEqual($subqueue->count, 2, t('Subqueue contains two elements.'), t('Nodequeue'));
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[2]->nid);
+    $this->assertEqual($subqueue->count, 3, t('Subqueue is full.'), t('Nodequeue'));
+
+    nodequeue_subqueue_remove($subqueue->sqid, 3);
+    $count = db_result(db_query('SELECT COUNT(*) FROM {nodequeue_nodes} WHERE sqid = %d', $subqueue->sqid));
+    $this->assertEqual($count, 2, t('Subqueue contains two elements.'), t('Nodequeue'));
+
+    nodequeue_subqueue_add($queue, &$subqueue, $nodes[3]->nid);
+    $pos = db_result(db_query('SELECT position FROM {nodequeue_nodes} WHERE sqid = %d AND nid = %d', $subqueue->sqid, $nodes[3]->nid));
+    $this->assertEqual($pos, 3, t('New element added to back of queue.'), t('Nodequeue'));
+
+    nodequeue_subqueue_remove($subqueue->sqid, 1, 2);
+    $pos = db_result(db_query('SELECT position FROM {nodequeue_nodes} WHERE sqid = %d AND nid = %d', $subqueue->sqid, $nodes[3]->nid));
+    $this->assertEqual($pos, 1, t('Remaining element moved to position 1.'), t('Nodequeue'));
+  }
+
+  function testNodequeueSubqueueRemoveNode() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 3);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $nodes = array();
+    for ($i = 0; $i < 3; $i++) {
+      $node = $this->drupalCreateNode(array('type' => 'story'));
+      nodequeue_subqueue_add($queue, &$subqueue, $node->nid);
+      $nodes[] = $node;
+    }
+    $this->assertEqual($subqueue->count, 3, t('Subqueue contains three elements.'), t('Nodequeue'));
+
+    nodequeue_subqueue_remove_node($subqueue->sqid, $nodes[0]->nid);
+    $count = db_result(db_query('SELECT COUNT(*) FROM {nodequeue_nodes} WHERE sqid = %d', $subqueue->sqid));
+    $this->assertEqual($count, 2, t('Subqueue contains two elements.'), t('Nodequeue'));
+
+    $pos = db_result(db_query('SELECT position FROM {nodequeue_nodes} WHERE sqid = %d AND nid = %d', $subqueue->sqid, $nodes[1]->nid));
+    $this->assertEqual($pos, 1, t('Remaining nodes have been moved closer to the front of the queue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueueClear() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 3);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $nodes = array();
+    for ($i = 0; $i < 3; $i++) {
+      $node = $this->drupalCreateNode(array('type' => 'story'));
+      nodequeue_subqueue_add($queue, &$subqueue, $node->nid);
+      $nodes[] = $node;
+    }
+    $this->assertEqual($subqueue->count, 3, t('Subqueue contains three elements.'), t('Nodequeue'));
+
+    nodequeue_queue_clear($subqueue->sqid);
+    $count = db_result(db_query('SELECT COUNT(*) FROM {nodequeue_nodes} WHERE sqid = %d', $subqueue->sqid));
+    $this->assertEqual($count, 0, t('Subqueue contains no elements.'), t('Nodequeue'));
+  }
+
+  function testNodequeueCheckSubqueueSize() {
+    // TODO: nodequeue_check_subqueue_size($queue, &$subqueue, $size = NULL)
+  }
+
+  function testNodequeueCheckSubqueueSizes() {
+    // TODO: nodequeue_check_subqueue_sizes($queue)
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 3);
+    $rv = nodequeue_check_subqueue_sizes($queue);
+    $this->assertNull($rv, t('Subqueue has infinite size.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueueSwap() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    nodequeue_queue_swap($subqueue, 1, 4);
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[0]);
+    $this->assertEqual($pos, 4, t('First node got a new position.'), t('Nodequeue'));
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[3]);
+    $this->assertEqual($pos, 1, t('Last node got a new position.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueueUp() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    nodequeue_queue_up($subqueue, 3);
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[2]);
+    $this->assertEqual($pos, 2, t('Node was moved one position up.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_up($subqueue, 1);
+    $this->assertNull($rv, t('No action if position is 1.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_up($subqueue, 42);
+    $this->assertNull($rv, t('No action if position is out of bounds.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueueDown() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    nodequeue_queue_down($subqueue, 2);
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[1]);
+    $this->assertEqual($pos, 3, t('Node was moved one position down.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_down($subqueue, 0);
+    $this->assertNull($rv, t('No action if position is out of bounds.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_down($subqueue, 42);
+    $this->assertNull($rv, t('No action if position is out of bounds.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueueFront() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    nodequeue_queue_front($subqueue, 3);
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[2]);
+    $this->assertEqual($pos, 1, t('Node was moved to the front of the queue.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_front($subqueue, 1);
+    $this->assertNull($rv, t('No action if position is 1.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_front($subqueue, 42);
+    $this->assertNull($rv, t('No action if position is out of bounds.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueueBack() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    nodequeue_queue_back($subqueue, 2);
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[1]);
+    $this->assertEqual($pos, 4, t('Node was moved to the back of the queue.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_down($subqueue, 0);
+    $this->assertNull($rv, t('No action if position is out of bounds.'), t('Nodequeue'));
+
+    $rv = nodequeue_queue_down($subqueue, 42);
+    $this->assertNull($rv, t('No action if position is out of bounds.'), t('Nodequeue'));
+  }
+
+  function testNodequeueSubqueueShuffle() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    nodequeue_subqueue_shuffle($subqueue);
+
+    $shuffled = FALSE;
+    for ($i = 0; $i < 4; $i++) {
+      $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[$i]);
+      if ($pos != $i +1) {
+        $shuffled = TRUE;
+      }
+    }
+    $this->assertTrue($shuffled, t('Node has been moved to a new position.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueAPINodeUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Node'),
+      'description' => t('Get node-related info from subqueues.'),
+      'group' => t('Nodequeue API'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+
+  function testNodequeueGetSubqueuePosition() {
+    // TODO: nodequeue_get_subqueue_position($sqid, $nid)
+  }
+
+  function testNodequeueGetSubqueuePositions() {
+    // TODO: nodequeue_set_subqueue_positions(&$subqueues, $nid)
+  }
+
+  function testNodequeueGetSubqueueByNode() {
+    // TODO: nodequeue_get_subqueues_by_node($queues, $node)
+  }
+}
+
+class NodequeueAPIMiscUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Misc'),
+      'description' => t('Miscellaneous API functions.'),
+      'group' => t('Nodequeue API'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+  
+  function testNodequeueGetSubqueueSizeText() {
+    // TODO: nodequeue_subqueue_size_text($max, $count, $long = TRUE)
+  }
+
+  function testNodequeueTitleSubstitute() {
+    // TODO: nodequeue_title_substitute($text, $queue, $subqueue)
+  }
+
+  function testNodequeueAutocomplete() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 6);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = _nodequeue_autocomplete(0, '');
+    $this->assertTrue(empty($rv), t('No sqid. No nodes returned.'), t('Nodequeue'));
+
+    $rv = _nodequeue_autocomplete($subqueue->sqid, '');
+    $this->assertTrue(empty($rv), t('No string. No nodes returned.'), t('Nodequeue'));
+
+    $rv = _nodequeue_autocomplete(42, 'Foo');
+    $this->assertTrue(empty($rv), t('Unknown sqid. No nodes returned.'), t('Nodequeue'));
+
+    $rv = _nodequeue_autocomplete($subqueue->sqid, substr($nodes[1]->title, 0, 16));
+    $this->assertTrue((count($rv) > 0), t('At least one node returned.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueHooksUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Hooks'),
+      'description' => t('Test hook implementations.'),
+      'group' => t('Nodequeue'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+
+  function testNodequeueViewsAPI() {
+    $info = nodequeue_views_api();
+    $this->assertEqual($info['api'], 2, t('Correct API version reported.'), t('Nodequeue'));
+    $this->assertEqual($info['path'], drupal_get_path('module', 'nodequeue') .'/includes/views', t('Correct API version reported.'), t('Nodequeue'));
+  }
+
+  function testNodequeueNodeAPIDelete() {
+    // create and populate a nodequeue
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $pos = nodequeue_get_subqueue_position($subqueue->sqid, $nids[2]);
+    $this->assertTrue(is_numeric($pos), t('Node has a position in the nodequeue.'), t('Nodequeue'));
+
+    node_delete($nids[2]);
+    $pos = db_result(db_query('SELECT position FROM  {nodequeue_nodes} WHERE sqid = %d AND nid = %d', $subqueue->sqid, $nids[2]));
+    $this->assertEqual($pos, 0, t('Node is no longer in the nodequeue.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueApacheSolrUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Apache Solr'),
+      'description' => t('Test Apache Solr utility functions.'),
+      'group' => t('Nodequeue ApacheSolr'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue', 'apachesolr');
+  }
+
+  function testNodequeueSolrQIDKey() {
+    $key = _nodequeue_solr_qid_key();
+    $this->assertNotNull($key, t('Got an Apache Solr index key.'), t('Nodequeue'));
+  }
+
+  function testNodequeueApacheSolrUpdateIndex() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $document = new stdClass();
+
+    nodequeue_apachesolr_update_index(&$document, $nodes[1]);
+
+    $this->assertEqual($document->sim_nodequeue, 1, t('Got expected key on document object.'), t('Nodequeue'));
+  }
+
+  function testNodequeueApacheSolrModifyQuery() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+    $nids  = array_keys($nodes);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    variable_set('nodequeue_apachesolr_boost_'. $subqueue->sqid, '2.0');
+
+    $params = array();
+
+    nodequeue_apachesolr_modify_query('', &$params, '');
+
+    $this->assertTrue(isset($params['bq']), t('Apachesolr bq has been set.'), t('Nodequeue'));
+    $this->assertTrue(isset($params['facet.field']), t('Apachesolr facet.field has been set.'), t('Nodequeue'));
+  }
+
+  // FIXME: move to class with functional tests?
+  function testNodequeueApacheSolrFormAlter() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $form = $form_state = array();
+
+    nodequeue_form_apachesolr_search_bias_form_alter(&$form, $form_state);
+
+    $this->assertTrue(!empty($form['biasing']['nodequeue_boost']), t('Nodequeue boost fieldset exists.'), t('Nodequeue'));
+  }
+}
+
+class NodequeueExternalFetchingUnitTest extends NodequeueWebTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('External'),
+      'description' => t('External queue fetching.'),
+      'group' => t('Nodequeue API'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('nodequeue');
+  }
+
+  function testNodequeueNodeTitles() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = nodequeue_node_titles($subqueue->sqid, 'Queue title');
+    $this->assertTrue(strpos($rv, 'Queue title'), t('Found list header.'), t('Nodequeue'));
+    $this->assertTrue(strpos($rv, $nodes[1]->title), t('Found a node.'), t('Nodequeue'));
+
+    $rv = nodequeue_node_titles($subqueue->sqid, 'Queue title', TRUE, 0, 2);
+    $this->assertTrue(strpos($rv, $nodes[4]->title), t('Found the first node in the queue.'), t('Nodequeue'));
+    $this->assertFalse(strpos($rv, $nodes[1]->title), t('Node outside the limit is not in the queue.'), t('Nodequeue'));
+
+    $rv = nodequeue_node_titles($subqueue->sqid, 'Queue title', TRUE, 0, 0);
+    $this->assertTrue(strpos($rv, $nodes[1]->title), t('Got all nodes.'), t('Nodequeue'));
+  }
+
+  function testNodequeueViewNodes() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = nodequeue_view_nodes($subqueue->sqid);
+    $this->assertTrue(strpos($rv, $nodes[1]->title), t('Found a node.'), t('Nodequeue'));
+
+    $rv = nodequeue_view_nodes($subqueue->sqid, TRUE, TRUE, TRUE, 0, 2);
+    $this->assertTrue(strpos($rv, $nodes[4]->title), t('Found the first node in the queue.'), t('Nodequeue'));
+    $this->assertFalse(strpos($rv, $nodes[1]->title), t('Node outside the limit is not in the queue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueLoadNodes() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    // FIXME: use title for comparison in stead of nid
+    $rv = nodequeue_load_nodes($subqueue->sqid);
+    $this->assertEqual($rv[0]->title, $nodes[1]->title, t('Found the first node in the queue.'), t('Nodequeue'));
+
+    $rv = nodequeue_load_nodes($subqueue->sqid, FALSE, 0, 0);
+    $this->assertTrue(count($rv) == 4, t('Got all nodes from nodequeue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueLoadFrontBack() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = nodequeue_load_front($subqueue->sqid);
+    $this->assertEqual($rv->title, $nodes[1]->title, t('Got the front node.'), t('Nodequeue'));
+
+    $rv = nodequeue_load_back($subqueue->sqid);
+    $this->assertEqual($rv->title, $nodes[4]->title, t('Got the back node.'), t('Nodequeue'));
+  }
+
+  function testNodequeueViewRandom() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = nodequeue_view_random_node($subqueue->sqid);
+    $found = FALSE;
+    foreach ($nodes as $node) {
+      if (strpos($rv, $node->title)) {
+        $found = TRUE;
+        break;
+      }
+    }
+    $this->assertTrue($found, t('Got a node from the queue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueLoadRandom() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = nodequeue_load_random_node($subqueue->sqid);
+    $found = FALSE;
+    foreach ($nodes as $node) {
+      if ($rv->title == $node->title) {
+        $found = TRUE;
+        break;
+      }
+    }
+    $this->assertTrue($found, t('Got a node object from the queue.'), t('Nodequeue'));
+  }
+
+  function testNodequeueQueuePosition() {
+    $queue = $this->createNodequeue(array('page', 'story'), array(2), 4);
+    $nodes = $this->populateNodequeue($queue->qid, 4);
+
+    $subqueues = nodequeue_load_subqueues_by_queue($queue->qid);
+    $subqueue = array_shift($subqueues);
+
+    $rv = nodequeue_queue_position($subqueue->sqid, 3);
+    $this->assertEqual($rv, 3, t('Got a node object from the queue.'), t('Nodequeue'));
+  }
+}
+
+// TODO: nodequeue_view_subqueues($queue)
+// TODO: nodequeue_api_autocomplete($queue, $subqueue, $string)

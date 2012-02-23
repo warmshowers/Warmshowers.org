@@ -1,4 +1,3 @@
-$Id: README.txt,v 1.25.2.1 2008/04/19 11:32:44 augustin Exp $
 
 Introduction
 ================

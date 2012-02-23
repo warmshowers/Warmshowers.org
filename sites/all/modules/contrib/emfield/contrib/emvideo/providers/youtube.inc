@@ -1,5 +1,5 @@
 <?php
-// $Id: youtube.inc,v 1.1.2.52 2010/01/08 21:28:06 alexua Exp $
+// $Id: youtube.inc,v 1.1.2.53 2010/09/17 16:58:15 alexua Exp $
 
 /**
  * @file
@@ -337,7 +337,7 @@ function emvideo_youtube_extract($code = '') {
   // http://youtube.com/watch?v=nvbQQnvxXDk
   // http://www.youtube.com/watch?v=YzFCA-xUc8w&feature=dir
   return array(
-    '@youtube\.com/v/([^"\& ]+)@i',
+    '@youtube\.com/v/([^\?"\& ]+)@i',
     '@youtube\.com/watch\?v=([^"\& ]+)@i',
     '@youtube\.com/\?v=([^"\& ]+)@i',
   );

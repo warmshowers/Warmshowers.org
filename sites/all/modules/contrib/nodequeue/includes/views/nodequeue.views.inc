@@ -1,5 +1,4 @@
 <?php
-// $Id: nodequeue.views.inc,v 1.4 2008/12/23 18:59:55 ezrag Exp $
 
 /**
  * @file nodequeue.views.inc
@@ -16,8 +15,9 @@
  * really quite simple.
  */
 
-
-
+/**
+ * Implementation of hook_views_handlers().
+ */
 function nodequeue_views_handlers() {
   return array(
   'info' => array(
@@ -45,11 +45,15 @@ function nodequeue_views_handlers() {
       'nodequeue_handler_relationship_nodequeue' => array(
         'parent' => 'views_handler_relationship',
       ),
+      'nodequeue_handler_relationship_nodequeue_queue_name' => array(
+        'parent' => 'views_handler_relationship',
+      ),
     ),
   );
 }
+
 /**
- * Implementation of hook_views_data()
+ * Implementation of hook_views_data().
  */
 function nodequeue_views_data() {
   $data = array();
@@ -172,6 +176,24 @@ function nodequeue_views_data() {
     ),
   );
 
+  $data['nodequeue_queue']['name'] = array(
+    'title' => t('Queue machine name'),
+    'help' => t('The machine name of the queue.'),
+    'field' => array(
+      'handler' => 'views_handler_field',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_string',
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_string',
+    ),
+  );
+
   // ----------------------------------------------------------------
   // nodequeue_subqueue table
   $data['nodequeue_subqueue']['table']['group'] = t('Nodequeue');
@@ -230,11 +252,24 @@ function nodequeue_views_data_alter(&$data) {
   // queue relationship
   $data['node']['nodequeue_rel'] = array(
     'group' => t('Nodequeue'),
-    'title' => t('Queue'),
-    'help' => t('Create a relationship to a nodequeue.'),
+    'title' => t('Queue (qid)'),
+    'help' => t('Create a relationship to a nodequeue. This relationship requires one less JOIN than the queue name relationship, but is less useful if you are exporting this view across sites.'),
     'real field' => 'nid',
     'relationship' => array(
       'handler' => 'nodequeue_handler_relationship_nodequeue',
+      'base' => 'nodequeue_nodes',
+      'field' => 'nid',
+      'label' => t('queue'),
+    ),
+  );
+
+  $data['node']['nodequeue_rel_queue_name'] = array(
+    'group' => t('Nodequeue'),
+    'title' => t('Queue (name)'),
+    'help' => t('Create a relationship to a nodequeue. This relationship requires an additional JOIN versus the queue qid based relationship, but is more useful for exporting views across sites.'),
+    'real field' => 'nid',
+    'relationship' => array(
+      'handler' => 'nodequeue_handler_relationship_nodequeue_queue_name',
       'base' => 'nodequeue_nodes',
       'field' => 'nid',
       'label' => t('queue'),

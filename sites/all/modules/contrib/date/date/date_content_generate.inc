@@ -6,7 +6,7 @@
  */
 function _date_content_generate($node, $field) {
   include_once('./'. drupal_get_path('module', 'date_api') .'/date_api_elements.inc');
-  
+
   $node_field = array();
   if (isset($field['widget']['year_range'])) {
     $split = explode(':', $field['widget']['year_range']);
@@ -27,7 +27,7 @@ function _date_content_generate($node, $field) {
 	date_modify($start, "+$seconds seconds");
 	$increment = $field['widget']['increment'];
   date_increment_round($start, $increment);
-    
+
 	// Modify To date by 1 hour to 3 days, shorter for repeating dates
 	// longer for others.
 	$start2 = drupal_clone($start);
@@ -35,7 +35,7 @@ function _date_content_generate($node, $field) {
 	$max = 240;
   date_modify($start2, '+'. mt_rand(60, $max) .' minutes');  
   date_increment_round($start2, $increment);
-      
+
   if ($field['tz_handling'] == 'date') {
     // Choose a random timezone.
     // Not all keys exist, so we have to check.
@@ -51,7 +51,7 @@ function _date_content_generate($node, $field) {
   else {
     $timezone = date_get_timezone($field['tz_handling']);
   }
-    
+
   switch ($field['type']) {
     case 'date':
       $format = DATE_FORMAT_ISO;
@@ -72,16 +72,16 @@ function _date_content_generate($node, $field) {
   $node_field['offset'] = date_offset_get($start);
   date_timezone_set($start2, timezone_open($timezone));
   $node_field['offset2'] = date_offset_get($start2);     	 	
-  
+
   if (!empty($field['repeat'])) {
     include_once('./'. drupal_get_path('module', 'date_repeat') .'/date_repeat_calc.inc');
     include_once('./'. drupal_get_path('module', 'date') .'/date_repeat.inc');
     include_once('./'. drupal_get_path('module', 'date_api') .'/date_api_ical.inc');
-  
+
     // Create a repeating date.
     $duration = date_difference($start, $start2);
     $form_values = array();
-    
+
     // Create the default case more frequently than case 1 or 2.
     $which = mt_rand(0, 10);
     $max_items = 10;
@@ -124,9 +124,9 @@ function _date_content_generate($node, $field) {
         $form_values['BYDAY'] = array($dow);
         break;
     }
-    
+
     $form_values['INTERVAL'] = $interval;
-    
+
     switch ($freq) {
       case 'YEARLY':
         $period = 'year';
@@ -140,17 +140,17 @@ function _date_content_generate($node, $field) {
       default:
         $period = 'day';
         break;
-        
+
     }
     date_modify($start2, '+'. max(1, $forward) .' years');
     date_increment_round($start2, $increment);
     $until = date_format($start2, 'Y-m-d H:i:s');
     $form_values['UNTIL'] = array('datetime' => $until, 'tz' => 'UTC');
     $form_values['COUNT'] = $max_items;
-    
+
     $rrule = date_api_ical_build_rrule($form_values);
     $values = date_repeat_build_dates($rrule, $form_values, $field, $node_field);
-    
+
     $start = $node_field;
     $node_field = array(0 => $start);
     $node_field[0]['rrule'] = $rrule;

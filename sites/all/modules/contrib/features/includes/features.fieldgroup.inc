@@ -1,5 +1,4 @@
 <?php
-// $Id: features.fieldgroup.inc,v 1.1.2.7 2010/07/24 21:46:24 yhahn Exp $
 
 /**
  * Implementation of hook_features_api().

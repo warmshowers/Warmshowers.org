@@ -1,5 +1,4 @@
 <?php
-// $Id: features.context.inc,v 1.1.2.19 2010/07/29 21:57:08 yhahn Exp $
 
 /**
  * Determine context major branch version.

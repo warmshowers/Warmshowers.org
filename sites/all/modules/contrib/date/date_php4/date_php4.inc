@@ -1,5 +1,4 @@
 <?php
-// $Id: date_php4.inc,v 1.27.4.41 2010/08/13 10:50:52 karens Exp $
 
 /**
  * @file
@@ -396,14 +395,14 @@ if (!function_exists('date_modify')) {
   function date_modify(&$date, $change) { 
     $cdate = $date->value;
     $time = substr($date->value, 11, 8);
-   
+
     // We have to use strings like 'First Sunday' instead of
     // +1 Sunday to overcome a PHP5 bug (see #369020).
     // Swap those values out here and go back to '+1 Sunday',
     // the code that works in PHP4.
     $replace = array_flip(date_order());
     $change = strtr($change, $replace);
-    
+
     $change = trim($change);   
     //Date is too old for strtotime(), or looking for custom +/- values, use date_calc instead.
     if (substr($change, 0, 1) != '+' && substr($change, 0, 1) != '-'
@@ -614,13 +613,13 @@ function date_is_dst($timestamp, $timezone = NULL) {
   if (empty($timezone)) {
     $timezone = date_default_timezone_name();
   }
-  
+
   static $timezone_map = array();
   if (empty($timezone_map)) {
     include(drupal_get_path('module', 'date_php4') .'/date_php4_tz_map.inc');
   }
   $region = array_key_exists($timezone, $timezone_map) ? $timezone_map[$timezone]['dst_region'] : 0;
-           
+
   // This should really be done with date_date() to get the right timezone
   // adjustment for the year, but that leads to circular code that won't
   // work, so we're stuck with date(), which hopefully will create the right
@@ -948,7 +947,7 @@ function date_mktime($hr, $min, $sec, $mon = false, $day = false, $year = false,
   $mon = intval($mon) > 0 ? intval($mon) : date('n');
   $day = intval($day) > 0 ? intval($day) : date('j');
   $year = intval($year) > 0 ? intval($year) : date('Y');
-  
+
   // Don't use native handling for any values that could create negative
   // timestamp, Windows does not support them at all in PHP 4, and
   // the adodb date library notes that since RedHat 7.3, negative 
@@ -959,7 +958,7 @@ function date_mktime($hr, $min, $sec, $mon = false, $day = false, $year = false,
   if (1971 < $year && $year < 2037 && $is_gmt) {
     return @gmmktime($hr, $min, $sec, $mon, $day, $year);
   }
-  
+
   return _date_mktime($hr, $min, $sec, $mon, $day, $year, $timezone);
 }
 
@@ -987,7 +986,6 @@ function date_get_gmt_diff_ts($timestamp, $timezone = NULL) {
   $date->timezone = $timezone;
   return date_offset_get($date);
 }
-
 
 /**
  * Fix 2-digit years. Works for any century. Assumes that if 2-digit is

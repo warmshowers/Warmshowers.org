@@ -1,5 +1,4 @@
 <?php
-//$Id: date_php4_tz_create.inc,v 1.1 2007/10/31 19:06:42 karens Exp $
 
 /**
  * @file

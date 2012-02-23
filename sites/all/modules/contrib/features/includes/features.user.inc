@@ -1,5 +1,4 @@
 <?php
-// $Id: features.user.inc,v 1.1.2.15 2010/08/05 20:59:41 yhahn Exp $
 
 /**
  * Implementation of hook_features_api().

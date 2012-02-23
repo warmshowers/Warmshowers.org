@@ -1,5 +1,4 @@
 <?php
-// $Id: ranking.inc,v 1.8.2.37.2.12 2010/06/25 20:12:41 mirodietiker Exp $
 
 /**
  * @file
@@ -21,7 +20,7 @@ function advpoll_algorithms_ranking() {
   );
 }
 
-function advpoll_voting_ranking_form(&$form_state, &$node, $teaser, $page, $status) {
+function advpoll_voting_ranking_form(&$form_state, $node, $teaser, $page, $status) {
   static $ranking_form_count = 0; 
   
   $form = array(

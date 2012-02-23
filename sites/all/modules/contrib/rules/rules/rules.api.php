@@ -1,5 +1,5 @@
 <?php
-// $Id: rules.api.php,v 1.1.2.8 2009/08/25 14:52:52 fago Exp $
+// $Id: rules.api.php,v 1.1.2.10 2010/03/08 18:22:24 fago Exp $
 
 /**
  * @file
@@ -637,13 +637,57 @@ function hook_rules_action_type_map() {
  * @param $rule
  *   An array representing the rule with its properties.
  */
-function hook_rules_import($rule) {
+function hook_rules_import(&$rule) {
   // Examine the rule, e.g. check if it is event-triggered.
   if ($rule['#set'] === 'event_my_module') {
     // Initiate post-processing that is needed to make to rule work.
   }
 }
 
+/**
+ * Provides a default rule.
+ *
+ * Modules that implement this hook have to provide a configuration array that
+ * contains rules and/or rule sets. You can use the output from the export
+ * functionality, but you have to change rules and rule sets names and you need
+ * to set the status property to 'default' or 'fixed'.
+ *
+ * @return
+ *   An array containing the configuration.
+ * 
+ * @see http://drupal.org/node/298634
+ */
+function hook_rules_defaults() {
+  $config = array (
+    'rules' =>
+    array (
+       // A default rule.
+      'yourmodule_default_rule_1' => array(
+        '#status' => 'default',
+        // Your other rule properties here.
+      ),
+      // A fixed rule (hidden from the Rules admin user interface).
+      'yourmodule_default_rule_2' => array(
+        '#status' => 'fixed',
+        // Your other rule properties here.
+      ),
+    ),
+    'rule_sets' =>
+    array(
+      // A default rule set.
+      'yourmodule_default_set_1' => array(
+        'status' => 'default',
+        // Your other rule set properties here.
+      ),
+      // A fixed rule set (hidden from the Rules admin user interface).
+      'yourmodule_default_set_2' => array(
+        'status' => 'fixed',
+        // Your other rule properties here.
+      ),
+    ),
+  );
+  return $config;
+}
 
 /**
  * @}

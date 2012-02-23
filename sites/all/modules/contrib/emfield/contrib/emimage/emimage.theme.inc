@@ -1,5 +1,5 @@
 <?php
-// $Id: emimage.theme.inc,v 1.1.2.8 2010/07/19 17:16:26 aaron Exp $
+// $Id: emimage.theme.inc,v 1.1.2.9 2010/11/17 16:33:33 aaron Exp $
 
 /**
  *  @file
@@ -10,7 +10,23 @@
  *  Helper theme for various emimage themes.
  */
 function theme_emimage_image($field, $item, $formatter, $node, $code, $width = NULL, $height = NULL, $title = '', $link = NULL, $options = array()) {
-  $url = module_invoke('emfield', 'include_invoke', 'emimage', $item['provider'], 'image_url', $code, $width, $height, $formatter, $field, $item, $node);
+  // Get a thumbnail URL. This can be an override through $options['thumbnail_url'],
+  // defined by the provider (the usual case), or a default image.
+  if (isset($options['thumbnail_url']) || ($item['value'] && $item['provider'])) {
+    // If we've set $options['thumbnail_url'], then we'll just use that.
+    $url = isset($options['thumbnail_url']) ? $options['thumbnail_url'] : '';
+
+    // Otherwise, if we have emthumb installed, then give it a chance to override our thumbnail.
+    if (empty($url) && function_exists('emthumb_thumbnail_path')) {
+      $url = emthumb_thumbnail_path($item);
+    }
+
+    // If we don't have a custom thumbnail, then see if the provider gives us a thumbnail.
+    if (empty($url)) {
+      $url = module_invoke('emfield', 'include_invoke', 'emimage', $item['provider'], 'image_url', $code, $width, $height, $formatter, $field, $item, $node);
+    }
+  }
+
   $attributes = array();
   if ($width) {
     $attributes['width'] = $width;

@@ -1,5 +1,4 @@
 <?php
-// $Id: i18n.admin.inc,v 1.2.2.7 2009/01/21 13:08:35 jareyero Exp $
 
 /**
  * @file
@@ -61,3 +60,81 @@ function _i18n_selection_mode() {
   );
 }
 
+/**
+ * Variables overview form
+ */
+function i18n_admin_variables_form() {
+  $i18n_variables = i18n_variable();
+  $i18n_current = array();
+  $result = db_query("SELECT DISTINCT(name) FROM {i18n_variable}");
+  while ($variable = db_fetch_object($result)) {
+    $i18n_current[] = $variable->name;
+  }
+  $i18n_list = array_unique(array_merge($i18n_variables, $i18n_current));
+  foreach ($i18n_list as $name) {
+    $is_multilingual = in_array($name, $i18n_variables);
+    $has_value = in_array($name, $i18n_current);
+    if ($is_multilingual) {
+      $class = $has_value ? 'ok' : 'info';
+    }
+    elseif ($has_value) {
+      $class = 'error';
+    }
+    $rows[] = array(
+      'class' => $class, 
+      'data' => array(
+        array('data' => $name, 'colspan' => 2, 'header' => TRUE),
+        $is_multilingual ? t('Yes') : t('No'),
+        $has_value ? t('Yes') : t('No'),
+      ),
+    );
+  }
+  if ($i18n_list) {
+    $header = array('', t('Variable name'), t('Is multilingual'), t('Has translations'));
+    $form['variables']['#value'] = theme('table', $header, $rows, array('class' => 'system-status-report'));
+  }
+  else {
+    $form['variables']['#value'] = t('There are no multilingual variables.');
+  }
+  if (count($i18n_list) > count($i18n_variables)) {
+    $form['clean'] = array(
+      '#type' => 'fieldset',
+      '#description' => t('Delete all existing translations for variables that are not marked as multilingual.'),
+    );
+    $form['clean']['cleanup'] = array(
+      '#type' => 'submit',
+      '#value' => t('Clean up variables'),
+    );    
+  }
+  if ($i18n_current) {
+    $form['delete'] = array(
+      '#type' => 'fieldset',
+      '#description' => t('Delete all existing translations for variables.'),
+    );
+    $form['delete']['deleteall'] = array(
+      '#type' => 'submit',
+      '#value' => t('Delete all translations'),
+    );      
+  }
+  return $form;
+}
+
+/**
+ * Admin variables form submission
+ */
+function i18n_admin_variables_form_submit($form, &$form_state) {
+  $op = isset($form_state['values']['op']) ? $form_state['values']['op'] : '';
+  switch ($op) {
+    case t('Clean up variables'):
+      if ($variables = i18n_variable()) {
+        db_query("DELETE FROM {i18n_variable} WHERE name NOT IN (". db_placeholders($variables, 'varchar') . ')', $variables);
+        break;
+      }
+      // Intenational no break, if no variables defined delete all
+    case t('Delete all translations'):
+      db_query("DELETE FROM {i18n_variable}");
+      break;
+  }
+  // Rebuild cache
+  cache_clear_all('variables:', 'cache', TRUE);
+}

@@ -1,5 +1,4 @@
 <?php
-// $Id: date_api.module,v 1.64.2.5.2.121 2011/01/01 00:29:04 karens Exp $
 /**
  * @file
  * This module will make the date API available to other modules.
@@ -449,8 +448,10 @@ function date_format_patterns($strict = FALSE) {
     'Y' => '\d{4}',    'y' => '\d{2}',      'B' => '\d{3}',   'g' => '\d{1,2}',
     'G' => '\d{1,2}',  'e' => '\w*',        'I' => '\d',      'T' => '\w*',
     'U' => '\d*',      'z' => '[+-]?\d*',   'O' => '[+-]?\d{4}',
-    //Using S instead of w and 3 as well as 4 to pick up non-ASCII chars like German umlaute
-    'D' => '\S{3,4}',    'l' => '\S*', 'M' => '\S{3,4}', 'F' => '\S*',
+    //Using S instead of w and 3 as well as 4 to pick up non-ASCII chars like German umlaute.
+    // Per http://drupal.org/node/1101294, we may need as little as 2 and as many as 5 characters
+    // in some languages.
+    'D' => '\S{2,5}',    'l' => '\S*', 'M' => '\S{2,5}', 'F' => '\S*',
     'P' => '[+-]?\d{2}\:\d{2}',
     'c' => '(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})([+-]?\d{2}\:\d{2})',
     'r' => '(\w{3}), (\d{2})\s(\w{3})\s(\d{2,4})\s(\d{2}):(\d{2}):(\d{2})([+-]?\d{4})?',
@@ -473,6 +474,12 @@ function date_granularity_names() {
     );
 }
 
+/**
+ * Sort a granularity array.
+ */
+function date_granularity_sorted($granularity) {
+  return array_intersect(array('year', 'month', 'day', 'hour', 'minute', 'second'), $granularity);
+}
 
 /**
  * Give a granularity $precision, return an array of 
@@ -496,7 +503,6 @@ function date_granularity_array_from_precision($precision) {
   }
 }
 
-
 /**
  * Give a granularity array, return the highest precision.
  */
@@ -504,7 +510,6 @@ function date_granularity_precision($granularity_array) {
   $input = clone($granularity_array);
   return array_pop($input);
 }
-
 
 /**
  * Construct an appropriate DATETIME format string for the granularity of an item.
@@ -567,7 +572,7 @@ function date_timezone_names($required = FALSE, $refresh = FALSE) {
           unset($zonenames[$zone]);
         }
       }
-    
+
       // If using Event, further filter the list down to only 
       // zones that exist in the event module.
       if (module_exists('event') && db_table_exists('event_timezones')) {
@@ -625,7 +630,7 @@ function date_timezone_abbr($refresh = FALSE) {
  */
 function date_t($string, $context, $langcode = NULL) {
   static $replace = array();
-  
+
   if (empty($replace[$langcode])) {
     // The function to create the date string arrays is kept separate
     // so those arrays can be directly accessed by other functions.
@@ -682,7 +687,7 @@ function date_t_strings(&$replace, $langcode) {
   $replace[$langcode]['date_order'] = explode('|', trim(t('!date_order Every|First|Second|Third|Fourth|Fifth', array('!date_order' => ''), $langcode)));
   $replace[$langcode]['date_order_reverse'] = explode('|', trim(t('!date_order |Last|Next to last|Third from last|Fourth from last|Fifth from last', array('!date_order' => ''), $langcode)));
   $replace[$langcode]['date_nav'] = explode('|', trim(t('!date_nav Prev|Next|Today', array('!date_nav' => ''), $langcode)));
-  
+
   // These start with a pipe so the January value will be in position 1 instead of position 0.
   $replace[$langcode]['month_name'] = explode('|', trim(t('!month-name |January|February|March|April|May|June|July|August|September|October|November|December', array('!month-name' => ''), $langcode)));
   $replace[$langcode]['month_abbr'] = explode('|', trim(t('!month-abbreviation |Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec', array('!month-abbreviation' => ''), $langcode)));
@@ -707,13 +712,13 @@ function date_t_strings(&$replace, $langcode) {
  *   A translated date string in the requested format.
  */
 function date_format_date($date, $type = 'medium', $format = '', $langcode = NULL) {
-  if (get_class($date) != 'DateTime') {
-    $date = date_make_date($date);
-  }
   if (empty($date)) {
     return '';
   }
-  
+
+  if (function_exists('timezone_name_from_abbr') && get_class($date) != 'DateTime') {
+    $date = date_make_date($date);
+  }
   switch ($type) {
     case 'small':
     case 'short':
@@ -838,27 +843,27 @@ function date_now($timezone = NULL) {
  *    dates so they pass validation and don't get reset to 'now'.
  */
 function date_make_date($date, $timezone = NULL, $type = DATE_DATETIME, $granularity = array('year', 'month', 'day', 'hour', 'minute')) {
-  
+
   // Make sure some value is set for the date and timezone even if the
   // site timezone is not yet set up to avoid fatal installation
   // errors.
   if (empty($timezone) || !date_timezone_is_valid($timezone)) {
     $timezone = date_default_timezone_name();
   }
-  
+
   // Special handling for a unix timestamp of '0', since it will fail 'empty' tests below.
   if ($date === 0 && $type == DATE_UNIX) {
     $date = date_convert($date, $type, DATE_DATETIME, $timezone);
     $type = DATE_DATETIME;
   }
-  
+
   // No value or one with unexpected array keys.
   if (empty($date) || (is_array($date) && array_diff($granularity, array_keys($date)))) {
     return NULL;
   }
-    
+
   // Special handling for partial dates that don't need precision.
-  $max_granularity = array_pop($granularity);
+  $max_granularity = array_pop(date_granularity_sorted($granularity));
   if (in_array($max_granularity, array('year', 'month')) || $type == DATE_ISO || $type == DATE_ARRAY) {
     if ($type == DATE_UNIX) {
       $date = date_convert($date, $type, DATE_DATETIME);
@@ -866,7 +871,6 @@ function date_make_date($date, $timezone = NULL, $type = DATE_DATETIME, $granula
     $date = date_fuzzy_datetime($date);
     $type = DATE_DATETIME;
   }
-  
 
   if (!date_is_valid($date, $type, $granularity)) {
     $date = 'now';
@@ -1115,10 +1119,10 @@ function date_week_range($week, $year) {
   if (variable_get('date_api_use_iso8601', FALSE)) {
     return date_iso_week_range($week, $year);
   }
-  
+
   $min_date = date_make_date($year .'-01-01 00:00:00', date_default_timezone_name());
   date_timezone_set($min_date, date_default_timezone());
-  
+
   // move to the right week
   date_modify($min_date, '+' . strval(7 * ($week - 1)) . ' days');
 
@@ -1141,19 +1145,19 @@ function date_week_range($week, $year) {
  * Start and end dates for an ISO week.
  */
 function date_iso_week_range($week, $year) {
-  
+
   // Get to the last ISO week of the previous year.
   $min_date = date_make_date(($year - 1) .'-12-28 00:00:00', date_default_timezone_name());
   date_timezone_set($min_date, date_default_timezone());
-  
+
   // Find the first day of the first ISO week in the year.
   date_modify($min_date, '+1 Monday');
-  
+
   // Jump ahead to the desired week for the beginning of the week range.
   if ($week > 1) {
     date_modify($min_date, '+ '. ($week - 1) .' weeks');
   }
-  
+
   // move forwards to the last day of the week
   $max_date = drupal_clone($min_date);
   date_modify($max_date, '+7 days');
@@ -1186,12 +1190,12 @@ function date_week($date) {
   $date = substr($date, 0, 10);
   $parts = explode('-', $date);
   $date = date_make_date($date . ' 12:00:00', 'UTC');
-  
+
   // If we are using ISO weeks, this is easy.
   if (variable_get('date_api_use_iso8601', FALSE)) {
     return intval(date_format($date, 'W'));
   }
-  
+
   $year_date = date_make_date($parts[0] . '-01-01 12:00:00', 'UTC');
   $week = intval(date_format($date, 'W'));
   $year_week = intval(date_format($year_date, 'W'));
@@ -1206,7 +1210,7 @@ function date_week($date) {
   else if ($date_year < intval($parts[0])) {
     $week = 0;
   }
-    
+
   if ($year_week != 1) $week++;
 
   // convert to ISO-8601 day number, to match weeks calculated above
@@ -1449,7 +1453,7 @@ function date_part_extract($date, $part, $type = DATE_DATETIME, $tz = 'UTC') {
  *    dates so they pass validation.
  */
 function date_is_valid($date, $type = DATE_DATETIME, $granularity = array('year', 'month', 'day', 'hour', 'minute')) {
-  
+
   // Check that the value is properly structured.
   // Remember that DATE_UNIX can have a valid value of '0', which is 'empty'.
   if (empty($date) && $type != DATE_UNIX) return FALSE;
@@ -1465,7 +1469,7 @@ function date_is_valid($date, $type = DATE_DATETIME, $granularity = array('year'
   if (checkdate($month, $day, $year)) {
     return TRUE;
   }
-  
+
   // If this is an incomplete date (year only or year and month only), 
   // need special handling, partial dates can have empty date parts.
   $max_granularity = $granularity;
@@ -1497,7 +1501,7 @@ function date_is_valid($date, $type = DATE_DATETIME, $granularity = array('year'
     // Unix and datetime are expected to have at least a year, month, and day.
     return FALSE;
   }
-  
+
   return TRUE;
 }
 
@@ -1635,14 +1639,14 @@ function date_limit_format($format, $granularity) {
     '\,' => ',',
     );
   $format = strtr($format, $replace); 
-  
+
   // Get the 'T' out of ISO date formats that don't have
   // both date and time.
   if (!date_has_time($granularity) || !date_has_date($granularity)) {
     $format = str_replace('\T', ' ', $format);
     $format = str_replace('T', ' ', $format);
   }
-  
+
   $regex = array();
   if (!date_has_time($granularity)) {
     $regex[] = '((?<!\\\\)[a|A])';
@@ -1655,7 +1659,7 @@ function date_limit_format($format, $granularity) {
         $regex[] = '([\-/\.,:]?\s?(?<!\\\\)[Yy])';
         break;
       case 'day':
-        $regex[] = '([\-/\.,:]?\s?(?<!\\\\)[l|D|d|dS|j|jS]{1,2})';
+        $regex[] = '([\-/\.,:]?\s?(?<!\\\\)[l|D|d|dS|j|jS|N|w|W|z]{1,2})';
         break;
       case 'month':
         $regex[] = '([\-/\.,:]?\s?(?<!\\\\)[FMmn])';
@@ -1672,7 +1676,7 @@ function date_limit_format($format, $granularity) {
       case 'timezone':
         $regex[] = '([\-/\.,:]?\s?(?<!\\\\)[TOZPe])';
         break;
-    
+
     }
   }
   // Remove empty parentheses, brackets, pipes.
@@ -1687,10 +1691,10 @@ function date_limit_format($format, $granularity) {
   // Remove orphaned punctuation at the end of the string.
   $format = preg_replace('([\-/\.,:\']$)', '', $format);
   $format = preg_replace('(\\$)', '', $format);
-    
+
   // Trim any whitespace from the result.
   $format = trim($format);
-  
+
   // After removing the non-desired parts of the format, test if the only 
   // things left are escaped, non-date, characters. If so, return nothing.
   if (!$test = trim(preg_replace('(\\\\\w{1})', '', $format))) {
@@ -1924,7 +1928,6 @@ function date_get_format_types($type = NULL, $reset = FALSE) {
   return $type ? (isset($_date_format_types[$type]) ? $_date_format_types[$type] : FALSE) : $_date_format_types;
 }
 
-
 /**
  * Implementation of hook_flush_caches().
  */
@@ -1997,7 +2000,7 @@ function date_format_save($date_format) {
   $format['type'] = $date_format['type'];
   $format['format'] = $date_format['format'];
   $format['locked'] = $date_format['locked'];
-  
+
   // Update date_format table.
   if (isset($date_format['is_new']) && !empty($date_format['is_new'])) {
     drupal_write_record('date_formats', $format);
@@ -2194,7 +2197,6 @@ function _date_formats_build() {
   return $date_formats;
 }
 
-
 /**
  * Get the appropriate date format for a type and locale.
  *
@@ -2210,7 +2212,7 @@ function _date_formats_build() {
  */
 function date_format_locale($langcode = NULL, $type = NULL, $reset = FALSE) {
   static $formats;
-  
+
   if ($reset || empty($formats)) {
     $formats = array();
     $result = db_query("SELECT format, type, language FROM {date_format_locale}");
@@ -2304,7 +2306,7 @@ function date_api_date_api_fields($field) {
     // Granularity of this date field's db data. 
     'granularity' => array('year', 'month', 'day', 'hour', 'minute', 'second'),
   );
-  
+
   switch ($field) {
     case 'users.created':
     case 'users.access':
@@ -2406,7 +2408,7 @@ function date_real_url($view, $date_type = NULL, $date_arg = NULL, $force_view_u
   // The View arguments array is indexed numerically but is not necessarily
   // in numerical order. Sort the arguments to ensure the correct order.
   ksort($args);
-  
+
   // If there are empty arguments before the date argument, 
   // pad them with the wildcard so the date argument will be in 
   // the right position.
@@ -2418,7 +2420,7 @@ function date_real_url($view, $date_type = NULL, $date_arg = NULL, $force_view_u
       $args[] = $argument->options['wildcard'];
     }
   }
-  
+
   if (!empty($date_type)) {
     switch ($date_type) {
       case 'year':
@@ -2530,7 +2532,6 @@ function date_api_form_system_date_time_settings_alter(&$form, $form_state, $for
     '#description'   => t('IMPORTANT! If checked, First day of week MUST be set to Monday'),
   );
   $form['#validate'][] = 'date_api_form_system_settings_validate';
-  $form = system_settings_form($form);
 }
 
 /**
@@ -2551,7 +2552,6 @@ function date_api_add_system_javascript() {
   drupal_add_js(array('dateDateTime' => array('lookup' => url('admin/settings/date-time/formats/lookup'))), 'setting');
 }
 
-
 /**
  * Return the date for a given format string via Ajax.
  */
@@ -2565,7 +2565,7 @@ function date_api_date_time_lookup() {
  * Test validity of a date range string.
  */
 function date_range_valid($string) {
-  $matches = preg_match('@\-[0-9]*:[\+|\-][0-9]*@', $string);
+  $matches = preg_match('@^(\-[0-9]+|[0-9]{4}):([\+|\-][0-9]+|[0-9]{4})$@', $string);
   return $matches < 1 ? FALSE : TRUE;
 }
 
@@ -2580,7 +2580,7 @@ function date_range_valid($string) {
 function date_range_years($string, $date = NULL) {
   $this_year = date_format(date_now(), 'Y');
   list($min_year, $max_year) = explode(':', $string);
-  
+
   // Valid patterns would be -5:+5, 0:+1, 2008:2010.
   $plus_pattern = '@[\+|\-][0-9]{1,4}@';
   $year_pattern = '@[0-9]{4}@';
@@ -2660,7 +2660,7 @@ function date_is_all_day($string1, $string2, $granularity = 'second', $increment
   elseif (!in_array($granularity, array('hour', 'minute', 'second'))) {
     return FALSE;
   }
-  
+
   preg_match('/([0-9]{4}-[0-9]{2}-[0-9]{2}) (([0-9]{2}):([0-9]{2}):([0-9]{2}))/', $string1, $matches);
   $count = count($matches);
   $date1 = $count > 1 ? $matches[1] : '';
@@ -2675,19 +2675,19 @@ function date_is_all_day($string1, $string2, $granularity = 'second', $increment
   $hour2 = $count > 3 ? intval($matches[3]) : 0;
   $min2 = $count > 4 ? intval($matches[4]) : 0;
   $sec2 = $count > 5 ? intval($matches[5]) : 0;
-  
-  if (empty($date1) || empty($date2) || $date1 != $date2) {
+
+  if (empty($date1) || empty($date2)) {
     return FALSE;
   }
   if (empty($time1) || empty($time2)) {
     return FALSE;
   }
-    
+
   $tmp = date_seconds('s', TRUE, $increment);
   $max_seconds = intval(array_pop($tmp));
   $tmp = date_minutes('i', TRUE, $increment);
   $max_minutes = intval(array_pop($tmp));
-  
+
   switch ($granularity) {
     case 'second':
       $min_match = $time1 == '00:00:00' || ($hour1 == 0 && $min1 == 0 && $sec1 == 0);
@@ -2705,12 +2705,44 @@ function date_is_all_day($string1, $string2, $granularity = 'second', $increment
       $min_match = TRUE;
       $max_match = FALSE;
   }
-  
+
   if ($min_match && $max_match) {
     return TRUE;
   }
-    
+
   return FALSE;
+}
+
+
+/**
+ * Helper function to round minutes and seconds to requested value.
+ */
+function date_increment_round(&$date, $increment) {
+  // Round minutes and seconds, if necessary.
+  if (is_object($date) && $increment > 1) {
+    $day = intval(date_format($date, 'j'));
+    $hour = intval(date_format($date, 'H'));
+    $second = intval(round(intval(date_format($date, 's')) / $increment) * $increment);
+    $minute = intval(date_format($date, 'i'));
+    if ($second == 60) {
+      $minute += 1;
+      $second = 0;
+    }
+    $minute = intval(round($minute / $increment) * $increment);
+    if ($minute == 60) {
+      $hour += 1;
+      $minute = 0;
+    }
+    date_time_set($date, $hour, $minute, $second);
+    if ($hour == 24) {
+      $day += 1;
+      $hour = 0;
+      $year = date_format($date, 'Y');
+      $month = date_format($date, 'n');
+      date_date_set($date, $year, $month, $day);
+    }
+  }
+  return $date;
 }
 
 /**

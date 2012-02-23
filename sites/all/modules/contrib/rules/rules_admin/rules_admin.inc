@@ -1,5 +1,5 @@
 <?php
-// $Id: rules_admin.inc,v 1.1.2.12 2009/08/19 15:24:41 fago Exp $
+// $Id: rules_admin.inc,v 1.1.2.14 2010/11/25 11:14:53 fago Exp $
 
 
 /**
@@ -220,16 +220,6 @@ function rules_admin_get_categories($item_type) {
 }
 
 /**
- * Gets an unique name for a newly added rule.
- */
-function _rules_admin_rule_get_new_unique_name() {
-  $id = variable_get('rules_counter', 0);
-  $id++;
-  variable_set('rules_counter', $id);
-  return 'rules_'. $id;
-}
-
-/**
  * Gets the label for the info of the given element by apply label callbacks.
  * Note that this is also used for argument infos.
  *
@@ -372,6 +362,7 @@ function rules_admin_fix_breadcrumb($rule, $name) {
   }
   if (arg(5)) {
     // Also add a crumb to the rule itself.
+    array_unshift($crumbs, l(t('Rules'), RULES_ADMIN_PATH));
     $crumbs[] = l($rule['#label'], RULES_ADMIN_RULE_PATH .'/'. $name);
   }
   rules_admin_add_crumbs($crumbs);

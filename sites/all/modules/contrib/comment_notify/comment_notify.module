@@ -1,5 +1,4 @@
 <?php
-// $Id: comment_notify.module,v 1.73.2.3 2010/03/10 22:29:40 greggles Exp $
 
 /**
  * @file
@@ -256,7 +255,7 @@ function comment_notify_comment($comment, $op) {
         $notify = $comment['notify'];
       }
       // And then save the data.
-      db_query("INSERT INTO {comment_notify} (cid, notify, notify_hash) values (%d, %d, '%s')", $comment['cid'], $notify, $notify_hash);
+      db_query("INSERT INTO {comment_notify} (cid, notify, notify_hash, notified) values (%d, %d, '%s', 0)", $comment['cid'], $notify, $notify_hash);
 
       // And send notifications - the real purpose of the module.
       if ($comment['status'] == COMMENT_PUBLISHED) {
@@ -287,7 +286,7 @@ function comment_notify_user($type, &$edit, &$user, $category = NULL) {
         // Only show the node followup UI if the user has permission to create nodes.
         $nodes = FALSE;
         foreach (node_get_types() as $type) {
-          if (user_access('create '. $type->type .' content')) {
+          if (node_access('create', $type->type)) {
             $nodes = TRUE;
             break;
           }
@@ -295,9 +294,9 @@ function comment_notify_user($type, &$edit, &$user, $category = NULL) {
         if (user_access('administer nodes') || $nodes) {
           $form['comment_notify_settings']['node_notify_mailalert'] = array(
             '#type' => 'checkbox',
-            '#title' => t('Receive node follow-up notification e-mails'),
+            '#title' => t('Receive content follow-up notification e-mails'),
             '#default_value' => isset($edit['node_notify_mailalert']) ? $edit['node_notify_mailalert'] : variable_get('node_notify_default_mailalert', FALSE),
-            '#description' => t('Check this box to receive an e-mail notification for follow-ups on your nodes (pages, forum topics, etc). You can not disable notifications for individual threads.')
+            '#description' => t('Check this box to receive an e-mail notification for follow-ups on your content. You can not disable notifications for individual threads.')
           );
         }
         else {
@@ -323,9 +322,11 @@ function comment_notify_user($type, &$edit, &$user, $category = NULL) {
     case 'submit':
       // Save the values of node_notify_mailalert and comment_notify_mailalert
       // to {comment_notify_user_settings}.
-      db_query('UPDATE {comment_notify_user_settings} SET node_notify = %d, comment_notify = %d WHERE uid = %d', $edit['node_notify_mailalert'], $edit['comment_notify_mailalert'], $user->uid);
-      if (!db_affected_rows()) {
-        db_query('INSERT INTO {comment_notify_user_settings} (uid, node_notify, comment_notify) VALUES (%d, %d, %d)', $user->uid, $edit['node_notify_mailalert'], $edit['comment_notify_mailalert']);
+      if (isset($edit['node_notify_mailalert']) && isset($edit['comment_notify_mailalert'])) {
+        db_query('UPDATE {comment_notify_user_settings} SET node_notify = %d, comment_notify = %d WHERE uid = %d', $edit['node_notify_mailalert'], $edit['comment_notify_mailalert'], $user->uid);
+        if (!db_affected_rows()) {
+          @db_query('INSERT INTO {comment_notify_user_settings} (uid, node_notify, comment_notify) VALUES (%d, %d, %d)', $user->uid, $edit['node_notify_mailalert'], $edit['comment_notify_mailalert']);
+        }
       }
 
       // Unset them from $user so they don't also get saved into {users}.data.
@@ -586,6 +587,7 @@ function comment_notify_settings() {
   $enabled_types = variable_get('comment_notify_node_types', FALSE);
   $anonymous_problems = '';
   foreach (node_get_types('names') as $type => $name) {
+    $type_url_str = str_replace('_', '-', $type); // Underscores in the content type need to be changed to hyphens for the path link.
     $checkboxes[$type] = check_plain($name);
     $default[] = $type;
 
@@ -593,7 +595,7 @@ function comment_notify_settings() {
     if (isset($enabled_types[$type]) && $enabled_types[$type] && variable_get('comment_anonymous_'. $type, COMMENT_ANONYMOUS_MAYNOT_CONTACT) == COMMENT_ANONYMOUS_MAYNOT_CONTACT) {
       $account = user_load(array('uid' => 0));
       if (user_access('subscribe to comments', $account)) {
-        $anonymous_problems[] = l(t('@content-type', array('@content-type' => $name)), 'admin/content/node-type/'. $type);
+        $anonymous_problems[] = l(t('@content-type', array('@content-type' => $name)), 'admin/content/node-type/'. $type_url_str);
       }
     }
   }

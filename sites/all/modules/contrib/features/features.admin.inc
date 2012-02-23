@@ -1,5 +1,4 @@
 <?php
-// $Id: features.admin.inc,v 1.1.2.68 2010/08/20 14:51:38 yhahn Exp $
 
 /**
  * Form callback for features export form. Acts as a router based on the form_state.
@@ -68,7 +67,7 @@ function features_export_form($form_state, $feature = NULL) {
 
   // User-selected feature source components.
   $components = features_get_components();
-  ksort($components);
+  uasort($components, 'features_compare_component_name');
 
   $form['export'] = array(
     '#type' => 'fieldset',
@@ -107,7 +106,8 @@ function features_export_form($form_state, $feature = NULL) {
       foreach ($options as $k => $v) {
         $options[$k] = check_plain($v);
       }
-      $form['export']['components']['#options'][$component] = (isset($component_info['name']) ? $component_info['name'] : $component);
+      $label = (isset($component_info['name']) ? $component_info['name'] . ": " . $component : $component);
+      $form['export']['components']['#options'][$component] = $label;
       if (!empty($options)) {
         $form['export']['sources'][$component] = array(
           '#type' => 'checkboxes',
@@ -748,6 +748,13 @@ function features_feature_diff($feature, $component = NULL) {
   }
   $output = "<div class='features-comparison'>{$output}</div>";
   return $output;
+}
+
+/**
+ * Compare the component names. Used to sort alphabetically.
+ */
+function features_compare_component_name($a, $b) {
+  return strcasecmp($a['name'], $b['name']);
 }
 
 /**

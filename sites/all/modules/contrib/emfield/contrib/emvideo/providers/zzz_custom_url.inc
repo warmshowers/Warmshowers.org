@@ -1,5 +1,5 @@
 <?php
-// $Id: zzz_custom_url.inc,v 1.1.2.21 2010/07/19 17:08:04 aaron Exp $
+// $Id: zzz_custom_url.inc,v 1.1.2.22 2010/12/08 18:47:27 kleinmp Exp $
 
 /**
  * @file
@@ -116,6 +116,10 @@ function emvideo_zzz_custom_url_embedded_link($video_code) {
 }
 
 function theme_emvideo_zzz_custom_url_embedded_video($type, $url, $width, $height, $autoplay = FALSE, $field = NULL, $item = NULL, $options = array()) {
+  // Validate url
+  if (!valid_url($url, TRUE) && !valid_url($url)) {
+    return '';
+  }
   if ($url = url($url, array('external' => TRUE, 'absolute' => TRUE))) {
     global $base_path;
     $url = $base_path.$url;
