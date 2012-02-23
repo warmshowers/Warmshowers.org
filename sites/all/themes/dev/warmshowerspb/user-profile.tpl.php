@@ -113,7 +113,15 @@ $output .= views_embed_view('user_referrals_by_referee', 'default', $account->ui
 
 // If the viewing user is not this user, offer to do a recommendation
 if ($GLOBALS['user']->uid != $account->uid) {
-  $output .= "<br/>".t("Do you recommend this member?") ." <a href=\"/node/add/trust-referral?edit[field_member_i_trust][0][uid]=". $account->uid . "\">".t("Click here to add a recommendation")."</a>";
+  $url = url('node/add/trust-referral', array(
+    'absolute' => TRUE,
+    'query' => array(
+      'edit[field_member_i_trust][0][uid][uid]' => $account->name,
+    ),
+  ));
+  $link = l(t('Click here to add a recommendation'), $url);
+
+  $output .= "<br/>".t("Do you recommend this member? ") . $link;
 }
 
 $output .= "</fieldset>";
