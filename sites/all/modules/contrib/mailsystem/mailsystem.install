@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ * Sets/deletes the 'smtp_library' variable as mailsystem is enabled/disabled.
+ *
+ * Also deletes the 'mail_system' variable as mailsystem is uninstalled.
+ */
+
+/**
+ * Ensure that mailsystem has a higher module weight than any other module
+ * implementing hook_mail_alter().
+ */
+function mailsystem_set_module_weight() {
+  $modules = array_diff(module_implements('mail_alter'), array('mailsystem'));
+  $query = db_query("SELECT MAX(weight) FROM {system} WHERE name IN ('" . implode("', '", $modules) . "') AND type = 'module'");
+  $max = db_result($query);
+  $max = $max + 1;
+  $query = db_query("UPDATE {system} SET weight = $max WHERE name = 'mailsystem' AND type = 'module' and weight < $max");
+}
+
+
+/**
+ * Implements hook_requirements().
+ * Ensures that the newly-required autoload module is available, or else
+ * disables the mailsystem module and returns an informative error message.
+ */
+function mailsystem_requirements($phase) {
+  if ($phase === 'install') {
+    return array();
+  }
+  mailsystem_set_module_weight();
+  if (module_exists('autoload')) {
+    return array();
+  }
+  $args = array(
+    '!autoload' => url('http://drupal.org/project/autoload'),
+    '%autoload' => 'Autoload',
+    '!mailsystem' => url('http://drupal.org/project/mailsystem'),
+    '%mailsystem' => 'Mail System',
+  );
+  if ( module_enable(array('autoload'))
+    && module_load_include('module', 'autoload')
+  ) {
+    autoload_boot();
+    autoload_registry_rebuild();
+    drupal_set_message(
+      t('The %autoload module has been enabled because the %mailsystem module now requires it.', $args)
+    );
+    return array();
+  }
+  return array(
+    'mailsystem_autoload' => array(
+      'title' => t('%autoload module', $args),
+      'value' => t('Not installed'),
+      'description' => t(
+        'The <a href="!mailsystem">%mailsystem</a> module dependencies have changed.  Please download and install the required <a href="!autoload">%autoload</a> module, then re-enable the <a href="!mailsystem">%mailsystem</a> module.', $args
+      ),
+      'severity' => REQUIREMENT_ERROR,
+    ),
+  );
+}
+
+/**
+ * Implements hook_update_N().
+ *
+ * @see mailsystem_requirements()
+ */
+function mailsystem_update_6201() {
+  if ($requirements = mailsystem_requirements('runtime')) {
+    return array(
+      '#abort' => array(
+        'success' => FALSE,
+        'query' => $requirements['mailsystem_autoload']['description']
+      )
+    );
+  }
+}
+
+/**
+ * Implements hook_enable().
+ */
+function mailsystem_enable() {
+  variable_set(
+    'smtp_library',
+    drupal_get_path('module', 'mailsystem') . '/mailsystem.inc'
+  );
+}
+
+/**
+ * Implements hook_disable().
+ */
+function mailsystem_disable() {
+  variable_del('smtp_library');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function mailsystem_uninstall() {
+  variable_del('mail_system');
+}

@@ -1,0 +1,655 @@
+<?php
+
+/**
+ * @file
+ * Provide UI for controlling the mail_system variable.
+ */
+
+/**
+ * Implements hook_init().
+ *
+ * Caches the list of MailSystemInterface classes, and removes classes
+ * from the mail_system variable which are no longer available.
+ *
+ * @see mailsystem_get_classes()
+ */
+function mailsystem_init() {
+  mailsystem_get_classes();
+  // @todo Remove this when issue #299138 gets resolved.
+  if (!function_exists('mailsystem_html_to_text')) {
+    module_load_include('inc', 'mailsystem', 'html_to_text');
+  }
+}
+
+/**
+ * Implements hook_perm().
+ *
+ * Defines a permission for managing the mail_system variable.
+ */
+function mailsystem_perm() {
+  return array('administer mailsystem');
+}
+
+/**
+ * Implements hook_menu().
+ */
+function mailsystem_menu() {
+  $items['admin/settings/mailsystem'] = array(
+    'title' => 'Mail System',
+    'description' => 'Configure per-module Mail System settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mailsystem_admin_settings'),
+    'access arguments' => array('administer mailsystem'),
+    'file' => 'mailsystem.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Returns the id for the default mail_system setting.
+ */
+function mailsystem_default_id() {
+  // @todo: Is there a way to get this from core?
+  return 'default-system';
+}
+
+/**
+ * Returns the value for the default mail_system setting.
+ */
+function mailsystem_default_value() {
+  // @todo: Is there a way to get this from core?
+  return 'DefaultMailSystem';
+}
+
+/**
+ * Returns the default settings for the mail_system variable.
+ */
+function mailsystem_defaults() {
+  return array(mailsystem_default_id() => mailsystem_default_value());
+}
+
+/**
+ * Returns the current mail_system settings.
+ *
+ * @return The contents of the mail_system variable merged with its defaults.
+ */
+function mailsystem_get() {
+  return array_merge(
+    mailsystem_defaults(),
+    variable_get('mail_system', mailsystem_defaults())
+  );
+}
+
+/**
+ * Returns the default list of MailSystemInterface methods.
+ *
+ * @return
+ *   An array whose keys are the names of the methods defined by
+ *   MailSystemInterface and whose values are the default class used to
+ *   provide that method.
+ */
+function mailsystem_default_methods() {
+  $mail_system = mailsystem_get();
+  $default_class = $mail_system[mailsystem_default_id()];
+  $methods = get_class_methods('MailSystemInterface');
+  return array_combine(
+    $methods,
+    array_fill(0, count($methods), $default_class)
+  );
+}
+
+/**
+ * Creates and registers a new MailSystemInterface class.
+ *
+ * The newly-created class gets its name and each of its class methods from the
+ * other classes specified by the $class parameter.
+ *
+ * @param $class An associative array of ($method_name => $class_name) tuples,
+ * where each $method_name is the name of a class method to be created, and
+ * each $class_name is the name of a class to use for that method.
+ *
+ * @return
+ *   The name of the newly-created class if successful; otherwise FALSE.
+ */
+function mailsystem_create_class($classes) {
+  // Merge in defaults.
+  $classes += mailsystem_default_methods();
+  ksort($classes);
+  // Do not create a new class whose methods all derive from the same class.
+  if (count(array_unique($classes)) === 1) {
+    return FALSE;
+  }
+  $class_name = implode('__', $classes);
+  // Ensure that the mailsystem directory exists.
+  $class_dir = file_directory_path() . '/mailsystem';
+  if (!file_check_directory($class_dir, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS)) {
+    return FALSE;
+  }
+  // Build the class filename.
+  $class_file = realpath($class_dir) . DIRECTORY_SEPARATOR . "$class_name.mail.inc";
+  // Strip DRUPAL_ROOT.
+  $drupal_root = realpath('') . DIRECTORY_SEPARATOR;
+  $class_file = preg_replace('#^' . preg_quote($drupal_root, '#') . '#', '', $class_file);
+  // Build the class implementation as a string.
+  $class_contents = '<?php
+class ' . $class_name . ' implements MailSystemInterface {';
+  // Create a protected variable to hold each method class.
+  foreach (array_keys($classes) as $method) {
+    $class_contents .= '
+  protected $' . $method . 'Class;';
+  }
+  // Create a class construction function to populate the variables.
+  $class_contents .= '
+  public function __construct() {';
+  foreach ($classes as $method => $class) {
+    $class_contents .= '
+    if (autoload_class(\'' . $class . '\')) {
+      $this->' . $method . 'Class = new ' . $class . ';
+    }
+    else {
+      $this->' . $method . 'Class = new ' . mailsystem_default_value() . ';
+    }';
+  }
+  $class_contents .= '
+  }';
+  // Create each class method.
+  foreach (array_keys($classes) as $method) {
+    $class_contents .= '
+  public function ' . $method . '(array $message) {
+    return $this->' . $method . 'Class->' . $method . '($message);
+  }';
+  }
+  $class_contents .= '
+}
+';
+  if (file_save_data($class_contents, $class_file, FILE_EXISTS_REPLACE)) {
+    // Remove any conflicting registry entries to avoid a database error.
+    db_query(
+      'DELETE FROM {autoload_registry_file} WHERE filename = "%s"',
+      $class_file
+    );
+    db_query(
+      'DELETE FROM {autoload_registry} WHERE filename = "%s" OR (name = "%s" and type = "class")',
+      $class_file, $class_name
+    );
+    // Make sure that registry functions are available.
+    module_load_include('inc', 'autoload', 'autoload.registry');
+    // Parse the newly-created class file and add it to the registry.
+    _autoload_registry_parse_file($class_file, $class_contents, 'mailsystem');
+    // Clear the mailsystem cache so that it will pick up the new class.
+    mailsystem_get_classes(TRUE);
+    drupal_set_message(
+      t('Class <code>%class</code> written to <code>%file</code>.',
+        array('%class' => $class_name, '%file' => $class_file)
+      )
+    );
+  }
+  return $class_name;
+}
+
+/**
+ * Helps other modules safely set their own key within mail_system.  This
+ * function should be called from hook_enable() implementations.
+ *
+ * @param $setting  An associative array ($id => $value) where:
+ *   - $id is the machine-readable module name optionally followed by '_'
+ *     and a key.
+ *   - $value is one of
+ *     - (string) The name of a class that implements MailSystemInterface.
+ *     - (array) An associative array whose keys are the names of methods
+ *       defined by MailSystemInterface and whose values are the names of
+ *       the class to use for that method.
+ *
+ * @see drupal_mail(), mailsystem_default_methods()
+ */
+function mailsystem_set(array $setting) {
+  $mail_system = mailsystem_get();
+  foreach ($setting as $key => $class) {
+    if (is_array($class)) {
+      unset($setting[$key]);
+      if ($new_class = mailsystem_create_class($class)) {
+        $setting[$key] = $new_class;
+      }
+    }
+  }
+  variable_set('mail_system', array_merge(mailsystem_get(), $setting));
+}
+
+/**
+ * Helps other modules safely remove their settings from mail_system.  This
+ * function should be called from the other module's hook_disable() function.
+ *
+ * @param $setting  An associative array ($module => $classname) describing
+ * a module and associated MailSystemInterface class that are being disabled.
+ *   - $module is the machine-readable module name.
+ *   - $classname is a class that implements MailSystemInterface.
+ *
+ * If $classname is empty, only the $module entry is removed.
+ *
+ * @param $class
+ *   The name of the class to be removed, if any.
+ */
+function mailsystem_clear(array $setting) {
+  variable_set(
+    'mail_system',
+    array_merge(
+      mailsystem_defaults(),
+      array_diff_key(array_diff(mailsystem_get(), $setting), $setting)
+    )
+  );
+}
+
+/**
+ * Returns a list of classes which implement MailSystemInterface.
+ */
+function &mailsystem_get_classes($reset = FALSE) {
+  static $mailsystem_classes;
+  if ($reset || !isset($mailsystem_classes)) {
+    $mailsystem_classes = array();
+    // @todo Is there a better way to find all mail-related classes?
+    $declared_classes = get_declared_classes();
+    $all_classes = array_combine(
+      $declared_classes,
+      array_fill(0, count($declared_classes), 0)
+    );
+    $result = db_query(
+      "SELECT name, filename "
+      . "FROM {autoload_registry} "
+      . "WHERE type='%s' AND "
+      . "( filename like '%s' OR name like '%s' )",
+      array('class', '%.mail.%', '%MailSystem')
+    );
+    if ($result) {
+      while ($row = db_fetch_array($result)) {
+        $classname = $row['name'];
+        if ( file_exists($row['filename'])
+          && autoload_class($classname)
+        ) {
+          $all_classes[$classname] = 1;
+        }
+      }
+    }
+    foreach ($all_classes as $classname => $autoload) {
+      if ( ($autoload || preg_match('/MailSystem/', $classname))
+        && ($object = new $classname)
+        && ($object instanceof MailSystemInterface)
+      ) {
+        $mailsystem_classes[$classname] = $classname;
+      }
+      elseif ($autoload) {
+        // Clear classes that are no longer available.
+        db_query(
+          "DELETE FROM {autoload_registry} "
+          . "WHERE name = '%s'",
+          array($classname)
+        );
+      }
+    }
+    foreach (array_unique(mailsystem_get()) as $classname) {
+      if (class_exists($classname)) {
+        $mailsystem_classes[$classname] = $classname;
+      }
+      else {
+        mailsystem_clear(array(mailsystem_default_id() => $classname));
+      }
+    }
+    ksort($mailsystem_classes);
+  }
+  return $mailsystem_classes;
+}
+
+/**
+* Implements hook_theme_registry_alter().
+*/
+function mailsystem_theme_registry_alter(&$theme_registry) {
+  module_load_include('inc', 'mailsystem', 'mailsystem.theme');
+  return mailsystem_theme_theme_registry_alter($theme_registry);
+}
+
+/**
+* Retrieves the key of the theme used to render the emails.
+*
+* @todo Add some kind of hook to let other modules alter this behavior.
+*/
+function mailsystem_get_mail_theme() {
+  global $theme_key;
+  $theme = variable_get('mailsystem_theme', 'current');
+  switch ($theme) {
+    case 'default':
+      $theme = variable_get('theme_default', NULL);
+      break;
+    case 'current':
+      $theme = $theme_key;
+      break;
+    case 'domain':
+      // Fetch the theme for the current domain.
+      if (module_exists('domain_theme')) {
+        // Assign the selected theme, based on the active domain.
+        global $_domain;
+        $domain_theme = domain_theme_lookup($_domain['domain_id']);
+        // The above returns -1 on failure.
+        $theme = ($domain_theme != -1) ? $domain_theme['theme'] : $theme_key;
+      }
+      break;
+  }
+  return $theme;
+}
+
+/**
+ * Generates $message['module'] and $message['key'] from $message['id'].
+ *
+ * Divides $message['id'] by the '_' character and searches for the longest
+ * prefix that corresponds to an enabled module.
+ *
+ * @param array &$message
+ *   The message array containing at least one element with key 'id'.
+ *
+ * @return
+ *   The module portion of $message['id'], if any.
+ */
+function mailsystem_parse_id(array &$message) {
+  if (!isset($message['module'])) {
+    $key_parts = array();
+    $module_parts = explode('_', $message['id']);
+    while ($module_parts && !module_exists(implode('_', $module_parts))) {
+      array_unshift($key_parts, array_pop($module_parts));
+    }
+    $message['key'] = implode('_', $key_parts);
+    $message['module'] = implode('_', $module_parts);
+  }
+  return $message['module'];
+}
+
+/**
+ * Formats a message with the appropriate MailSystemInterface class method.
+ *
+ * Creates an instance of the MailSystemInterface class appropriate to the
+ * $message['id'] and invokes its format() method on the message array.
+ *
+ * This must run after all other hook_mail_alter() functions, in order to remain
+ * consistent with the 7.x version behavior.
+ *
+ * @see mailsystem_set_module_weight()
+ *
+ * @param &$message
+ *   The message array to be altered.
+ */
+function mailsystem_mail_alter(array &$message) {
+  mailsystem_parse_id($message);
+  $mailsystem = drupal_mail_system($message['module'], $message['key']);
+  $message = $mailsystem->format($message);
+}
+
+/**
+ * Provide 6.x equivalents to the Drupal 7.x mail system
+ */
+
+/**
+ * Auto-detect appropriate line endings for e-mails.
+ *
+ * $conf['mail_line_endings'] will override this setting.
+ */
+define('MAIL_LINE_ENDINGS',
+  isset($_SERVER['WINDIR'])
+  || strpos($_SERVER['SERVER_SOFTWARE'], 'Win32') !== FALSE
+  ? "\r\n" : "\n"
+);
+
+/**
+ * Returns an object that implements the MailSystemInterface.
+ *
+ * Allows for one or more custom mail backends to format and send mail messages
+ * composed using drupal_mail().
+ *
+ * An implementation needs to implement the following methods:
+ * - format: Allows to preprocess, format, and postprocess a mail
+ *   message before it is passed to the sending system. By default, all messages
+ *   may contain HTML and are converted to plain-text by the DefaultMailSystem
+ *   implementation. For example, an alternative implementation could override
+ *   the default implementation and additionally sanitize the HTML for usage in
+ *   a MIME-encoded e-mail, but still invoking the DefaultMailSystem
+ *   implementation to generate an alternate plain-text version for sending.
+ * - mail: Sends a message through a custom mail sending engine.
+ *   By default, all messages are sent via PHP's mail() function by the
+ *   DefaultMailSystem implementation.
+ *
+ * The selection of a particular implementation is controlled via the variable
+ * 'mail_system', which is a keyed array.  The default implementation
+ * is the class whose name is the value of 'default-system' key. A more specific
+ * match first to key and then to module will be used in preference to the
+ * default. To specificy a different class for all mail sent by one module, set
+ * the class name as the value for the key corresponding to the module name. To
+ * specificy a class for a particular message sent by one module, set the class
+ * name as the value for the array key that is the message id, which is
+ * "${module}_${key}".
+ *
+ * For example to debug all mail sent by the user module by logging it to a
+ * file, you might set the variable as something like:
+ *
+ * @code
+ * array(
+ *   'default-system' => 'DefaultMailSystem',
+ *   'user' => 'DevelMailLog',
+ * );
+ * @endcode
+ *
+ * Finally, a different system can be specified for a specific e-mail ID (see
+ * the $key param), such as one of the keys used by the contact module:
+ *
+ * @code
+ * array(
+ *   'default-system' => 'DefaultMailSystem',
+ *   'user' => 'DevelMailLog',
+ *   'contact_page_autoreply' => 'DrupalDevNullMailSend',
+ * );
+ * @endcode
+ *
+ * Other possible uses for system include a mail-sending class that actually
+ * sends (or duplicates) each message to SMS, Twitter, instant message, etc, or
+ * a class that queues up a large number of messages for more efficient bulk
+ * sending or for sending via a remote gateway so as to reduce the load
+ * on the local server.
+ *
+ * @param $module
+ *   The module name which was used by drupal_mail() to invoke hook_mail().
+ * @param $key
+ *   A key to identify the e-mail sent. The final e-mail ID for the e-mail
+ *   alter hook in drupal_mail() would have been {$module}_{$key}.
+ *
+ * @return MailSystemInterface
+ */
+function drupal_mail_system($module, $key) {
+  static $instances = array();
+
+  $id = $module . '_' . $key;
+
+  $configuration = mailsystem_get();
+
+  // Look for overrides for the default class, starting from the most specific
+  // id, and falling back to the module name.
+  if (isset($configuration[$id])) {
+    $class = $configuration[$id];
+  }
+  elseif (isset($configuration[$module])) {
+    $class = $configuration[$module];
+  }
+  else {
+    $class = $configuration['default-system'];
+  }
+
+  if (empty($instances[$class])) {
+    $interfaces = class_implements($class);
+    if (isset($interfaces['MailSystemInterface'])) {
+      $instances[$class] = new $class();
+    }
+    else {
+      throw new Exception(t('Class %class does not implement interface %interface', array('%class' => $class, '%interface' => 'MailSystemInterface')));
+    }
+  }
+  return $instances[$class];
+}
+
+/**
+ * An interface for pluggable mail back-ends.
+ */
+interface MailSystemInterface {
+  /**
+   * Format a message composed by drupal_mail() prior sending.
+   *
+   * @param $message
+   *   A message array, as described in hook_mail_alter().
+   *
+   * @return
+   *   The formatted $message.
+   */
+  public function format(array $message);
+
+  /**
+   * Send a message composed by drupal_mail().
+   *
+   * @param $message
+   *   Message array with at least the following elements:
+   *   - id: A unique identifier of the e-mail type. Examples: 'contact_user_copy',
+   *     'user_password_reset'.
+   *   - to: The mail address or addresses where the message will be sent to.
+   *     The formatting of this string must comply with RFC 2822. Some examples:
+   *     - user@example.com
+   *     - user@example.com, anotheruser@example.com
+   *     - User <user@example.com>
+   *     - User <user@example.com>, Another User <anotheruser@example.com>
+   *    - subject: Subject of the e-mail to be sent. This must not contain any
+   *      newline characters, or the mail may not be sent properly.
+   *    - body: Message to be sent. Accepts both CRLF and LF line-endings.
+   *      E-mail bodies must be wrapped. You can use drupal_wrap_mail() for
+   *      smart plain text wrapping.
+   *    - headers: Associative array containing all additional mail headers not
+   *      defined by one of the other parameters.  PHP's mail() looks for Cc
+   *      and Bcc headers and sends the mail to addresses in these headers too.
+   *
+   * @return
+   *   TRUE if the mail was successfully accepted for delivery, otherwise FALSE.
+   */
+  public function mail(array $message);
+}
+
+/**
+ * The default Drupal mail backend using PHP's mail function.
+ */
+class DefaultMailSystem implements MailSystemInterface {
+  /**
+   * Concatenate and wrap the e-mail body for plain-text mails.
+   *
+   * @param $message
+   *   A message array, as described in hook_mail_alter().
+   *
+   * @return
+   *   The formatted $message.
+   */
+  public function format(array $message) {
+    $line_endings = variable_get('mail_line_endings', MAIL_LINE_ENDINGS);
+    // Join the body array into one string.
+    if (is_array($message['body'])) {
+      $message['body'] = implode("$line_endings$line_endings", $message['body']);
+    }
+    // Convert any HTML to plain-text.
+    $message['body'] = mailsystem_html_to_text('<pre>' . $message['body'] . '</pre>');
+    // Wrap the mail body for sending.
+    $message['body'] = drupal_wrap_mail($message['body']);
+    return $message;
+  }
+
+  /**
+   * Send an e-mail message, using Drupal variables and default settings.
+   *
+   * @see http://php.net/manual/en/function.mail.php
+   * @see drupal_mail()
+   *
+   * @param $message
+   *   A message array, as described in hook_mail_alter().
+   * @return
+   *   TRUE if the mail was successfully accepted, otherwise FALSE.
+   */
+  public function mail(array $message) {
+    // If 'Return-Path' isn't already set in php.ini, we pass it separately
+    // as an additional parameter instead of in the header.
+    // However, if PHP's 'safe_mode' is on, this is not allowed.
+    if (isset($message['headers']['Return-Path']) && !ini_get('safe_mode')) {
+      $return_path_set = strpos(ini_get('sendmail_path'), ' -f');
+      if (!$return_path_set) {
+        $message['Return-Path'] = $message['headers']['Return-Path'];
+        unset($message['headers']['Return-Path']);
+      }
+    }
+    $mimeheaders = array();
+    foreach ($message['headers'] as $name => $value) {
+      $mimeheaders[] = $name . ': ' . mime_header_encode($value);
+    }
+    $line_endings = variable_get('mail_line_endings', MAIL_LINE_ENDINGS);
+    // Prepare mail commands.
+    $mail_subject = mime_header_encode($message['subject']);
+    // Note: e-mail uses CRLF for line-endings. PHP's API requires LF
+    // on Unix and CRLF on Windows. Drupal automatically guesses the
+    // line-ending format appropriate for your system. If you need to
+    // override this, adjust $conf['mail_line_endings'] in settings.php.
+    $mail_body = preg_replace('@\r?\n@', $line_endings, $message['body']);
+    // For headers, PHP's API suggests that we use CRLF normally,
+    // but some MTAs incorrectly replace LF with CRLF. See #234403.
+    $mail_headers = join($line_endings, $mimeheaders);
+    if (isset($message['Return-Path']) && !ini_get('safe_mode')) {
+      if (isset($_SERVER['WINDIR']) || strpos($_SERVER['SERVER_SOFTWARE'], 'Win32') !== FALSE) {
+        // On Windows, PHP will use the value of sendmail_from for the
+        // Return-Path header.
+        $old_from = ini_get('sendmail_from');
+        ini_set('sendmail_from', $message['Return-Path']);
+        $mail_result = @mail(
+          $message['to'],
+          $mail_subject,
+          $mail_body,
+          $mail_headers
+        );
+        ini_set('sendmail_from', $old_from);
+      }
+      else {
+        // On most non-Windows systems, the "-f" option to the sendmail command
+        // is used to set the Return-Path.
+        $mail_result = @mail(
+          $message['to'],
+          $mail_subject,
+          $mail_body,
+          $mail_headers,
+          '-f' . $message['Return-Path']
+        );
+      }
+    }
+    else {
+      // Safe mode, or no Return-Path set.
+      $mail_result = @mail(
+        $message['to'],
+        $mail_subject,
+        $mail_body,
+        $mail_headers
+      );
+    }
+    return $mail_result;
+  }
+}
+
+/**
+ * A mail sending implementation that captures sent messages to a variable.
+ *
+ * This class is for running tests or for development.
+ */
+class TestingMailSystem extends DefaultMailSystem implements MailSystemInterface {
+  /**
+   * Accept an e-mail message and store it in a variable.
+   *
+   * @param $message
+   *   An e-mail message.
+   */
+  public function mail(array $message) {
+    $captured_emails = variable_get('drupal_test_email_collector', array());
+    $captured_emails[] = $message;
+    variable_set('drupal_test_email_collector', $captured_emails);
+    return TRUE;
+  }
+}
