@@ -1,12 +1,25 @@
 <?php
-// $Id: admin_menu.inc,v 1.11.2.25 2009/06/09 18:21:29 sun Exp $
 
 /**
  * The key function that builds the menu links whenever there is a menu rebuild.
  */
 function _admin_menu_rebuild_links() {
-  // Get the newly rebuilt menu.
-  $menu = menu_router_build();
+  $menu = NULL;
+  // Since it's possible this core function might change, check
+  // that it exists. We do this instead of calling menu_router_build()
+  // since that may trigger another menu rebuild that is not protected
+  // by the lock API.
+  if (function_exists('_menu_router_cache')) {
+    // Get the newly rebuilt menu.
+    $menu = _menu_router_cache();
+  }
+  else {
+    $menu = menu_router_build();
+  }
+  if (!$menu) {
+    // Something went wrong. Don't risk triggering another menu rebuild.
+    return;
+  }
   // Add normal and suggested items as links.
   $menu_links = array();
   foreach ($menu as $path => $item) {
@@ -32,7 +45,11 @@ function _admin_menu_rebuild_links() {
   // Allow modules to add more links. If you want to alter links saved by
   // admin_menu, use hook_menu_link_alter() and look for
   // $item['module'] == 'admin_menu'
-  $links = module_invoke_all('admin_menu', $deleted);
+  $links = array();
+  foreach (module_implements('admin_menu') as $module) {
+    $function = $module . '_admin_menu';
+    $links = array_merge_recursive($links, $function($deleted));
+  }
   foreach ($links as $item) {
     admin_menu_link_save($item);
   }
@@ -407,7 +424,7 @@ function admin_menu_theme_settings() {
 function admin_menu_wipe() {
   db_query("DELETE FROM {menu_links} WHERE menu_name = 'admin_menu'");
   menu_cache_clear('admin_menu');
-  variable_set('admin_menu_rebuild_links', TRUE);
+  menu_rebuild();
 }
 
 /**
@@ -450,6 +467,10 @@ function _admin_menu_devel_settings_form_alter(&$form, $form_state) {
  * on larger Drupal sites this is actually a 10% performance increase.
  */
 function admin_menu_toggle_modules() {
+  // URL token prtects this against CSRF attacks.
+  if(!isset($_GET['token']) || ($_GET['token'] !== drupal_get_token($_GET['q']))) {
+    return MENU_ACCESS_DENIED;
+  }
   $rebuild = FALSE;
   $saved_state = variable_get('admin_menu_devel_modules_enabled', NULL);
   if (isset($saved_state)) {
@@ -497,6 +518,10 @@ function admin_menu_toggle_modules() {
  *   (optional) Name of cache to flush.
  */
 function admin_menu_flush_cache($name = NULL) {
+  // URL token protects this against CSRF attacks.
+  if(!isset($_GET['token']) || ($_GET['token'] !== drupal_get_token($_GET['q']))) {
+    return MENU_ACCESS_DENIED;
+  }
   switch ($name) {
     case 'admin_menu':
       admin_menu_wipe();
@@ -513,7 +538,7 @@ function admin_menu_flush_cache($name = NULL) {
       break;
 
     case 'menu':
-      module_invoke('menu', 'rebuild');
+      menu_rebuild();
       break;
 
     case 'requisites':
