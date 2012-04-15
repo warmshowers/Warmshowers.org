@@ -1,5 +1,4 @@
 <?php
-// $Id: fivestar_color.inc,v 1.1.4.9 2009/07/01 01:13:01 quicksketch Exp $
 
 /**
  * @file
@@ -101,7 +100,7 @@ function fivestar_color_form() {
  * Theme color form.
  */
 function theme_fivestar_color_form($form) {
-  if ($form['#access'] == FALSE) {
+  if (isset($form['#access']) && $form['#access'] == FALSE) {
     return '';
   }
 

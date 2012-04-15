@@ -1,4 +1,3 @@
-// $Id: README.txt,v 1.4.2.3 2008/08/23 05:28:21 quicksketch Exp $
 
 The Five Star voting module adds a clean, attractive voting widget to nodes in Drupal 5. It features:
 

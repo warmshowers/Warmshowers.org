@@ -1,5 +1,4 @@
 <?php
-// $Id: fivestar_field.inc,v 1.3.2.20 2009/10/05 01:06:26 ezrag Exp $
 
 /**
  * @file
