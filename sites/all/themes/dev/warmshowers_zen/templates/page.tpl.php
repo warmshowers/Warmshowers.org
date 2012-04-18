@@ -153,11 +153,11 @@
       <?php if ($search_box): ?>
         <div id="search-box"><?php print $search_box; ?></div>
       <?php endif; ?>
-      
+
       <!-- TODO: we need a block here please :) -->
       <div class="block">
         <div class="content">
-          <div class="signpost"> 
+          <div class="signpost">
             <a href="#"><img src="<?php print $directory; ?>/img/hospitality-sign_en.png" alt="Hospitality Ahead" border="0" /></a>
           </div>
         </div>
@@ -245,9 +245,7 @@
           ));
         ?>
 
-        <?php if ($footer_message): ?>
-          <div id="footer-message"><?php print $footer_message; ?></div>
-        <?php endif; ?>
+
 
         <?php print $footer; ?>
 
