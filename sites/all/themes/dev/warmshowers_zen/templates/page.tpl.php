@@ -122,10 +122,10 @@
     <div id="skip-link"><a href="#main-menu"><?php print t('Jump to Navigation'); ?></a></div>
   <?php endif; ?>
 
-  <div id="page-wrapper"><div id="page">
+  <div id="header-style"><div id="header-wrapper">
 
     <div id="header"><div class="section clearfix">
-
+      <div id="logotitle">
       <?php if ($logo): ?>
         <a href="<?php print $front_page; ?>" title="<?php print t('Home'); ?>" rel="home" id="logo"><img src="<?php print $logo; ?>" alt="<?php print t('Home'); ?>" /></a>
       <?php endif; ?>
@@ -149,7 +149,7 @@
           <?php endif; ?>
         </div><!-- /#name-and-slogan -->
       <?php endif; ?>
-
+      </div>
       <?php if ($search_box): ?>
         <div id="search-box"><?php print $search_box; ?></div>
       <?php endif; ?>
@@ -157,6 +157,9 @@
       <?php print $header; ?>
 
     </div></div><!-- /.section, /#header -->
+
+  </div></div> <!-- /#header-wrapper, /#header-style -->
+  <div id="page-wrapper"><div id="page">
 
     <div id="main-wrapper"><div id="main" class="clearfix<?php if ($primary_links || $navigation) { print ' with-navigation'; } ?>">
 
