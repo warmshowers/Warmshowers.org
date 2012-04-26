@@ -74,6 +74,37 @@ function warmshowers_zen_theme(&$existing, $type, $theme, $path) {
   return $hooks;
 }
 
+
+/**
+ * This is a basic copy of theme_status_message.  We add a div to help us with our new layout of icons and different
+ * background colors.
+ * Return a themed set of status and/or error messages. The messages are grouped
+ * by type.
+ *
+ * @param $display
+ *   (optional) Set to 'status' or 'error' to display only messages of that type.
+ *
+ * @return
+ *   A string containing the messages.
+ */
+function warmshowers_zen_status_messages($display = NULL) {
+  $output = '';
+  foreach (drupal_get_messages($display) as $type => $messages) {
+    $output .= "<div class=\"messages $type\"><div class=\"message\">\n";
+    if (count($messages) > 1) {
+      $output .= " <ul>\n";
+      foreach ($messages as $message) {
+        $output .= '  <li>'. $message ."</li>\n";
+      }
+      $output .= " </ul>\n";
+    }
+    else {
+      $output .= $messages[0];
+    }
+    $output .= "</div></div>\n";
+  }
+  return $output;
+}
 /**
  * Override or insert variables into all templates.
  *
