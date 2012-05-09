@@ -169,6 +169,8 @@
 
   </div></div> <!-- /#header-wrapper, /#header-style -->
   <div id="page-wrapper"><div id="page">
+  
+    <?php print $highlight; ?>
 
     <div id="main-wrapper"><div id="main" class="clearfix<?php if ($primary_links || $navigation) { print ' with-navigation'; } ?>">
 
@@ -177,8 +179,6 @@
         <?php if ($mission): ?>
           <div id="mission"><?php print $mission; ?></div>
         <?php endif; ?>
-
-        <?php print $highlight; ?>
 
         <?php print $breadcrumb; ?>
         <?php if ($title): ?>

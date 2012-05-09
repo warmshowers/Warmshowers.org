@@ -74,6 +74,14 @@ function warmshowers_zen_theme(&$existing, $type, $theme, $path) {
   return $hooks;
 }
 
+/**
+ * Implementation of hook_preprocess_page().
+ */
+function warmshowers_zen_preprocess_page(&$variables) {
+  if (!empty($variables['highlight'])) {
+    $variables['classes_array'][] = 'with-highlight';
+  }
+}
 
 /**
  * This is a basic copy of theme_status_message.  We add a div to help us with our new layout of icons and different
