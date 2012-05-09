@@ -85,6 +85,16 @@ function wsuser_menu() {
 			'access arguments' => array('access user profiles'),
 			'weight' => 9
 		);
+//    $items['user_by_name_autocomplete'] = array(
+//      'callback' => 'wsuser_member_autocomplete',
+//      'type' => MENU_CALLBACK,
+//      'access arguments' => array('access user profiles'),
+//    );
+  $items['wsuser/user_by_name_autocomplete'] = array(
+    'page callback' => 'wsuser_member_autocomplete',
+    'access arguments' => array('access user profiles'),
+    'type' => MENU_CALLBACK,
+  );
 
 
 	return $items;
@@ -1069,6 +1079,7 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
 		$blocks[0]['info'] = t('Latest host logins');
 		$blocks[1]['info'] = t('Newest members');
 		$blocks[2]['info'] = t('Welcome member');
+    $blocks['wsuser_member_recommendation']['info'] = t('Member Recommendation Form Block');
 
 		return $blocks;
 	}
@@ -1077,7 +1088,7 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
 
 		switch ($delta) {
 
-			case 0:
+			case '0':
 				if (user_access('access content')) {
 				  $cache_timeout = 3600;   // Number of seconds before we dump cache
 				  if ($cache = cache_get("warmshowers_recent_member_logins.$anon.$language->language")) {
@@ -1116,7 +1127,7 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
   				}
 				}
 				return $block;
-			case 1:
+			case '1':
 			  $displaycount = 15;
 			  if (user_access('access content')) {
 			    $cache_timeout = 3600;   // Number of seconds before we dump cache
@@ -1159,9 +1170,13 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
 			    }
 			  }
 			  return $block;
-      case 2:
+      case '2':
         $block['subject'] = '<none>';
         $block['content'] = theme('wsuser_member_block', array());
+        return $block;
+      case 'wsuser_member_recommendation':
+        $block['subject'] = '<none>';
+        $block['content'] = drupal_get_form('wsuser_member_recommend_form');
         return $block;
 		}
 	}
@@ -1625,4 +1640,92 @@ function wsuser_send_email_action($object, $context) {
   else {
     watchdog('error', 'Unable to send email to %recipient', array('%recipient' => $recipient));
   }
+}
+
+
+/**
+ * Autocomplete function for a search that looks both at fullname and username.
+ * @param string $string
+ */
+function wsuser_member_autocomplete($string = '') {
+  $matches = array();
+
+  if ($string) {
+    $result = db_query_range("SELECT name, fullname FROM {users} u, {wsuser} w WHERE (LOWER(name) LIKE LOWER('%s%%') OR LOWER(fullname) LIKE LOWER('%s%%')) AND u.uid = w.uid", $string, $string, 0, 10);
+    while ($user = db_fetch_object($result)) {
+      $matches[$user->fullname . ' [username:' . $user->name . ']'] = '<div class="reference-autocomplete">'. check_markup($user->fullname) . '</div>';
+    }
+  }
+
+  drupal_json($matches);
+
+}
+
+/**
+ * Form to provide a member lookup with autocomplete.
+ *
+ * @param $form_state
+ */
+function wsuser_member_recommend_form($form_state) {
+  $form['username'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name or username'),
+    '#size' => 15,
+    '#autocomplete_path' => 'wsuser/user_by_name_autocomplete',
+    '#element_validate' => array('wsuser_member_autocomplete_validate'),
+  );
+  $form['comments'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Note of encouragement'),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Recommend'),
+  );
+  return $form;
+}
+
+/**
+ * Validate function for wsuser_member_recommend_form().
+ *
+ * If the username is in the form of "Some name [username:<username>] then the username
+ * will be picked out and placed in the value and we'll use it.
+ * Also checks to see that the username is valid.
+ * 
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_member_recommend_form_validate($form, &$form_state) {
+  $username = $form_state['values']['username'];
+  $matches = array();
+  $result = preg_match('/\[username:([^\[]+)\]/', $username, $matches);
+  if ($result) {
+    $username = $matches[1];
+  }
+  $user = user_load(array('name' => $username));
+  if (empty($user)) {
+    form_error($form['username'], t('Unknown username %name', array('%name' => $username)));
+  }
+  else {
+    $form_state['values']['username'] = $username;
+  }
+}
+
+/**
+ * Submit function for wsuser_member_recommend_form()
+ *
+ * Redirects to the actual recommendation form, providing the info already filled in.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_member_recommend_form_submit($form, &$form_state) {
+  $url = url('node/add/trust-referral', array(
+    'absolute' => TRUE,
+    'query' => array(
+      'edit[field_member_i_trust][0][uid][uid]' => $form_state['values']['username'],
+      'edit[body_field][body]' => $form_state['values']['comments'],
+    ),
+  ));
+  $form_state['redirect'] = $url;
 }
