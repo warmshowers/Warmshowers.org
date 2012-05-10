@@ -130,12 +130,12 @@ function wsmap_main_load_entry()
       createCookie("mapLatitude",map.getCenter().lat());
       createCookie("mapLongitude",map.getCenter().lng());
       createCookie("mapZoom", map.getZoom());
-      createCookie("mapCountry", $('#edit-country').val());
-      mapcountry=$('#edit-country').val();
+      //createCookie("mapCountry", $('#edit-country').val());
+      //mapcountry=$('#edit-country').val();
     } );
-    
- /*   GEvent.addListener(map, 'resize', function(){ 
-    	loadMarkers(); 
+
+ /*   GEvent.addListener(map, 'resize', function(){
+    	loadMarkers();
     	alert('resizeListener');
     }
     );*/
@@ -155,7 +155,7 @@ function wsmap_main_load_entry()
 
 function loadMarkers() {
 
-  var bounds = map.getBounds(); 
+  var bounds = map.getBounds();
   var center = map.getCenter();
   var numpoints = 0;
   i=0;
@@ -163,7 +163,7 @@ function loadMarkers() {
   var ne = bounds.getNorthEast();
 
   var rqurl = mapdata_source + "?minlat="+ sw.lat() +"&maxlat="+ ne.lat() +
-  "&maxlon=" + ne.lng() + "&minlon="+ sw.lng() + "&centerlat=" + center.y 
+  "&maxlon=" + ne.lng() + "&minlon="+ sw.lng() + "&centerlat=" + center.y
   + "&centerlon=" + center.x;
   rqurl += "&limitlow=" + 0 + "&maxresults=" + (0+chunkSize);
   showDebug("Rqurl: " + rqurl);
@@ -354,7 +354,7 @@ function zoomCallback(data) {
   mapcountry = res.country_code;
   var zoom = specificZoomSettings[mapcountry];
 
-  if (!zoom) { 
+  if (!zoom) {
     zoom= Math.round(10-basecalc);
   }
   zoomToSpecific(res.country,res.latitude,res.longitude,zoom);
@@ -377,7 +377,7 @@ function editCountryReset() {
 
   $("#edit-city").attr('value',"");
   replaceAutocompleteHooks();
- 
+
   $("#edit-city").blur(function() {
     replaceAutocompleteHooks();
 
@@ -386,10 +386,10 @@ function editCountryReset() {
 }
 
 /**
- * Update the selection and rebind all the handlers. 
+ * Update the selection and rebind all the handlers.
  * If there is an actual selection, then do all that and in addition
  * parse the returned values and zoom the map to the new place.
- * 
+ *
  * @return
  */
 function replaceAutocompleteHooks() {
@@ -401,7 +401,7 @@ function replaceAutocompleteHooks() {
   $("#edit-city").unbind('keyup');
   $("#edit-city").unbind('blur');
   $("#edit-city-autocomplete").removeClass('autocomplete-processed');
-  Drupal.attachBehaviors(); 
+  Drupal.attachBehaviors();
 
 
   // Now handle the business at hand - go to the place they entered
@@ -433,7 +433,7 @@ function replaceAutocompleteHooks() {
 /**
  * the things we do when they change the country dropdown.
  * Move to the new location, and do a reset operation, especially on edit-city
- * 
+ *
  * @return
  */
 function editCountryOnchange() {
@@ -442,7 +442,7 @@ function editCountryOnchange() {
   if (mapcountry != 'xx' && mapcountry.length) {
     setMapLocationToCountry(mapcountry);
   }
-  editCountryReset(); 
+  editCountryReset();
 
 }
 
@@ -486,7 +486,7 @@ function zoomToUser(uid, latitude, longitude, zoom) {
       GEvent.removeListener(loadMarkersListener);
       var host = hosts[uid];
 
-      if (!host) { 
+      if (!host) {
         map.openInfoWindowHtml(
             map.getCenter(),
             Drupal.t("User's general location<br/>(Not currently available to host)"),{maxWidth:220});
@@ -528,7 +528,7 @@ function setMapStartPosition() {
     mapcountry = country;
     $('#edit-country').attr('value',mapcountry);
     return;
-  } 
+  }
 
 
   startlat = parseFloat($('#browser_lat').text());
@@ -537,8 +537,8 @@ function setMapStartPosition() {
   $('#edit-country').attr('value',mapcountry);
 
   startzoom=specificZoomSettings[mapcountry];
-  if (!startzoom) { 
-    startzoom = parseInt($('#browser_default_zoom').text()); 
+  if (!startzoom) {
+    startzoom = parseInt($('#browser_default_zoom').text());
   }
 
   return;
@@ -605,6 +605,6 @@ function toggleMap(){ //expand and contract map
 		$('#mapwidth').html("100")
 	}
 	setTimeout("map.checkResize();loadMarkers();",1000); //this is necessary due to animate function
-	
+
 }
 
