@@ -27,7 +27,7 @@ var specificZoomSettings  = {  // Handle countries that don't quite fit the calc
 var chunkSize = 5000; /* Max size of a request to the db */
 var mapdata_source=null;
 var loggedin = false;
-var  cookiedays=14;  /* days to save a lat/lon/country cookie */  
+var  cookiedays=14;  /* days to save a lat/lon/country cookie */
 
 
 
@@ -56,35 +56,29 @@ function wsmap_main_load_entry()
 {
 
   try {
-    $('#edit-city')[0].select();
 
     mapwidth=parseInt($('#mapwidth').text());
     var rightcol=mapwidth+4;
-
-    $('#nearby-hosts').css('left', ""+rightcol +'%');
 
     if ($('#wsmap_map').width()  < 500) {
       $('#nearby-hosts').css('position','static');
       $('#mapholder').css('width','100%');
     }
     else {
-      $('#nearby-hosts').css('position','absolute');
       $('#mapholder').css('width',''+mapwidth+'%');
     }
     $(window).resize(map_resize);
     map_resize();
 
 
-    setMapStartPosition(); 
+    setMapStartPosition();
     editCountryReset();
 
     mapdata_source = document.getElementById('mapdata_source').innerHTML;
     loggedin = parseInt(document.getElementById('loggedin').innerHTML);
 
-
     base_path = document.getElementById('base_path').innerHTML;
 
-    //$('#wsmap_map').css('height',windowheight()*.8);
     redIcon = new GIcon();
     redIcon.image=base_path + '/clusterer/red.PNG';
     redIcon.shadow==base_path + '/clusterer/shadow.PNG';
