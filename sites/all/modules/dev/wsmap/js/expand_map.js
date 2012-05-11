@@ -12,11 +12,11 @@ Drupal.behaviors.expandMap = function(context) {
 
         }
         else {
-            $(".region-sidebar-first .section").show(1500);
+            $(".region-sidebar-first .section").show(1000);
             $(".sidebar-first #content").animate({
                 'margin-left': '240px',
                 'width': '720px'
-            }, 1500, function(){
+            }, 1000, function(){
                 $("#expand_map").html("Expand Map");
             });
         }
