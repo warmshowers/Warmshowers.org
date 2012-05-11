@@ -154,7 +154,18 @@
         <div id="search-box"><?php print $search_box; ?></div>
       <?php endif; ?>
 
-      <!-- TODO: we need a block here please :) -->
+      <div class="signpost"><?php print t('Hospitality Ahead'); ?>
+        <div id="hospitality">
+          <?php print t("We are built on 100%") . " " . l("Reciprocal Hospitality!", "noideawherethisisgoing"); ?>
+        </div>
+      </div>
+
+      <div id="signup_login">
+        <?php print  l("Sign up", 'user/register', array('attributes' => array('class' => 'signup'))) .
+        l("Log in", 'user', array('attributes' => array('class' => 'login'))); ?>
+      </div>
+
+      <!-- Any reason we need blocks instead of these two straight in the template?
       <div class="block">
         <div class="content">
           <div class="signpost">
@@ -162,6 +173,7 @@
           </div>
         </div>
       </div>
+      -->
 
       <?php print $header; ?>
 
@@ -169,7 +181,7 @@
 
   </div></div> <!-- /#header-wrapper, /#header-style -->
   <div id="page-wrapper"><div id="page">
-  
+
     <?php print $highlight; ?>
 
     <div id="main-wrapper"><div id="main" class="clearfix<?php if ($primary_links || $navigation) { print ' with-navigation'; } ?>">
