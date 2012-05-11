@@ -1,0 +1,136 @@
+<?php
+// $Id: persistent_login.install,v 1.9.2.4 2009/05/01 14:07:00 markuspetrux Exp $
+
+/**
+ * @file
+ * Implementation of installation/uninstallation hooks.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function persistent_login_schema() {
+  $schema = array();
+  $schema['persistent_login'] = array(
+    'description' => 'Stores Persistent Login (PL) information for users that check Remember me when they log in.  If this info matches an anonymous user\'s PL cookie, they are logged in automatically.  See http://jaspan.com/improved_persistent_login_cookie_best_practice for details on the technique used.',
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1,
+        'description' => 'The {users}.uid this row is for.',
+      ),
+      'series' => array('type' => 'varchar', 'length' => 32, 'not null' => 1,
+        'description' => 'The long-lived series identifying the PL token sequence.',
+      ),
+      'token' => array('type' => 'varchar', 'length' => 32, 'not null' => 1,
+        'description' => 'The single-use PL login token.',
+      ),
+      'expires' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1,
+        'description' => 'The expiration date for this series of tokens.',
+      ),
+    ),
+    'primary key' => array('uid', 'series'),
+    'indexes' => array(
+      'expires' => array('expires'),
+      'uid_expires' => array('uid', 'expires'),
+    ),
+  );
+  $schema['persistent_login_history'] = array(
+    'description' => 'Stores previous entries from the {persistent_login} table just before they are erased; currently used.  The uid, series, token, and expires fields are copied verbatim.',
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'series' => array('type' => 'varchar', 'length' => 32, 'not null' => 1),
+      'token' => array('type' => 'varchar', 'length' => 32, 'not null' => 1),
+      'expires' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'at' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1,
+        'description' => 'When this entry was copied from the {persistent_login} table.',
+      ),
+      'why' => array('type' => 'varchar', 'length' => 255, 'not null' => 1,
+        'description' => 'Why this entry was deleted from the {persistent_login} table.',
+      ),
+    ),
+    'primary key' => array('uid', 'series', 'token'),
+    'indexes' => array(
+      'expires' => array('at'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function persistent_login_install() {
+  drupal_install_schema('persistent_login');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function persistent_login_uninstall() {
+  drupal_uninstall_schema('persistent_login');
+
+  // Delete all module variables and then clear the variables cache.
+  db_query("DELETE FROM {variable} WHERE name LIKE 'persistent\_login\_%'");
+  cache_clear_all('variables', 'cache');
+}
+
+/**
+ * Update Persistent Login to Drupal 6.x.  Previous versions of PL
+ * always re-created its tables from scratch at every update so we do
+ * not really know what state we are in.  Luckily, PL data can be
+ * wiped safely; users will just have to log in again.  So, here we
+ * drop and re-create the tables to a known state, and henceforth
+ * we'll know what we have.
+ */
+function persistent_login_update_6000() {
+  $ret = array();
+
+  // Some versions of persistent_login (wrongly) did not use hook_init
+  // and so may not have bootstrap set in the system table.
+  $ret[] = update_sql("UPDATE {system} SET bootstrap = 1 WHERE name = 'persistent_login'");
+
+  $ret[] = update_sql('DROP TABLE IF EXISTS {persistent_login}');
+  $ret[] = update_sql('DROP TABLE IF EXISTS {persistent_login_history}');
+
+  $schema['persistent_login'] = array(
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'series' => array('type' => 'varchar', 'length' => 32, 'not null' => 1),
+      'token' => array('type' => 'varchar', 'length' => 32, 'not null' => 1),
+      'expires' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+    ),
+    'primary key' => array('uid', 'series'),
+    'indexes' => array(
+      'expires' => array('expires'),
+    ),
+  );
+  db_create_table($ret, 'persistent_login', $schema['persistent_login']);
+
+  $schema['persistent_login_history'] = array(
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'series' => array('type' => 'varchar', 'length' => 32, 'not null' => 1),
+      'token' => array('type' => 'varchar', 'length' => 32, 'not null' => 1),
+      'expires' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'at' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'why' => array('type' => 'varchar', 'length' => 255, 'not null' => 1),
+    ),
+    'primary key' => array('uid', 'series', 'token'),
+    'indexes' => array(
+      'expires' => array('at'),
+    ),
+  );
+  db_create_table($ret, 'persistent_login_history', $schema['persistent_login_history']);
+
+  return $ret;
+}
+
+/**
+ * Add new index by uid, expires to Persistent Login table.
+ */
+function persistent_login_update_6001() {
+  $ret = array();
+
+  db_add_index($ret, 'persistent_login', 'uid_expires', array('uid', 'expires'));
+
+  return $ret;
+}
