@@ -107,6 +107,7 @@ function wsuser_menu() {
  * @return unknown_type
  */
 function wsuser_theme() {
+  $template_path = drupal_get_path('module', 'wsuser') . '/templates';
   return array(
     'email_addr' => array(
       'arguments' => array('email' => NULL)
@@ -116,8 +117,12 @@ function wsuser_theme() {
     ),
     'wsuser_member_block' => array(
       'arguments' => array('menu' => NULL),
-      'path' => drupal_get_path('module','wsuser') . '/templates',
+      'path' => $template_path,
       'template' => 'wsuser-member-block'
+    ),
+    'wsuser_member_count_block' => array(
+      'path' => $template_path,
+      'template' => 'wsuser-member-count-block',
     ),
   );
 }
@@ -1076,11 +1081,24 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
 	$anon = $user->uid ? "loggedin" : "anon";
 
 	if ($op == 'list') {
-		$blocks[0]['info'] = t('Latest host logins');
-		$blocks[1]['info'] = t('Newest members');
-		$blocks[2]['info'] = t('Welcome member');
-    $blocks['wsuser_member_recommendation']['info'] = t('Member Recommendation Form Block');
-    $blocks['wsuser_search_block']['info'] = t('Member Search Block');
+		$blocks['wsuser_recent_member_logins'] = array(
+      'info' => t('[wsuser] Latest host logins'),
+      'cache' => BLOCK_CACHE_GLOBAL,
+    );
+		$blocks['wsuser_newest_members_block'] = array(
+      'info' => t('[wsuser] Newest members'),
+      'cache' => BLOCK_CACHE_GLOBAL,
+    );
+		$blocks['wsuser_member_block'] = array(
+      'info' => t('[wsuser] Welcome member'),
+      'cache' => BLOCK_CACHE_PER_USER,
+    );
+    $blocks['wsuser_member_recommendation']['info'] = t('[wsuser] Member Recommendation Form Block');
+    $blocks['wsuser_search_block']['info'] = t('[wsuser] Member Search Block');
+    $blocks['wsuser_member_count_block'] = array(
+      'info' => t('[wsuser] Member Count Block'),
+      'cache' => BLOCK_CACHE_GLOBAL,
+    );
 		return $blocks;
 	}
 	else if ($op == 'view') {
@@ -1088,30 +1106,23 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
 
 		switch ($delta) {
 
-			case '0':
+			case 'wsuser_recent_member_logins':
 				if (user_access('access content')) {
-				  $cache_timeout = 3600;   // Number of seconds before we dump cache
-				  if ($cache = cache_get("warmshowers_recent_member_logins.$anon.$language->language")) {
-				    $block = $cache->data;
-				  } else {
-  					$result = db_query("select count(*) numusers from {users u,wsuser w} where u.uid = w.uid
-  						 and u.uid>99 and u.status and !isunreachable and !isstale ");
-  					$countresult = db_fetch_object($result);
-  					$numusers = $countresult->numusers;
+          $numusers = db_result(db_query("SELECT COUNT(*) numusers FROM {users u,wsuser w} WHERE u.uid = w.uid
+             AND u.uid>99 AND u.status AND !isunreachable AND !isstale "));
 
-  					$result = db_query_range('SELECT u.uid, access, city, province, country
-  						FROM {users} u,{user_location} l,{wsuser} w
-  						WHERE status != 0 and u.uid = l.oid and u.uid=w.uid
-  						and not w.notcurrentlyavailable ORDER BY access DESC', 0, 15);
-  					while ($account = db_fetch_object($result)) {
-  						if ($account->city && $account->country) {
-  							if (user_access('access user profiles')) {
-  								$items[] = l($account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country),'user/'.$account->uid);
-  							} else {
-  								$items[] = htmlspecialchars($account->city) . ", ". strtoupper($account->province) . ", ". strtoupper($account->country);
-  							}
-  						}
-  					}
+          $result = db_query_range('SELECT u.uid, access, city, province, country
+            FROM {users} u,{user_location} l,{wsuser} w
+            WHERE status != 0 and u.uid = l.oid and u.uid=w.uid
+            and not w.notcurrentlyavailable ORDER BY access DESC', 0, 15);
+          while ($account = db_fetch_object($result)) {
+            if ($account->city && $account->country) {
+              if (user_access('access user profiles')) {
+                $items[] = l($account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country),'user/'.$account->uid);
+              } else {
+                $items[] = htmlspecialchars($account->city) . ", ". strtoupper($account->province) . ", ". strtoupper($account->country);
+              }
+            }
 
   					$output = "<ul>";
   					foreach ($items as $item) {
@@ -1122,40 +1133,31 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
   					$block['subject'] = t('Recent Member Logins');
   					$block['content'] = "<b><i>$numusers</i> " . t("Current Members")."</b><br/><br/>";
   					$block['content'] .= $output;
-  					cache_set("warmshowers_recent_member_logins.$anon.$language->language", $block, 'cache', time() + $cache_timeout);
-
   				}
 				}
 				return $block;
-			case '1':
+
+			case 'wsuser_newest_members_block':
 			  $displaycount = 15;
 			  if (user_access('access content')) {
-			    $cache_timeout = 3600;   // Number of seconds before we dump cache
-			    if ($cache = cache_get("warmshowers_new_members_block.$anon.$language->language")) {
-			      $block = $cache->data;
-			    } else {
+          $numusers = db_result(db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
+            WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale"));
+          $countactive = db_result(db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
+            WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale AND !notcurrentlyavailable"));
 
-			      $result = db_query("select count(*) numusers from {users} u,{wsuser} w
-						where u.uid = w.uid and u.uid>1 and u.status and !isunreachable and !isstale");
-			      $countresult = db_fetch_object($result);
-			      $numusers = $countresult->numusers;
-			      $activeresult = db_query("select count(*) numusers from {users} u,{wsuser} w
-						where u.uid = w.uid and u.uid>1 and u.status and !isunreachable and !isstale and !notcurrentlyavailable");
-			      $countactive = db_fetch_object($activeresult);
+          $result = db_query_range('SELECT u.uid uid, created, city, province, country
+            FROM {users} u,{user_location} l,{wsuser} w
+            WHERE status != 0 and u.uid = l.oid and u.uid=w.uid and not w.notcurrentlyavailable
+            ORDER BY uid DESC', 0, $displaycount);
+          while ($account = db_fetch_object($result)) {
+            if ($account->city && $account->country) {
+              if (user_access('access user profiles')) {
+                $items[] = l($account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country),'user/'.$account->uid);
+              } else {
+                $items[] = $account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country);
+              }
+            }
 
-			      $result = db_query_range('SELECT u.uid uid, created, city, province, country
-						FROM {users} u,{user_location} l,{wsuser} w
-						WHERE status != 0 and u.uid = l.oid and u.uid=w.uid and not w.notcurrentlyavailable
-						ORDER BY uid DESC', 0, $displaycount);
-			      while ($account = db_fetch_object($result)) {
-			        if ($account->city && $account->country) {
-			          if (user_access('access user profiles')) {
-			            $items[] = l($account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country),'user/'.$account->uid);
-			          } else {
-			            $items[] = $account->city . ", ". strtoupper($account->province) . ", ". strtoupper($account->country);
-			          }
-			        }
-			      }
 
 			      $output = "<ul>";
 			      foreach ($items as $item) {
@@ -1164,13 +1166,12 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
 			      $output .= "</ul>";
 
 			      $block['subject'] = t('Newest members');
-			      $block['content'] = "<b>".t("Newest")." $displaycount ".t("of")." <i>$numusers</i> ".t("Active Members")."</b> (" . $countactive->numusers . " ".t("hosting right now").")<br/><br/>";
+			      $block['content'] = "<b>".t("Newest")." $displaycount ".t("of")." <i>$numusers</i> ".t("Active Members")."</b> (" . $countactive . " ".t("hosting right now").")<br/><br/>";
 			      $block['content'] .= $output;
-			      cache_set("warmshowers_new_members_block.$anon.$language->language", $block, 'cache', time() + $cache_timeout);
 			    }
 			  }
 			  return $block;
-      case '2':
+      case 'wsuser_member_block':
         $block['subject'] = '<none>';
         $block['content'] = theme('wsuser_member_block', array());
         return $block;
@@ -1181,6 +1182,10 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
       case 'wsuser_search_block':
         $block['subject'] = t('Search');
         $block['content'] = drupal_get_form('wsuser_member_search_form');
+        return $block;
+      case 'wsuser_member_count_block':
+        $block['subject'] = '<none>';
+        $block['content'] = theme('wsuser_member_count_block');
         return $block;
 		}
 	}
@@ -1764,7 +1769,7 @@ function wsuser_member_search_form(&$form_state) {
 
 /**
  * Submit handler for wsuser_member_search_form()
- * 
+ *
  * @param $form
  * @param $form_state
  */
