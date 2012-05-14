@@ -40,6 +40,12 @@ function wsuser_menu() {
 			'type' => MENU_CALLBACK,
 			'weight' => 9
 		);
+    $items['wsuser_country_change_ahah'] = array(
+      'title' => 'AHAH callback for country change in search form',
+      'page callback' => 'wsuser_country_change_ahah',
+      'access arguments' => array('access content'),
+      'type' => MENU_CALLBACK,
+    );
 		$items['member_list'] = array(
 			'title' => 'List members on one page',
 			'page callback' => 'wsuser_member_list_page',
@@ -1550,6 +1556,24 @@ function ahah_render_member_list_form($fields, $name) {
   return drupal_render($new_form);
 }
 
+/**
+ * Does the very standard things that must be done in any normal callback.
+ * Used by each callback in this example module.
+ */
+function wsuser_ahah_callback_helper() {
+  $form_state = array('storage' => NULL, 'submitted' => FALSE);
+  $form_build_id = $_POST['form_build_id'];
+  $form = form_get_cache($form_build_id, $form_state);
+  $args = $form['#parameters'];
+  $form_id = array_shift($args);
+  $form_state['post'] = $form['#post'] = $_POST;
+  // Enable the submit/validate handlers to determine whether AHAH-submittted.
+  $form_state['ahah_submission'] = TRUE;
+  $form['#programmed'] = $form['#redirect'] = FALSE;
+  drupal_process_form($form_id, $form, $form_state);
+  $form = drupal_rebuild_form($form_id, $form_state, $args, $form_build_id);
+  return $form;
+}
 
 
 /**
@@ -1745,22 +1769,44 @@ function wsuser_member_recommend_form_submit($form, &$form_state) {
  * @param $form_state
  */
 function wsuser_member_search_form(&$form_state) {
-  $form['user'] = array(
-    '#title' => t('Search for users by name'),
+  $form['search_by_name'] = array(
+    '#title' => t('Search by name'),
+    '#type' => 'fieldset',
+  );
+  $form['search_by_name']['user'] = array(
+    '#title' => t('Search by name'),
     '#type' => 'textfield',
     '#size' => 15,
   );
-  $form['user_submit'] = array(
+  $form['search_by_name']['user_submit'] = array(
     '#type' => 'submit',
     '#value' => t('Go'),
     '#submit' => array('wsuser_member_search_form_user_submit'),
   );
-  $form['location'] = array(
-    '#title' => t('Search for city or town'),
-    '#type' => 'textfield',
-    '#size' => 15,
+
+  $form['search_by_location'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search by location'),
+    '#prefix' => '<div id="search_by_location_fieldset">',
+    '#suffix' => '</div>',
   );
-  $form['location_submit'] = array(
+  $form['search_by_location']['country'] = array(
+    '#title' => t('Country'),
+    '#type' => 'select',
+    '#options' =>  _user_location_supported_countries(),
+    '#default_value' => !empty($form_state['values']['country']) ? $form_state['values']['country'] : 'us',
+    '#ahah' => array(
+      'path' => 'wsuser_country_change_ahah',
+      'wrapper' => 'search_by_location_fieldset',
+    ),
+  );
+  $form['search_by_location']['location'] = array(
+    '#title' => t("City or Town"),
+    '#type' => 'textfield',
+    '#size' => 20,
+    '#autocomplete_path' => 'location_autocomplete/us', // Replaced by ahah update
+  );
+  $form['search_by_location']['location_submit'] = array(
     '#type' => 'submit',
     '#value' => t('Go'),
   );
@@ -1775,4 +1821,21 @@ function wsuser_member_search_form(&$form_state) {
  */
 function wsuser_member_search_form_user_submit($form, &$form_state) {
   $form_state['redirect'] = 'search/wsuser/' . $form_state['values']['user'];
+}
+
+/**
+ * AHAH callback for search form, based on AHAH Example D6 project, http://drupal.org/project/examples
+ */
+function wsuser_country_change_ahah() {
+  $form = wsuser_ahah_callback_helper();
+  $location_fieldset = $form['search_by_location'];
+  // Set the autocomplete_path
+  $location_fieldset['location']['#autocomplete_path'] = 'location_autocomplete/' . $location_fieldset['country']['#default_value'];
+  // Remove the wrapper so we don't double it up.
+  unset($location_fieldset['#prefix'], $location_fieldset['#suffix']);
+  $output = theme('status_messages');
+  $output .= drupal_render($location_fieldset);
+
+  // Final rendering callback.
+  drupal_json(array('status' => TRUE, 'data' => $output));
 }
