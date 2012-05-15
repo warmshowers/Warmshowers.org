@@ -511,8 +511,6 @@ function setMapStartPosition() {
   var zoom=readCookie("mapZoom");
   var country=readCookie("mapCountry");
   if (startlat && startlon && zoom && country) {
-    startlat = parseFloat(lat);
-    startlon = parseFloat(lon);
     startzoom = parseInt(zoom);
     mapcountry = country;
     $('#edit-country').attr('value',mapcountry);
