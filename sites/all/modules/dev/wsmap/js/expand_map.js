@@ -2,6 +2,7 @@
 Drupal.behaviors.expandMap = function(context) {
     // Grab the original map height upon loading of the page
     var originalMapHeight = $('#wsmap_map').height();
+    var originalMapBlockHeight = $('div.block-wsmap').height();
 
     $("#expand_map").click(function(){
         if($(this).html() == 'Expand Map'){
@@ -18,6 +19,11 @@ Drupal.behaviors.expandMap = function(context) {
                 $("#wsmap_map").animate({
                     'height': $(window).height()  - 150 + 'px'
                 }, 1000);
+                $("div.block-wsmap").animate({
+                    'height': $(window).height()  - 130 + 'px'
+                }, 1000);
+
+
             }
         }
         else {
@@ -35,6 +41,10 @@ Drupal.behaviors.expandMap = function(context) {
                 $("#wsmap_map").animate({
                     'height':originalMapHeight + 'px'
                 }, 1000);
+                $("div.block-wsmap").animate({
+                    'height':originalMapBlockHeight + 'px'
+                }, 1000);
+
             }
         }
             return false;
