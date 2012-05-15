@@ -60,14 +60,13 @@ function wsmap_main_load_entry()
     $(window).resize(map_resize);
     map_resize();
 
-
     setMapStartPosition();
     editCountryReset();
 
-    mapdata_source = document.getElementById('mapdata_source').innerHTML;
-    loggedin = parseInt(document.getElementById('loggedin').innerHTML);
+    mapdata_source = Drupal.settings.wsmap.mapdata_source;
+    loggedin = Drupal.settings.wsmap.loggedin;
 
-    base_path = document.getElementById('base_path').innerHTML;
+    base_path = Drupal.settings.wsmap.base_path;
 
     redIcon = new GIcon();
     redIcon.image=base_path + '/clusterer/red.PNG';
@@ -507,11 +506,11 @@ function windowheight() {
 
 function setMapStartPosition() {
   var success=false;
-  var lat=readCookie("mapLatitude");
-  var lon=readCookie("mapLongitude");
+  startlat = Drupal.settings.wsmap.startlat;
+  startlon = Drupal.settings.wsmap.startlon;
   var zoom=readCookie("mapZoom");
   var country=readCookie("mapCountry");
-  if (lat && lon && zoom && country) {
+  if (startlat && startlon && zoom && country) {
     startlat = parseFloat(lat);
     startlon = parseFloat(lon);
     startzoom = parseInt(zoom);
@@ -520,15 +519,12 @@ function setMapStartPosition() {
     return;
   }
 
-
-  startlat = parseFloat($('#browser_lat').text());
-  startlon = parseFloat($('#browser_lon').text());
   mapcountry=$('#browser_country').text();
   $('#edit-country').attr('value',mapcountry);
 
   startzoom=specificZoomSettings[mapcountry];
   if (!startzoom) {
-    startzoom = parseInt($('#browser_default_zoom').text());
+    startzoom = Drupal.settings.wsmap.startzoom;
   }
 
   return;
