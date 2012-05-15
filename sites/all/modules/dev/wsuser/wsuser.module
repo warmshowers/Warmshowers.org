@@ -499,7 +499,7 @@ function wsuser_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'search_form' ) {
     if (strstr($form['#action'],'/search/wsuser')) {
       $form['basic']['#title'] = t('Enter member names or cities');
-      $form['basic']['#description'] = t('Search for members by a part of their name (like "Martinez", for example) or by the town they live in.');
+      $form['basic']['#description'] = t('Search for members by a part of their name (like "Martinez", for example) or by the town they live in. A special case allows search by distance, with latitude and longitude separated by pipe symbols (|)');
     }
     else if (strstr($form['#action'], '/search/user')) {
       $form['basic']['#title'] = t('Search by username or partial username');
@@ -563,23 +563,51 @@ function wsuser_search($op = 'search', $keys = null) {
 				$find = array();
 				// Replace wildcards with MySQL/PostgreSQL wildcards.
 				$keys = preg_replace('!\*+!', '%', $keys);
-				$sql = "SELECT * FROM {users} u, {wsuser w}, {user_location} l
-							WHERE u.uid = w.uid and u.uid=l.oid and status > 0
-							and !w.isstale and !w.isunreachable and
-							(LOWER(w.fullname) LIKE '%%%s%%' or u.name like '%%%s%%'
-							or l.city like '%%%s%%' or u.mail like '%s%%')";
-				$result = pager_query($sql, 50, 0, NULL, $keys, $keys, $keys, $keys);
+        // If this search provides lat/lon, then do the search based on location only.
+        list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
+        if (is_numeric($latitude) && is_numeric($longitude)) {
+          // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
+          // No guarantee expressed or implied, and no testing around 0 latitude.
+          $sql = "SELECT
+            SQRT(POW(69.1 * (l.latitude - %f), 2) + POW(69.1 * (%f - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
+            FROM {users} u, {wsuser w}, {user_location} l
+            WHERE u.uid = w.uid and u.uid=l.oid AND status > 0
+            AND !w.isstale AND !w.isunreachable AND !notcurrentlyavailable
+            ORDER BY distance";
+          $result = pager_query($sql, 50, 0, NULL, $latitude, $longitude);
+
+        }
+        // Otherwise, just use the keys in the search, including wildcards.
+        else {
+          $sql = "SELECT * FROM {users} u, {wsuser w}, {user_location} l
+                WHERE u.uid = w.uid AND u.uid=l.oid AND status > 0
+                AND !w.isstale AND !w.isunreachable AND !notcurrentlyavailable AND
+                (LOWER(w.fullname) LIKE '%%%s%%' OR u.name like '%%%s%%'
+                OR l.city like '%%%s%%' OR u.mail LIKE '%s%%')";
+          $result = pager_query($sql, 50, 0, NULL, $keys, $keys, $keys, $keys);
+      }
 
 				$countrylist = _user_location_supported_countries();
 				while ($account = db_fetch_object($result)) {
 					$location = $account->city . ", $account->province, ". $countrylist[$account->country];
+          $find[$account->uid] = array();
+          if (!empty($account->distance)) {
+            $find[$account->uid]['distance'] = number_format($account->distance * 1.609344, 0) . '/' .
+              number_format($account->distance, 0);
+          }
 
-					$find[] = array(
-						'fullname' => l($account->fullname, 'user/' . $account->uid),
-						'username' => check_plain($account->name),
-					 	'location' => l($location,'map/uid=' . $account->uid),
-					 	'comments' => check_plain($account->comments),
-					 	);
+          $fullname = l($account->fullname, 'user/' . $account->uid);
+          $location = l($location, 'map/uid=' . $account->uid);
+          $comments = $account->comments;
+          $max_comment_length = 200;
+          $comments = wsuser_string_truncate($comments, $max_comment_length);
+          $comments = check_markup($comments);
+
+					$find[$account->uid] += array(
+						'fullname' => "$fullname ($location)",
+					 	'comments' => $comments,
+					);
+
 				}
 				return $find;
 			}
@@ -588,16 +616,50 @@ function wsuser_search($op = 'search', $keys = null) {
 	}
 }
 
+/**
+ * Truncate a string to a given length on a word boundary.
+ * Shamelessly stolen from
+ * http://stackoverflow.com/questions/79960/how-to-truncate-a-string-in-php-to-the-word-closest-to-a-certain-number-of-chara
+ *
+ * @param $string
+ *   String to truncate
+ * @param $desired_width
+ *   Max length
+ * @return string
+ *   Truncated string, with ... if it was truncated.
+ */
+function wsuser_string_truncate($string, $desired_width) {
+
+  if (strlen($string) > $desired_width)
+  {
+    $string = wordwrap($string, $desired_width, '|');
+    $string = substr($string, 0, strpos($string, "|"));
+
+    $string .= '...';
+  }
+  return $string;
+}
 
 
-
+/**
+ * Output search page as basic table.
+ *
+ * @param $rows
+ *   Array of rows (keyed by uid) with member info.
+ * @return string
+ *   Themed output.
+ */
 function wsuser_search_page($rows) {
-	$header = array(
-	'fullname' => t('Name'),
-	'username' => t('Username'),
-	'location' => t('Location'),
-	'comments' => t('About Member'),
+  $header = array();
+  $key = key($rows);
+  if (!empty($rows[$key]['distance'])) {
+    $header['distance'] = t('Distance (km/mi)');
+  }
+  $header += array(
+    'fullname' => t('Name'),
+    'comments' => t('About Member'),
 	);
+
 
 	$output .= theme('table', $header, $rows);
 	$output .= theme('pager', NULL, 50,0);
@@ -1769,6 +1831,7 @@ function wsuser_member_recommend_form_submit($form, &$form_state) {
  * @param $form_state
  */
 function wsuser_member_search_form(&$form_state) {
+
   $form['search_by_name'] = array(
     '#title' => t('Search by name'),
     '#type' => 'fieldset',
@@ -1787,30 +1850,112 @@ function wsuser_member_search_form(&$form_state) {
   $form['search_by_location'] = array(
     '#type' => 'fieldset',
     '#title' => t('Search by location'),
-    '#prefix' => '<div id="search_by_location_fieldset">',
-    '#suffix' => '</div>',
   );
+  $browser_location = user_location_get_browser_country();
+  $browser_location = !empty($browser_location) ? $browser_location : 'us';
+  $country = !empty($form_state['values']['country']) ? $form_state['values']['country'] : $browser_location;
   $form['search_by_location']['country'] = array(
     '#title' => t('Country'),
     '#type' => 'select',
+    '#required' => TRUE,
     '#options' =>  _user_location_supported_countries(),
-    '#default_value' => !empty($form_state['values']['country']) ? $form_state['values']['country'] : 'us',
+    '#default_value' => $country,
     '#ahah' => array(
       'path' => 'wsuser_country_change_ahah',
-      'wrapper' => 'search_by_location_fieldset',
+      'wrapper' => 'search_by_location_city',
     ),
   );
-  $form['search_by_location']['location'] = array(
-    '#title' => t("City or Town"),
+  $city = !empty($form_state['values']['city']) ? $form_state['values']['city'] : '';
+  $form['search_by_location']['city'] = array(
+    '#title' => t("City or State/Province"),
+    '#description' => t('Optionally type a few letters of the city or province and wait.'),
+    '#default_value' => $city,
     '#type' => 'textfield',
     '#size' => 20,
-    '#autocomplete_path' => 'location_autocomplete/us', // Replaced by ahah update
+    '#autocomplete_path' => 'location_autocomplete/' . $country,
+    '#prefix' => '<div id="search_by_location_city">',
+    '#suffix' => '</div>',
   );
-  $form['search_by_location']['location_submit'] = array(
+  $form['search_by_location']['map_submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Go'),
+    '#value' => t('Map'),
   );
+  $form['search_by_location']['list_submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('List'),
+    '#submit' => array('wsuser_member_search_form_list_submit'),
+    '#validate' => array('wsuser_member_search_form_list_validate'),
+  );
+  $form['search_by_location']['csv_submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('CSV'),
+    '#submit' => array('wsuser_member_search_form_csv_submit'),
+  );
+
   return $form;
+}
+
+/**
+ * Validate the city to make sure it contains something useful. Get lat/lon if possible.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_member_search_form_list_validate($form, &$form_state) {
+  $city = $form_state['values']['city'];
+  $country = $form_state['values']['country'];
+  // If city is populated and
+  if (!empty($country) && !empty($city)) {
+    list($placename, $latitude, $longitude) = preg_split('/\|/', $form_state['values']['city']);
+    if (!is_numeric($latitude) || !is_numeric($longitude)) {
+      $result = db_query_range(
+        "SELECT distinct g.name cityname, a.name provname, g.country_code,
+  		     latitude, longitude, g.admin1_code, g.feature_code
+  	       FROM {geonames} g,{geonames_adm1} a
+  	       WHERE g.country_code='%s'
+  		     AND g.ansiname LIKE('%s%%') AND feature_code IN ('ppl', 'ppla', 'pplc', 'adm1')
+  		     AND g.country_code = a.country_code AND g.admin1_code=a.adm1_code
+  		     AND (population > 100 OR feature_code='adm1')
+  		     ORDER BY (feature_code='adm1') DESC, g.population DESC", $country, $city, 0, 1);
+      if ($result && $location = db_fetch_array($result)) {
+        $latitude = $location['latitude'];
+        $longitude = $location['longitude'];
+        $form_state['values']['city'] = "$placename|$latitude|$longitude";
+        return;
+      }
+    }
+  }
+  else if (!empty($country)) {
+    $location = location_country_position_from_country($country);
+    $form_state['values']['city'] = "$location->country|$location->latitude|$location->longitude";
+  }
+
+}
+
+/**
+ * Redirect to wsuser/search if we have lat/lon to work with.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_member_search_form_list_submit($form, &$form_state) {
+  if (!empty($form_state['values']['city'])) {
+    list($place, $lat, $lon) =
+    $form_state['redirect'] = 'search/wsuser/' . $form_state['values']['city'];
+  }
+}
+
+/**
+ * Redirect to member_list if we have csv and we have country.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_member_search_form_csv_submit($form, &$form_state) {
+  if (!empty($form_state['values']['country'])) {
+    list($place, $lat, $lon) =
+      $form_state['redirect'] = 'member_list/' . $form_state['values']['country'] . '/all';
+  }
 }
 
 /**
@@ -1826,16 +1971,16 @@ function wsuser_member_search_form_user_submit($form, &$form_state) {
 /**
  * AHAH callback for search form, based on AHAH Example D6 project, http://drupal.org/project/examples
  */
-function wsuser_country_change_ahah() {
+function wsuser_country_change_ahah()
+{
   $form = wsuser_ahah_callback_helper();
-  $location_fieldset = $form['search_by_location'];
-  // Set the autocomplete_path
-  $location_fieldset['location']['#autocomplete_path'] = 'location_autocomplete/' . $location_fieldset['country']['#default_value'];
+  $city = $form['search_by_location']['city'];
   // Remove the wrapper so we don't double it up.
-  unset($location_fieldset['#prefix'], $location_fieldset['#suffix']);
+  unset($city['#prefix'], $city['#suffix']);
   $output = theme('status_messages');
-  $output .= drupal_render($location_fieldset);
+  $output .= drupal_render($city);
 
   // Final rendering callback.
   drupal_json(array('status' => TRUE, 'data' => $output));
 }
+

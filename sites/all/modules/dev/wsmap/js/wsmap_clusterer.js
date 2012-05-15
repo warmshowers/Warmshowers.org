@@ -61,7 +61,6 @@ function wsmap_main_load_entry()
     map_resize();
 
     setMapStartPosition();
-    editCountryReset();
 
     mapdata_source = Drupal.settings.wsmap.mapdata_source;
     loggedin = Drupal.settings.wsmap.loggedin;
@@ -98,13 +97,25 @@ function wsmap_main_load_entry()
     maxlines = mapwidth > 400 ? 10 : 5 ;
     clusterer.SetMaxLinesPerInfoBox(6);
 
-    replaceAutocompleteHooks();
+    // If we have a map-submit (go) button with some information configured,
+    // Go to that location, but do not submit.
+    $('#edit-map-submit').click(function(event) {
+        event.preventDefault();
+        var country = $('#edit-country').val();
+        var city = $('#edit-city').val();
+        var location = city.split('|');
+        if (!city) {
+          setMapLocationToCountry(country);
+        }
+        else {
+          zoomToSpecific(location[0], location[1], location[2], 8);
+        }
+    });
 
 
     if ($('#showuser').length) {
       var user =  $('#showuser');
-      $('#edit-country').attr('value',user.attr('country'));
-      editCountryReset();
+      // $('#edit-country').attr('value',user.attr('country'));
       zoomToUser(user.attr('uid'),user.attr('latitude'), user.attr('longitude'),7);
     }
 
@@ -360,80 +371,6 @@ function getMapLocationForCountry(countryCode, func_to_call) {
 
 }
 
-
-//Suggested approach from http://drupal.org/node/302833, rfay 2009-03-09
-function editCountryReset() {
-
-  $("#edit-city").attr('value',"");
-  replaceAutocompleteHooks();
-
-  $("#edit-city").blur(function() {
-    replaceAutocompleteHooks();
-
-  })
-
-}
-
-/**
- * Update the selection and rebind all the handlers.
- * If there is an actual selection, then do all that and in addition
- * parse the returned values and zoom the map to the new place.
- *
- * @return
- */
-function replaceAutocompleteHooks() {
-  var country=$('#edit-country').attr('value');
-  $('#edit-city-autocomplete').attr('value', "location_autocomplete" + "/" + country);
-
-
-  $("#edit-city").unbind('keydown');
-  $("#edit-city").unbind('keyup');
-  $("#edit-city").unbind('blur');
-  $("#edit-city-autocomplete").removeClass('autocomplete-processed');
-  Drupal.attachBehaviors();
-
-
-  // Now handle the business at hand - go to the place they entered
-  Drupal.jsAC.prototype.hidePopup = function (keycode) {
-    var loc=null;
-    // Select item if the right key or mousebutton was pressed
- //   if (this.selected && ((keycode && keycode != 46 && keycode != 8 && keycode != 27) || !keycode)) {
-    if (this.selected) {
-      loc = this.selected.autocompleteValue.split('|');
-      this.input.value = loc[0];
-    }
-    // Hide popup
-    var popup = this.popup;
-    if (popup) {
-      this.popup = null;
-      $(popup).fadeOut('fast', function() { $(popup).remove(); });
-    }
-    this.selected = false;
-    var zoom = 6; // Arbitrary experiment
-    if (loc) {   // If we had a selected value above
-      zoomToSpecific(this.input.value,loc[1],loc[2], zoom);
-      $('#edit-city')[0].select();  // So they can enter the next thing
-    }
-  }
-
-
-}
-
-/**
- * the things we do when they change the country dropdown.
- * Move to the new location, and do a reset operation, especially on edit-city
- *
- * @return
- */
-function editCountryOnchange() {
-  mapcountry=$('#edit-country').val();
-
-  if (mapcountry != 'xx' && mapcountry.length) {
-    setMapLocationToCountry(mapcountry);
-  }
-  editCountryReset();
-
-}
 
 
 /**
