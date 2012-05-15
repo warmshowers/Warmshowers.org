@@ -57,16 +57,6 @@ function wsmap_main_load_entry()
 
   try {
 
-    mapwidth=parseInt($('#mapwidth').text());
-    var rightcol=mapwidth+4;
-
-    if ($('#wsmap_map').width()  < 500) {
-      $('#nearby-hosts').css('position','static');
-      $('#mapholder').css('width','100%');
-    }
-    else {
-      $('#mapholder').css('width',''+mapwidth+'%');
-    }
     $(window).resize(map_resize);
     map_resize();
 
