@@ -9,8 +9,8 @@ Drupal.behaviors.expandMap = function(context) {
             $(".region-sidebar-first .section").hide(1000);
             $(".region-highlight").hide(1000);
             $(".sidebar-first #content").animate({
-                'margin-left': '0px',
-                'width': '100%'
+                marginLeft: "0px",
+                width: "100%"
             }, 1000, function(){
                 $("#expand_map").html("Collapse Map");
             });
@@ -22,16 +22,15 @@ Drupal.behaviors.expandMap = function(context) {
                 $("div.block-wsmap").animate({
                     'height': $(window).height()  - 130 + 'px'
                 }, 1000);
-
-
             }
+
         }
         else {
             $(".region-sidebar-first .section").show(1000);
             $(".region-highlight").show(1000);
             $(".sidebar-first #content").animate({
-                'margin-left': '240px',
-                'width': '720px'
+                marginLeft: '240px',
+                width: '720px'
             }, 1000, function(){
                 $("#expand_map").html("Expand Map");
             });
