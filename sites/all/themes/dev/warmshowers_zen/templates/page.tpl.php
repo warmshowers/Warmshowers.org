@@ -161,8 +161,11 @@
       </div>
 
       <div id="signup_login">
-        <?php print  l("Sign up", 'user/register', array('attributes' => array('class' => 'signup'))) .
-        l("Log in", 'user', array('attributes' => array('class' => 'login'))); ?>
+        <?php
+        if (!$logged_in) {
+            print  l("Sign up", 'user/register', array('attributes' => array('class' => 'signup'))) .
+            l("Log in", 'user', array('attributes' => array('class' => 'login')));
+        } ?>
       </div>
 
       <!-- Any reason we need blocks instead of these two straight in the template?
