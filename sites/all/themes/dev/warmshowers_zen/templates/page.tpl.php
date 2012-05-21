@@ -168,16 +168,6 @@
         } ?>
       </div>
 
-      <!-- Any reason we need blocks instead of these two straight in the template?
-      <div class="block">
-        <div class="content">
-          <div class="signpost">
-            <a href="#"><img src="<?php print $directory; ?>/img/hospitality-sign_en.png" alt="Hospitality Ahead" border="0" /></a>
-          </div>
-        </div>
-      </div>
-      -->
-
       <?php print $header; ?>
 
     </div></div><!-- /.section, /#header -->
