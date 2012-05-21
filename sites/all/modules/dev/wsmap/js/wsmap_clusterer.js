@@ -254,7 +254,7 @@ function RequestChecker(request)
   catch(e)
   {
     var msg = Props(e);
-    console.log('RequestChecker block exception:\n'+msg);
+    console.log('RequestChecker block exception: '+msg);
 
   }
 
