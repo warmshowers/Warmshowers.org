@@ -84,6 +84,32 @@ function warmshowers_zen_preprocess_page(&$variables) {
 }
 
 /**
+ * Implementation of hook_preprocess_user_profile().
+ */
+function warmshowers_zen_preprocess_user_profile(&$variables) {
+
+  drupal_add_css(drupal_get_path('theme','warmshowers_zen') . '/css/profile.css', 'theme');
+  $fieldlist = wsuser_fieldlist();
+  $services = array(
+    "bed",
+    "food",
+    "laundry",
+    "lawnspace",
+    "sag",
+    "shower",
+    "storage",
+    "kitchenuse",
+  );
+
+  foreach ($services as $item) {
+    if ($variables['account']->$item) {
+      $variables['services'] .= "<li>".t($fieldlist[$item]['title'])."</li>";
+    }
+  }
+
+}
+
+/**
  * This is a basic copy of theme_status_message.  We add a div to help us with our new layout of icons and different
  * background colors.
  * Return a themed set of status and/or error messages. The messages are grouped
