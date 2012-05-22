@@ -1,4 +1,4 @@
-//$Id: wsmap_clusterer.js 505 2009-05-24 18:55:09Z rfay $
+
 var om=null;
 var map=null;
 var hosts=[];
@@ -115,7 +115,6 @@ function wsmap_main_load_entry()
 
     if ($('#showuser').length) {
       var user =  $('#showuser');
-      // $('#edit-country').attr('value',user.attr('country'));
       zoomToUser(user.attr('uid'),user.attr('latitude'), user.attr('longitude'),7);
     }
 
@@ -130,15 +129,7 @@ function wsmap_main_load_entry()
       createCookie("mapLatitude",map.getCenter().lat());
       createCookie("mapLongitude",map.getCenter().lng());
       createCookie("mapZoom", map.getZoom());
-      //createCookie("mapCountry", $('#edit-country').val());
-      //mapcountry=$('#edit-country').val();
     } );
-
- /*   GEvent.addListener(map, 'resize', function(){
-    	loadMarkers();
-    	alert('resizeListener');
-    }
-    );*/
 
     loadMarkers();
 
@@ -357,7 +348,7 @@ function zoomCallback(data) {
   if (!zoom) {
     zoom= Math.round(10-basecalc);
   }
-  zoomToSpecific(res.country,res.latitude,res.longitude,zoom);
+  zoomToSpecific(res.country, res.latitude, res.longitude, zoom);
 
 }
 
@@ -445,22 +436,23 @@ function setMapStartPosition() {
   var success=false;
   startlat = Drupal.settings.wsmap.startlat;
   startlon = Drupal.settings.wsmap.startlon;
-  var zoom=readCookie("mapZoom");
-  var country=readCookie("mapCountry");
-  if (startlat && startlon && zoom && country) {
-    startzoom = parseInt(zoom);
-    mapcountry = country;
-    $('#edit-country').attr('value',mapcountry);
-    return;
-  }
-
-  mapcountry=$('#browser_country').text();
-  $('#edit-country').attr('value',mapcountry);
-
-  startzoom=specificZoomSettings[mapcountry];
-  if (!startzoom) {
-    startzoom = Drupal.settings.wsmap.startzoom;
-  }
+  startzoom = Drupal.settings.wsmap.startzoom;
+  // var zoom=readCookie("mapZoom");
+  // var country=readCookie("mapCountry");
+//  if (startlat && startlon && zoom && country) {
+//    startzoom = parseInt(zoom);
+//    mapcountry = country;
+//    $('#edit-country').attr('value', mapcountry);
+//    return;
+//  }
+//
+//  mapcountry=$('#browser_country').text();
+//  $('#edit-country').attr('value',mapcountry);
+//
+//  startzoom=specificZoomSettings[mapcountry];
+//  if (!startzoom) {
+//    startzoom = Drupal.settings.wsmap.startzoom;
+//  }
 
   return;
 
