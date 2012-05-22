@@ -7,9 +7,8 @@
       <?php if ($title): ?>
         <h2 class="title"><?php print $title; ?></h2>
       <?php endif; ?>
-      <div id="create-a-post-link"><?php print l("Create a Post",'node/add/forum'); ?></div>
+      <?php print l("Create a Post",'node/add/forum',array("attributes"=>array("id"=>"create-a-post-link"))); ?>
     </div>
-    <br />
     <div class="content">
       <?php print $content; ?>
     </div>
