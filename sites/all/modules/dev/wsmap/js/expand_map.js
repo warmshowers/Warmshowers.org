@@ -8,11 +8,14 @@ Drupal.behaviors.expandMap = function(context) {
         if($(this).html() == 'Expand Map'){
             $(".region-sidebar-first .section").hide(1000);
             $(".region-highlight").hide(1000);
+            $("body.with-highlight #navigation .section").hide(1000);
             $(".sidebar-first #content").animate({
                 marginLeft: "0px",
                 width: "100%"
             }, 1000, function(){
                 $("#expand_map").html("Collapse Map");
+                $("body.with-highlight #navigation .section").css("top","-69px");
+                $("body.with-highlight #navigation .section").show("fast");
             });
             // If the window can handle, let's expand the height too
             if($(window).height() - 150 > $('#wsmap_map').height()){
@@ -26,6 +29,7 @@ Drupal.behaviors.expandMap = function(context) {
 
         }
         else {
+            $("body.with-highlight #navigation .section").hide(1000);
             $(".region-sidebar-first .section").show(1000);
             $(".region-highlight").show(1000);
             $(".sidebar-first #content").animate({
@@ -33,6 +37,8 @@ Drupal.behaviors.expandMap = function(context) {
                 width: '720px'
             }, 1000, function(){
                 $("#expand_map").html("Expand Map");
+                $("body.with-highlight #navigation .section").css("top","-260px");
+                $("body.with-highlight #navigation .section").show("fast");
             });
 
             // If the height was expanded on expansion, let's collapse to original height
