@@ -1,4 +1,5 @@
 <?php
+// $Id: flag.tpl.php,v 1.1.2.7 2009/03/17 02:10:30 quicksketch Exp $
 
 /**
  * @file
@@ -40,9 +41,7 @@
   }
 ?>
 <span class="flag-wrapper flag-<?php echo $flag_name_css; ?>">
-  <?php
-//  $parts = parse_url($link_href);
-  print drupal_get_form('wsuser_simple_link_button', $link_text, $link_href); ?>
+  <a href="<?php echo $link_href; ?>" title="<?php echo $link_title; ?>" class="<?php print $flag_classes ?>" rel="nofollow"><?php echo $link_text; ?></a><span class="flag-throbber">&nbsp;</span>
   <?php if ($after_flagging): ?>
     <span class="flag-message flag-<?php echo $last_action; ?>-message">
       <?php echo $message_text; ?>
