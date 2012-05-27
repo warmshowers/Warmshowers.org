@@ -39,6 +39,51 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'cache' => '-1',
   );
 
+  $theme['menu-anon_main_menu'] = array(
+    'module' => 'menu',
+    'delta' => 'anon_main_menu',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => '-1',
+  );
+
+  $theme['menu-footer_menu'] = array(
+    'module' => 'menu',
+    'delta' => 'footer_menu',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => '-1',
+  );
+
+  $theme['menu-logged_in_main_menu'] = array(
+    'module' => 'menu',
+    'delta' => 'logged_in_main_menu',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => '-1',
+  );
+
   $theme['wsmap-0'] = array(
     'module' => 'wsmap',
     'delta' => '0',

@@ -33,6 +33,12 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'sidebar_first',
           'weight' => 0,
         ),
+        'menu-logged_in_main_menu' => array(
+          'module' => 'menu',
+          'delta' => 'logged_in_main_menu',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
         'wsuser-wsuser_member_block' => array(
           'module' => 'wsuser',
           'delta' => 'wsuser_member_block',
@@ -95,11 +101,45 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'header',
           'weight' => 0,
         ),
+        'menu-footer_menu' => array(
+          'module' => 'menu',
+          'delta' => 'footer_menu',
+          'region' => 'footer',
+          'weight' => 0,
+        ),
       ),
     ),
   );
   $context->condition_mode = 0;
   $export['everywhere'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'unauthenticated_all';
+  $context->description = '';
+  $context->tag = '';
+  $context->conditions = array(
+    'user' => array(
+      'values' => array(
+        'anonymous user' => 'anonymous user',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-anon_main_menu' => array(
+          'module' => 'menu',
+          'delta' => 'anon_main_menu',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 1;
+  $export['unauthenticated_all'] = $context;
 
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
@@ -127,11 +167,23 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'views-tutorial_videos-block_1' => array(
+        'views-photo_contest-block_2' => array(
           'module' => 'views',
-          'delta' => 'tutorial_videos-block_1',
-          'region' => 'content',
+          'delta' => 'photo_contest-block_2',
+          'region' => 'sidebar_second',
           'weight' => 0,
+        ),
+        'wsuser-wsuser_member_count_block' => array(
+          'module' => 'wsuser',
+          'delta' => 'wsuser_member_count_block',
+          'region' => 'highlight',
+          'weight' => 0,
+        ),
+        'block-15' => array(
+          'module' => 'block',
+          'delta' => 15,
+          'region' => 'highlight',
+          'weight' => 1,
         ),
       ),
     ),
