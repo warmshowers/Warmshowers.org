@@ -1,0 +1,484 @@
+<?php
+
+/**
+ * Implementation of hook_views_api().
+ */
+function fe_taxonomy_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'fe_taxonomy') .'/views',
+  );
+}
+
+/**
+ * Implementation of hook_features_api().
+ */
+function fe_taxonomy_features_api() {
+  $info = array();
+
+  $key = 'fe_taxonomy_vocabulary';
+  $info[$key] = array(
+    'name' => t('Vocabularies'),
+    'feature_source' => TRUE,
+    'default_hook' => 'default_'. $key,
+    'default_file' => FEATURES_DEFAULTS_INCLUDED_COMMON,
+  );
+
+  return $info;
+}
+
+/**
+ * Implementation of hook_features_export_options().
+ */
+function fe_taxonomy_vocabulary_features_export_options() {
+  $table = 'fe_taxonomy_vocabulary';
+  $options = array();
+
+  // Defaults.
+  $schema = ctools_export_get_schema($table);
+  $export = $schema['export'];
+  $defaults = _ctools_export_get_defaults($table, $export);
+  foreach ($defaults as $obj) {
+    $options[$obj->machine_name] = t('@name [@machine_name]', array('@name' => $obj->name, '@machine_name' => $obj->machine_name));
+  }
+
+  // Normals.
+  $query = "SELECT * FROM {{$table}} {$table} INNER JOIN {vocabulary} v ON v.vid = {$table}.vid ORDER BY v.vid ASC";
+  $result = db_query($query);
+  while ($obj = db_fetch_object($result)) {
+    $options[$obj->machine_name] = t('@name [@machine_name]', array('@name' => $obj->name, '@machine_name' => $obj->machine_name));
+  }
+
+  ksort($options);
+  return $options;
+}
+
+/**
+ * Implementation of hook_features_export().
+ */
+function fe_taxonomy_vocabulary_features_export($data, &$export, $module_name = '') {
+  $pipe = array();
+  $export['dependencies']['fe_taxonomy'] = 'fe_taxonomy';
+
+  $table = 'fe_taxonomy_vocabulary';
+  // Add the components
+  foreach ($data as $object_name) {
+    $export['features'][$table][$object_name] = $object_name;
+
+    // Add dependency
+    $vocab_module = db_result(db_query("SELECT v.module FROM {{$table}} {$table} INNER JOIN {vocabulary} v ON v.vid = {$table}.vid WHERE {$table}.machine_name = '%s'", $object_name));
+    if (!empty($vocab_module) && !in_array($vocab_module, array('taxonomy', 'fe_taxonomy'))) {
+      $export['dependencies'][$vocab_module] = $vocab_module;
+    }
+  }
+
+  return $pipe;
+}
+
+/**
+ * Implementation of hook_features_export_render().
+ */
+function fe_taxonomy_vocabulary_features_export_render($module_name = '', $data) {
+  ctools_include('export');
+  $component = 'fe_taxonomy_vocabulary';
+  $schema = ctools_export_get_schema($component);
+  $objects = ctools_export_load_object($component);
+
+  $code = array();
+  $code[] = '  $export = array();';
+  $code[] = '';
+  foreach ($data as $machine_name) {
+    // The object to be exported.
+    if ($object = $objects[$machine_name]) {
+
+      $additions = array();
+      // Load vocabulary.
+      if (!empty($object->vid)) {
+        $vocabulary = taxonomy_vocabulary_load($object->vid);
+        $additions = (array) $vocabulary;
+        unset($additions['vid']);
+      }
+
+      // Code.
+      $identifier = $schema['export']['identifier'];
+      $code[] = ctools_export_object($component, $object, '  ', $identifier, $additions);
+      $code[] = '  $export[\''. $machine_name .'\'] = $'. $identifier .';';
+      $code[] = '';
+    }
+  }
+  $code[] = '  return $export;';
+  $code = implode("\n", $code);
+
+  return array($schema['export']['default hook'] => $code);
+}
+
+/**
+ * Implementation of hook_features_rebuild().
+ */
+function fe_taxonomy_vocabulary_features_rebuild($module_name = NULL) {
+  $table = 'fe_taxonomy_vocabulary';
+  $defaults = features_get_default($table, $module_name);
+  if (empty($defaults)) {
+    return;
+  }
+
+  // Rebuild.
+  foreach ($defaults as $object) {
+    if (empty($object->machine_name)) {
+      continue;
+    }
+
+    $vid = db_result(db_query("SELECT vid FROM {{$table}} WHERE machine_name = '%s'", $object->machine_name));
+    if (empty($vid) || !($vocab = taxonomy_vocabulary_load($vid))) {
+      $result = _fe_taxonomy_save_vocabulary((array) $object);
+      if (!empty($result['vid'])) {
+        db_query("DELETE FROM {{$table}} WHERE vid = %d OR machine_name = '%s'", $result['vid'], $object->machine_name);
+        db_query("INSERT INTO {{$table}} (vid, machine_name) VALUES (%d, '%s')", $result['vid'], $object->machine_name);
+      }
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implementation of hook_features_revert().
+ */
+function fe_taxonomy_vocabulary_features_revert($module_name = NULL) {
+  $table = 'fe_taxonomy_vocabulary';
+  $defaults = features_get_default($table, $module_name);
+  if (empty($defaults)) {
+    return;
+  }
+
+  // Revert.
+  foreach ($defaults as $object) {
+    if (empty($object->machine_name)) {
+      continue;
+    }
+
+    $vid = db_result(db_query("SELECT vid FROM {{$table}} WHERE machine_name = '%s'", $object->machine_name));
+    if (empty($vid) || !($vocab = taxonomy_vocabulary_load($vid))) {
+      $result = _fe_taxonomy_save_vocabulary((array) $object);
+      if (!empty($result['vid'])) {
+        db_query("DELETE FROM {{$table}} WHERE vid = %d OR machine_name = '%s'", $result['vid'], $object->machine_name);
+        db_query("INSERT INTO {{$table}} (vid, machine_name) VALUES (%d, '%s')", $result['vid'], $object->machine_name);
+      }
+    }
+    else {
+      $object->vid = $vid;
+      $result = _fe_taxonomy_save_vocabulary((array) $object);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Drupal hooks.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function fe_taxonomy_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'taxonomy_form_vocabulary' && user_access('administer features')) {
+    // Machine name.
+    $table = 'fe_taxonomy_vocabulary';
+    $vid = $form['vid']['#value'];
+    if (!empty($vid)) {
+      $machine_name = db_result(db_query("SELECT machine_name FROM {{$table}} WHERE vid = %d", $vid));
+    }
+    $form['identification']['machine_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Machine name'),
+      '#default_value' => empty($machine_name) ? '' : $machine_name,
+      '#maxlength' => 32,
+      '#description' => t('Give the vocabulary a machine name to make it exportable with "!features" module.', array('!features' => l('Features', 'http://drupal.org/project/features'))),
+      '#weight' => -2,
+    );
+
+    // Vocabulary module.
+    $vocab_module = $form['module']['#value'];
+    $form['identification']['vocab_module'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Vocabulary module'),
+      '#default_value' => empty($vocab_module) ? 'taxonomy' : $vocab_module,
+      '#maxlength' => 32,
+      '#description' => t('You can change the vocabulary module so that you can use "!api".', array('!api' => l('hook_term_path($term)', 'http://api.drupal.org/api/function/hook_term_path/6'))),
+      '#weight' => -1,
+    );
+
+    // Validate machine name.
+    $form['#validate'][] = 'fe_taxonomy_machine_name_validate';
+  }
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+function fe_taxonomy_taxonomy($op, $type, $array = NULL) {
+  if ($type != 'vocabulary' || !user_access('administer features')) {
+    return;
+  }
+
+  $table = 'fe_taxonomy_vocabulary';
+
+  switch ($op) {
+    case 'insert':
+    case 'update':
+      if (isset($array['machine_name'])) {
+        db_query("DELETE FROM {{$table}} WHERE vid = %d", $array['vid']);
+        if (!empty($array['machine_name'])) {
+          drupal_write_record($table, $array);
+        }
+      }
+      if (!empty($array['vocab_module']) && $array['vocab_module'] != 'taxonomy') {
+        $values = array('vid' => $array['vid'], 'module' => $array['vocab_module']);
+        drupal_write_record('vocabulary', $values, 'vid');
+      }
+      break;
+
+    case 'delete':
+      db_query("DELETE FROM {{$table}} WHERE vid = %d", $array['vid']);
+      break;
+  }
+}
+
+/**
+ * Validate machine name.
+ */
+function fe_taxonomy_machine_name_validate($form, &$form_state) {
+  if (empty($form_state['values']['machine_name'])) {
+    return;
+  }
+  $table = 'fe_taxonomy_vocabulary';
+  if (!preg_match('!^[a-z0-9_]+$!', $form_state['values']['machine_name'])) {
+    form_set_error('machine_name', t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
+  }
+  elseif (db_result(db_query("SELECT COUNT(*) FROM {{$table}} WHERE vid <> %d AND machine_name = '%s'", $form_state['values']['vid'], $form_state['values']['machine_name']))) {
+    form_set_error('machine_name', t('The machine-readable name has been taken. Please pick another one.'));
+  }
+}
+
+/**
+ * Public APIs.
+ *
+ * TODO
+ */
+
+/**
+ * Return the vocabulary object matching a vocabulary machine name.
+ */
+function fe_taxonomy_vocabulary_load($machine_name) {
+  $table = 'fe_taxonomy_vocabulary';
+  $vid = db_result(db_query("SELECT vid FROM {{$table}} WHERE machine_name = '%s'", $machine_name));
+  if (!empty($vid)) {
+    $vocab = taxonomy_vocabulary_load($vid);
+    $vocab->machine_name = $machine_name;
+  }
+  else {
+    $vocab = FALSE;
+  }
+  return $vocab;
+}
+
+/**
+ * Copied from taxonomy_get_vocabularies(), modified query.
+ *
+ * Return an array of all vocabulary objects.
+ *
+ * @param $type
+ *   If set, return only those vocabularies associated with this node type.
+ */
+function fe_taxonomy_get_vocabularies($type = NULL) {
+  $table = 'fe_taxonomy_vocabulary';
+
+  if ($type) {
+    $result = db_query("SELECT v.*, {$table}.machine_name, n.type FROM {vocabulary} v
+      INNER JOIN {{$table}} {$table} ON v.vid = {$table}.vid
+      LEFT JOIN {vocabulary_node_types} n ON v.vid = n.vid
+      WHERE n.type = '%s' ORDER BY v.weight, v.name", $type);
+  }
+  else {
+    $result = db_query("SELECT v.*, {$table}.machine_name, n.type FROM {vocabulary} v
+      INNER JOIN {{$table}} {$table} ON v.vid = {$table}.vid
+      LEFT JOIN {vocabulary_node_types} n ON v.vid = n.vid ORDER BY v.weight, v.name");
+  }
+
+  $vocabularies = array();
+  $node_types = array();
+  while ($voc = db_fetch_object($result)) {
+    // If no node types are associated with a vocabulary, the LEFT JOIN will
+    // return a NULL value for type.
+    if (isset($voc->type)) {
+      $node_types[$voc->vid][$voc->type] = $voc->type;
+      unset($voc->type);
+      $voc->nodes = $node_types[$voc->vid];
+    }
+    elseif (!isset($voc->nodes)) {
+      $voc->nodes = array();
+    }
+    $vocabularies[$voc->vid] = $voc;
+  }
+
+  return $vocabularies;
+}
+
+/**
+ * Internal functions.
+ */
+
+/**
+ * Save a vocabulary.
+ *
+ * @param $settings
+ * @return array
+ */
+function _fe_taxonomy_save_vocabulary($settings = array()) {
+  if (empty($settings['name'])) {
+    return FALSE;
+  }
+
+  // Defaults
+  $default_settings = array(
+    'description' => '',
+    'help'        => '',
+    'relations'   => 0,
+    'hierarchy'   => 0,
+    'multiple'    => 0,
+    'required'    => 0,
+    'tags'        => 0,
+    'module'      => 'taxonomy',
+    'weight'      => 0,
+    'nodes'       => array(),
+  );
+  $settings = array_merge($default_settings, $settings);
+
+  // Save
+  taxonomy_save_vocabulary($settings);
+
+  return $settings;
+}
+
+/**
+ * Term functions.
+ *
+ * TODO
+ *
+ * Not currently in use.
+ */
+
+/**
+ * Get all terms for a vocabulary.
+ *
+ * Use vid as cache key.
+ *
+ * Only one parent, no relations, no synonyms.
+ */
+function _fe_taxonomy_get_terms($vid) {
+  static $cache = array();
+
+  if (!isset($cache[$vid])) {
+    $terms = array();
+
+    $query = "SELECT data.*, hierarchy.parent"
+            ." FROM {term_data} data"
+            ." INNER JOIN {term_hierarchy} hierarchy ON hierarchy.tid = data.tid"
+            ." WHERE data.vid = %d"
+            ." ORDER BY data.name ASC";
+    $result = db_query($query, $vid);
+    while ($obj = db_fetch_object($result)) {
+      if (!array_key_exists($obj->tid, $terms)) {
+        $term = array();
+        $term['name']        = $obj->name;
+        $term['description'] = $obj->description;
+        $term['weight']      = $obj->weight;
+        $term['parent']      = array($obj->parent => 1);
+
+        $terms[$obj->tid] = $term;
+      }
+    }
+
+    $cache[$vid] = _fe_taxonomy_build_term_tree($terms);
+  }
+
+  return $cache[$vid];
+}
+
+/**
+ * Build a term tree.
+ */
+function _fe_taxonomy_build_term_tree($terms, $parent = 0) {
+  static $tid_array = array();
+  $tree = array();
+
+  foreach ($terms as $tid => $term) {
+    if (!in_array($tid, $tid_array) && array_key_exists($parent, $term['parent'])) {
+      $tid_array[] = $tid;
+      $item = array(
+        'name'        => $term['name'],
+        'description' => $term['description'],
+        'weight'      => $term['weight'],
+        'children'    => _fe_taxonomy_build_term_tree($terms, $tid),
+      );
+      $tree[] = $item;
+    }
+  }
+
+  return $tree;
+}
+
+/**
+ * Save a term tree.
+ */
+function _fe_taxonomy_save_term_tree($tree, $parent = 0) {
+  foreach ($tree as $term) {
+    $result = _fe_taxonomy_save_term($term);
+    if (!empty($result['tid']) && !empty($term['children'])) {
+      _fe_taxonomy_save_term_tree($term['children'], $result['tid']);
+    }
+  }
+}
+
+/**
+ * Save a term.
+ */
+function _fe_taxonomy_save_term($settings = array()) {
+  if (empty($settings['vid']) || empty($settings['name'])) {
+    return FALSE;
+  }
+
+  // Don't count those I have saved/updated.
+  static $tid_array = array();
+
+  if (empty($settings['tid'])) {
+    $placeholders = db_placeholders($tid_array);
+    $args = array($settings['name'], $settings['vid']) + $tid_array;
+    // TODO
+    // Try to find a same term, and avoid using it twice.
+    $tid = db_result(db_query("SELECT tid FROM {term_data} WHERE UPPER(TRIM(name)) = UPPER('%s') AND vid = %d AND tid NOT IN ()", $args));
+    if (!empty($tid)) {
+      $settings['tid'] = $tid;
+    }
+  }
+
+  // Default
+  $default_settings = array(
+    'description' => '',
+    'weight'      => 0,
+    'relations'   => array(),
+    'parent'      => array(0),
+    'synonyms'    => '',
+  );
+  $settings = array_merge($default_settings, $settings);
+  taxonomy_save_term($settings);
+
+  if (empty($settings['tid'])) {
+    return FALSE;
+  }
+  $tid_array[] = $settings['tid'];
+
+  return $settings;
+}
+

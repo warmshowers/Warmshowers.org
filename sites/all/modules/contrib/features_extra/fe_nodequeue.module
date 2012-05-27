@@ -1,0 +1,294 @@
+<?php
+
+/**
+ * Implementation of hook_features_api().
+ */
+function fe_nodequeue_features_api() {
+  $info = array();
+
+  $key = 'fe_nodequeue_queue';
+  $info[$key] = array(
+    'name' => t('Nodequeues'),
+    'feature_source' => TRUE,
+    'default_hook' => 'default_'. $key,
+    'default_file' => FEATURES_DEFAULTS_INCLUDED_COMMON,
+  );
+
+  return $info;
+}
+
+/**
+ * Implementation of hook_features_export_options().
+ */
+function fe_nodequeue_queue_features_export_options() {
+  $table = 'fe_nodequeue_queue';
+  $options = array();
+
+  // Defaults.
+  $schema = ctools_export_get_schema($table);
+  $export = $schema['export'];
+  $defaults = _ctools_export_get_defaults($table, $export);
+  foreach ($defaults as $obj) {
+    $options[$obj->machine_name] = t('@name [@machine_name]', array('@name' => $obj->title, '@machine_name' => $obj->machine_name));
+  }
+
+  // Normals.
+  $query = "SELECT * FROM {{$table}} {$table} INNER JOIN {nodequeue_queue} v ON v.qid = {$table}.qid ORDER BY v.qid ASC";
+  $result = db_query($query);
+  while ($obj = db_fetch_object($result)) {
+    $options[$obj->machine_name] = t('@name [@machine_name]', array('@name' => $obj->title, '@machine_name' => $obj->machine_name));
+  }
+
+  ksort($options);
+  return $options;
+}
+
+/**
+ * Implementation of hook_features_export().
+ */
+function fe_nodequeue_queue_features_export($data, &$export, $module_name = '') {
+  $pipe = array();
+  $export['dependencies']['fe_nodequeue'] = 'fe_nodequeue';
+
+  // Collect a nodequeue owner to module map.
+  $map = array();
+  $modules = module_implements('nodequeue_info');
+  foreach ($modules as $module) {
+    $callback = $module .'_nodequeue_info';
+    $info = call_user_func($callback);
+    if (is_array($info)) {
+      foreach ($info as $_key => $_data) {
+        $map[$_key] = $module;
+      }
+    }
+  }
+
+  $table = 'fe_nodequeue_queue';
+  // Add the components
+  foreach ($data as $object_name) {
+    $export['features'][$table][$object_name] = $object_name;
+
+    // Add dependency
+    $queue_owner = db_result(db_query("SELECT queue.owner FROM {{$table}} {$table} INNER JOIN {nodequeue_queue} queue ON queue.qid = {$table}.qid WHERE {$table}.machine_name = '%s'", $object_name));
+    if (!empty($queue_owner) && !empty($map[$queue_owner])) {
+      $export['dependencies'][$map[$queue_owner]] = $map[$queue_owner];
+    }
+  }
+
+  return $pipe;
+}
+
+/**
+ * Implementation of hook_features_export_render().
+ */
+function fe_nodequeue_queue_features_export_render($module_name = '', $data) {
+  ctools_include('export');
+  $component = 'fe_nodequeue_queue';
+  $schema = ctools_export_get_schema($component);
+  $objects = ctools_export_load_object($component);
+
+  $code = array();
+  $code[] = '  $export = array();';
+  $code[] = '';
+  foreach ($data as $machine_name) {
+    // The object to be exported.
+    if ($object = $objects[$machine_name]) {
+
+      $additions = array();
+      // Load nodequeue_queue.
+      if (!empty($object->qid)) {
+        $nodequeue_queue = nodequeue_load($object->qid);
+
+        // sort roles and types arrays into ascending order so that we can 
+        // check for overridden db data without being affected by the 
+        // order in which this array gets stored/loaded.
+        if (!empty($nodequeue_queue->roles)) {
+          sort($nodequeue_queue->roles);
+        }
+        if (!empty($nodequeue_queue->types)) {
+          sort($nodequeue_queue->types);
+        }
+
+        $additions = (array) $nodequeue_queue;
+        unset($additions['qid']);
+        // TODO: sub
+        unset($additions['subqueues']);
+      }
+
+      // Code.
+      $identifier = $schema['export']['identifier'];
+      $code[] = ctools_export_object($component, $object, '  ', $identifier, $additions);
+      $code[] = '  $export[\''. $machine_name .'\'] = $'. $identifier .';';
+      $code[] = '';
+    }
+  }
+  $code[] = '  return $export;';
+  $code = implode("\n", $code);
+
+  return array($schema['export']['default hook'] => $code);
+}
+
+/**
+ * Implementation of hook_features_rebuild().
+ */
+function fe_nodequeue_queue_features_rebuild($module_name = NULL) {
+  $table = 'fe_nodequeue_queue';
+  $defaults = features_get_default($table, $module_name);
+  if (empty($defaults)) {
+    return;
+  }
+
+  // Rebuild.
+  foreach ($defaults as $object) {
+    if (empty($object->machine_name)) {
+      continue;
+    }
+
+    $qid = db_result(db_query("SELECT qid FROM {{$table}} WHERE machine_name = '%s'", $object->machine_name));
+    if (empty($qid) || !($nodequeue_queue = nodequeue_load($qid))) {
+      $result = _fe_nodequeue_save_queue((array) $object);
+      if (!empty($result['qid'])) {
+        db_query("DELETE FROM {{$table}} WHERE qid = %d OR machine_name = '%s'", $result['qid'], $object->machine_name);
+        db_query("INSERT INTO {{$table}} (qid, machine_name) VALUES (%d, '%s')", $result['qid'], $object->machine_name);
+      }
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implementation of hook_features_revert().
+ */
+function fe_nodequeue_queue_features_revert($module_name = NULL) {
+  $table = 'fe_nodequeue_queue';
+  $defaults = features_get_default($table, $module_name);
+  if (empty($defaults)) {
+    return;
+  }
+
+  // Revert.
+  foreach ($defaults as $object) {
+    if (empty($object->machine_name)) {
+      continue;
+    }
+
+    $qid = db_result(db_query("SELECT qid FROM {{$table}} WHERE machine_name = '%s'", $object->machine_name));
+    if (empty($qid) || !($nodequeue_queue = nodequeue_load($qid))) {
+      $result = _fe_nodequeue_save_queue((array) $object);
+      if (!empty($result['qid'])) {
+        db_query("DELETE FROM {{$table}} WHERE qid = %d OR machine_name = '%s'", $result['qid'], $object->machine_name);
+        db_query("INSERT INTO {{$table}} (qid, machine_name) VALUES (%d, '%s')", $result['qid'], $object->machine_name);
+      }
+    }
+    else {
+      $object->qid = $qid;
+      $result = _fe_nodequeue_save_queue((array) $object);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Drupal hooks.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function fe_nodequeue_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'nodequeue_edit_queue_form' && user_access('administer features')) {
+    $form['description']['#weight'] = -2;
+    // Machine name.
+    $table = 'fe_nodequeue_queue';
+    $qid = $form['qid']['#value'];
+    if (!empty($qid)) {
+      $machine_name = db_result(db_query("SELECT machine_name FROM {{$table}} WHERE qid = %d", $qid));
+    }
+    $form['machine_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Machine name'),
+      '#default_value' => empty($machine_name) ? '' : $machine_name,
+      '#maxlength' => 32,
+      '#description' => t('Give the nodequeue a machine name to make it exportable with "!features" module.', array('!features' => l('Features', 'http://drupal.org/project/features'))),
+      '#weight' => -1,
+    );
+
+    // Validate machine name.
+    $form['#validate'][] = 'fe_nodequeue_machine_name_validate';
+    $form['#submit'][] = 'fe_nodequeue_machine_name_submit';
+  }
+  // Delete a nodequeue.
+  elseif ($form_id == 'nodequeue_admin_delete') {
+    $form['#submit'][] = 'fe_nodequeue_machine_name_delete';
+  }
+}
+
+/**
+ * Validate machine name.
+ */
+function fe_nodequeue_machine_name_validate($form, &$form_state) {
+  if (empty($form_state['values']['machine_name'])) {
+    return;
+  }
+  $table = 'fe_nodequeue_queue';
+  if (!preg_match('!^[a-z0-9_]+$!', $form_state['values']['machine_name'])) {
+    form_set_error('machine_name', t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
+  }
+  elseif (db_result(db_query("SELECT COUNT(*) FROM {{$table}} WHERE qid <> %d AND machine_name = '%s'", $form_state['values']['qid'], $form_state['values']['machine_name']))) {
+    form_set_error('machine_name', t('The machine-readable name has been taken. Please pick another one.'));
+  }
+}
+
+/**
+ * Save machine name.
+ */
+function fe_nodequeue_machine_name_submit($form, &$form_state) {
+  $table = 'fe_nodequeue_queue';
+  db_query("DELETE FROM {{$table}} WHERE qid = %d", $form_state['values']['qid']);
+  if (!empty($form_state['values']['machine_name'])) {
+    drupal_write_record($table, $form_state['values']);
+  }
+}
+
+/**
+ * Delete machine name.
+ */
+function fe_nodequeue_machine_name_delete($form, &$form_state) {
+  $table = 'fe_nodequeue_queue';
+  db_query("DELETE FROM {{$table}} WHERE qid = %d", $form_state['values']['qid']);
+}
+
+/**
+ * Public APIs.
+ *
+ * TODO
+ */
+
+/**
+ * Internal functions.
+ */
+
+/**
+ * Save a nodequeue queue.
+ *
+ * @param $settings
+ * @return array
+ */
+function _fe_nodequeue_save_queue($settings = array()) {
+  // Simulate checkboxes.
+  $settings['roles'] = drupal_map_assoc($settings['roles']);
+  $settings['types'] = drupal_map_assoc($settings['types']);
+
+  // Simulate submitting.
+  $form_state = array();
+  $form_state['values'] = $settings;
+  module_load_include('inc', 'nodequeue', 'includes/nodequeue.admin');
+  nodequeue_edit_queue_form_submit(NULL, $form_state);
+
+  $settings['qid'] = $form_state['values']['qid'];
+
+  return $settings;
+}
+

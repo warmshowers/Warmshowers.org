@@ -1,0 +1,511 @@
+<?php
+
+/**
+ * Implementation of hook_features_api().
+ */
+function fe_block_features_api() {
+  $info = array();
+
+  $key = 'fe_block_settings';
+  $info[$key] = array(
+    'name' => t('Block settings'),
+    'feature_source' => TRUE,
+    'default_hook' => 'default_'. $key,
+    'default_file' => FEATURES_DEFAULTS_INCLUDED,
+  );
+
+  $key = 'fe_block_boxes';
+  $info[$key] = array(
+    'name' => t('Block contents (boxes)'),
+    'feature_source' => TRUE,
+    'default_hook' => 'default_'. $key,
+    'default_file' => FEATURES_DEFAULTS_INCLUDED,
+  );
+
+  return $info;
+}
+
+/**
+ * Implementation of hook_features_export_options().
+ */
+function fe_block_settings_features_export_options() {
+  $options = array();
+
+  $blocks = _block_rehash();
+  usort($blocks, '_fe_block_compare');
+
+  foreach ($blocks as $block) {
+    // @see features.block.inc
+    if (strpos($block['module'], '-') !== false) {
+      continue;
+    }
+
+    $block_id = _fe_block_build_id($block);
+    if (empty($block_id)) {
+      continue;
+    }
+    $options[$block_id] = '['. $block_id .'] '. $block['info'];
+  }
+
+  return $options;
+}
+
+/**
+ * Implementation of hook_features_export().
+ */
+function fe_block_settings_features_export($data, &$export, $module_name = '') {
+  $pipe = array();
+  $export['dependencies']['fe_block'] = 'fe_block';
+
+  $component = 'fe_block_settings';
+  // Add the components
+  foreach ($data as $object_name) {
+    $export['features'][$component][$object_name] = $object_name;
+
+    // Boxes.
+    if (strpos($object_name, 'block-') === 0) {
+      $machine_name = substr($object_name, strlen('block-'));
+      $pipe['fe_block_boxes'][$machine_name] = $machine_name;
+    }
+    // TODO: menu blocks.
+    // Others.
+    else {
+      $pipe['block'][$object_name] = $object_name;
+    }
+  }
+
+  return $pipe;
+}
+
+/**
+ * Implementation of hook_features_export_render().
+ */
+function fe_block_settings_features_export_render($module_name = '', $data) {
+  global $custom_theme, $theme_key;
+  init_theme();
+  $backup = array($custom_theme, $theme_key);
+
+  $component = 'fe_block_settings';
+  $default_hook = 'default_'. $component;
+  $theme_default = variable_get('theme_default', 'garland');
+  $themes = list_themes();
+
+  $code = array();
+  $code[] = '  $export = array();';
+  $code[] = '';
+
+  foreach ($themes as $_theme_key => $theme) {
+    if ($_theme_key == $theme_default || !empty($theme->status)) {
+      $code[] = '  // '. $_theme_key;
+      $code[] = '  $theme = array();';
+      $code[] = '';
+
+      $custom_theme = $theme_key = $_theme_key;
+      $blocks = _block_rehash();
+      usort($blocks, '_fe_block_compare');
+
+      foreach ($blocks as $block) {
+        unset($block['bid'], $block['info']);
+        $block_id = _fe_block_build_id($block);
+        if (empty($block_id)) {
+          continue;
+        }
+        if (in_array($block_id, $data)) {
+          // Use machine name with boxes.
+          if ($block['module'] == 'block') {
+            $block['machine_name'] = _fe_block_get_machine_name($block['delta']);
+            unset($block['delta']);
+          }
+          // Region.
+          if ($block['region'] == BLOCK_REGION_NONE) {
+            $block['status'] = 0;
+            $block['region'] = '';
+          }
+
+          $code[] = '  $theme[\''. $block_id .'\'] = '. features_var_export($block, '  ') .';';
+          $code[] = '';
+        }
+      }
+
+      $code[] = '  $export[\''. $_theme_key .'\'] = $theme;';
+      $code[] = '';
+    }
+  }
+
+  // Only reture for enabled themes and the default theme.
+  $code[] = '  $theme_default = variable_get(\'theme_default\', \'garland\');';
+  $code[] = '  $themes = list_themes();';
+  $code[] = '  foreach ($export as $theme_key => $settings) {';
+  $code[] = '    if ($theme_key != $theme_default && empty($themes[$theme_key]->status)) {';
+  $code[] = '      unset($export[$theme_key]);';
+  $code[] = '    }';
+  $code[] = '  }';
+  $code[] = '  return $export;';
+  $code = implode("\n", $code);
+
+  list($custom_theme, $theme_key) = $backup;
+  return array($default_hook => $code);
+}
+
+/**
+ * Implementation of hook_features_revert().
+ */
+function fe_block_settings_features_revert($module_name = NULL) {
+  global $custom_theme, $theme_key;
+  $component = 'fe_block_settings';
+  $defaults = features_get_default($component, $module_name);
+
+  // Revert.
+  foreach ($defaults as $_theme_key => $theme) {
+    $custom_theme = $theme_key = $_theme_key;
+    _block_rehash();
+
+    foreach ($theme as $block) {
+      // Convert machine name back to bid.
+      if ($block['module'] == 'block') {
+        $block['delta'] = _fe_block_get_bid($block['machine_name']);
+      }
+
+      drupal_write_record('blocks', $block, array('module', 'delta', 'theme'));
+      // these fields are not theme specific
+      db_query("UPDATE {blocks} SET visibility = %d, pages = '%s', custom = %d, title = '%s' WHERE module = '%s' AND delta = '%s'", $block['visibility'], trim($block['pages']), $block['custom'], $block['title'], $block['module'], $block['delta']);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implementation of hook_features_export_options().
+ */
+function fe_block_boxes_features_export_options() {
+  $table = 'fe_block_boxes';
+  $options = array();
+
+  // Defaults.
+  $schema = ctools_export_get_schema($table);
+  $export = $schema['export'];
+  $defaults = _ctools_export_get_defaults($table, $export);
+  foreach ($defaults as $obj) {
+    $options[$obj->machine_name] = t('@name [@machine_name]', array('@name' => $obj->info, '@machine_name' => $obj->machine_name));
+  }
+
+  // Normals.
+  $query = "SELECT * FROM {{$table}} {$table} INNER JOIN {boxes} b ON b.bid = {$table}.bid ORDER BY b.bid ASC";
+  $result = db_query($query);
+  while ($obj = db_fetch_object($result)) {
+    $options[$obj->machine_name] = t('@name [@machine_name]', array('@name' => $obj->info, '@machine_name' => $obj->machine_name));
+  }
+
+  ksort($options);
+  return $options;
+}
+
+/**
+ * Implementation of hook_features_export().
+ */
+function fe_block_boxes_features_export($data, &$export, $module_name = '') {
+  $pipe = array();
+  $export['dependencies']['fe_block'] = 'fe_block';
+
+  $table = 'fe_block_boxes';
+  // Add the components
+  foreach ($data as $object_name) {
+    $export['features'][$table][$object_name] = $object_name;
+  }
+
+  return $pipe;
+}
+
+/**
+ * Implementation of hook_features_export_render().
+ */
+function fe_block_boxes_features_export_render($module_name = '', $data) {
+  ctools_include('export');
+  $component = 'fe_block_boxes';
+  $schema = ctools_export_get_schema($component);
+  $objects = ctools_export_load_object($component);
+
+  $code = array();
+  $code[] = '  $export = array();';
+  $code[] = '';
+  foreach ($data as $machine_name) {
+    // The object to be exported.
+    if ($object = $objects[$machine_name]) {
+
+      $additions = array();
+      // Load box.
+      if (!empty($object->bid)) {
+        $box = block_box_get($object->bid);
+        if ($box) $additions = (array) $box;
+        unset($additions['bid'], $additions['body']);
+      }
+
+      // Code.
+      $identifier = $schema['export']['identifier'];
+      $code[] = ctools_export_object($component, $object, '  ', $identifier, $additions)
+               .'  $'. $identifier .'->body = '. features_var_export($box['body']) .';';
+      $code[] = '';
+      $code[] = '  $export[\''. $machine_name .'\'] = $'. $identifier .';';
+      $code[] = '';
+    }
+  }
+  $code[] = '  return $export;';
+  $code = implode("\n", $code);
+
+  return array($schema['export']['default hook'] => $code);
+}
+
+/**
+ * Implementation of hook_features_rebuild().
+ */
+function fe_block_boxes_features_rebuild($module_name = NULL) {
+  $table = 'fe_block_boxes';
+  $defaults = features_get_default($table, $module_name);
+  if (empty($defaults)) {
+    return;
+  }
+
+  // Rebuild.
+  foreach ($defaults as $object) {
+    if (empty($object->machine_name)) {
+      continue;
+    }
+
+    $bid = _fe_block_get_bid($object->machine_name);
+    if (empty($bid) || !($box = block_box_get($bid))) {
+      $result = _fe_block_save_box((array) $object);
+      if (!empty($result['bid'])) {
+        db_query("DELETE FROM {{$table}} WHERE bid = %d OR machine_name = '%s'", $result['bid'], $object->machine_name);
+        db_query("INSERT INTO {{$table}} (bid, machine_name) VALUES (%d, '%s')", $result['bid'], $object->machine_name);
+      }
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implementation of hook_features_revert().
+ */
+function fe_block_boxes_features_revert($module_name = NULL) {
+  $table = 'fe_block_boxes';
+  $defaults = features_get_default($table, $module_name);
+  if (empty($defaults)) {
+    return;
+  }
+
+  // Revert.
+  foreach ($defaults as $object) {
+    if (empty($object->machine_name)) {
+      continue;
+    }
+
+    $bid = _fe_block_get_bid($object->machine_name);
+    if (empty($bid) || !($box = block_box_get($bid))) {
+      $result = _fe_block_save_box((array) $object);
+      if (!empty($result['bid'])) {
+        db_query("DELETE FROM {{$table}} WHERE bid = %d OR machine_name = '%s'", $result['bid'], $object->machine_name);
+        db_query("INSERT INTO {{$table}} (bid, machine_name) VALUES (%d, '%s')", $result['bid'], $object->machine_name);
+      }
+    }
+    else {
+      $object->bid = $bid;
+      $result = _fe_block_save_box((array) $object);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Drupal hooks.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function fe_block_form_alter(&$form, $form_state, $form_id) {
+  $default_values = array();
+
+  if ($form_id == 'block_add_block_form' && $form['module']['#value'] == 'block' && user_access('administer features')) {
+    $default_values['machine_name'] = '';
+    $default_values['bid'] = 0;
+  }
+  elseif ($form_id == 'block_admin_configure' && $form['module']['#value'] == 'block' && user_access('administer features')) {
+    $bid = $form['delta']['#value'];
+    $machine_name = _fe_block_get_machine_name($bid);
+    $default_values['machine_name'] = empty($machine_name) ? '' : $machine_name;
+    $default_values['bid'] = $bid;
+  }
+  // Delete a block.
+  elseif ($form_id == 'block_box_delete') {
+    $form['#submit'][] = 'fe_block_machine_name_delete';
+  }
+
+  // Add & edit
+  if (!empty($default_values)) {
+    $form['block_settings']['machine_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Machine name'),
+      '#default_value' => $default_values['machine_name'],
+      '#maxlength' => 32,
+      '#description' => t('Give the block a machine name to make it exportable with "!features" module.', array('!features' => l('Features', 'http://drupal.org/project/features'))),
+      '#weight' => -20,
+    );
+    $form['bid'] = array(
+      '#type' => 'value',
+      '#value' => $default_values['bid'],
+    );
+
+    // Validate & submit.
+    $form['#validate'][] = 'fe_block_machine_name_validate';
+    $form['#submit'][] = 'fe_block_machine_name_submit';
+  }
+}
+
+/**
+ * Validate machine name.
+ */
+function fe_block_machine_name_validate($form, &$form_state) {
+  if (empty($form_state['values']['machine_name'])) {
+    return;
+  }
+  $table = 'fe_block_boxes';
+  if (!preg_match('!^[a-z0-9_]+$!', $form_state['values']['machine_name'])) {
+    form_set_error('machine_name', t('The machine-readable name must contain only lowercase letters, numbers, and underscores.'));
+  }
+  elseif (db_result(db_query("SELECT COUNT(*) FROM {{$table}} WHERE bid <> %d AND machine_name = '%s'", $form_state['values']['bid'], $form_state['values']['machine_name']))) {
+    form_set_error('machine_name', t('The machine-readable name has been taken. Please pick another one.'));
+  }
+}
+
+/**
+ * Save machine name.
+ */
+function fe_block_machine_name_submit($form, &$form_state) {
+  // Insert
+  if (empty($form_state['values']['bid'])) {
+    $form_state['values']['bid'] = db_result(db_query("SELECT bid FROM {boxes} WHERE info = '%s'", $form_state['values']['info']));
+  }
+  if (empty($form_state['values']['bid'])) {
+    return;
+  }
+
+  $table = 'fe_block_boxes';
+  db_query("DELETE FROM {{$table}} WHERE bid = %d", $form_state['values']['bid']);
+  if (!empty($form_state['values']['machine_name'])) {
+    drupal_write_record($table, $form_state['values']);
+  }
+}
+
+/**
+ * Delete machine name.
+ */
+function fe_block_machine_name_delete($form, &$form_state) {
+  $table = 'fe_block_boxes';
+  db_query("DELETE FROM {{$table}} WHERE bid = %d", $form_state['values']['bid']);
+}
+
+/**
+ * Public APIs.
+ *
+ * TODO
+ */
+
+/**
+ * Internal functions.
+ */
+
+/**
+ * Sort blocks with "module" and "delta".
+ */
+function _fe_block_compare($a, $b) {
+  $module_cmp = strcmp($a['module'], $b['module']);
+  if (!empty($module_cmp)) {
+    return $module_cmp;
+  }
+  return strcmp($a['delta'], $b['delta']);
+}
+
+/**
+ * Get box machine name.
+ */
+function _fe_block_get_machine_name($bid) {
+  static $cache = array();
+  if (!isset($cache[$bid])) {
+    $cache[$bid] = (string) db_result(db_query("SELECT machine_name FROM {fe_block_boxes} WHERE bid = %d", $bid));
+  }
+  return $cache[$bid];
+}
+
+/**
+ * Get box bid.
+ */
+function _fe_block_get_bid($machine_name) {
+  static $cache = array();
+  if (!isset($cache[$machine_name])) {
+    $cache[$machine_name] = (int) db_result(db_query("SELECT bid FROM {fe_block_boxes} WHERE machine_name = '%s'", $machine_name));
+  }
+  return $cache[$machine_name];
+}
+
+/**
+ * Generate block ID.
+ */
+function _fe_block_build_id($block) {
+  if (empty($block['module']) || (empty($block['delta']) && !is_numeric($block['delta'])) ) {
+    return NULL;
+  }
+  if ($block['module'] == 'block') {
+    $machine_name = _fe_block_get_machine_name($block['delta']);
+    if (empty($machine_name)) {
+      return NULL;
+    }
+    return $block['module'] .'-'. $machine_name;
+  }
+  else {
+    return $block['module'] .'-'. $block['delta'];
+  }
+}
+
+/**
+ * Save a box.
+ *
+ * @param $settings
+ * @return array
+ */
+function _fe_block_save_box($settings = array()) {
+  if (empty($settings['info'])) {
+    return FALSE;
+  }
+
+  // 'info' must be unique.
+  if (empty($settings['bid'])) {
+    $conflict = db_result(db_query("SELECT COUNT(*) FROM {boxes} WHERE info = '%s'", $settings['info']));
+  }
+  else {
+    $conflict = db_result(db_query("SELECT COUNT(*) FROM {boxes} WHERE info = '%s' AND bid <> %d", $settings['info'], $settings['bid']));
+  }
+  if (!empty($conflict)) {
+    return FALSE;
+  }
+
+  // Defaults
+  $default_settings = array(
+    'info'   => '',
+    'body'   => '',
+    'format' => FILTER_FORMAT_DEFAULT,
+  );
+  $settings = array_merge($default_settings, $settings);
+
+  // Save
+  if (empty($settings['bid'])) {
+    drupal_write_record('boxes', $settings);
+  }
+  else {
+    drupal_write_record('boxes', $settings, 'bid');
+  }
+
+  return $settings;
+}
