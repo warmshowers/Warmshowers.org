@@ -27,5 +27,12 @@ function redesign_system_level_strongarm() {
   $strongarm->value = 'Warm Showers';
   $export['site_name'] = $strongarm;
 
+  $strongarm = new stdClass;
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'user_location_google_key';
+  $strongarm->value = 'AIzaSyBwT3hoRXWU1UkYIBK5Mm_tdpdRb30YC0Y';
+  $export['user_location_google_key'] = $strongarm;
+
   return $export;
 }
