@@ -1686,5 +1686,672 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
 
   $views[$view->name] = $view;
 
+  // Exported view: user_referrals_by_referee
+  $view = new view;
+  $view->name = 'user_referrals_by_referee';
+  $view->description = 'UserReferralsByReferee';
+  $view->tag = '';
+  $view->base_table = 'node';
+  $view->core = 0;
+  $view->api_version = '2';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+  $handler = $view->new_display('default', 'Defaults', 'default');
+  $handler->override_option('fields', array(
+    'name' => array(
+      'label' => 'Member Recommending Me',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'link_to_user' => 1,
+      'overwrite_anonymous' => 0,
+      'anonymous_text' => '',
+      'exclude' => 0,
+      'id' => 'name',
+      'table' => 'users',
+      'field' => 'name',
+      'relationship' => 'none',
+    ),
+    'field_guest_or_host_value' => array(
+      'id' => 'field_guest_or_host_value',
+      'table' => 'node_data_field_guest_or_host',
+      'field' => 'field_guest_or_host_value',
+      'label' => 'Guest or Host',
+    ),
+    'field_hosting_date_value' => array(
+      'label' => 'Date We Met',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'link_to_node' => 0,
+      'label_type' => 'widget',
+      'format' => 'default',
+      'multiple' => array(
+        'multiple_number' => '',
+        'multiple_from' => '',
+        'multiple_to' => '',
+        'group' => TRUE,
+      ),
+      'repeat' => array(
+        'show_repeat_rule' => 'show',
+      ),
+      'fromto' => array(
+        'fromto' => 'both',
+      ),
+      'exclude' => 0,
+      'id' => 'field_hosting_date_value',
+      'table' => 'node_data_field_hosting_date',
+      'field' => 'field_hosting_date_value',
+      'relationship' => 'none',
+    ),
+    'body' => array(
+      'label' => 'Description',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'exclude' => 0,
+      'id' => 'body',
+      'table' => 'node_revisions',
+      'field' => 'body',
+      'relationship' => 'none',
+    ),
+    'field_contest_photo_fid' => array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'absolute' => 0,
+        'link_class' => '',
+        'alt' => '',
+        'rel' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'target' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+        'strip_tags' => 0,
+      ),
+      'empty' => '',
+      'hide_empty' => 0,
+      'empty_zero' => 0,
+      'hide_alter_empty' => 1,
+      'link_to_node' => 0,
+      'label_type' => 'none',
+      'format' => 'thumbnail][thickbox',
+      'multiple' => array(
+        'group' => 1,
+        'multiple_number' => '',
+        'multiple_from' => '',
+        'multiple_reversed' => 0,
+      ),
+      'exclude' => 0,
+      'id' => 'field_contest_photo_fid',
+      'table' => 'node_data_field_contest_photo',
+      'field' => 'field_contest_photo_fid',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('sorts', array(
+    'field_hosting_date_value' => array(
+      'order' => 'DESC',
+      'delta' => -1,
+      'id' => 'field_hosting_date_value',
+      'table' => 'node_data_field_hosting_date',
+      'field' => 'field_hosting_date_value',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('arguments', array(
+    'field_member_i_trust_uid' => array(
+      'default_action' => 'empty',
+      'style_plugin' => 'default_summary',
+      'style_options' => array(),
+      'wildcard' => 'all',
+      'wildcard_substitution' => 'All',
+      'title' => '',
+      'default_argument_type' => 'fixed',
+      'default_argument' => '',
+      'validate_type' => 'user',
+      'validate_fail' => 'not found',
+      'break_phrase' => 0,
+      'not' => 0,
+      'id' => 'field_member_i_trust_uid',
+      'table' => 'node_data_field_member_i_trust',
+      'field' => 'field_member_i_trust_uid',
+      'relationship' => 'none',
+      'default_options_div_prefix' => '',
+      'default_argument_user' => 0,
+      'default_argument_fixed' => '',
+      'default_argument_php' => '',
+      'validate_argument_node_type' => array(
+        'blog' => 0,
+        'advpoll_ranking' => 0,
+        'advpoll_binary' => 0,
+        'forum' => 0,
+        'page' => 0,
+        'story' => 0,
+        'tip' => 0,
+        'trust_referral' => 0,
+      ),
+      'validate_argument_node_access' => 0,
+      'validate_argument_nid_type' => 'nid',
+      'validate_argument_vocabulary' => array(
+        4 => 0,
+        1 => 0,
+        2 => 0,
+        5 => 0,
+        3 => 0,
+      ),
+      'validate_argument_type' => 'tid',
+      'user_argument_type' => 'either',
+      'restrict_user_roles' => 0,
+      'user_roles' => array(),
+      'validate_argument_php' => '',
+      'validate_user_argument_type' => 'uid',
+      'validate_user_roles' => array(
+        2 => 0,
+        3 => 0,
+        8 => 0,
+        7 => 0,
+        9 => 0,
+        6 => 0,
+        10 => 0,
+      ),
+      'validate_argument_transform' => 0,
+      'validate_user_restrict_roles' => 0,
+    ),
+  ));
+  $handler->override_option('filters', array(
+    'type' => array(
+      'operator' => 'in',
+      'value' => array(
+        'trust_referral' => 'trust_referral',
+      ),
+      'group' => '0',
+      'exposed' => FALSE,
+      'expose' => array(
+        'operator' => FALSE,
+        'label' => '',
+      ),
+      'id' => 'type',
+      'table' => 'node',
+      'field' => 'type',
+      'relationship' => 'none',
+    ),
+    'status' => array(
+      'operator' => '=',
+      'value' => '1',
+      'group' => '0',
+      'exposed' => FALSE,
+      'expose' => array(
+        'operator' => FALSE,
+        'label' => '',
+      ),
+      'id' => 'status',
+      'table' => 'node',
+      'field' => 'status',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('access', array(
+    'type' => 'role',
+    'role' => array(
+      2 => '2',
+    ),
+    'perm' => '',
+  ));
+  $handler->override_option('cache', array(
+    'type' => 'none',
+  ));
+  $handler->override_option('header', 'Members Recommending Me');
+  $handler->override_option('header_format', '1');
+  $handler->override_option('header_empty', 0);
+  $handler->override_option('footer_format', '1');
+  $handler->override_option('empty_format', '1');
+  $handler->override_option('use_ajax', TRUE);
+  $handler->override_option('items_per_page', 15);
+  $handler->override_option('use_pager', 'mini');
+  $handler->override_option('use_more', 1);
+  $handler->override_option('style_plugin', 'table');
+  $handler->override_option('style_options', array(
+    'grouping' => '',
+    'override' => 0,
+    'sticky' => 0,
+    'order' => 'asc',
+    'columns' => array(
+      'name' => 'name',
+      'field_guest_or_host_value' => 'name',
+      'field_hosting_date_value' => 'name',
+      'body' => 'body',
+    ),
+    'info' => array(
+      'name' => array(
+        'sortable' => 0,
+        'separator' => '<br/>',
+      ),
+      'field_guest_or_host_value' => array(
+        'sortable' => 0,
+        'separator' => '',
+      ),
+      'field_hosting_date_value' => array(
+        'sortable' => 0,
+        'separator' => '',
+      ),
+      'body' => array(
+        'separator' => '',
+      ),
+    ),
+    'default' => '-1',
+  ));
+  $handler = $view->new_display('page', 'Page', 'page_1');
+  $handler->override_option('path', 'user/%/recommendations_of_me');
+  $handler->override_option('menu', array(
+    'type' => 'tab',
+    'title' => 'Recommendations Of Me',
+    'description' => '',
+    'weight' => '0',
+    'name' => 'navigation',
+  ));
+  $handler->override_option('tab_options', array(
+    'type' => 'none',
+    'title' => '',
+    'description' => '',
+    'weight' => 0,
+    'name' => 'navigation',
+  ));
+
+  $views[$view->name] = $view;
+
+  // Exported view: user_referrals_by_referrer
+  $view = new view;
+  $view->name = 'user_referrals_by_referrer';
+  $view->description = 'UserReferralsByReferrer';
+  $view->tag = '';
+  $view->base_table = 'node';
+  $view->core = 0;
+  $view->api_version = '2';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+  $handler = $view->new_display('default', 'Defaults', 'default');
+  $handler->override_option('fields', array(
+    'field_member_i_trust_uid' => array(
+      'id' => 'field_member_i_trust_uid',
+      'table' => 'node_data_field_member_i_trust',
+      'field' => 'field_member_i_trust_uid',
+      'label' => 'Members I Recommend',
+    ),
+    'field_hosting_date_value' => array(
+      'label' => 'Date We Met',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'link_to_node' => 0,
+      'label_type' => 'widget',
+      'format' => 'medium',
+      'multiple' => array(
+        'multiple_number' => '',
+        'multiple_from' => '',
+        'multiple_to' => '',
+        'group' => TRUE,
+      ),
+      'repeat' => array(
+        'show_repeat_rule' => '',
+      ),
+      'fromto' => array(
+        'fromto' => 'both',
+      ),
+      'exclude' => 0,
+      'id' => 'field_hosting_date_value',
+      'table' => 'node_data_field_hosting_date',
+      'field' => 'field_hosting_date_value',
+      'relationship' => 'none',
+    ),
+    'field_guest_or_host_value' => array(
+      'id' => 'field_guest_or_host_value',
+      'table' => 'node_data_field_guest_or_host',
+      'field' => 'field_guest_or_host_value',
+      'label' => 'Member was Guest or Host?',
+    ),
+    'body' => array(
+      'label' => 'Description',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'exclude' => 0,
+      'id' => 'body',
+      'table' => 'node_revisions',
+      'field' => 'body',
+      'relationship' => 'none',
+    ),
+    'field_contest_photo_fid' => array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'absolute' => 0,
+        'link_class' => '',
+        'alt' => '',
+        'rel' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'target' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+        'strip_tags' => 0,
+      ),
+      'empty' => '',
+      'hide_empty' => 0,
+      'empty_zero' => 0,
+      'hide_alter_empty' => 1,
+      'link_to_node' => 0,
+      'label_type' => 'none',
+      'format' => 'thumbnail][thickbox',
+      'multiple' => array(
+        'group' => 1,
+        'multiple_number' => '',
+        'multiple_from' => '',
+        'multiple_reversed' => 0,
+      ),
+      'exclude' => 0,
+      'id' => 'field_contest_photo_fid',
+      'table' => 'node_data_field_contest_photo',
+      'field' => 'field_contest_photo_fid',
+      'relationship' => 'none',
+    ),
+    'edit_node' => array(
+      'label' => 'Edit link',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'text' => 'Edit',
+      'exclude' => 0,
+      'id' => 'edit_node',
+      'table' => 'node',
+      'field' => 'edit_node',
+      'relationship' => 'none',
+    ),
+    'delete_node' => array(
+      'label' => 'Delete link',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'alt' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+      ),
+      'text' => 'Delete',
+      'exclude' => 0,
+      'id' => 'delete_node',
+      'table' => 'node',
+      'field' => 'delete_node',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('sorts', array(
+    'field_hosting_date_value' => array(
+      'order' => 'DESC',
+      'delta' => -1,
+      'id' => 'field_hosting_date_value',
+      'table' => 'node_data_field_hosting_date',
+      'field' => 'field_hosting_date_value',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('arguments', array(
+    'uid' => array(
+      'default_action' => 'empty',
+      'style_plugin' => 'default_summary',
+      'style_options' => array(),
+      'wildcard' => 'all',
+      'wildcard_substitution' => 'All',
+      'title' => '',
+      'default_argument_type' => 'fixed',
+      'default_argument' => '',
+      'validate_type' => 'user',
+      'validate_fail' => 'not found',
+      'break_phrase' => 0,
+      'not' => 0,
+      'id' => 'uid',
+      'table' => 'users',
+      'field' => 'uid',
+      'relationship' => 'none',
+      'default_options_div_prefix' => '',
+      'default_argument_user' => 0,
+      'default_argument_fixed' => '',
+      'default_argument_php' => '',
+      'validate_argument_node_type' => array(
+        'blog' => 0,
+        'advpoll_ranking' => 0,
+        'advpoll_binary' => 0,
+        'forum' => 0,
+        'page' => 0,
+        'story' => 0,
+        'tip' => 0,
+        'trust_referral' => 0,
+      ),
+      'validate_argument_node_access' => 0,
+      'validate_argument_nid_type' => 'nid',
+      'validate_argument_vocabulary' => array(
+        4 => 0,
+        1 => 0,
+        2 => 0,
+        5 => 0,
+        3 => 0,
+      ),
+      'validate_argument_type' => 'tid',
+      'user_argument_type' => 'either',
+      'restrict_user_roles' => 0,
+      'user_roles' => array(),
+      'validate_argument_php' => '',
+      'validate_user_argument_type' => 'uid',
+      'validate_user_roles' => array(
+        2 => 0,
+        3 => 0,
+        8 => 0,
+        7 => 0,
+        9 => 0,
+        6 => 0,
+        10 => 0,
+      ),
+      'validate_argument_transform' => 0,
+      'validate_user_restrict_roles' => 0,
+    ),
+  ));
+  $handler->override_option('filters', array(
+    'type' => array(
+      'operator' => 'in',
+      'value' => array(
+        'trust_referral' => 'trust_referral',
+      ),
+      'group' => '0',
+      'exposed' => FALSE,
+      'expose' => array(
+        'operator' => FALSE,
+        'label' => '',
+      ),
+      'id' => 'type',
+      'table' => 'node',
+      'field' => 'type',
+      'relationship' => 'none',
+    ),
+    'status' => array(
+      'operator' => '=',
+      'value' => '1',
+      'group' => '0',
+      'exposed' => FALSE,
+      'expose' => array(
+        'operator' => FALSE,
+        'label' => '',
+      ),
+      'id' => 'status',
+      'table' => 'node',
+      'field' => 'status',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('access', array(
+    'type' => 'role',
+    'role' => array(
+      2 => '2',
+    ),
+    'perm' => '',
+  ));
+  $handler->override_option('cache', array(
+    'type' => 'none',
+  ));
+  $handler->override_option('header_format', '1');
+  $handler->override_option('footer_format', '1');
+  $handler->override_option('empty_format', '1');
+  $handler->override_option('use_ajax', TRUE);
+  $handler->override_option('items_per_page', 15);
+  $handler->override_option('use_pager', 'mini');
+  $handler->override_option('use_more', 1);
+  $handler->override_option('style_plugin', 'table');
+  $handler->override_option('style_options', array(
+    'grouping' => '',
+    'override' => 0,
+    'sticky' => 0,
+    'order' => 'asc',
+    'columns' => array(
+      'field_member_i_trust_uid' => 'field_member_i_trust_uid',
+      'field_hosting_date_value' => 'field_member_i_trust_uid',
+      'field_guest_or_host_value' => 'field_member_i_trust_uid',
+      'body' => 'body',
+      'edit_node' => 'edit_node',
+      'delete_node' => 'edit_node',
+    ),
+    'info' => array(
+      'field_member_i_trust_uid' => array(
+        'separator' => '<br/>',
+      ),
+      'field_hosting_date_value' => array(
+        'sortable' => 1,
+        'separator' => '',
+      ),
+      'field_guest_or_host_value' => array(
+        'sortable' => 1,
+        'separator' => '',
+      ),
+      'body' => array(
+        'separator' => '',
+      ),
+      'edit_node' => array(
+        'separator' => '<br/>',
+      ),
+      'delete_node' => array(
+        'separator' => '',
+      ),
+    ),
+    'default' => '-1',
+  ));
+  $handler = $view->new_display('page', 'Page', 'page_1');
+  $handler->override_option('path', 'user/%/my_recommendations');
+  $handler->override_option('menu', array(
+    'type' => 'tab',
+    'title' => 'Recommendations I Made',
+    'description' => '',
+    'weight' => '0',
+    'name' => 'navigation',
+  ));
+  $handler->override_option('tab_options', array(
+    'type' => 'none',
+    'title' => '',
+    'description' => '',
+    'weight' => 0,
+    'name' => 'navigation',
+  ));
+
+  $views[$view->name] = $view;
+
   return $views;
 }
