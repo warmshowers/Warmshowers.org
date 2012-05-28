@@ -33,12 +33,6 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'sidebar_first',
           'weight' => 0,
         ),
-        'menu-logged_in_main_menu' => array(
-          'module' => 'menu',
-          'delta' => 'logged_in_main_menu',
-          'region' => 'navigation',
-          'weight' => 0,
-        ),
         'wsuser-wsuser_member_block' => array(
           'module' => 'wsuser',
           'delta' => 'wsuser_member_block',
@@ -116,7 +110,7 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
-  $context->name = 'unauthenticated_all';
+  $context->name = 'everywhere_anon';
   $context->description = '';
   $context->tag = '';
   $context->conditions = array(
@@ -138,8 +132,82 @@ function redesign_theme_and_block_context_default_contexts() {
       ),
     ),
   );
+  $context->condition_mode = 0;
+  $export['everywhere_anon'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'everywhere_auth';
+  $context->description = '';
+  $context->tag = '';
+  $context->conditions = array(
+    'user' => array(
+      'values' => array(
+        'authenticated user' => 'authenticated user',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-logged_in_main_menu' => array(
+          'module' => 'menu',
+          'delta' => 'logged_in_main_menu',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 0;
+  $export['everywhere_auth'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'profile_page_other';
+  $context->description = 'Profile page as shown to other users (not self)';
+  $context->tag = '';
+  $context->conditions = array(
+    'user' => array(
+      'values' => array(
+        'authenticated user' => 'authenticated user',
+      ),
+    ),
+    'user_page' => array(
+      'values' => array(
+        'view' => 'view',
+      ),
+      'options' => array(
+        'mode' => 'other',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'wsuser-wsuser_member_contact_location' => array(
+          'module' => 'wsuser',
+          'delta' => 'wsuser_member_contact_location',
+          'region' => 'sidebar_second',
+          'weight' => 0,
+        ),
+        'wsuser-wsuser_member_actions' => array(
+          'module' => 'wsuser',
+          'delta' => 'wsuser_member_actions',
+          'region' => 'sidebar_second',
+          'weight' => 1,
+        ),
+      ),
+    ),
+  );
   $context->condition_mode = 1;
-  $export['unauthenticated_all'] = $context;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Profile page as shown to other users (not self)');
+  $export['profile_page_other'] = $context;
 
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */

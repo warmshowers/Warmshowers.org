@@ -201,7 +201,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'menu_name' => 'logged_in_main_menu',
     'link_path' => '<front>',
     'router_path' => '',
-    'link_title' => 'Home',
+    'link_title' => 'Dashboard',
     'options' => array(
       'attributes' => array(
         'title' => '',
@@ -256,6 +256,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
   // Translatables
   // Included for use with string extractors like potx.
   t('Contact Us');
+  t('Dashboard');
   t('Donate!');
   t('FAQ');
   t('Forums');
