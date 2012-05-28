@@ -253,6 +253,25 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-48',
   );
+  // Exported menu link: logged_in_main_menu:user
+  $menu_links['logged_in_main_menu:user'] = array(
+    'menu_name' => 'logged_in_main_menu',
+    'link_path' => 'user',
+    'router_path' => 'user',
+    'link_title' => 'Me',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '0',
+  );
   // Translatables
   // Included for use with string extractors like potx.
   t('Contact Us');
@@ -263,6 +282,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
   t('Home');
   t('Log In');
   t('Log Out');
+  t('Me');
   t('Sign Up');
 
 
