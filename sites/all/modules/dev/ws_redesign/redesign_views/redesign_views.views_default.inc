@@ -1620,6 +1620,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
   $handler->override_option('block_description', '');
   $handler->override_option('block_caching', '8');
   $handler = $view->new_display('block', 'Album block', 'block_2');
+  $handler->override_option('relationships', array());
   $handler->override_option('fields', array(
     'field_contest_photo_fid' => array(
       'label' => '',
@@ -1646,10 +1647,10 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       'empty' => '',
       'hide_empty' => 0,
       'empty_zero' => 0,
-      'hide_alter_empty' => 1,
+      'hide_alter_empty' => 0,
       'link_to_node' => 0,
       'label_type' => 'none',
-      'format' => '235W][thickbox',
+      'format' => 'photo_album_block][thickbox',
       'multiple' => array(
         'group' => 0,
         'multiple_number' => '1',
@@ -1666,6 +1667,18 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       ),
     ),
   ));
+  $handler->override_option('sorts', array(
+    'random' => array(
+      'order' => 'ASC',
+      'id' => 'random',
+      'table' => 'views',
+      'field' => 'random',
+      'override' => array(
+        'button' => 'Use default',
+      ),
+      'relationship' => 'none',
+    ),
+  ));
   $handler->override_option('cache', array(
     'type' => 'time',
     'results_lifespan' => '3600',
@@ -1675,7 +1688,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
   $handler->override_option('use_pager', '0');
   $handler->override_option('style_plugin', 'views_rotator');
   $handler->override_option('style_options', array(
-    'timeout' => '1',
+    'timeout' => '3',
     'speed' => '1',
     'pause' => 0,
     'back_next_buttons' => 1,
