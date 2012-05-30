@@ -43,13 +43,16 @@
 
   <div class="responsive-counts">
     <?php if ($responsive_member) {
-    print format_plural($responsive_member, '%count member has marked %fullname responsive', '%count members have marked %fullname responsive', array('%count' => $responsive_member, '%fullname' => $fullname));
-  }
+      print format_plural($responsive_member, '%count member has marked %fullname responsive', '%count members have marked %fullname responsive', array('%count' => $responsive_member, '%fullname' => $fullname));
+    }
     ?>
     <?php if ($unresponsive_member) {
       print format_plural($unresponsive_member, '%count member has marked %fullname unresponsive', '%count members have marked %fullname unresponsive', array('%count' => $unresponsive_member, '%fullname' => $fullname));
     }
     ?>
+    <div class="last-login">
+      <?php print t('Last login') . ': ' . $last_login; ?>
+    </div>
 
   </div>
 

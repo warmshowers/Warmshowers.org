@@ -89,23 +89,6 @@ function warmshowers_zen_preprocess_page(&$variables) {
 function warmshowers_zen_preprocess_user_profile(&$variables) {
 
   drupal_add_css(drupal_get_path('theme','warmshowers_zen') . '/css/profile.css', 'theme');
-  $fieldlist = wsuser_fieldlist();
-  $services = array(
-    "bed",
-    "food",
-    "laundry",
-    "lawnspace",
-    "sag",
-    "shower",
-    "storage",
-    "kitchenuse",
-  );
-
-  foreach ($services as $item) {
-    if ($variables['account']->$item) {
-      $variables['services'] .= "<li>".t($fieldlist[$item]['title'])."</li>";
-    }
-  }
 
 }
 
