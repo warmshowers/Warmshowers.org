@@ -11,7 +11,7 @@
   </div>
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
-    <?php print $account->comments; ?>
+    <?php print check_markup($account->comments); ?>
     <div id="host-services">
       <h2><?php print t('This Host Offers'); ?></h2>
       <ul>
