@@ -6,7 +6,7 @@
   <div id="name-title">
     <h3><?php print $account->fullname; ?></h3>
     <br />
-    1,045 <?php print t('Recommendations'); ?> -
+    <?php print format_plural($reference_count, '1 recommendation', '%count recommendations', array('%count' => $reference_count)); ?> -
     <?php print t('Member for') . ' ' . $account->content['summary']['member_for']['#value']; ?>
   </div>
   <div class="content">
