@@ -6,6 +6,99 @@
 function redesign_theme_and_block_views_default_views() {
   $views = array();
 
+  // Exported view: map_slideshow
+  $view = new view;
+  $view->name = 'map_slideshow';
+  $view->description = 'Map Slideshow';
+  $view->tag = '';
+  $view->base_table = 'node';
+  $view->core = 6;
+  $view->api_version = '2';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+  $handler = $view->new_display('default', 'Defaults', 'default');
+  $handler->override_option('fields', array(
+    'field_contest_photo_fid' => array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'absolute' => 0,
+        'link_class' => '',
+        'alt' => '',
+        'rel' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'target' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+        'strip_tags' => 0,
+      ),
+      'empty' => '',
+      'hide_empty' => 0,
+      'empty_zero' => 0,
+      'hide_alter_empty' => 1,
+      'link_to_node' => 0,
+      'label_type' => 'none',
+      'format' => 'Center_Content][thickbox',
+      'multiple' => array(
+        'group' => 0,
+        'multiple_number' => '',
+        'multiple_from' => '',
+        'multiple_reversed' => 0,
+      ),
+      'exclude' => 0,
+      'id' => 'field_contest_photo_fid',
+      'table' => 'node_data_field_contest_photo',
+      'field' => 'field_contest_photo_fid',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('filters', array(
+    'nid' => array(
+      'operator' => '=',
+      'value' => array(
+        'value' => '14882',
+        'min' => '',
+        'max' => '',
+      ),
+      'group' => '0',
+      'exposed' => FALSE,
+      'expose' => array(
+        'operator' => FALSE,
+        'label' => '',
+      ),
+      'id' => 'nid',
+      'table' => 'node',
+      'field' => 'nid',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('access', array(
+    'type' => 'none',
+  ));
+  $handler->override_option('cache', array(
+    'type' => 'none',
+  ));
+  $handler->override_option('style_plugin', 'views_rotator');
+  $handler->override_option('style_options', array(
+    'timeout' => '2',
+    'speed' => '1',
+    'pause' => 0,
+    'back_next_buttons' => 0,
+    'height' => '',
+  ));
+  $handler = $view->new_display('block', 'Block', 'block_1');
+  $handler->override_option('block_description', '');
+  $handler->override_option('block_caching', -1);
+
+  $views[$view->name] = $view;
+
   // Exported view: recent_forum_topics
   $view = new view;
   $view->name = 'recent_forum_topics';
@@ -206,6 +299,95 @@ function redesign_theme_and_block_views_default_views() {
     'columns' => '2',
     'alignment' => 'horizontal',
     'fill_single_line' => 1,
+  ));
+  $handler = $view->new_display('block', 'Block', 'block_1');
+  $handler->override_option('block_description', '');
+  $handler->override_option('block_caching', -1);
+
+  $views[$view->name] = $view;
+
+  // Exported view: unauth_content_right_block
+  $view = new view;
+  $view->name = 'unauth_content_right_block';
+  $view->description = 'Unauthenticated Content Right Block (mobile apps)';
+  $view->tag = '';
+  $view->base_table = 'node';
+  $view->core = 6;
+  $view->api_version = '2';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+  $handler = $view->new_display('default', 'Defaults', 'default');
+  $handler->override_option('fields', array(
+    'field_contest_photo_fid' => array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 1,
+        'text' => '[field_contest_photo_fid]<br/>
+<h2 class="title">Mobile Apps Available!</h2>',
+        'make_link' => 1,
+        'path' => 'node/14870',
+        'absolute' => 0,
+        'link_class' => 'mobile-app-link',
+        'alt' => 'Mobile Apps Now Available',
+        'rel' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'target' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+        'strip_tags' => 0,
+      ),
+      'empty' => '',
+      'hide_empty' => 0,
+      'empty_zero' => 0,
+      'hide_alter_empty' => 1,
+      'link_to_node' => 0,
+      'label_type' => 'none',
+      'format' => 'rightcolumn_default',
+      'multiple' => array(
+        'group' => 1,
+        'multiple_number' => '',
+        'multiple_from' => '',
+        'multiple_reversed' => 0,
+      ),
+      'exclude' => 0,
+      'id' => 'field_contest_photo_fid',
+      'table' => 'node_data_field_contest_photo',
+      'field' => 'field_contest_photo_fid',
+      'override' => array(
+        'button' => 'Override',
+      ),
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('filters', array(
+    'nid' => array(
+      'operator' => '=',
+      'value' => array(
+        'value' => '14866',
+        'min' => '',
+        'max' => '',
+      ),
+      'group' => '0',
+      'exposed' => FALSE,
+      'expose' => array(
+        'operator' => FALSE,
+        'label' => '',
+      ),
+      'id' => 'nid',
+      'table' => 'node',
+      'field' => 'nid',
+      'relationship' => 'none',
+    ),
+  ));
+  $handler->override_option('access', array(
+    'type' => 'none',
+  ));
+  $handler->override_option('cache', array(
+    'type' => 'none',
   ));
   $handler = $view->new_display('block', 'Block', 'block_1');
   $handler->override_option('block_description', '');

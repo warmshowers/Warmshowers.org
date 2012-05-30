@@ -1650,7 +1650,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       'hide_alter_empty' => 0,
       'link_to_node' => 0,
       'label_type' => 'none',
-      'format' => 'photo_album_block][thickbox',
+      'format' => 'rightcolumn][thickbox',
       'multiple' => array(
         'group' => 0,
         'multiple_number' => '1',

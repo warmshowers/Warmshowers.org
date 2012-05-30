@@ -241,17 +241,23 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'sidebar_second',
           'weight' => 0,
         ),
+        'views-de434713ad5df48da12c8117a8e0ae3e' => array(
+          'module' => 'views',
+          'delta' => 'de434713ad5df48da12c8117a8e0ae3e',
+          'region' => 'sidebar_second',
+          'weight' => 1,
+        ),
         'wsuser-wsuser_member_count_block' => array(
           'module' => 'wsuser',
           'delta' => 'wsuser_member_count_block',
           'region' => 'highlight',
           'weight' => 0,
         ),
-        'block-15' => array(
-          'module' => 'block',
-          'delta' => 15,
-          'region' => 'highlight',
-          'weight' => 1,
+        'views-map_slideshow-block_1' => array(
+          'module' => 'views',
+          'delta' => 'map_slideshow-block_1',
+          'region' => 'content_top',
+          'weight' => 0,
         ),
       ),
     ),
