@@ -20,6 +20,7 @@
     </div>
     <div id="recommendations">
       <h2><?php print t('Recommendations'); ?></h2>
+      <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
     </div>
   </div>
   <div id="right-sidebar">
