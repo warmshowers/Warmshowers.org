@@ -27,11 +27,17 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
+        'wsmap-wsmap_expand_map_link' => array(
+          'module' => 'wsmap',
+          'delta' => 'wsmap_expand_map_link',
+          'region' => 'sidebar_first',
+          'weight' => 0,
+        ),
         'wsuser-wsuser_search_block' => array(
           'module' => 'wsuser',
           'delta' => 'wsuser_search_block',
           'region' => 'sidebar_first',
-          'weight' => 0,
+          'weight' => 1,
         ),
         'wsuser-wsuser_member_block' => array(
           'module' => 'wsuser',
@@ -57,9 +63,9 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'highlight',
           'weight' => 3,
         ),
-        'wsmap-0' => array(
+        'wsmap-wsmap_map' => array(
           'module' => 'wsmap',
-          'delta' => 0,
+          'delta' => 'wsmap_map',
           'region' => 'content_top',
           'weight' => 0,
         ),

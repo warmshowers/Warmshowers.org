@@ -13,7 +13,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'module' => 'follow',
     'delta' => 'site',
     'status' => 0,
-    'weight' => '-20',
+    'weight' => '-24',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',
@@ -28,7 +28,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'module' => 'locale',
     'delta' => '0',
     'status' => 0,
-    'weight' => '-21',
+    'weight' => '-27',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',
@@ -43,7 +43,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'module' => 'menu',
     'delta' => 'anon_main_menu',
     'status' => 0,
-    'weight' => '0',
+    'weight' => '8',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',
@@ -58,7 +58,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'module' => 'menu',
     'delta' => 'footer_menu',
     'status' => 0,
-    'weight' => '0',
+    'weight' => '9',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',
@@ -73,7 +73,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'module' => 'menu',
     'delta' => 'logged_in_main_menu',
     'status' => 0,
-    'weight' => '0',
+    'weight' => '10',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',
@@ -84,11 +84,11 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'cache' => '-1',
   );
 
-  $theme['wsmap-0'] = array(
+  $theme['wsmap-wsmap_expand_map_link'] = array(
     'module' => 'wsmap',
-    'delta' => '0',
+    'delta' => 'wsmap_expand_map_link',
     'status' => 0,
-    'weight' => '11',
+    'weight' => '0',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',
@@ -96,6 +96,96 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'pages' => '',
     'theme' => 'warmshowers_zen',
     'title' => '<none>',
+    'cache' => '1',
+  );
+
+  $theme['wsmap-wsmap_map'] = array(
+    'module' => 'wsmap',
+    'delta' => 'wsmap_map',
+    'status' => 0,
+    'weight' => '1',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
+    'cache' => '1',
+  );
+
+  $theme['wsuser-wsuser_member_actions'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_actions',
+    'status' => 0,
+    'weight' => '17',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
+    'cache' => '4',
+  );
+
+  $theme['wsuser-wsuser_member_block'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_block',
+    'status' => 0,
+    'weight' => '19',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
+    'cache' => '2',
+  );
+
+  $theme['wsuser-wsuser_member_contact_location'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_contact_location',
+    'status' => 0,
+    'weight' => '13',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
+    'cache' => '4',
+  );
+
+  $theme['wsuser-wsuser_member_count_block'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_count_block',
+    'status' => 0,
+    'weight' => '14',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
+    'cache' => '8',
+  );
+
+  $theme['wsuser-wsuser_member_recommendation'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_recommendation',
+    'status' => 0,
+    'weight' => '15',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
     'cache' => '1',
   );
 
@@ -179,18 +269,108 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'cache' => '-1',
   );
 
-  $theme['wsmap-0'] = array(
+  $theme['wsmap-wsmap_expand_map_link'] = array(
     'module' => 'wsmap',
-    'delta' => '0',
-    'status' => '1',
+    'delta' => 'wsmap_expand_map_link',
+    'status' => 0,
     'weight' => '0',
-    'region' => 'content',
+    'region' => '',
     'custom' => '0',
     'throttle' => '0',
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowerspb',
     'title' => '<none>',
+    'cache' => '1',
+  );
+
+  $theme['wsmap-wsmap_map'] = array(
+    'module' => 'wsmap',
+    'delta' => 'wsmap_map',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '1',
+  );
+
+  $theme['wsuser-wsuser_member_actions'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_actions',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '4',
+  );
+
+  $theme['wsuser-wsuser_member_block'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_block',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '2',
+  );
+
+  $theme['wsuser-wsuser_member_contact_location'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_contact_location',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '4',
+  );
+
+  $theme['wsuser-wsuser_member_count_block'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_count_block',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '8',
+  );
+
+  $theme['wsuser-wsuser_member_recommendation'] = array(
+    'module' => 'wsuser',
+    'delta' => 'wsuser_member_recommendation',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
     'cache' => '1',
   );
 
