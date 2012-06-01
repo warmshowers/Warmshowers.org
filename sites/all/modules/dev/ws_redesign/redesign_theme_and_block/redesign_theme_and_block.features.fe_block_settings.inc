@@ -9,6 +9,21 @@ function redesign_theme_and_block_default_fe_block_settings() {
   // warmshowers_zen
   $theme = array();
 
+  $theme['block-anon_left_content'] = array(
+    'module' => 'block',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '',
+    'cache' => '-1',
+    'machine_name' => 'anon_left_content',
+  );
+
   $theme['follow-site'] = array(
     'module' => 'follow',
     'delta' => 'site',
@@ -193,6 +208,21 @@ function redesign_theme_and_block_default_fe_block_settings() {
 
   // warmshowerspb
   $theme = array();
+
+  $theme['block-anon_left_content'] = array(
+    'module' => 'block',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '<none>',
+    'cache' => '-1',
+    'machine_name' => 'anon_left_content',
+  );
 
   $theme['follow-site'] = array(
     'module' => 'follow',

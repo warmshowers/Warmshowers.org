@@ -241,6 +241,12 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
+        'block-15' => array(
+          'module' => 'block',
+          'delta' => 15,
+          'region' => 'sidebar_first',
+          'weight' => 0,
+        ),
         'views-photo_contest-block_2' => array(
           'module' => 'views',
           'delta' => 'photo_contest-block_2',
