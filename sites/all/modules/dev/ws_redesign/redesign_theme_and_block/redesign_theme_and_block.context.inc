@@ -39,9 +39,9 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'sidebar_first',
           'weight' => 1,
         ),
-        'wsuser-wsuser_member_block' => array(
+        'wsuser-wsuser_member_welcome_block' => array(
           'module' => 'wsuser',
-          'delta' => 'wsuser_member_block',
+          'delta' => 'wsuser_member_welcome_block',
           'region' => 'highlight',
           'weight' => 0,
         ),

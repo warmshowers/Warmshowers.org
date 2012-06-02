@@ -159,6 +159,36 @@ function warmshowers_zen_form_element($element, $value) {
   return $output;
 }
 
+
+/**
+ * Override username to present fullname instead. Experimental.
+ * @param $object
+ * @return string
+ */
+function warmshowers_zen_username($object) {
+
+  $name = !empty($object->fullname) ? $object->fullname : $object->name;
+
+  if ($object->uid && $name) {
+    // Shorten the name when it is too long or it will break many tables.
+    if (drupal_strlen($name) > 20) {
+      $name = drupal_substr($name, 0, 15) . '...';
+    }
+
+    if (user_access('access user profiles')) {
+      $output = l($name, 'user/' . $object->uid, array('attributes' => array('title' => t('View user profile.'))));
+    }
+    else {
+      $output = check_plain($name);
+    }
+  }
+  else {
+    $output = check_plain(variable_get('unregistered', t('Unregistered')));
+  }
+
+  return $output;
+}
+
 /**
  * Override or insert variables into all templates.
  *

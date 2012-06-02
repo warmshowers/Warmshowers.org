@@ -144,21 +144,6 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'cache' => '4',
   );
 
-  $theme['wsuser-wsuser_member_block'] = array(
-    'module' => 'wsuser',
-    'delta' => 'wsuser_member_block',
-    'status' => 0,
-    'weight' => '19',
-    'region' => '',
-    'custom' => '0',
-    'throttle' => '0',
-    'visibility' => '0',
-    'pages' => '',
-    'theme' => 'warmshowers_zen',
-    'title' => '',
-    'cache' => '2',
-  );
-
   $theme['wsuser-wsuser_member_contact_location'] = array(
     'module' => 'wsuser',
     'delta' => 'wsuser_member_contact_location',
@@ -342,21 +327,6 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'theme' => 'warmshowerspb',
     'title' => '',
     'cache' => '4',
-  );
-
-  $theme['wsuser-wsuser_member_block'] = array(
-    'module' => 'wsuser',
-    'delta' => 'wsuser_member_block',
-    'status' => 0,
-    'weight' => '0',
-    'region' => '',
-    'custom' => '0',
-    'throttle' => '0',
-    'visibility' => '0',
-    'pages' => '',
-    'theme' => 'warmshowerspb',
-    'title' => '',
-    'cache' => '2',
   );
 
   $theme['wsuser-wsuser_member_contact_location'] = array(
