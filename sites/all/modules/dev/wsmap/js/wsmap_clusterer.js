@@ -10,7 +10,7 @@ var mapcountry;
 
 var advcycl; // Overlay for advcycling stuff
 
-var mapwidth; // In percent, from html
+var mapwidth; // Integer percent
 
 var debug=false;
 //var debug=true;
@@ -29,6 +29,15 @@ var mapdata_source=null;
 var loggedin = false;
 var  cookiedays=14;  /* days to save a lat/lon/country cookie */
 
+// On IE we can't afford to have console.log() fire, as it's an error.
+var DEBUG = false;
+if(!DEBUG){
+  if(!window.console) window.console = {};
+  var methods = ["log", "debug", "warn", "info"];
+  for(var i=0;i<methods.length;i++){
+    console[methods[i]] = function(){};
+  }
+}
 
 
 
@@ -56,16 +65,16 @@ function wsmap_main_load_entry()
 {
 
   try {
+    // Grab necessary settings into globals.
+    mapdata_source = Drupal.settings.wsmap.mapdata_source;
+    loggedin = Drupal.settings.wsmap.loggedin;
+    mapwidth = Drupal.settings.wsmap.mapwidth; // Integer percent
+    base_path = Drupal.settings.wsmap.base_path;
 
     $(window).resize(map_resize);
     map_resize();
 
     setMapStartPosition();
-
-    mapdata_source = Drupal.settings.wsmap.mapdata_source;
-    loggedin = Drupal.settings.wsmap.loggedin;
-
-    base_path = Drupal.settings.wsmap.base_path;
 
     redIcon = new GIcon();
     redIcon.image=base_path + '/clusterer/red.PNG';
@@ -488,10 +497,10 @@ function map_resize() {
   bigsize = ($('#wsmap_map').width() > 500);
   if (bigsize) {
     $('#nearby-hosts').css('position','absolute');
-    $('#mapholder').css('width',''+mapwidth+'%');
+    $('#mapholder').css('width', mapwidth + '%');
   } else {
     $('#nearby-hosts').css('position','static');
-    $('#mapholder').css('width','100%');
+    $('#mapholder').css('width', '100%');
   }
 }
 
@@ -507,15 +516,13 @@ function toggleMap(){ //expand and contract map
 	if($('#mapholder').css("width") == '100%'){  //if fully expanded
 		$('#sidebar-left').css("display", "block");
 		$('#expandText').html(Drupal.t('Expand Map'));
-		$('#mapholder').animate({width:''+mapwidth+'%'}, {duration: 1000});
-		$('#mapwidth').html(mapwidth);
+		$('#mapholder').animate({width:'' + mapwidth + '%'}, {duration: 1000});
 		$('#nearby-hosts').css("display", "block");
 	}else{
 		$('#sidebar-left').css("display", "none");
 		$('#expandText').html(Drupal.t('Collapse Map'));
 		$('#nearby-hosts').css("display", "none");
 		$('#mapholder').animate({width:"100%"}, {duration: 1000});
-		$('#mapwidth').html("100")
 	}
 	setTimeout("map.checkResize();loadMarkers();",1000); //this is necessary due to animate function
 
