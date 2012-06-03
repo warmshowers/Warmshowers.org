@@ -51,9 +51,9 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'highlight',
           'weight' => 1,
         ),
-        'follow-site' => array(
-          'module' => 'follow',
-          'delta' => 'site',
+        'block-16' => array(
+          'module' => 'block',
+          'delta' => 16,
           'region' => 'highlight',
           'weight' => 2,
         ),
