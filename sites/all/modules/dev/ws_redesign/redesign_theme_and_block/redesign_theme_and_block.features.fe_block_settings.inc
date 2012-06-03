@@ -19,7 +19,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowers_zen',
-    'title' => '',
+    'title' => '<none>',
     'cache' => '-1',
     'machine_name' => 'anon_left_content',
   );

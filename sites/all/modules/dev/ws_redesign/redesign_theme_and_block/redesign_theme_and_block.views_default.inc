@@ -187,11 +187,51 @@ function redesign_theme_and_block_views_default_views() {
     'type' => 'ul',
   ));
   $handler = $view->new_display('block', 'Recent Forum Topics block', 'block_1');
+  $handler->override_option('fields', array(
+    'title' => array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 0,
+        'text' => '',
+        'make_link' => 0,
+        'path' => '',
+        'absolute' => 0,
+        'link_class' => '',
+        'alt' => '',
+        'rel' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'target' => '',
+        'help' => '',
+        'trim' => 1,
+        'max_length' => '44',
+        'word_boundary' => 0,
+        'ellipsis' => 1,
+        'html' => 0,
+        'strip_tags' => 1,
+      ),
+      'empty' => '',
+      'hide_empty' => 0,
+      'empty_zero' => 0,
+      'hide_alter_empty' => 1,
+      'link_to_node' => 1,
+      'exclude' => 0,
+      'id' => 'title',
+      'table' => 'node',
+      'field' => 'title',
+      'relationship' => 'none',
+      'override' => array(
+        'button' => 'Use default',
+      ),
+    ),
+  ));
   $handler->override_option('title', 'Forum');
-  $handler->override_option('footer', '<a href="/recent_forum_topics">[more]</a>');
+  $handler->override_option('header', '<?php echo l(\'Create a Post\',\'node/add/forum\'); ?>');
+  $handler->override_option('header_format', '2');
+  $handler->override_option('header_empty', 0);
   $handler->override_option('footer_format', '1');
   $handler->override_option('footer_empty', 0);
-  $handler->override_option('items_per_page', 3);
+  $handler->override_option('items_per_page', 4);
   $handler->override_option('block_description', '');
   $handler->override_option('block_caching', -1);
   $handler = $view->new_display('page', 'Page', 'page_1');
