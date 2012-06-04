@@ -24,7 +24,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'machine_name' => 'anon_left_content',
   );
 
-  $theme['block-redesign_follow_us'] = array(
+  $theme['block-social_links'] = array(
     'module' => 'block',
     'status' => 0,
     'weight' => '0',
@@ -36,7 +36,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'theme' => 'warmshowers_zen',
     'title' => '',
     'cache' => '-1',
-    'machine_name' => 'redesign_follow_us',
+    'machine_name' => 'social_links',
   );
 
   $theme['follow-site'] = array(
@@ -224,7 +224,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'machine_name' => 'anon_left_content',
   );
 
-  $theme['block-redesign_follow_us'] = array(
+  $theme['block-social_links'] = array(
     'module' => 'block',
     'status' => 0,
     'weight' => '0',
@@ -236,7 +236,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'theme' => 'warmshowerspb',
     'title' => '<none>',
     'cache' => '-1',
-    'machine_name' => 'redesign_follow_us',
+    'machine_name' => 'social_links',
   );
 
   $theme['follow-site'] = array(

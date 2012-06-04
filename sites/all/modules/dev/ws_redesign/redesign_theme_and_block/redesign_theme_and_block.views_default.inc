@@ -181,6 +181,8 @@ function redesign_theme_and_block_views_default_views() {
     'output_lifespan' => '3600',
   ));
   $handler->override_option('title', 'Recent Forum Topics');
+  $handler->override_option('footer_format', '1');
+  $handler->override_option('footer_empty', 0);
   $handler->override_option('items_per_page', 5);
   $handler->override_option('style_plugin', 'list');
   $handler->override_option('style_options', array(
@@ -229,8 +231,6 @@ function redesign_theme_and_block_views_default_views() {
   $handler->override_option('header', '<?php echo l(\'Create a Post\',\'node/add/forum\'); ?>');
   $handler->override_option('header_format', '2');
   $handler->override_option('header_empty', 0);
-  $handler->override_option('footer_format', '1');
-  $handler->override_option('footer_empty', 0);
   $handler->override_option('items_per_page', 4);
   $handler->override_option('block_description', '');
   $handler->override_option('block_caching', -1);
