@@ -172,8 +172,8 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
-  $context->name = 'profile_page_other';
-  $context->description = 'Profile page as shown to other users (not self)';
+  $context->name = 'profile_page';
+  $context->description = 'Profile page';
   $context->tag = '';
   $context->conditions = array(
     'user' => array(
@@ -186,7 +186,7 @@ function redesign_theme_and_block_context_default_contexts() {
         'view' => 'view',
       ),
       'options' => array(
-        'mode' => 'other',
+        'mode' => 'all',
       ),
     ),
   );
@@ -208,6 +208,35 @@ function redesign_theme_and_block_context_default_contexts() {
       ),
     ),
   );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Profile page');
+  $export['profile_page'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'profile_page_other';
+  $context->description = 'Profile page as shown to other users (not self)';
+  $context->tag = '';
+  $context->conditions = array(
+    'user' => array(
+      'values' => array(
+        'authenticated user' => 'authenticated user',
+      ),
+    ),
+    'user_page' => array(
+      'values' => array(
+        'view' => 'view',
+      ),
+      'options' => array(
+        'mode' => 'other',
+      ),
+    ),
+  );
+  $context->reactions = array();
   $context->condition_mode = 1;
 
   // Translatables

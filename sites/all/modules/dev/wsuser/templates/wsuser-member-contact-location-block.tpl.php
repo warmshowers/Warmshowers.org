@@ -29,6 +29,7 @@
   </a>
 </div>
 
+
 <div class="member-address">
   <span class="member-fullname"><?php print $fullname; ?></span><br/>
   <?php if ($homephone) : ?>
@@ -41,13 +42,26 @@
   <span class="phone workphone"><?php print t('Work') . ': ' . $workphone; ?></span><br/>
   <?php endif; ?>
 
-  <?php if ($street): ?>
+  <?php if ($notcurrentlyavailable): ?>
+  <div class="notcurrentlyavailable"><?php print t('Address information is not shown because this member is not currently available for hosting.'); ?></div>
+  <?php endif; ?>
+
+  <?php if ($street && !$notcurrentlyavailable): ?>
     <span class="member-street"><?php print $street; ?></span><br/>
   <?php endif; ?>
-  <?php if ($additional): ?>
+  <?php if ($additional && !$notcurrentlyavailable): ?>
     <span class="member-additional"><?php print $additional; ?></span><br/>
   <?php endif; ?>
-  <span class="member-city"><?php print $city . ', ' . $province . ' ' . $postal_code . ' ' . $country; ?></span>
+  <?php if (!$notcurrentlyavailable): ?>
+    <span class="member-city"><?php print $city . ', ' . $province . ' ' . $postal_code . ' ' . $country; ?></span>
+  <?php endif; ?>
 </div>
 
-<?php print drupal_get_form('wsuser_contact_button', $account); ?>
+<?php
+if ($account->uid != $GLOBALS['user']->uid) {
+  print l(t('Send Message'), 'user/' .  $account->uid . '/contact', array('attributes' => array('class' => 'linkbutton')));
+}
+else {
+  print l(t('Update'), 'user/' . $account->uid . '/edit', array('attributes' => array('class' => 'linkbutton')));
+  print l(t('Set Location'), 'user/' . $account->uid . '/location', array('attributes' => array('class' => 'linkbutton')));
+} ?>
