@@ -51,9 +51,9 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'highlight',
           'weight' => 1,
         ),
-        'block-16' => array(
-          'module' => 'block',
-          'delta' => 16,
+        'warmshowers_site-warmshowers_site_social_links' => array(
+          'module' => 'warmshowers_site',
+          'delta' => 'warmshowers_site_social_links',
           'region' => 'highlight',
           'weight' => 2,
         ),
