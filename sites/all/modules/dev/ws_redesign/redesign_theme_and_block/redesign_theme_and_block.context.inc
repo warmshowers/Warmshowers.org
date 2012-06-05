@@ -27,9 +27,9 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'wsmap-wsmap_expand_map_link' => array(
+        'wsmap-wsmap_map_behaviors' => array(
           'module' => 'wsmap',
-          'delta' => 'wsmap_expand_map_link',
+          'delta' => 'wsmap_map_behaviors',
           'region' => 'sidebar_first',
           'weight' => 0,
         ),

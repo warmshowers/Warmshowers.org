@@ -99,21 +99,6 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'cache' => '-1',
   );
 
-  $theme['wsmap-wsmap_expand_map_link'] = array(
-    'module' => 'wsmap',
-    'delta' => 'wsmap_expand_map_link',
-    'status' => 0,
-    'weight' => '0',
-    'region' => '',
-    'custom' => '0',
-    'throttle' => '0',
-    'visibility' => '0',
-    'pages' => '',
-    'theme' => 'warmshowers_zen',
-    'title' => '<none>',
-    'cache' => '1',
-  );
-
   $theme['wsmap-wsmap_map'] = array(
     'module' => 'wsmap',
     'delta' => 'wsmap_map',
@@ -282,21 +267,6 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'theme' => 'warmshowerspb',
     'title' => '<none>',
     'cache' => '-1',
-  );
-
-  $theme['wsmap-wsmap_expand_map_link'] = array(
-    'module' => 'wsmap',
-    'delta' => 'wsmap_expand_map_link',
-    'status' => 0,
-    'weight' => '0',
-    'region' => '',
-    'custom' => '0',
-    'throttle' => '0',
-    'visibility' => '0',
-    'pages' => '',
-    'theme' => 'warmshowerspb',
-    'title' => '<none>',
-    'cache' => '1',
   );
 
   $theme['wsmap-wsmap_map'] = array(
