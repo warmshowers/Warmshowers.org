@@ -1,5 +1,5 @@
 
-Drupal.behaviors.expandMap = function(context) {
+Drupal.behaviors.mapBehaviors = function(context) {
     // Grab the original map height upon loading of the page
     var originalMapHeight = $('#wsmap_map').height();
     var originalMapBlockHeight = $('div.block-wsmap').height();
@@ -57,5 +57,14 @@ Drupal.behaviors.expandMap = function(context) {
         }
 
             return false;
+    });
+
+    // Toogle checkbox for showing/hiding Adventure Cycling KML
+    $('#adv_cyc_checkbox').click(function(){
+      if ($(this).is(':checked')) {
+        loadAdvCycling(Drupal.settings.wsmap.advCycKML)
+      } else {
+        unloadAdvCycling();
+      }
     });
 }
