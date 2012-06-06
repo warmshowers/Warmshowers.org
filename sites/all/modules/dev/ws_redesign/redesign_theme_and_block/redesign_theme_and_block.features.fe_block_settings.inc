@@ -24,21 +24,6 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'machine_name' => 'anon_left_content',
   );
 
-  $theme['follow-site'] = array(
-    'module' => 'follow',
-    'delta' => 'site',
-    'status' => 0,
-    'weight' => '-24',
-    'region' => '',
-    'custom' => '0',
-    'throttle' => '0',
-    'visibility' => '0',
-    'pages' => '',
-    'theme' => 'warmshowers_zen',
-    'title' => '',
-    'cache' => '1',
-  );
-
   $theme['locale-0'] = array(
     'module' => 'locale',
     'delta' => '0',
