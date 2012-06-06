@@ -1,5 +1,4 @@
 <?php
-// $Id: flag.views.inc,v 1.1.2.9 2008/12/03 14:09:59 mooffie Exp $
 
 /**
  * @file
@@ -160,35 +159,37 @@ function flag_views_data_alter(&$data) {
     $flag = flag_flag::factory_by_content_type($flag_type);
     $info = $flag->get_views_info();
 
-    // Add the flag relationship.
-    $data[$info['views table']]['flag_content_rel'] = array(
-      'group' => t('Flags'),
-      'title' => $info['title'],
-      'help' => $info['help'],
-      'relationship' => array(
-        'flag type' => $flag_type,
-        'handler' => 'flag_handler_relationship_content',
-        'label' => t('flag'),
-        'base' => 'flag_content',
-        'base field' => 'content_id',
-        'relationship field' => $info['join field'],
-      ),
-    );
+    if(!empty($info['join field'])) {
+      // Add the flag relationship.
+      $data[$info['views table']]['flag_content_rel'] = array(
+        'group' => t('Flags'),
+        'title' => $info['title'],
+        'help' => $info['help'],
+        'relationship' => array(
+          'flag type' => $flag_type,
+          'handler' => 'flag_handler_relationship_content',
+          'label' => t('flag'),
+          'base' => 'flag_content',
+          'base field' => 'content_id',
+          'relationship field' => $info['join field'],
+        ),
+      );
 
-    // Add the flag counter relationship.
-    $data[$info['views table']]['flag_count_rel'] = array(
-      'group' => t('Flags'),
-      'title' => $info['counter title'],
-      'help' => $info['counter help'],
-      'relationship' => array(
-        'flag type' => $flag_type,
-        'handler' => 'flag_handler_relationship_counts',
-        'label' => t('counter'),
-        'base' => 'flag_counts',
-        'base field' => 'content_id',
-        'relationship field' => $info['join field'],
-      ),
-    );
+      // Add the flag counter relationship.
+      $data[$info['views table']]['flag_count_rel'] = array(
+        'group' => t('Flags'),
+        'title' => $info['counter title'],
+        'help' => $info['counter help'],
+        'relationship' => array(
+          'flag type' => $flag_type,
+          'handler' => 'flag_handler_relationship_counts',
+          'label' => t('counter'),
+          'base' => 'flag_counts',
+          'base field' => 'content_id',
+          'relationship field' => $info['join field'],
+        ),
+      );
+    }
   }
 
   // Add a relationship for the user that flagged any type of content.
@@ -206,6 +207,16 @@ function flag_views_data_alter(&$data) {
   );
 }
 
+/**
+ * Implements hook_views_query_substitutions().
+ *
+ * Allow replacement of current user's session id so we can cache these queries.
+ */
+function flag_views_query_substitutions() {
+  return array(
+    '***FLAG_CURRENT_USER_SID***' => flag_get_sid(),
+  );
+}
 /**
  * A helper function that creates a radio list of available flags.
  *

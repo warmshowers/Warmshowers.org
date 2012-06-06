@@ -59,9 +59,9 @@
 
 <?php
 if ($account->uid != $GLOBALS['user']->uid) {
-  print l(t('Send Message'), 'user/' .  $account->uid . '/contact', array('attributes' => array('class' => 'linkbutton')));
+  print theme('linkbutton', array('title' => t('Send Message'), 'href' => 'user/' .  $account->uid . '/contact'));
 }
 else {
-  print l(t('Update'), 'user/' . $account->uid . '/edit', array('attributes' => array('class' => 'linkbutton')));
-  print l(t('Set Location'), 'user/' . $account->uid . '/location', array('attributes' => array('class' => 'linkbutton')));
+  print theme('linkbutton', array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit'));
+  print theme('linkbutton', array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location'));
 } ?>

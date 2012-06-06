@@ -68,9 +68,9 @@ function warmshowers_zen_theme(&$existing, $type, $theme, $path) {
   $hooks = zen_theme($existing, $type, $theme, $path);
   // Add your theme hooks like this:
   $hooks['user_login_block'] = array(
-      'template' => 'user-login-block',
-      'arguments' => array('form' => NULL),
-    );
+    'template' => 'user-login-block',
+    'arguments' => array('form' => NULL),
+  );
   return $hooks;
 }
 

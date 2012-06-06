@@ -1,5 +1,4 @@
 <?php
-// $Id: flag.rules.inc,v 1.1.2.2 2009/05/06 23:37:47 quicksketch Exp $
 
 /**
  * @file flag.rules.inc
@@ -45,7 +44,7 @@ class flag_rules_data_type extends rules_data_type {
   }
 
   /**
-   * Returns radios for selecting a flag of the type given in 
+   * Returns radios for selecting a flag of the type given in
    * $info['flag_type'].
    */
   function get_default_input_form($info, $value) {
@@ -82,7 +81,7 @@ function flag_rules_event_info() {
 
   $flags = flag_get_flags();
   foreach ($flags as $flag) {
-    
+
     $arguments = array(
       // First, define ubiquitous arguments.
       'flag' => array(
@@ -165,7 +164,7 @@ function flag_rules_action_info() {
     $flag = flag_create_handler($type);
     if ($flag->rules_get_element_argument_definition()) {
       $args += array('object' => $flag->rules_get_element_argument_definition());
-      
+
       $items += array(
         'flag_rules_action_flag_'. $type => array(
           'label' => t('Flag a @type', array('@type' => $type)),
@@ -214,17 +213,10 @@ function flag_rules_action_unflag($flag, $object, $flagging_user, $settings) {
 }
 
 /**
- * Base action implementation.
+ * Base action implementation: Trim flag.
  */
 function flag_rules_action_trim($flag, $flagging_user, $cutoff_size, $settings) {
-  // We can't use db_query_range(), because we can't specify 'infinity'.
-  $result = db_query("SELECT * FROM {flag_content} WHERE fid = %d AND (uid = %d OR uid = 0) ORDER BY timestamp DESC", $flag->fid, $flagging_user->uid);
-  $i = 1;
-  while ($row = db_fetch_object($result)) {
-    if ($i++ > $cutoff_size) {
-      flag('unflag', $flag->name, $row->content_id, $flagging_user);
-    }
-  }
+  flag_trim_flag($flag, $flagging_user, $cutoff_size);
 }
 
 /**
@@ -243,7 +235,7 @@ function flag_rules_condition_info() {
     $flag = flag_create_handler($type);
     if ($flag->rules_get_element_argument_definition()) {
       $args += array('object' => $flag->rules_get_element_argument_definition());
-  
+
       $items += array(
         'flag_rules_condition_threshold_'. $type => array(
           'label' => drupal_ucfirst(t('@type has flagging count', array('@type' => $type))),
