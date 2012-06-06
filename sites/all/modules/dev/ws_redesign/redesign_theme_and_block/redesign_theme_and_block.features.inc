@@ -44,11 +44,11 @@ function redesign_theme_and_block_flag_default_flags() {
     'access_uid' => '',
     'flag_confirmation' => 'Marked member as responsive',
     'unflag_confirmation' => '',
-    'api_version' => 2,
     'module' => 'redesign_theme_and_block',
     'locked' => array(
       '0' => 'name',
     ),
+    'api_version' => 2,
   );
   // Exported flag: "Has this member been unresponsive to your contacts?".
   $flags['unresponsive_member'] = array(
@@ -76,11 +76,11 @@ function redesign_theme_and_block_flag_default_flags() {
     'access_uid' => '',
     'flag_confirmation' => 'Member marked unresponsive',
     'unflag_confirmation' => '',
-    'api_version' => 2,
     'module' => 'redesign_theme_and_block',
     'locked' => array(
       '0' => 'name',
     ),
+    'api_version' => 2,
   );
   return $flags;
 }
@@ -157,8 +157,8 @@ function redesign_theme_and_block_imagecache_default_presets() {
           'module' => 'imagecache',
           'action' => 'imagecache_scale_and_crop',
           'data' => array(
-            'width' => '150',
-            'height' => '150',
+            'width' => '125',
+            'height' => '125',
           ),
         ),
       ),
