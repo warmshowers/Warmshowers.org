@@ -50,18 +50,14 @@ endif;
   <div class="responsive-counts">
     <?php if ($responsive_member): ?>
       <div class="responsive-count">
-      <?php print format_plural($responsive_member, '%count member has marked %fullname responsive', '%count members have marked %fullname responsive', array('%count' => $responsive_member, '%fullname' => $fullname)); ?>
+      <?php print format_plural($responsive_member, '%count member marked this member responsive', '%count members marked this member responsive', array('%count' => $responsive_member)); ?>
       </div>
     <?php endif; ?>
     <?php if ($unresponsive_member): ?>
       <div class="unresponsive-count">
-      <?php print format_plural($unresponsive_member, '%count member has marked %fullname unresponsive', '%count members have marked %fullname unresponsive', array('%count' => $unresponsive_member, '%fullname' => $fullname)); ?>
+      <?php print format_plural($unresponsive_member, '%count member marked this member unresponsive', '%count members marked this member unresponsive', array('%count' => $unresponsive_member)); ?>
       </div>
     <?php endif; ?>
-    <div class="last-login">
-      <?php print t('Last login') . ': ' . $last_login; ?>
-    </div>
-
   </div>
 
 

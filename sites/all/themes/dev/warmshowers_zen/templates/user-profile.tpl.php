@@ -34,23 +34,43 @@
   <div id="name-title">
     <h3><?php print check_plain($account->fullname); drupal_set_title(check_plain($account->fullname)); ?></h3>
     <br />
-    <?php print l(format_plural($reference_count, '1 recommendation', '!count recommendations', array('!count' => $reference_count)), 'user/' . $uid . '/recommendations_of_me', array('html' => TRUE)); ?> -
-    <?php print t('Member for') . ' ' . $account->content['summary']['member_for']['#value']; ?>
+    <div class="member-history">
+      <?php print t('Member for %years; Last visit !when ago.', array('%years' => $account->content['summary']['member_for']['#value'], '!when' => $last_login)); ?>
+    </div>
+    <div class="recommendation-summary">
+      <?php print l(format_plural($reference_count, '1 recommendation', '!count recommendations', array('!count' => $reference_count)), 'user/' . $uid . '/recommendations_of_me', array('html' => TRUE)); ?>
+    </div>
+    <div class="personal-details">
+      <?php if (!empty($URL)): ?>
+        <div class="personal-website">
+          <?php print t('Personal Website: !url', array('!url' => $URL)); ?>
+        </div>
+      <?php endif; ?>
+      <?php if (!empty($languagesspoken)): ?>
+        <div class="languagesspoken">
+          <?php print t('Languages Spoken: %languages', array('%languages' => $languagesspoken)); ?>
+        </div>
+      <?php endif; ?>
+    </div>
   </div>
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
     <?php print check_markup($account->comments); ?>
     <div id="host-services">
-      <h2><?php print t('Detailed information'); ?></h2>
-      <?php foreach (array('URL', 'preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel', 'languagesspoken', ) as $item) : ?>
-         <?php if (!empty($$item)): ?>
-           <div class="member-info-<?php print $item; ?>"><span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span></div>
-         <?php endif; ?>
-      <?php endforeach; ?>
-      <h3><?php print t('This host offers'); ?></h3>
-      <ul>
-        <?php print $services; ?>
-      </ul>
+      <h2><?php print t('Hosting information'); ?></h2>
+      <?php if ($notcurrentlyavailable) : ?>
+        <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed'); ?>
+      <?php else: ?>
+        <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
+           <?php if (!empty($$item)): ?>
+             <div class="member-info-<?php print $item; ?>"><span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span></div>
+           <?php endif; ?>
+        <?php endforeach; ?>
+        <h4><?php print t('This host may offer'); ?></h4>
+        <ul>
+          <?php print $services; ?>
+        </ul>
+      <?php endif; ?>
     </div>
     <div id="recommendations">
       <h2><?php print t('Recommendations'); ?></h2>
