@@ -50,7 +50,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowers_zen',
-    'title' => '<none>',
+    'title' => 'Hospitality For Touring Cyclists Worldwide',
     'cache' => '-1',
   );
 
@@ -190,7 +190,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowerspb',
-    'title' => '<none>',
+    'title' => 'Hospitality For Touring Cyclists Worldwide',
     'cache' => '-1',
   );
 

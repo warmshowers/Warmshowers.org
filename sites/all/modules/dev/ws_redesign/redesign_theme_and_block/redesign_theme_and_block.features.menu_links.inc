@@ -120,6 +120,25 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-49',
   );
+  // Exported menu link: footer_menu:faq
+  $menu_links['footer_menu:faq'] = array(
+    'menu_name' => 'footer_menu',
+    'link_path' => 'faq',
+    'router_path' => 'faq',
+    'link_title' => 'Frequently-Asked Questions',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-47',
+  );
   // Exported menu link: footer_menu:logout
   $menu_links['footer_menu:logout'] = array(
     'menu_name' => 'footer_menu',
@@ -137,7 +156,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'external' => '0',
     'has_children' => '0',
     'expanded' => '0',
-    'weight' => '-46',
+    'weight' => '-45',
   );
   // Exported menu link: footer_menu:node/25
   $menu_links['footer_menu:node/25'] = array(
@@ -175,7 +194,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'external' => '0',
     'has_children' => '0',
     'expanded' => '0',
-    'weight' => '-47',
+    'weight' => '-46',
   );
   // Exported menu link: footer_menu:user/register
   $menu_links['footer_menu:user/register'] = array(
@@ -194,14 +213,14 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'external' => '0',
     'has_children' => '0',
     'expanded' => '0',
-    'weight' => '-45',
+    'weight' => '-44',
   );
   // Exported menu link: logged_in_main_menu:<front>
   $menu_links['logged_in_main_menu:<front>'] = array(
     'menu_name' => 'logged_in_main_menu',
     'link_path' => '<front>',
     'router_path' => '',
-    'link_title' => 'Dashboard',
+    'link_title' => 'Home',
     'options' => array(
       'attributes' => array(
         'title' => '',
@@ -275,10 +294,10 @@ function redesign_theme_and_block_menu_default_menu_links() {
   // Translatables
   // Included for use with string extractors like potx.
   t('Contact Us');
-  t('Dashboard');
   t('Donate!');
   t('FAQ');
   t('Forums');
+  t('Frequently-Asked Questions');
   t('Home');
   t('Log In');
   t('Log Out');
