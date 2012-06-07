@@ -127,7 +127,7 @@ function redesign_theme_and_block_imagecache_default_presets() {
           'module' => 'imagecache',
           'action' => 'imagecache_scale',
           'data' => array(
-            'width' => '482',
+            'width' => '440',
             'height' => '',
             'upscale' => 0,
           ),
@@ -142,7 +142,7 @@ function redesign_theme_and_block_imagecache_default_presets() {
           'module' => 'imagecache',
           'action' => 'imagecache_scale',
           'data' => array(
-            'width' => '235',
+            'width' => '200',
             'height' => '',
             'upscale' => 1,
           ),

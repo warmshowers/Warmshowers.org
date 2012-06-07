@@ -13,8 +13,8 @@ function redesign_views_imagecache_default_presets() {
           'module' => 'imagecache',
           'action' => 'imagecache_scale_and_crop',
           'data' => array(
-            'width' => '240',
-            'height' => '240',
+            'width' => '200',
+            'height' => '200',
           ),
         ),
       ),
