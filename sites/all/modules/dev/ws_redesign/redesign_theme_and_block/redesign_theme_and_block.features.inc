@@ -134,6 +134,20 @@ function redesign_theme_and_block_imagecache_default_presets() {
         ),
       ),
     ),
+    'profile_picture' => array(
+      'presetname' => 'profile_picture',
+      'actions' => array(
+        '0' => array(
+          'weight' => '0',
+          'module' => 'imagecache',
+          'action' => 'imagecache_scale_and_crop',
+          'data' => array(
+            'width' => '175',
+            'height' => '175',
+          ),
+        ),
+      ),
+    ),
     'rightcolumn' => array(
       'presetname' => 'rightcolumn',
       'actions' => array(

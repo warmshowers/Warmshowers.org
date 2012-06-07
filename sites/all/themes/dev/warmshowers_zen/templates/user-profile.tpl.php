@@ -30,7 +30,7 @@
 ?>
 <?php drupal_set_title(check_plain($account->fullname)); ?>
 <div id="profile-container">
-  <div id="profile-image"><?php print theme('imagefield_image_imagecache_thickbox', 'profile_picture', $account->picture, $fullname, $fullname); ?></div>
+  <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
   <div id="name-title">
     <h3><?php print check_plain($account->fullname); ?></h3>
     <br />

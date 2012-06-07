@@ -195,6 +195,77 @@ function warmshowers_zen_username($object) {
 }
 
 /**
+ * Override template_preprocess_user_picture().
+ *
+ * Copied from imagecache_profiles.module and adjusted for thickbox.
+ * Requires thickbox and imagecache_profiles modules.
+ *
+ * @param $variables
+ */
+function warmshowers_zen_preprocess_user_picture(&$variables) {
+  $default = $variables['picture'];
+  if (variable_get('user_pictures', 0)) {
+    $account = $variables['account'];
+    // Determine imagecache preset to use for user profile picture
+    // First let's determine if we have a default imagecache preset
+    if (variable_get('user_picture_imagecache_profiles_default', 0)) {
+      // Define default user picture size
+      $size = variable_get('user_picture_imagecache_profiles_default', 0);
+    }
+    // If on user profile page.
+    if (arg(0) == 'user') {
+      // Only show profile image for profile page, and edit account form,
+      // not user/123/relationships or other module define pages.
+      if (arg(2) == NULL || arg(2) == 'edit') {
+        if (is_numeric(arg(1)) || (module_exists('me') && arg(1) == me_variable_get('me_alias'))) {
+          if (variable_get('user_picture_imagecache_profiles', 0)) {
+            $size = variable_get('user_picture_imagecache_profiles', 0);
+          }
+        }
+      }
+    }
+    // If viewing a comment
+    if (is_object($account) && array_key_exists('cid', get_object_vars($account))) {
+      if (variable_get('user_picture_imagecache_comments', 0)) {
+        $size = variable_get('user_picture_imagecache_comments', 0);
+      }
+    }
+
+    // If views set an imagecache preset
+    if (isset($account->imagecache_preset)) {
+      $size = $account->imagecache_preset;
+    }
+
+    if (!empty($account->picture) && file_exists($account->picture)) {
+      $picture = $account->picture;
+    }
+    else if (variable_get('user_picture_default', '')) {
+      $picture = variable_get('user_picture_default', '');
+    }
+
+    if (isset($picture)) {
+      $alt = t("@user's picture", array('@user' => $account->name ? $account->name : variable_get('anonymous', t('Anonymous'))));
+      $preset = is_numeric($size) ? imagecache_preset($size) : imagecache_preset_by_name($size);
+      if (empty($preset)) {
+        $variables['picture'] = $default; //theme('image', $picture, $alt, $alt, '', FALSE);
+      }
+      else {
+        if (!empty($account->uid) && user_access('access user profiles')) {
+          $title = check_plain($account->fullname);
+          $attributes = array('attributes' => array('title' => $title), 'html' => TRUE);
+          $image = theme('imagefield_image_imagecache_thickbox', $preset['presetname'], $picture, $alt, $title);
+          $variables['picture'] = l($image, "user/$account->uid", $attributes);
+        }
+        else {
+          $variables['picture'] = theme('imagefield_image_imagecache_thickbox', $preset['presetname'], $picture, $alt, $alt);
+        }
+      }
+    }
+  }
+}
+
+
+/**
  * Override or insert variables into all templates.
  *
  * @param $vars
