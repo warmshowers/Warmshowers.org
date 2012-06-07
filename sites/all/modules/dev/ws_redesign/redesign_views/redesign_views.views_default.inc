@@ -2235,7 +2235,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       'link_to_user' => 1,
       'overwrite_anonymous' => 0,
       'anonymous_text' => '',
-      'exclude' => 0,
+      'exclude' => 1,
       'id' => 'name',
       'table' => 'users',
       'field' => 'name',
@@ -2250,7 +2250,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
         'alter_text' => 0,
         'text' => '',
         'make_link' => 0,
-        'path' => '',
+        'path' => 'node/[nid]',
         'absolute' => 0,
         'link_class' => '',
         'alt' => '',
@@ -2285,7 +2285,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       'fromto' => array(
         'fromto' => 'both',
       ),
-      'exclude' => 0,
+      'exclude' => 1,
       'id' => 'field_hosting_date_value',
       'table' => 'node_data_field_hosting_date',
       'field' => 'field_hosting_date_value',
@@ -2298,7 +2298,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       'label' => '',
       'alter' => array(
         'alter_text' => 0,
-        'text' => '',
+        'text' => '[name], [field_hosting_date_value]: [body]',
         'make_link' => 1,
         'path' => 'node/[nid]',
         'absolute' => 0,
@@ -2320,7 +2320,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
       'hide_empty' => 0,
       'empty_zero' => 0,
       'hide_alter_empty' => 1,
-      'exclude' => 0,
+      'exclude' => 1,
       'id' => 'body',
       'table' => 'node_revisions',
       'field' => 'body',
@@ -2329,11 +2329,50 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
         'button' => 'Use default',
       ),
     ),
+    'nothing' => array(
+      'label' => '',
+      'alter' => array(
+        'text' => '[name], [field_hosting_date_value]: [body]',
+        'make_link' => 0,
+        'path' => '',
+        'absolute' => 0,
+        'link_class' => '',
+        'alt' => '',
+        'rel' => '',
+        'prefix' => '',
+        'suffix' => '',
+        'target' => '',
+        'help' => '',
+        'trim' => 0,
+        'max_length' => '',
+        'word_boundary' => 1,
+        'ellipsis' => 1,
+        'html' => 0,
+        'strip_tags' => 0,
+      ),
+      'empty' => '',
+      'hide_empty' => 0,
+      'empty_zero' => 0,
+      'hide_alter_empty' => 1,
+      'exclude' => 0,
+      'id' => 'nothing',
+      'table' => 'views',
+      'field' => 'nothing',
+      'override' => array(
+        'button' => 'Use default',
+      ),
+      'relationship' => 'none',
+    ),
   ));
+  $handler->override_option('cache', array(
+    'type' => 'none',
+  ));
+  $handler->override_option('title', 'Recommendations');
   $handler->override_option('header', '');
+  $handler->override_option('empty', 'There are no recommendations yet for this member.');
   $handler->override_option('items_per_page', 7);
   $handler->override_option('block_description', '');
-  $handler->override_option('block_caching', -1);
+  $handler->override_option('block_caching', '-1');
 
   $views[$view->name] = $view;
 
