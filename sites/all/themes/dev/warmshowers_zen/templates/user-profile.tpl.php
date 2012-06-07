@@ -28,11 +28,11 @@
  * - $motel, $bikeshop, $maxcyclists, $campground, $languagesspoken
   */
 ?>
-
+<?php drupal_set_title(check_plain($account->fullname)); ?>
 <div id="profile-container">
-  <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
+  <div id="profile-image"><?php print theme('imagefield_image_imagecache_thickbox', 'profile_picture', $account->picture, $fullname, $fullname); ?></div>
   <div id="name-title">
-    <h3><?php print check_plain($account->fullname); drupal_set_title(check_plain($account->fullname)); ?></h3>
+    <h3><?php print check_plain($account->fullname); ?></h3>
     <br />
     <div class="member-history">
       <?php print t('Member for %years; Last visit !when ago.', array('%years' => $account->content['summary']['member_for']['#value'], '!when' => $last_login)); ?>
@@ -75,15 +75,6 @@
     <div id="recommendations">
       <h2><?php print t('Recommendations'); ?></h2>
       <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
-    </div>
-  </div>
-  <div id="right-sidebar">
-    <div id="block-1">
-      Woot
-    </div>
-    <div id="block-2">
-      Woot
-
     </div>
   </div>
 </div>
