@@ -13,6 +13,14 @@
   $numhosts = db_result(db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
           WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale AND !notcurrentlyavailable"));
 ?>
-  <div class="numusers"><?php print number_format($numusers) . ' ' . t('Active Members'); ?> </div>
-  <div class="numhosts"><?php print number_format($numhosts) . ' ' . t('Available Hosts'); ?> </div>
+  <div class="numusers">
+    <span class="big_number"><?php print number_format($numusers); ?></span>
+    <br />
+    <?php print t('Active Members'); ?>
+  </div>
+  <div class="numhosts">
+    <span class="big_number"><?php print number_format($numhosts); ?></span>
+    <br />
+    <?php print t('Active Hosts'); ?>
+  </div>
 
