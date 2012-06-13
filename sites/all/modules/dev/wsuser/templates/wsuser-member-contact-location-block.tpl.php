@@ -33,13 +33,13 @@
 <div class="member-address">
   <span class="member-fullname"><?php print $fullname; ?></span><br/>
   <?php if ($homephone) : ?>
-    <span class="phone homephone"><?php print t('Home') . ': ' . $homephone; ?></span><br/>
+    <span class="phone homephone"><?php print t('Home Phone Number') . ': ' . $homephone; ?></span><br/>
   <?php endif; ?>
   <?php if ($mobilephone) : ?>
-    <span class="phone mobilephone"><?php print t('Mobile') . ': ' . $mobilephone; ?></span><br/>
+    <span class="phone mobilephone"><?php print t('Mobile Number') . ': ' . $mobilephone; ?></span><br/>
   <?php endif; ?>
   <?php if ($workphone) : ?>
-  <span class="phone workphone"><?php print t('Work') . ': ' . $workphone; ?></span><br/>
+  <span class="phone workphone"><?php print t('Work Phone Number') . ': ' . $workphone; ?></span><br/>
   <?php endif; ?>
 
   <?php if ($notcurrentlyavailable): ?>
