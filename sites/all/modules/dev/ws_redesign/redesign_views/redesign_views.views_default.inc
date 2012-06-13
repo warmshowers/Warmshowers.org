@@ -1684,7 +1684,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
     'results_lifespan' => '3600',
     'output_lifespan' => '3600',
   ));
-  $handler->override_option('title', 'Touring Photos');
+  $handler->override_option('title', 'Ride Photos');
   $handler->override_option('use_pager', '0');
   $handler->override_option('style_plugin', 'views_rotator');
   $handler->override_option('style_options', array(

@@ -171,7 +171,14 @@
   </div></div> <!-- /#header-wrapper, /#header-style -->
   <div id="page-wrapper"><div id="page">
 
-    <?php print $highlight; ?>
+    <?php if ($is_front && !$logged_in) {
+        echo '<div id="highlight_wrapper_anon">';
+        print $highlight;
+        echo '<div class="welcome_msg"><div class="welcome_msg_wrapper">'.t('<strong>The Warm Showers Community</strong> is a free worldwide hospitality exchange for touring cyclists. People who are willing to host touring cyclists sign up and provide their contact information, and may occasionally have someone stay with them and share great stories and a drink.').'</div></div>';
+        echo '</div>';
+    } else {
+        print $highlight;
+    } ?>
 
     <div id="main-wrapper"><div id="main" class="clearfix<?php if ($primary_links || $navigation) { print ' with-navigation'; } ?>">
 
