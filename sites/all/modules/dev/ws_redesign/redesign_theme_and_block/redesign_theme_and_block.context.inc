@@ -11,7 +11,7 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->api_version = 3;
   $context->name = 'authenticated_dashboard';
   $context->description = 'Dashboard page for logged-in users';
-  $context->tag = '';
+  $context->tag = 'all languages';
   $context->conditions = array(
     'path' => array(
       'values' => array(
@@ -77,14 +77,15 @@ function redesign_theme_and_block_context_default_contexts() {
   // Translatables
   // Included for use with string extractors like potx.
   t('Dashboard page for logged-in users');
+  t('all languages');
   $export['authenticated_dashboard'] = $context;
 
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
   $context->name = 'everywhere';
-  $context->description = '';
-  $context->tag = '';
+  $context->description = 'Everywhere items for all languages (Language Switcher)';
+  $context->tag = 'all languages';
   $context->conditions = array(
     'sitewide' => array(
       'values' => array(
@@ -101,16 +102,15 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'header',
           'weight' => 0,
         ),
-        'menu-footer_menu' => array(
-          'module' => 'menu',
-          'delta' => 'footer_menu',
-          'region' => 'footer',
-          'weight' => 0,
-        ),
       ),
     ),
   );
   $context->condition_mode = 0;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere items for all languages (Language Switcher)');
+  t('all languages');
   $export['everywhere'] = $context;
 
   $context = new stdClass;
@@ -129,9 +129,9 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'menu-anon_main_menu' => array(
+        'menu-anon-main-menu' => array(
           'module' => 'menu',
-          'delta' => 'anon_main_menu',
+          'delta' => 'anon-main-menu',
           'region' => 'navigation',
           'weight' => 0,
         ),
@@ -144,10 +144,15 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
-  $context->name = 'everywhere_auth';
+  $context->name = 'everywhere_auth_en';
   $context->description = '';
-  $context->tag = '';
+  $context->tag = 'en';
   $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'en-working' => 'en-working',
+      ),
+    ),
     'user' => array(
       'values' => array(
         'authenticated user' => 'authenticated user',
@@ -157,24 +162,132 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'menu-logged_in_main_menu' => array(
+        'menu-menu-logged-in-main-menu-en' => array(
           'module' => 'menu',
-          'delta' => 'logged_in_main_menu',
+          'delta' => 'menu-logged-in-main-menu-en',
           'region' => 'navigation',
           'weight' => 0,
         ),
       ),
     ),
   );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('en');
+  $export['everywhere_auth_en'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'everywhere_auth_es';
+  $context->description = 'Authenticated, all pages, Spanish';
+  $context->tag = 'es';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'es' => 'es',
+      ),
+    ),
+    'user' => array(
+      'values' => array(
+        'authenticated user' => 'authenticated user',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-logged-in-main-menu-es' => array(
+          'module' => 'menu',
+          'delta' => 'menu-logged-in-main-menu-es',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Authenticated, all pages, Spanish');
+  t('es');
+  $export['everywhere_auth_es'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'everywhere_en';
+  $context->description = 'Everywhere (English)';
+  $context->tag = 'en';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'en-working' => 'en-working',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-footer-menu-en' => array(
+          'module' => 'menu',
+          'delta' => 'menu-footer-menu-en',
+          'region' => 'footer',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
   $context->condition_mode = 0;
-  $export['everywhere_auth'] = $context;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere (English)');
+  t('en');
+  $export['everywhere_en'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'everywhere_es';
+  $context->description = 'Everywhere (Spanish)';
+  $context->tag = 'es';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'es' => 'es',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-footer-menu-es' => array(
+          'module' => 'menu',
+          'delta' => 'menu-footer-menu-es',
+          'region' => 'footer',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 0;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere (Spanish)');
+  t('es');
+  $export['everywhere_es'] = $context;
 
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
   $context->name = 'profile_page';
   $context->description = 'Profile page';
-  $context->tag = '';
+  $context->tag = 'all languages';
   $context->conditions = array(
     'user' => array(
       'values' => array(
@@ -213,6 +326,7 @@ function redesign_theme_and_block_context_default_contexts() {
   // Translatables
   // Included for use with string extractors like potx.
   t('Profile page');
+  t('all languages');
   $export['profile_page'] = $context;
 
   $context = new stdClass;

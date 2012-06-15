@@ -42,8 +42,6 @@ function redesign_theme_and_block_flag_default_flags() {
     ),
     'show_on_profile' => 1,
     'access_uid' => '',
-    'flag_confirmation' => 'Marked member as responsive',
-    'unflag_confirmation' => '',
     'module' => 'redesign_theme_and_block',
     'locked' => array(
       '0' => 'name',
@@ -74,8 +72,6 @@ function redesign_theme_and_block_flag_default_flags() {
     ),
     'show_on_profile' => 1,
     'access_uid' => '',
-    'flag_confirmation' => 'Member marked unresponsive',
-    'unflag_confirmation' => '',
     'module' => 'redesign_theme_and_block',
     'locked' => array(
       '0' => 'name',

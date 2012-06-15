@@ -236,21 +236,7 @@
 
     <?php if ($footer || $footer_message || $secondary_links): ?>
       <div id="footer"><div class="section">
-
-        <?php print theme(array('links__system_secondary_menu', 'links'), $secondary_links,
-          array(
-            'id' => 'secondary-menu',
-            'class' => 'links clearfix',
-          ),
-          array(
-            'text' => t('Secondary menu'),
-            'level' => 'h2',
-            'class' => 'element-invisible',
-          ));
-        ?>
-
-
-
+        <h2 class="title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
         <?php print $footer; ?>
 
       </div></div><!-- /.section, /#footer -->

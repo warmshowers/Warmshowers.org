@@ -229,7 +229,7 @@ function redesign_theme_and_block_views_default_views() {
   ));
   $handler->override_option('title', 'Forum');
   $handler->override_option('header', '<a class="linkbutton" href="/node/add/forum">Create a Post</a>');
-  $handler->override_option('header_format', '2');
+  $handler->override_option('header_format', '3');
   $handler->override_option('header_empty', 0);
   $handler->override_option('items_per_page', 4);
   $handler->override_option('block_description', '');
