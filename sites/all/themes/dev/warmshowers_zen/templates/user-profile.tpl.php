@@ -32,19 +32,27 @@
 ?>
 <?php drupal_set_title(check_plain($account->fullname)); ?>
 <div id="profile-container">
-  <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
-  <div id="name-title">
-    <h3><?php print check_plain($account->fullname); ?></h3>
-    
-    <ul id="global_stats"><?php foreach ($global_stats as $classname=>$stat){
-      ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
-    } ?></ul>
-    
-    <?php if ($personal_stats): ?>
-      <ul id="personal_stats"><?php foreach ($personal_stats as $classname=>$stat){
+  <div id="profile-top">
+    <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
+    <div id="name-title">
+      <h3><?php print check_plain($account->fullname); ?></h3>
+      
+      <ul id="global_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
+        $i++;
+        if ($i == 1) { $classname .= " leaf-first"; }
+        if ($i == count($global_stats )) { $classname .= " leaf-last"; }
         ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
       } ?></ul>
-    <?php endif; ?>
+      
+      <?php $i=0; if ($personal_stats): ?>
+        <ul id="personal_stats"><?php foreach ($personal_stats as $classname=>$stat){
+        $i++;
+        if ($i == 1) { $classname .= " leaf-first"; }
+        if ($i == count($personal_stats )) { $classname .= " leaf-last"; }
+          ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
+        } ?></ul>
+      <?php endif; ?>
+    </div>
   </div>
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
