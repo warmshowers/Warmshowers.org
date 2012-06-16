@@ -24,6 +24,36 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'cache' => -1,
   );
 
+  $theme['menu-menu-anon-main-menu-en'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-anon-main-menu-en',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => -1,
+  );
+
+  $theme['menu-menu-anon-main-menu-es'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-anon-main-menu-es',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => -1,
+  );
+
   $theme['menu-menu-footer-menu-en'] = array(
     'module' => 'menu',
     'delta' => 'menu-footer-menu-en',
@@ -35,7 +65,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowerspb',
-    'title' => '<none>',
+    'title' => '',
     'cache' => -1,
   );
 
@@ -50,7 +80,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowerspb',
-    'title' => '<none>',
+    'title' => '',
     'cache' => -1,
   );
 
@@ -65,7 +95,7 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'visibility' => '0',
     'pages' => '',
     'theme' => 'warmshowerspb',
-    'title' => '<none>',
+    'title' => '',
     'cache' => -1,
   );
 
@@ -169,6 +199,36 @@ function redesign_theme_and_block_default_fe_block_settings() {
     'delta' => '0',
     'status' => 0,
     'weight' => '-27',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => -1,
+  );
+
+  $theme['menu-menu-anon-main-menu-en'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-anon-main-menu-en',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => -1,
+  );
+
+  $theme['menu-menu-anon-main-menu-es'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-anon-main-menu-es',
+    'status' => 0,
+    'weight' => '0',
     'region' => '',
     'custom' => '0',
     'throttle' => '0',

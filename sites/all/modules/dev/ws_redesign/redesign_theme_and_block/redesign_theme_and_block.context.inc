@@ -116,10 +116,15 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
-  $context->name = 'everywhere_anon';
-  $context->description = '';
-  $context->tag = '';
+  $context->name = 'everywhere_anon_en';
+  $context->description = 'Everywhere Anon (English) - Anon main menu, for example';
+  $context->tag = 'en';
   $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'en-working' => 'en-working',
+      ),
+    ),
     'user' => array(
       'values' => array(
         'anonymous user' => 'anonymous user',
@@ -129,17 +134,60 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'menu-anon-main-menu' => array(
+        'menu-menu-anon-main-menu-en' => array(
           'module' => 'menu',
-          'delta' => 'anon-main-menu',
+          'delta' => 'menu-anon-main-menu-en',
           'region' => 'navigation',
           'weight' => 0,
         ),
       ),
     ),
   );
-  $context->condition_mode = 0;
-  $export['everywhere_anon'] = $context;
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere Anon (English) - Anon main menu, for example');
+  t('en');
+  $export['everywhere_anon_en'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'everywhere_anon_es';
+  $context->description = 'Everywhere Anon (Spanish) - Anon main menu, for example';
+  $context->tag = 'es';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'es' => 'es',
+      ),
+    ),
+    'user' => array(
+      'values' => array(
+        'anonymous user' => 'anonymous user',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-anon-main-menu-es' => array(
+          'module' => 'menu',
+          'delta' => 'menu-anon-main-menu-es',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere Anon (Spanish) - Anon main menu, for example');
+  t('es');
+  $export['everywhere_anon_es'] = $context;
 
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
@@ -332,42 +380,16 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
-  $context->name = 'profile_page_other';
-  $context->description = 'Profile page as shown to other users (not self)';
-  $context->tag = '';
-  $context->conditions = array(
-    'user' => array(
-      'values' => array(
-        'authenticated user' => 'authenticated user',
-      ),
-    ),
-    'user_page' => array(
-      'values' => array(
-        'view' => 'view',
-      ),
-      'options' => array(
-        'mode' => 'other',
-      ),
-    ),
-  );
-  $context->reactions = array();
-  $context->condition_mode = 1;
-
-  // Translatables
-  // Included for use with string extractors like potx.
-  t('Profile page as shown to other users (not self)');
-  $export['profile_page_other'] = $context;
-
-  $context = new stdClass;
-  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
-  $context->api_version = 3;
   $context->name = 'unauthenticated_front';
   $context->description = 'front page for unauthenticated users';
-  $context->tag = '';
+  $context->tag = 'all';
   $context->conditions = array(
     'language' => array(
       'values' => array(
         'en-working' => 'en-working',
+        'es' => 'es',
+        'fr' => 'fr',
+        'pt-br' => 'pt-br',
       ),
     ),
     'path' => array(
@@ -421,6 +443,7 @@ function redesign_theme_and_block_context_default_contexts() {
 
   // Translatables
   // Included for use with string extractors like potx.
+  t('all');
   t('front page for unauthenticated users');
   $export['unauthenticated_front'] = $context;
 

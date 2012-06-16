@@ -6,9 +6,9 @@
 function redesign_theme_and_block_menu_default_menu_links() {
   $menu_links = array();
 
-  // Exported menu link: anon-main-menu:<front>
-  $menu_links['anon-main-menu:<front>'] = array(
-    'menu_name' => 'anon-main-menu',
+  // Exported menu link: menu-anon-main-menu-en:<front>
+  $menu_links['menu-anon-main-menu-en:<front>'] = array(
+    'menu_name' => 'menu-anon-main-menu-en',
     'link_path' => '<front>',
     'router_path' => '',
     'link_title' => 'Home',
@@ -25,9 +25,9 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-50',
   );
-  // Exported menu link: anon-main-menu:faq
-  $menu_links['anon-main-menu:faq'] = array(
-    'menu_name' => 'anon-main-menu',
+  // Exported menu link: menu-anon-main-menu-en:faq
+  $menu_links['menu-anon-main-menu-en:faq'] = array(
+    'menu_name' => 'menu-anon-main-menu-en',
     'link_path' => 'faq',
     'router_path' => 'faq',
     'link_title' => 'FAQ',
@@ -44,9 +44,9 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-48',
   );
-  // Exported menu link: anon-main-menu:forum
-  $menu_links['anon-main-menu:forum'] = array(
-    'menu_name' => 'anon-main-menu',
+  // Exported menu link: menu-anon-main-menu-en:forum
+  $menu_links['menu-anon-main-menu-en:forum'] = array(
+    'menu_name' => 'menu-anon-main-menu-en',
     'link_path' => 'forum',
     'router_path' => 'forum',
     'link_title' => 'Forums',
@@ -63,12 +63,88 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-47',
   );
-  // Exported menu link: anon-main-menu:user/register
-  $menu_links['anon-main-menu:user/register'] = array(
-    'menu_name' => 'anon-main-menu',
+  // Exported menu link: menu-anon-main-menu-en:user/register
+  $menu_links['menu-anon-main-menu-en:user/register'] = array(
+    'menu_name' => 'menu-anon-main-menu-en',
     'link_path' => 'user/register',
     'router_path' => 'user/register',
     'link_title' => 'Sign Up',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-49',
+  );
+  // Exported menu link: menu-anon-main-menu-es:<front>
+  $menu_links['menu-anon-main-menu-es:<front>'] = array(
+    'menu_name' => 'menu-anon-main-menu-es',
+    'link_path' => '<front>',
+    'router_path' => '',
+    'link_title' => 'Inicio',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '1',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-50',
+  );
+  // Exported menu link: menu-anon-main-menu-es:faq
+  $menu_links['menu-anon-main-menu-es:faq'] = array(
+    'menu_name' => 'menu-anon-main-menu-es',
+    'link_path' => 'faq',
+    'router_path' => 'faq',
+    'link_title' => 'FAQ',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-48',
+  );
+  // Exported menu link: menu-anon-main-menu-es:forum
+  $menu_links['menu-anon-main-menu-es:forum'] = array(
+    'menu_name' => 'menu-anon-main-menu-es',
+    'link_path' => 'forum',
+    'router_path' => 'forum',
+    'link_title' => 'Foros',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-47',
+  );
+  // Exported menu link: menu-anon-main-menu-es:user/register
+  $menu_links['menu-anon-main-menu-es:user/register'] = array(
+    'menu_name' => 'menu-anon-main-menu-es',
+    'link_path' => 'user/register',
+    'router_path' => 'user/register',
+    'link_title' => 'Crear Cuenta',
     'options' => array(
       'attributes' => array(
         'title' => '',

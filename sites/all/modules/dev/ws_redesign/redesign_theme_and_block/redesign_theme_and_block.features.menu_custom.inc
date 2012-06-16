@@ -6,11 +6,17 @@
 function redesign_theme_and_block_menu_default_menu_custom() {
   $menus = array();
 
-  // Exported menu: anon-main-menu
-  $menus['anon-main-menu'] = array(
-    'menu_name' => 'anon-main-menu',
-    'title' => 'Anon Main Menu',
+  // Exported menu: menu-anon-main-menu-en
+  $menus['menu-anon-main-menu-en'] = array(
+    'menu_name' => 'menu-anon-main-menu-en',
+    'title' => 'Anon Main Menu (en)',
     'description' => 'Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc)',
+  );
+  // Exported menu: menu-anon-main-menu-es
+  $menus['menu-anon-main-menu-es'] = array(
+    'menu_name' => 'menu-anon-main-menu-es',
+    'title' => 'Anon Main Menu (es)',
+    'description' => 'Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc) (Spanish)',
   );
   // Exported menu: menu-footer-menu-en
   $menus['menu-footer-menu-en'] = array(
@@ -38,12 +44,14 @@ function redesign_theme_and_block_menu_default_menu_custom() {
   );
   // Translatables
   // Included for use with string extractors like potx.
-  t('Anon Main Menu');
+  t('Anon Main Menu (en)');
+  t('Anon Main Menu (es)');
   t('Footer Menu (en)');
   t('Footer Menu (es)');
   t('Logged In Main Menu (en)');
   t('Logged In Main Menu (es)');
   t('Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc)');
+  t('Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc) (Spanish)');
   t('Main Menu for Warmshowers Logged-In User (Home/FAQ/Forums/etc)');
   t('Menu for use in Warmshowers Footer (English)');
   t('Menu for use in Warmshowers Footer (Spanish)');
