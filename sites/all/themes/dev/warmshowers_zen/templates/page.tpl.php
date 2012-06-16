@@ -155,7 +155,7 @@
             <?php print t('Hospitality Ahead'); ?>
         </div>
         <div id="hospitality">
-          <?php print t("We are built on 100%") . " " . l("Reciprocal Hospitality!", "faq"); ?>
+          <?php print t("We are built on 100% Reciprocal Hospitality!"); ?>
         </div>
       </div>
 
