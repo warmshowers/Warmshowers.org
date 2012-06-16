@@ -53,6 +53,13 @@
         } ?></ul>
       <?php endif; ?>
     </div>
+    <div id="profile-tabs">
+      <ul>
+        <li><a href="#">Link</a></li>
+        <li><a href="#">Link</a></li>
+        <li><a href="#">Link</a></li>
+      </ul>
+    </div>
   </div>
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
