@@ -26,6 +26,8 @@
  * - $services
  * - $URL
  * - $motel, $bikeshop, $maxcyclists, $campground, $languagesspoken
+ * - $global_stats - array()
+ * - $personal_stats - array()
   */
 ?>
 <?php drupal_set_title(check_plain($account->fullname)); ?>
@@ -33,25 +35,16 @@
   <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
   <div id="name-title">
     <h3><?php print check_plain($account->fullname); ?></h3>
-    <br />
-    <div class="member-history">
-      <?php print t('Member for %years; Last visit !when ago.', array('%years' => $account->content['summary']['member_for']['#value'], '!when' => $last_login)); ?>
-    </div>
-    <div class="recommendation-summary">
-      <?php print l(format_plural($reference_count, '1 recommendation', '!count recommendations', array('!count' => $reference_count)), 'user/' . $uid . '/recommendations_of_me', array('html' => TRUE)); ?>
-    </div>
-    <div class="personal-details">
-      <?php if (!empty($URL)): ?>
-        <div class="personal-website">
-          <?php print t('Personal Website: !url', array('!url' => $URL)); ?>
-        </div>
-      <?php endif; ?>
-      <?php if (!empty($languagesspoken)): ?>
-        <div class="languagesspoken">
-          <?php print t('Languages Spoken: %languages', array('%languages' => $languagesspoken)); ?>
-        </div>
-      <?php endif; ?>
-    </div>
+    
+    <ul id="global_stats"><?php foreach ($global_stats as $classname=>$stat){
+      ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
+    } ?></ul>
+    
+    <?php if ($personal_stats): ?>
+      <ul id="personal_stats"><?php foreach ($personal_stats as $classname=>$stat){
+        ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
+      } ?></ul>
+    <?php endif; ?>
   </div>
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
