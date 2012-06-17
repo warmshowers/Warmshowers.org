@@ -1,8 +1,11 @@
 
 Drupal.behaviors.mapBehaviors = function(context) {
-    // Grab the original map height upon loading of the page
+    // Grab css vars upon page load to reuse
     var originalMapHeight = $('#wsmap_map').height();
     var originalMapBlockHeight = $('div.block-wsmap').height();
+    var originalSectionTop = $("body.with-highlight #navigation .section").css('top');
+    var shrunkenSectionTop = Number(originalSectionTop.substr(0, originalSectionTop.length - 2) + 191 ) + "px";
+
 
     $("#expand_map").click(function(){
         $(".region-sidebar-first .section").hide(1000);
@@ -13,7 +16,7 @@ Drupal.behaviors.mapBehaviors = function(context) {
             width: "100%"
         }, 1000, function(){
             $("#collapse_map").show();
-            $("body.with-highlight #navigation .section").css("top","-69px");
+            $("body.with-highlight #navigation .section").css("top", shrunkenSectionTop);
             $("body.with-highlight #navigation .section").show("fast");
         });
         // If the window can handle, let's expand the height too
@@ -41,7 +44,7 @@ Drupal.behaviors.mapBehaviors = function(context) {
         }, 1000, function(){
             $("#expand_map").show();
             $("#collapse_map").hide();
-            $("body.with-highlight #navigation .section").css("top","-260px");
+            $("body.with-highlight #navigation .section").css("top", originalSectionTop);
             $("body.with-highlight #navigation .section").show("fast");
         });
 
