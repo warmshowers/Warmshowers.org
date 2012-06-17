@@ -1,18 +1,19 @@
-//$Id: translatableregions.js,v 1.3.2.1 2010/02/24 21:37:57 rfay Exp $
 /**
  * @file
  * Javascript to support translatable regions on the page.
- * 
+ *
  * Uses the jquery.translate plugin.
  * Adapted from translatableregions module by Dave Trainer.
  */
 Drupal.behaviors.translatableregions = function (context) {
+  var api_key = Drupal.settings.translatableregions.api_key;
+  $.translate.load(api_key, 2);
   $.translate(function() {  // After translation engine is ready.
 
     var link = $("<a />").attr("href", "#").attr("class","translator");
     var wrapper = $("<span></span>").attr("class","translator");
     var translate_selectors = Drupal.settings.translatableregions.translate_selectors;
-    var auto_translate = Drupal.settings.translatableregions.auto_translate;  
+    var auto_translate = Drupal.settings.translatableregions.auto_translate;
     var hide_translate_button = Drupal.settings.translatableregions.hide_translate_button;
     var always_show_translate_buttons = Drupal.settings.translatableregions.always_show_translate_buttons;
 
@@ -26,7 +27,7 @@ Drupal.behaviors.translatableregions = function (context) {
         });
       });
 
-    } 
+    }
     // Otherwise, put a select at the top of the block offering translation.
     else if (always_show_translate_buttons || !hide_translate_button) {
       $.translate(function(){ //when the Google Language API is loaded
@@ -69,13 +70,13 @@ Drupal.behaviors.translatableregions = function (context) {
  *   The language code to translate to. Must match one of Google's array.
  */
 function translate_element(element, target_language) {
-  element.translate(target_language, { 
+  element.translate(target_language, {
     //TODO: Make user-configurable exclusions
     not: '.option, #demo, #source, pre, .jq-translate-ui', //exclude these elements
     fromOriginal:true //always translate from orig (even after the page has been translated)
   });
-  element.children('div.gBranding').remove();
-  $.translate.getBranding().appendTo(element).prepend(Drupal.t("Automatic translation") + " ");
+  // element.children('div.gBranding').remove();
+  // $.translate.getBranding().appendTo(element).prepend(Drupal.t("Automatic translation") + " ");
 }
 
 /**
