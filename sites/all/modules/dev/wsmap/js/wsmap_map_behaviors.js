@@ -4,8 +4,9 @@ Drupal.behaviors.mapBehaviors = function(context) {
     var originalMapHeight = $('#wsmap_map').height();
     var originalMapBlockHeight = $('div.block-wsmap').height();
     var originalSectionTop = $("body.with-highlight #navigation .section").css('top');
-    var shrunkenSectionTop = Number(originalSectionTop.substr(0, originalSectionTop.length - 2) + 191 ) + "px";
-
+    if (originalSectionTop != null) {
+        var shrunkenSectionTop = Number(originalSectionTop.substr(0, originalSectionTop.length - 2) + 191 ) + "px";
+    }
 
     $("#expand_map").click(function(){
         $(".region-sidebar-first .section").hide(1000);
