@@ -138,8 +138,8 @@ function redesign_theme_and_block_imagecache_default_presets() {
           'module' => 'imagecache',
           'action' => 'imagecache_scale_and_crop',
           'data' => array(
-            'width' => '175',
-            'height' => '175',
+            'width' => '179',
+            'height' => '220',
           ),
         ),
       ),
