@@ -36,29 +36,31 @@
     <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
     <div id="name-title">
       <h3><?php print check_plain($account->fullname); ?></h3>
-      
+
       <ul id="global_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
         $i++;
         if ($i == 1) { $classname .= " leaf-first"; }
         if ($i == count($global_stats )) { $classname .= " leaf-last"; }
         ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
       } ?></ul>
-      
-      <?php $i=0; if ($personal_stats): ?>
-        <ul id="personal_stats"><?php foreach ($personal_stats as $classname=>$stat){
-        $i++;
-        if ($i == 1) { $classname .= " leaf-first"; }
-        if ($i == count($personal_stats )) { $classname .= " leaf-last"; }
-          ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
-        } ?></ul>
-      <?php endif; ?>
+
+      <?php
+        $i=0;
+        if ($personal_stats) {
+          print '<ul id="personal_stats">';
+          foreach ($personal_stats as $classname=>$stat) {
+            if ($i == 0) { $classname .= " leaf-first"; }
+            if ($i == count($personal_stats ) -1) {
+              $classname .= " leaf-last";
+            }
+            print '<li class="' . $classname . '">' . $stat . '</li>';
+          }
+          print '</ul>';
+        }
+    ?>
     </div>
     <div id="profile-tabs">
-      <ul>
-        <li><a href="#">Link</a></li>
-        <li><a href="#">Link</a></li>
-        <li><a href="#">Link</a></li>
-      </ul>
+      <?php print theme('links', $profile_tabs); ?>
     </div>
   </div>
   <div class="content">
