@@ -23,6 +23,40 @@ function redesign_system_level_strongarm() {
   $strongarm = new stdClass;
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'comment_notify_default_mailtext';
+  $strongarm->value = 'Hi !name,
+
+!commname has commented on: "!node_title":
+
+!commtext
+
+You can view and reply to the comment by <a href="!comment_url">clicking here</a>. (Please don\'t respond via email as the email just goes to the site managers.)
+
+You can stop receiving emails when someone replies to this post by <a href="!link1">clicking here</a>.
+
+- Warmshowers.org team';
+  $export['comment_notify_default_mailtext'] = $strongarm;
+
+  $strongarm = new stdClass;
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'node_notify_default_mailtext';
+  $strongarm->value = 'Hi !name,
+
+You have received a comment on: "!node_title":
+
+!commtext
+
+You can view the comment by <a href="!comment_url">clicking here</a>.  (Please don\'t respond via email as the email just goes to the site managers.)
+
+You will receive emails like this for all replies to your posts.
+
+- Warmshowers team';
+  $export['node_notify_default_mailtext'] = $strongarm;
+
+  $strongarm = new stdClass;
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'site_name';
   $strongarm->value = 'Warm Showers';
   $export['site_name'] = $strongarm;
