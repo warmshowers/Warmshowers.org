@@ -18,6 +18,12 @@ function redesign_theme_and_block_menu_default_menu_custom() {
     'title' => 'Anon Main Menu (es)',
     'description' => 'Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc) (Spanish)',
   );
+  // Exported menu: menu-anon-main-menu-pt
+  $menus['menu-anon-main-menu-pt'] = array(
+    'menu_name' => 'menu-anon-main-menu-pt',
+    'title' => 'Anon Main Menu (pt)',
+    'description' => 'Main Menu for Warmshowers Portugese Anon User (Home/Signup/FAQ/etc)',
+  );
   // Exported menu: menu-footer-menu-en
   $menus['menu-footer-menu-en'] = array(
     'menu_name' => 'menu-footer-menu-en',
@@ -29,6 +35,12 @@ function redesign_theme_and_block_menu_default_menu_custom() {
     'menu_name' => 'menu-footer-menu-es',
     'title' => 'Footer Menu (es)',
     'description' => 'Menu for use in Warmshowers Footer (Spanish)',
+  );
+  // Exported menu: menu-footer-menu-pt
+  $menus['menu-footer-menu-pt'] = array(
+    'menu_name' => 'menu-footer-menu-pt',
+    'title' => 'Footer Menu (pt)',
+    'description' => '',
   );
   // Exported menu: menu-logged-in-main-menu-en
   $menus['menu-logged-in-main-menu-en'] = array(
@@ -42,17 +54,27 @@ function redesign_theme_and_block_menu_default_menu_custom() {
     'title' => 'Logged In Main Menu (es)',
     'description' => 'Spanish logged-in main menu',
   );
+  // Exported menu: menu-logged-in-main-menu-pt
+  $menus['menu-logged-in-main-menu-pt'] = array(
+    'menu_name' => 'menu-logged-in-main-menu-pt',
+    'title' => 'Logged In Main Menu (pt)',
+    'description' => '',
+  );
   // Translatables
   // Included for use with string extractors like potx.
   t('Anon Main Menu (en)');
   t('Anon Main Menu (es)');
+  t('Anon Main Menu (pt)');
   t('Footer Menu (en)');
   t('Footer Menu (es)');
+  t('Footer Menu (pt)');
   t('Logged In Main Menu (en)');
   t('Logged In Main Menu (es)');
+  t('Logged In Main Menu (pt)');
   t('Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc)');
   t('Main Menu for Warmshowers Anon User (Home/Signup/FAQ/etc) (Spanish)');
   t('Main Menu for Warmshowers Logged-In User (Home/FAQ/Forums/etc)');
+  t('Main Menu for Warmshowers Portugese Anon User (Home/Signup/FAQ/etc)');
   t('Menu for use in Warmshowers Footer (English)');
   t('Menu for use in Warmshowers Footer (Spanish)');
   t('Spanish logged-in main menu');
