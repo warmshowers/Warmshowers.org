@@ -81,6 +81,11 @@ function warmshowers_zen_preprocess_page(&$variables) {
   if (!empty($variables['highlight'])) {
     $variables['classes_array'][] = 'with-highlight';
   }
+  global $user;
+  foreach ($user->roles as $role){
+    $role = str_replace(" ","-",$role);
+    $variables['classes_array'][] = 'role-'.$role;
+  }
 
   // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
   if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
