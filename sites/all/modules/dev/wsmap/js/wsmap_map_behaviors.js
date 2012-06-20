@@ -16,7 +16,7 @@ Drupal.behaviors.mapBehaviors = function(context) {
             marginLeft: "0px",
             width: "100%"
         }, 1000, function(){
-            $("#collapse_map").show();
+            $("#collapse_map").show().css("display","block");
             $("body.with-highlight #navigation .section").css("top", shrunkenSectionTop);
             $("body.with-highlight #navigation .section").show("fast");
         });
