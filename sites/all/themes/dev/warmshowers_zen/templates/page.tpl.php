@@ -240,6 +240,11 @@
     <?php if ($footer || $footer_message || $secondary_links): ?>
       <div id="footer"><div class="section">
         <h2 class="title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
+        <ul class="social">
+            <li><a href="https://www.facebook.com/groups/135049549858210/" class="social_fb" title="<?php print t("Follow Warm Showers on"); ?> Facebook"></a></li>
+            <li><a href="https://twitter.com/#!/warmshowers" class="social_tw" title="<?php print t("Follow Warm Showers on"); ?> Twitter"></a></li>
+            <li><a href="http://www.warmshowers.org/rssfeed" class="social_rs" title="<?php print t("Keep up to date with"); ?> RSS"></a></li>
+        </ul>
         <?php print $footer; ?>
 
       </div></div><!-- /.section, /#footer -->
