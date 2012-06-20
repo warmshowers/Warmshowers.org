@@ -515,9 +515,9 @@ function redesign_theme_and_block_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'views-unauth_content-block_2' => array(
-          'module' => 'views',
-          'delta' => 'unauth_content-block_2',
+        'nodeblock-15526' => array(
+          'module' => 'nodeblock',
+          'delta' => 15526,
           'region' => 'sidebar_first',
           'weight' => 0,
         ),
@@ -527,9 +527,9 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'sidebar_second',
           'weight' => 0,
         ),
-        'views-unauth_content-block_1' => array(
-          'module' => 'views',
-          'delta' => 'unauth_content-block_1',
+        'nodeblock-15521' => array(
+          'module' => 'nodeblock',
+          'delta' => 15521,
           'region' => 'sidebar_second',
           'weight' => 1,
         ),
