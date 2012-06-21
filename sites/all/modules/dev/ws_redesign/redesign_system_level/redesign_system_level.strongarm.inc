@@ -47,6 +47,33 @@ You can stop receiving emails when someone replies to this post by <a href="!lin
   $strongarm = new stdClass;
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'nodeformsettings_trust_referral';
+  $strongarm->value = array(
+    'nfs_submission_body_rows' => '20',
+    'nfs_splitsummary' => '1',
+    'nfs_inputformat' => '0',
+    'nfs_revisionlog' => '0',
+    'nfs_author_information' => '0',
+    'nfs_path' => '0',
+    'nfs_menu' => '0',
+    'nfs_publishingoptions' => '0',
+    'nfs_comments' => '0',
+    'nfs_taxonomy' => '0',
+    'nfs_preview' => '0',
+    'nfs_cancel' => array(
+      'nfs_cancel_status' => '1',
+      'nfs_cancel_behaviour' => '0',
+    ),
+    'nfs_submit' => 'Submit',
+    'nfs_hide_node_title' => '1',
+    'nfs_title_create' => 'Create !node_type',
+    'nfs_title_edit' => '!node_title',
+  );
+  $export['nodeformsettings_trust_referral'] = $strongarm;
+
+  $strongarm = new stdClass;
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'node_notify_default_mailtext';
   $strongarm->value = 'Hi !name,
 

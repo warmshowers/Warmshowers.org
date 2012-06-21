@@ -391,7 +391,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'menu_name' => 'menu-footer-menu-es',
     'link_path' => 'contact',
     'router_path' => 'contact',
-    'link_title' => 'Contactarnos',
+    'link_title' => 'Contacto',
     'options' => array(
       'attributes' => array(
         'title' => '',
@@ -770,7 +770,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
   // Included for use with string extractors like potx.
   t('Cerrar sesión');
   t('Contact Us');
-  t('Contactarnos');
+  t('Contacto');
   t('Contate-nos');
   t('Crear Cuenta');
   t('Donate!');
