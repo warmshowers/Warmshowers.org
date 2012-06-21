@@ -1,0 +1,258 @@
+<?php
+/**
+ * @file
+ *
+ * main file, only one hook_form_alter
+ * to change several settings
+ *
+ */
+
+/**
+ * Define the element and a default value
+ * 
+ * If you're making a patch define here the name of the element and the default
+ * value, try to keep the array sorted by alphabetical order for readability purposes
+ *
+ * All keys MUST start with nfs_
+ *
+ * 1 => means Disabled (It Hides)
+ * 0 => means Enabled (It shows)
+ *
+ * except when there are multiple options
+ */
+function nodeformsettings_elements_default() {
+	return array(
+		'nfs_author_information' => 0,
+		'nfs_cancel' => array(
+			'nfs_cancel_status' => 1,
+			'nfs_cancel_behaviour' => 0,
+		),
+		'nfs_comments' => 0,
+		'nfs_hide_node_title' => 0,
+		'nfs_inputformat' => 0,
+		'nfs_menu' => 0,
+		'nfs_path' => 0,
+		'nfs_preview' => 0,
+		'nfs_publishingoptions' => 0,
+		'nfs_revisionlog' => 0,
+		'nfs_splitsummary' => 0,
+		'nfs_submission_body_rows' => '20', 
+		'nfs_submit' => t('Submit'),
+		'nfs_taxonomy' => 0,
+		'nfs_title_create' => t('Create !node_type'),
+		'nfs_title_edit' => t('!node_title'),
+	);
+}
+
+/**
+ * Define all elements that need validation
+ */
+function nodeformsettings_elements_validate() {
+	return array(
+		'nfs_preview',
+		'nfs_title_create',
+		'nfs_title_edit',
+	);
+}
+
+/**
+ * Return the settings for a given content type using variable_get
+ *
+ * param @type
+ * content type machine name
+ *
+ * return array()
+ */
+function nodeformsettings_get_settings($type) {
+  return variable_get('nodeformsettings_' . $type, '');
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function nodeformsettings_form_alter(&$form, $form_state, $form_id) {
+	// When configuring the content type settings
+	if ($form_id == 'node_type_form') {
+		
+		// get the path to the includes dir
+		$path = drupal_get_path("module", "nodeformsettings") . '/includes/';
+		
+		// save the name of the variable for use in the submit callback
+		$form['var'] = array(
+			'#type' => 'hidden',
+			'#value' => $form['#node_type']->type,
+		);
+
+    // get the default settings using variable_get and the current content type
+		$settings = nodeformsettings_get_settings($form['#node_type']->type);
+		// load the settings
+		include_once($path . 'settings_node.inc');
+		// get the form with the settings
+		_nodeformsettings_settings_form($form, $settings);
+		
+		// Validation callback
+		$form['#validate'][] = 'nodeformsettings_settings_validate';
+		// To save the values in an keyed array we need to define a custom submit callback
+		$form['#submit'][] = 'nodeformsettings_settings_submit';
+	}
+	
+	// On node form
+	if(isset($form['type']) && isset($form['#node']) && $form['type']['#value'] . '_node_form' == $form_id) {
+		$node = $form['#node'];
+		// get the path to the includes dir
+		$path = drupal_get_path("module", "nodeformsettings") . '/includes/';
+		// get the settings
+		$settings = nodeformsettings_get_settings($node->type);
+		
+		// Get all the elements defined in the function
+		$elements = nodeformsettings_elements_default();
+		// Loop thought the array to build the function
+		foreach($elements as $key => $vals) {
+			if(isset($settings[$key])) {
+				// Ignore the elements in the variable. We do this because in this particular case this change is not being made
+				// in a hook_form_alter, but a preprocess_page function, if we don't ignore it we'll get an error.
+				// If more changes are made out the hook_form_alter, then add those elements to this array.
+				$ignore = array("nfs_hide_node_title",);
+				// If the $key is not in the array $ignore detect the functions
+				if(!in_array($key, $ignore)) {
+					include_once($path . 'option_' . $key . '.inc');
+					$function = '_option_' . $key;
+					if(function_exists($function)) {
+						$function($form, $form_state, $settings, $node);
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * We use this function to validate
+ *
+ * The reason why we don't use '#element_validate' in each form field
+ * is because with this we have option to $form_state and with #element_validate
+ * we only have access to the element that calls que validation function
+ */
+function nodeformsettings_settings_validate($form, &$form_state) {
+	$path = drupal_get_path("module", "nodeformsettings") . '/includes/';
+	// Get all the elements defined in the function
+	$elements = nodeformsettings_elements_validate();
+	// Loop thought the array to build the function
+	foreach($elements as $key) {
+		include_once($path . 'validate_' . $key . '.inc');
+		$function = '_validate_' . $key;
+		if(function_exists($function)) {
+			$function($form, $form_state);
+		}
+	}
+}
+
+/**
+ * Submit callback for the node form alter
+ *
+ * @see nodeformsettings_form_alter()
+ */
+function nodeformsettings_settings_submit($form, &$form_state) {
+	// Get the values sent from the form and save them in $values
+	$values = $form_state['values'];
+	// dprint_r($values);
+	// Save the value of $values['var'] in $name. This variable will
+	// be used to define the name in variable_set($name, $values)
+	// This will be something like nodeformsettings_contenttype
+  $name = 'nodeformsettings_' . $values['var'];
+	
+	// Get the elements from the function and loop to get only the keys, not the values
+	$elements = nodeformsettings_elements_default();
+	foreach($elements as $k => $v) {
+		// Build the $ignore array with only the keys ($k)
+		$ignore[] = $k;
+	}
+	// Add to the $ignore array the $name
+	$ignore[] = $name;
+	
+	// Loop thought the array of $values to unset everything but our values in $ignore
+	foreach($values as $key => $value) {
+		// if the key IS NOT in the $ignore array, then unset that value
+		if(!in_array($key, $ignore)) {
+			unset($values[$key]);
+		}
+		else {
+			// Build the $data array wich we will send to the variable_set function
+			$data[$key] = $value;
+		}
+	}
+	
+  variable_set($name, $data);
+	
+	// Purge all variables created by hook_node_type
+	nodeformsettings_purge($values['var']);
+}
+
+/**
+ * From http://drupal.org/node/426482
+ */
+function nodeformsettings_preprocess_page(&$vars) {
+	$settings = nodeformsettings_get_settings($vars['node']->type);
+
+  // Titles are ignored by content type when they are not desired in the design.
+  $vars['original_title'] = $vars['title'];
+  if(!empty($vars['node']) && isset($settings['nfs_hide_node_title']) && $settings['nfs_hide_node_title'] == 1) {
+    $vars['title'] = '';
+  }
+}
+
+/**
+ * Remove all unsused variables
+ */
+function nodeformsettings_purge($type = NULL) {
+	$elements = nodeformsettings_elements_default();
+	if(isset($type)) {
+		variable_del('var_' . $type);
+		foreach($elements as $k => $v) {
+			variable_del($k . '_' . $type);
+		}
+	}
+	else {
+		// Remove all from all content types
+		foreach (node_get_types('names') as $type => $type_name) {
+			variable_del('var_' . $type);
+			foreach($elements as $k => $v) {
+				variable_del($k . '_' . $type);
+			}
+		}
+	}
+}
+
+/**
+ * Implementation of hook_features_pipe_alter() for node component.
+ */
+function nodeformsettings_features_pipe_node_alter(&$pipe, $data, $export, $module_name) {
+  if (!empty($data) && module_exists('strongarm')) {
+    $variables = array(
+      'nodeformsettings_',		
+    );
+    foreach ($data as $node_type) {
+      foreach ($variables as $variable_name) {
+        $pipe['variable'][] = "{$variable_name}_{$node_type}";
+      }
+    }
+  }
+}
+
+/**
+ * Implement hook_node_type()
+ */
+function nodeformsettings_node_type($op, $info) {
+  switch ($op){
+    case 'delete':
+      variable_del('nodeformsettings_'. $info->type);
+      break;
+    case 'update':
+      if (!empty($info->old_type) && $info->old_type != $info->type) {
+        $setting = variable_get('nodeformsettings_'. $info->old_type, '');
+        variable_del('nodeformsettings_'. $info->old_type);
+        variable_set('nodeformsettings_'. $info->type, $setting);
+      }			
+      break;
+  }
+}

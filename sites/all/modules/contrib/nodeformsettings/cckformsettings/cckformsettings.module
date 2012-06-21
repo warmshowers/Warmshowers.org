@@ -1,0 +1,96 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_form_alter()
+ * 
+ */
+function cckformsettings_form_alter(&$form, $form_state, $form_id) {
+	if ($form_id == 'content_field_edit_form') {
+		if ($form['#field']['type'] == 'text' && $form['#field']['widget']['type'] == 'text_textarea'){
+			cckformsettings_admin_form($form);
+			$form['field']['text_processing']['#weight'] = 1;
+			$form['field']['text_processing']['#prefix'] = '<div class="cckformsettings-radios">';
+			$form['field']['text_processing']['#suffix'] = '</div>';
+			$form['field']['max_length']['#weight'] = 3;
+			$form['field']['allowed_values_fieldset']['#weight'] = 4;
+			
+			drupal_add_js(drupal_get_path('module', 'cckformsettings') .'/cckformsettings.js');
+			$text_processing = $form['field']['text_processing']['#default_value'];
+			if($text_processing = 1) {
+				$css_class .= 'cckformsettings-show';
+			}
+			else {
+				$css_class = 'js-hide';
+			}
+			$form['field']['cckformsettings_inputformat']['#prefix'] = '<div class="' . $css_class . '">';
+			$form['field']['cckformsettings_inputformat']['#suffix'] = '</div>';	
+		}
+	}	
+}
+
+function cckformsettings_widget_form(&$form, $form_state) {
+	$node_type = $form['#field']['type_name'];
+	$field_name = $form['#field']['field_name'];
+}
+
+function _cckformsettings_textprocessing_status(&$form, $form_state) {
+	return $form['field']['text_processing']['#default_value'];
+}
+
+function cckformsettings_admin_form(&$form) {	
+	$form['field']['cckformsettings_inputformat'] = array(
+		'#title' => t("Input Form Fieldset"),
+		'#type' => 'radios',
+		'#options' => array('1' => t("Enabled"), '0' => t("Disabled")),
+		'#default_value' => _cckformsettings_get_default_value($form['widget']['#value'], $form['field_name']['#value'], '1'),
+		'#weight' => 2,
+	);
+	
+	$form['#submit'][] = 'cckformsettings_submit';
+}
+
+function cckformsettings_submit($form_id, &$form_state) {
+	$field = content_fields($form_state['values']['field_name'], $form_state['values']['type_name']);
+	$type = $field['type_name'];
+	$field_name = $field['field_name'];
+	
+	variable_set('cckformsettings_inputformat_' . $type . '_' . $field_name, $form_state['values']['cckformsettings_inputformat']);
+}
+
+function _cckformsettings_get_default_value($type_name, $field_name, $value) {
+  $field = content_fields($field_name, $type_name);
+	$type = $field['type_name'];
+	$field_name = $field['field_name'];
+	
+	return variable_get('cckformsettings_inputformat_' . $type . '_' . $field_name, $form_state['values']['cckformsettings_inputformat']);
+}
+
+function cckformsettings_elements() {
+	return array(
+		'text_textarea' => array(
+			'#process' => array('cckformsettings_text_process'),
+		)
+	);
+}
+
+function cckformsettings_text_process($element, $edit, $form_state, $form) {
+	$field = $form['#field_info'][$element['#field_name']];
+	$field_name = $form['#field_info'][$element['#field_name']]['field_name'];
+	$type = $form['#field_info'][$element['#field_name']]['type_name'];
+	
+	if (!empty($field['text_processing'])) {
+		$filter_key  = (count($element['#columns']) == 2) ? $element['#columns'][1] : 'format';
+		$format = isset($element['#value'][$filter_key]) ? $element['#value'][$filter_key] : FILTER_FORMAT_DEFAULT;
+		$parents = array_merge($element['#parents'] , array($filter_key));
+		
+		if (variable_get('cckformsettings_inputformat_' . $type . '_' . $field_name, '') == 1) {
+			$element[$filter_key] = filter_form($format, 1, $parents);
+		}
+		else {
+			$element[$filter_key] = '';
+		}
+  }
+	
+	return $element;
+}

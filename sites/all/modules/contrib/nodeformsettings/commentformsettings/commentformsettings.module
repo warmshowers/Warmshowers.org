@@ -1,0 +1,290 @@
+<?php
+/**
+ * @file
+ *
+ * main file, only one hook_form_alter
+ * to change several settings
+ *
+ * TODO: Divide everything in individual functions
+ * for easier maintainance
+ */
+
+/**
+ * Define the element and a default value
+ * 
+ * If you're making a patch define here the name of the element and the default
+ * value, try to keep the array sorted by alphabetical order for readability purposes
+ *
+ * 1 => usually means Disabled
+ * 0 => usually means Enabled
+ *
+ */
+function commentformsettings_elements_default() {
+	return array(
+		'cfs_anonymousname' => 0,
+		'cfs_anonymousmail' => 0,
+		'cfs_anonymoushomepage' => 0,
+		'cfs_author' => 0,
+		'cfs_comment_cancel' => 1,
+		'cfs_inputformat' => 0,
+		'cfs_newadmin' => 1,
+		// Since the element 'cfs_pnc' (in the form) is #tree => TRUE, we build an array or arrays
+		// so is detected
+		'cfs_pnc' => array(
+			'cfs_post_new_comment' => 0,
+			'cfs_post_new_comment_value' => '',
+			'cfs_post_new_comment_tag' => 'h2',
+		),
+    'cfs_preview' => 0,
+		'cfs_size' => 10,
+		'cfs_submit' => t('Submit'),
+		'cfs_title' => 0,
+	);
+}
+
+/**
+ * Define all elements that need validation
+ */
+function commentformsettings_elements_validate() {
+	return array(
+		'cfs_comment_cancel',
+		'cfs_preview',
+		'cfs_newadmin',
+	);
+}
+
+/**
+ * Return the settings for a given content type using variable_get
+ *
+ * param @type
+ * content type machine name
+ *
+ * return array()
+ */
+function commentformsettings_get_settings($type) {
+	return variable_get('commentformsettings_' . $type, '');
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function commentformsettings_form_alter(&$form, $form_state, $form_id) {
+	if ($form_id == 'node_type_form') {
+		$path = drupal_get_path("module", "commentformsettings") . '/includes/';
+		
+		$form['var_comments'] = array(
+			'#type' => 'hidden',
+			'#value' => $form['#node_type']->type,
+		);
+		
+		$settings = commentformsettings_get_settings($form['#node_type']->type);
+		
+		// Only active the configuration options if the comments module is installed
+		if(module_exists("comment") && isset($form['identity']['type']) && isset($form['comment'])) {
+			include_once($path . 'settings_comments.inc');
+			_commentformsettings_settings_form($form, $settings);
+		}
+		
+		$form['#validate'][] = 'commentformsettings_settings_validate';
+		// To save the values in an keyed array we need to define a custom submit callback
+		$form['#submit'][] = 'commentformsettings_settings_submit';
+	}
+		
+	if($form_id == 'comment_form') {
+		$path = drupal_get_path("module", "commentformsettings") . '/includes/';
+		
+		// on comment_form there's no $form['#node'] so we can't load the $node->type
+		// we just take the argument
+		// since we don't have node/nid when creating a comment on a separate form
+		// we have to filter the two cases to check what argument to take and load
+		// the node
+		// TODO: find a better way to do this
+		
+		if(arg(0) == 'node' && is_numeric(arg(1))) {
+			$node = node_load(arg(1));
+		}
+		if(arg(0) == 'comment' && arg(1) == 'reply' && is_numeric(arg(2))) {
+			$node = node_load(arg(2));
+		}
+		if(arg(0) == 'comment' && arg(1) == 'edit' && is_numeric(arg(2))) {
+			$node = node_load(arg(2));
+		}
+		
+		// User profile (When using content profile)
+		if(module_exists('content_profile')) {
+			if(arg(0) == 'user' && is_numeric(arg(1))) {
+				$content = array();
+				foreach (content_profile_get_types('names') as $type => $type_name) {
+					$node = content_profile_load($type, arg(1));
+					if($node){ break; }
+				}
+			}
+		}
+		
+		$settings = commentformsettings_get_settings($node->type);
+		
+		// Get all the elements defined in the function
+		$elements = commentformsettings_elements_default();
+		// Loop thought the array to build the function
+		foreach($elements as $key => $vals) {
+			if(isset($settings[$key])) {
+				// Ignore the elements in the variable. In this case, we only ignore cfs_pnc because
+				// it is a cointainer with other values, an array or arrays
+				$ignore = array('cfs_pnc');
+				// If the $key is not in the array $ignore detect the functions
+				if(!in_array($key, $ignore)) {
+					include_once($path . 'option_' . $key . '.inc');
+					$function = '_option_' . $key;
+					if(function_exists($function)) {
+						$function($form, $form_state, $settings, $node);
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * We use this function to validate
+ *
+ * The reason why we don't use '#element_validate' in each form field
+ * is because with this we have option to $form_state and with #element_validate
+ * we only have access to the element that calls que validation function
+ */
+function commentformsettings_settings_validate($form, &$form_state) {
+	$path = drupal_get_path("module", "commentformsettings") . '/includes/';
+	// Get all the elements defined in the function
+	$elements = commentformsettings_elements_validate();
+	// Loop thought the array to build the function
+	foreach($elements as $key) {
+		include_once($path . 'validate_' . $key . '.inc');
+		$function = '_validate_' . $key;
+		if(function_exists($function)) {
+			$function($form, $form_state);
+		}
+	}
+}
+
+/**
+ * Submit callback for the node form alter
+ *
+ * @see commentformsettings_form_alter()
+ */
+function commentformsettings_settings_submit($form, &$form_state) {
+	// Get the values sent from the form and save them in $values
+	$values = $form_state['values'];
+	// Save the value of $values['var'] in $name. This variable will
+	// be used to define the name in variable_set($name, $values)
+	// This will be something like commentformsettings_contenttype
+  $name = 'commentformsettings_' . $values['var_comments'];
+	
+	// Get the elements from the function and loop to get only the keys, not the values
+	$elements = commentformsettings_elements_default();
+	foreach($elements as $k => $v) {
+		// Build the $ignore array with only the keys ($k)
+		$ignore[] = $k;
+	}
+	// Add to the $ignore array the $name
+	$ignore[] = $name;
+	
+	// Loop thought the array of $values to unset everything but our values in $ignore
+	foreach($values as $key => $value) {
+		// if the key IS NOT in the $ignore array, then unset that value
+		if(!in_array($key, $ignore)) {
+			unset($values[$key]);
+		}
+		else {
+			// Build the $data array wich we will send to the variable_set function
+			$data[$key] = $value;
+		}
+	}
+	
+  variable_set($name, $data);
+	
+	// Purge all variables created by hook_node_type
+	commentformsettings_purge($values['var_comments']);
+}
+
+function commentformsettings_purge($type = NULL) {
+	$elements = commentformsettings_elements_default();
+	if(isset($type)) {
+		variable_del('var_comments_' . $type);
+		foreach($elements as $k => $v) {
+			variable_del($k . '_' . $type);
+		}
+	}
+	else {
+		// Remove all from all content types
+		foreach (node_get_types('names') as $type => $type_name) {
+			variable_del('var_comments_' . $type);
+			foreach($elements as $k => $v) {
+				variable_del($k . '_' . $type);
+			}
+		}
+	}
+}
+
+/**
+ * Implementation of hook_features_pipe_alter() for node component.
+ */
+function commentformsettings_features_pipe_node_alter(&$pipe, $data, $export, $module_name) {
+  if (!empty($data) && module_exists('strongarm')) {
+    $variables = array(
+      'commentformsettings_',		
+    );
+    foreach ($data as $node_type) {
+      foreach ($variables as $variable_name) {
+        $pipe['variable'][] = "{$variable_name}_{$node_type}";
+      }
+    }
+  }
+}
+
+/**
+ * Implement hook_node_type()
+ */
+function commentformsettings_node_type($op, $info) {
+  switch ($op){
+    case 'delete':
+      variable_del('commentformsettings_'. $info->type);
+      break;
+    case 'update':
+      if (!empty($info->old_type) && $info->old_type != $info->type) {
+        $setting = variable_get('commentformsettings_'. $info->old_type, '');
+        variable_del('commentformsettings_'. $info->old_type);
+        variable_set('commentformsettings_'. $info->type, $setting);
+      }
+      break;
+  }
+}
+
+/**
+ * Theme function to alter the comments form
+ */
+function phptemplate_box($title, $content, $region = 'main') {
+	$node = menu_get_object();
+	if(isset($node)) {
+		$settings = commentformsettings_get_settings($node->type);
+	
+		if($title == "Post new comment" && $settings['cfs_pnc']['cfs_post_new_comment'] == 1) {
+			$title = '';
+		}
+		
+		if($title == "Post new comment" && $settings['cfs_pnc']['cfs_post_new_comment'] == 2 && isset($settings['cfs_pnc']['cfs_post_new_comment_value'])) {
+			$title = t($settings['cfs_pnc']['cfs_post_new_comment_value']);
+		}
+		
+		if(isset($settings['cfs_pnc']['cfs_post_new_comment_tag'])) {
+			$output = '<'. $settings['cfs_pnc']['cfs_post_new_comment_tag'] .' class="title">'. $title .'</' . $settings['cfs_pnc']['cfs_post_new_comment_tag'] .'><div>'. $content .'</div>';
+		}
+		else {
+			$output = '<h2 class="title">'. $title .'</h2><div>'. $content .'</div>';
+		}
+	}
+	else {
+		// Default value
+		$output = '<h2 class="title">'. $title .'</h2><div>'. $content .'</div>';
+	}
+	
+	return $output;
+}
