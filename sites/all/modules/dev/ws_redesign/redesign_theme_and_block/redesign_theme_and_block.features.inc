@@ -139,7 +139,7 @@ function redesign_theme_and_block_imagecache_default_presets() {
           'action' => 'imagecache_scale_and_crop',
           'data' => array(
             'width' => '179',
-            'height' => '220',
+            'height' => '200',
           ),
         ),
       ),

@@ -37,27 +37,24 @@
     <div id="name-title">
       <h3><?php print check_plain($account->fullname); ?></h3>
 
-      <ul id="global_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
+      <ul id="user_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
         $i++;
-        if ($i == 1) { $classname .= " leaf-first"; }
-        if ($i == count($global_stats )) { $classname .= " leaf-last"; }
+        $classname .= " number";
+            if ($i == 0) { $classname .= " leaf-first"; }
         ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
-      } ?></ul>
-
-      <?php
+      }
         $i=0;
         if ($personal_stats) {
-          print '<ul id="personal_stats">';
           foreach ($personal_stats as $classname=>$stat) {
-            if ($i == 0) { $classname .= " leaf-first"; }
-            if ($i == count($personal_stats ) -1) {
+        $i++;
+        $classname .= " personal";
+            if ($i == count($personal_stats)) {
               $classname .= " leaf-last";
             }
             print '<li class="' . $classname . '">' . $stat . '</li>';
           }
-          print '</ul>';
         }
-    ?>
+    ?></ul>
     </div>
     <div id="profile-tabs">
       <?php print $menu_primary_local_tasks; ?>
