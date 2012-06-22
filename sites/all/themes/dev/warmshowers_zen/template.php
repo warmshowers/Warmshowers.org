@@ -70,6 +70,7 @@ function warmshowers_zen_theme(&$existing, $type, $theme, $path) {
   $hooks['user_login_block'] = array(
     'template' => 'user-login-block',
     'arguments' => array('form' => NULL),
+    'path' => drupal_get_path('theme', 'warmshowers_zen') . '/templates',
   );
   return $hooks;
 }
