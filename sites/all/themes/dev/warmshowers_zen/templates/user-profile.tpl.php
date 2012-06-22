@@ -60,7 +60,7 @@
     ?>
     </div>
     <div id="profile-tabs">
-      <?php print theme('links', $profile_tabs); ?>
+      <?php print $menu_primary_local_tasks; ?>
     </div>
   </div>
   <div class="content">

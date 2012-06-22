@@ -192,7 +192,8 @@
           <h1 class="title"><?php print $title; ?></h1>
         <?php endif; ?>
         <?php print $messages; ?>
-        <?php if ($tabs): ?>
+        <!-- We will show the tabs only if not on the profile page) -->
+        <?php if ($tabs && (!empty($menu_item['path']) && $menu_item['path'] != 'user/%')): ?>
           <div class="tabs"><?php print $tabs; ?></div>
         <?php endif; ?>
         <?php print $help; ?>
