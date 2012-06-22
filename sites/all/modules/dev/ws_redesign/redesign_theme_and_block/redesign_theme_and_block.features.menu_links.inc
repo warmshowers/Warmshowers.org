@@ -158,6 +158,82 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-49',
   );
+  // Exported menu link: menu-anon-main-menu-fr:<front>
+  $menu_links['menu-anon-main-menu-fr:<front>'] = array(
+    'menu_name' => 'menu-anon-main-menu-fr',
+    'link_path' => '<front>',
+    'router_path' => '',
+    'link_title' => 'Accueil',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '1',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-50',
+  );
+  // Exported menu link: menu-anon-main-menu-fr:faq
+  $menu_links['menu-anon-main-menu-fr:faq'] = array(
+    'menu_name' => 'menu-anon-main-menu-fr',
+    'link_path' => 'faq',
+    'router_path' => 'faq',
+    'link_title' => 'FAQ',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-48',
+  );
+  // Exported menu link: menu-anon-main-menu-fr:forum
+  $menu_links['menu-anon-main-menu-fr:forum'] = array(
+    'menu_name' => 'menu-anon-main-menu-fr',
+    'link_path' => 'forum',
+    'router_path' => 'forum',
+    'link_title' => 'Forums',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-47',
+  );
+  // Exported menu link: menu-anon-main-menu-fr:user/register
+  $menu_links['menu-anon-main-menu-fr:user/register'] = array(
+    'menu_name' => 'menu-anon-main-menu-fr',
+    'link_path' => 'user/register',
+    'router_path' => 'user/register',
+    'link_title' => 'S\'inscrire',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-49',
+  );
   // Exported menu link: menu-anon-main-menu-pt:<front>
   $menu_links['menu-anon-main-menu-pt:<front>'] = array(
     'menu_name' => 'menu-anon-main-menu-pt',
@@ -462,6 +538,139 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '0',
   );
+  // Exported menu link: menu-footer-menu-fr:<front>
+  $menu_links['menu-footer-menu-fr:<front>'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => '<front>',
+    'router_path' => '',
+    'link_title' => 'Accueil',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '1',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-50',
+  );
+  // Exported menu link: menu-footer-menu-fr:contact
+  $menu_links['menu-footer-menu-fr:contact'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => 'contact',
+    'router_path' => 'contact',
+    'link_title' => 'Contactez-nous',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-49',
+  );
+  // Exported menu link: menu-footer-menu-fr:faq
+  $menu_links['menu-footer-menu-fr:faq'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => 'faq',
+    'router_path' => 'faq',
+    'link_title' => 'FAQ',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-47',
+  );
+  // Exported menu link: menu-footer-menu-fr:logout
+  $menu_links['menu-footer-menu-fr:logout'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => 'logout',
+    'router_path' => 'logout',
+    'link_title' => 'Déconnexion',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-45',
+  );
+  // Exported menu link: menu-footer-menu-fr:node/25
+  $menu_links['menu-footer-menu-fr:node/25'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => 'node/25',
+    'router_path' => 'node/%',
+    'link_title' => 'Effectuer un don',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-48',
+  );
+  // Exported menu link: menu-footer-menu-fr:user
+  $menu_links['menu-footer-menu-fr:user'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => 'user',
+    'router_path' => 'user',
+    'link_title' => 'Connexion',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-46',
+  );
+  // Exported menu link: menu-footer-menu-fr:user/register
+  $menu_links['menu-footer-menu-fr:user/register'] = array(
+    'menu_name' => 'menu-footer-menu-fr',
+    'link_path' => 'user/register',
+    'router_path' => 'user/register',
+    'link_title' => 'S\'inscrire',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-44',
+  );
   // Exported menu link: menu-footer-menu-pt:<front>
   $menu_links['menu-footer-menu-pt:<front>'] = array(
     'menu_name' => 'menu-footer-menu-pt',
@@ -709,6 +918,63 @@ function redesign_theme_and_block_menu_default_menu_links() {
     'expanded' => '0',
     'weight' => '-46',
   );
+  // Exported menu link: menu-logged-in-main-menu-fr:<front>
+  $menu_links['menu-logged-in-main-menu-fr:<front>'] = array(
+    'menu_name' => 'menu-logged-in-main-menu-fr',
+    'link_path' => '<front>',
+    'router_path' => '',
+    'link_title' => 'Accueil',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '1',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-50',
+  );
+  // Exported menu link: menu-logged-in-main-menu-fr:faq
+  $menu_links['menu-logged-in-main-menu-fr:faq'] = array(
+    'menu_name' => 'menu-logged-in-main-menu-fr',
+    'link_path' => 'faq',
+    'router_path' => 'faq',
+    'link_title' => 'FAQ',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-49',
+  );
+  // Exported menu link: menu-logged-in-main-menu-fr:forum
+  $menu_links['menu-logged-in-main-menu-fr:forum'] = array(
+    'menu_name' => 'menu-logged-in-main-menu-fr',
+    'link_path' => 'forum',
+    'router_path' => 'forum',
+    'link_title' => 'Forums',
+    'options' => array(
+      'attributes' => array(
+        'title' => '',
+      ),
+      'alter' => TRUE,
+    ),
+    'module' => 'menu',
+    'hidden' => '0',
+    'external' => '0',
+    'has_children' => '0',
+    'expanded' => '0',
+    'weight' => '-48',
+  );
   // Exported menu link: menu-logged-in-main-menu-pt:<front>
   $menu_links['menu-logged-in-main-menu-pt:<front>'] = array(
     'menu_name' => 'menu-logged-in-main-menu-pt',
@@ -768,13 +1034,18 @@ function redesign_theme_and_block_menu_default_menu_links() {
   );
   // Translatables
   // Included for use with string extractors like potx.
+  t('Accueil');
   t('Cerrar sesión');
+  t('Connexion');
   t('Contact Us');
+  t('Contactez-nous');
   t('Contacto');
   t('Contate-nos');
   t('Crear Cuenta');
   t('Donate!');
+  t('Déconnexion');
   t('Efetuar Login');
+  t('Effectuer un don');
   t('FAQ');
   t('Faça sua doação');
   t('Foros');
@@ -788,6 +1059,7 @@ function redesign_theme_and_block_menu_default_menu_links() {
   t('Log In');
   t('Log Out');
   t('Registre-se');
+  t('S\'inscrire');
   t('Sair');
   t('Sign Up');
 

@@ -54,6 +54,21 @@ function redesign_block_settings_default_fe_block_settings() {
     'cache' => '-1',
   );
 
+  $theme['menu-menu-anon-main-menu-fr'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-anon-main-menu-fr',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => '-1',
+  );
+
   $theme['menu-menu-anon-main-menu-pt'] = array(
     'module' => 'menu',
     'delta' => 'menu-anon-main-menu-pt',
@@ -99,6 +114,21 @@ function redesign_block_settings_default_fe_block_settings() {
     'cache' => '-1',
   );
 
+  $theme['menu-menu-footer-menu-fr'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-footer-menu-fr',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => '-1',
+  );
+
   $theme['menu-menu-footer-menu-pt'] = array(
     'module' => 'menu',
     'delta' => 'menu-footer-menu-pt',
@@ -132,6 +162,21 @@ function redesign_block_settings_default_fe_block_settings() {
   $theme['menu-menu-logged-in-main-menu-es'] = array(
     'module' => 'menu',
     'delta' => 'menu-logged-in-main-menu-es',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowers_zen',
+    'title' => '<none>',
+    'cache' => '-1',
+  );
+
+  $theme['menu-menu-logged-in-main-menu-fr'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-logged-in-main-menu-fr',
     'status' => 0,
     'weight' => '0',
     'region' => '',
@@ -374,6 +419,21 @@ function redesign_block_settings_default_fe_block_settings() {
     'cache' => '-1',
   );
 
+  $theme['menu-menu-anon-main-menu-fr'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-anon-main-menu-fr',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '-1',
+  );
+
   $theme['menu-menu-anon-main-menu-pt'] = array(
     'module' => 'menu',
     'delta' => 'menu-anon-main-menu-pt',
@@ -419,6 +479,21 @@ function redesign_block_settings_default_fe_block_settings() {
     'cache' => '-1',
   );
 
+  $theme['menu-menu-footer-menu-fr'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-footer-menu-fr',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
+    'cache' => '-1',
+  );
+
   $theme['menu-menu-footer-menu-pt'] = array(
     'module' => 'menu',
     'delta' => 'menu-footer-menu-pt',
@@ -461,6 +536,21 @@ function redesign_block_settings_default_fe_block_settings() {
     'pages' => '',
     'theme' => 'warmshowerspb',
     'title' => '<none>',
+    'cache' => '-1',
+  );
+
+  $theme['menu-menu-logged-in-main-menu-fr'] = array(
+    'module' => 'menu',
+    'delta' => 'menu-logged-in-main-menu-fr',
+    'status' => 0,
+    'weight' => '0',
+    'region' => '',
+    'custom' => '0',
+    'throttle' => '0',
+    'visibility' => '0',
+    'pages' => '',
+    'theme' => 'warmshowerspb',
+    'title' => '',
     'cache' => '-1',
   );
 

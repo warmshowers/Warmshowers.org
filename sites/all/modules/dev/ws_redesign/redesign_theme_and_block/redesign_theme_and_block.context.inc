@@ -192,6 +192,44 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
+  $context->name = 'everywhere_anon_fr';
+  $context->description = 'Everywhere Anon (French) - Anon main menu, for example';
+  $context->tag = 'fr';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'fr' => 'fr',
+      ),
+    ),
+    'user' => array(
+      'values' => array(
+        'anonymous user' => 'anonymous user',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-anon-main-menu-fr' => array(
+          'module' => 'menu',
+          'delta' => 'menu-anon-main-menu-fr',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere Anon (French) - Anon main menu, for example');
+  t('fr');
+  $export['everywhere_anon_fr'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
   $context->name = 'everywhere_anon_pt';
   $context->description = 'Everywhere Anon (Portugese) - Anon main menu, for example';
   $context->tag = 'pt';
@@ -305,6 +343,44 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
+  $context->name = 'everywhere_auth_fr';
+  $context->description = 'Authenticated, all pages, French';
+  $context->tag = 'fr';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'fr' => 'fr',
+      ),
+    ),
+    'user' => array(
+      'values' => array(
+        'authenticated user' => 'authenticated user',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-logged-in-main-menu-fr' => array(
+          'module' => 'menu',
+          'delta' => 'menu-logged-in-main-menu-fr',
+          'region' => 'navigation',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Authenticated, all pages, French');
+  t('fr');
+  $export['everywhere_auth_fr'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
   $context->name = 'everywhere_auth_pt';
   $context->description = 'Authenticated, all pages, Portugese';
   $context->tag = 'pt';
@@ -405,6 +481,39 @@ function redesign_theme_and_block_context_default_contexts() {
   t('Everywhere (Spanish)');
   t('es');
   $export['everywhere_es'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'everywhere_fr';
+  $context->description = 'Everywhere (French)';
+  $context->tag = 'fr';
+  $context->conditions = array(
+    'language' => array(
+      'values' => array(
+        'fr' => 'fr',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'menu-menu-footer-menu-fr' => array(
+          'module' => 'menu',
+          'delta' => 'menu-footer-menu-fr',
+          'region' => 'footer',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 0;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Everywhere (French)');
+  t('fr');
+  $export['everywhere_fr'] = $context;
 
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
