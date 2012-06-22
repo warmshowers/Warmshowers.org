@@ -2220,7 +2220,7 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
     'type' => 'tab',
     'title' => 'Recommendations',
     'description' => '',
-    'weight' => '0',
+    'weight' => '9',
     'name' => 'navigation',
   ));
   $handler->override_option('tab_options', array(
@@ -2861,9 +2861,9 @@ See a slideshow by clicking on any picture. And remember to click the pager at t
   $handler->override_option('path', 'user/%/my_recommendations');
   $handler->override_option('menu', array(
     'type' => 'tab',
-    'title' => 'I recommend...',
+    'title' => 'I Recommend',
     'description' => '',
-    'weight' => '0',
+    'weight' => '10',
     'name' => 'navigation',
   ));
   $handler->override_option('tab_options', array(
