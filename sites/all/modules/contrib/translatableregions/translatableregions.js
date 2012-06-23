@@ -35,7 +35,7 @@ Drupal.behaviors.translatableregions = function (context) {
         $(translate_selectors).each(function (i) {
           var element = $(this);
           var button = $("<input type='submit' />")
-          .val(Drupal.t("Translate to"))
+          .val(staticLanguageList[browser_language].translateTo)
           .click(function(){
             translate_element(element, $(this).parent().children('select').val());
           });
@@ -56,6 +56,15 @@ Drupal.behaviors.translatableregions = function (context) {
           .prependTo($(this))
           .parent()
           .prepend(button);
+
+          // Defaults to English language words for list of languages.  Swap out if different language is detected
+          if (browser_language != 'en') {
+            $('.jq-translate-ui').html('');
+            for (var i in staticLanguageList[browser_language].languageTranslations) {
+              var lang = staticLanguageList[browser_language].languageTranslations[i];
+              $('.jq-translate-ui').append('<option value="' + i + '">' + lang + '</option>');
+            }
+          }
 
         });
       });
