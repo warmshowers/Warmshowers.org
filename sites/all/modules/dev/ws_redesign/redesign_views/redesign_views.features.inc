@@ -21,14 +21,16 @@ function redesign_views_imagecache_default_presets() {
     ),
     'profile_tiny' => array(
       'presetname' => 'profile_tiny',
-      'actions' => array(
-        '0' => array(
+      'actions' => 
+      array (
+        0 => array (
           'weight' => '0',
           'module' => 'imagecache',
-          'action' => 'imagecache_resize',
-          'data' => array(
+          'action' => 'imagecache_scale',
+          'data' => array (
             'width' => '30',
             'height' => '',
+            'upscale' => 0,
           ),
         ),
       ),
