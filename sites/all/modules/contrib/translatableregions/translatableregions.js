@@ -7,9 +7,13 @@
  */
 Drupal.behaviors.translatableregions = function (context) {
   var api_key = Drupal.settings.translatableregions.api_key;
+  var browser_language = Drupal.settings.translatableregions.browser_language;
+
+  // "Translate to" in various languages, created using translatableregions_retrieve_translate_to_translations.js
+  var translateTo = {"en": "Translate to", "af":"Vertaal na","be":"Перавесці на","is":"Þýða til","ga":"Aistrigh go","mk":"Преведете да","ms":"Diterjemahkan kepada","sw":"Kutafsiri kwa","cy":"Cyfieithu i","sq":"Translate në","yi":"איבערזעצן צו","ar":"ترجمة إلى","bg":"Превод","ca":"Traduir al","zh":"转换为","zh-TW":"轉換為","hr":"Prevedi na","cs":"Se promítají do","da":"Oversæt til","nl":"Vertalen naar","et":"Tõlgi","tl":"Isalin sa","fi":"Käännä","fr":"Traduire en","gl":"Traducir a","de":"Übersetzen auf","el":"Μετάφραση σε","iw":"תרגום","hi":"अनुवाद करने के लिए","hu":"Fordítás","id":"Terjemahkan ke","ja":"翻訳する。","lv":"Tulkot","ko":"로 번역","lt":"Versti į","it":"Traduci","mt":"Ittraduċi","no":"Oversett til","fa":"ترجمه به ...","ro":"Traduceţi în","pl":"Przekłada się","ru":"Перевести на","sk":"Sa premietajú do","sr":"Преведи на","sl":"Prevedi k","sv":"Översätta till","th":"แปลเป็​​น","es":"Traducir al","tr":"Çevir","uk":"Перекласти на","vi":"Dịch"};
+
   $.translate.load(api_key, 2);
   $.translate(function() {  // After translation engine is ready.
-
     var link = $("<a />").attr("href", "#").attr("class","translator");
     var wrapper = $("<span></span>").attr("class","translator");
     var translate_selectors = Drupal.settings.translatableregions.translate_selectors;
@@ -20,7 +24,6 @@ Drupal.behaviors.translatableregions = function (context) {
     // If auto_translate, we'll just translate the block no matter what.
     if (auto_translate) {
       $.translate(function(){ //when the Google Language API is loaded
-        var browser_language = get_browser_language();
         $(translate_selectors).each(function (i) {
           var element = $(this);
           translate_element(element, browser_language);
@@ -31,11 +34,10 @@ Drupal.behaviors.translatableregions = function (context) {
     // Otherwise, put a select at the top of the block offering translation.
     else if (always_show_translate_buttons || !hide_translate_button) {
       $.translate(function(){ //when the Google Language API is loaded
-        var browser_language = get_browser_language();
         $(translate_selectors).each(function (i) {
           var element = $(this);
           var button = $("<input type='submit' />")
-          .val(staticLanguageList[browser_language].translateTo)
+          .val(translateTo[browser_language])
           .click(function(){
             translate_element(element, $(this).parent().children('select').val());
           });
@@ -57,15 +59,6 @@ Drupal.behaviors.translatableregions = function (context) {
           .parent()
           .prepend(button);
 
-          // Defaults to English language words for list of languages.  Swap out if different language is detected
-          if (browser_language != 'en') {
-            $('.jq-translate-ui').html('');
-            for (var i in staticLanguageList[browser_language].languageTranslations) {
-              var lang = staticLanguageList[browser_language].languageTranslations[i];
-              $('.jq-translate-ui').append('<option value="' + i + '">' + lang + '</option>');
-            }
-          }
-
         });
       });
     };
@@ -84,15 +77,4 @@ function translate_element(element, target_language) {
     not: '.option, #demo, #source, pre, .jq-translate-ui', //exclude these elements
     fromOriginal:true //always translate from orig (even after the page has been translated)
   });
-  // element.children('div.gBranding').remove();
-  // $.translate.getBranding().appendTo(element).prepend(Drupal.t("Automatic translation") + " ");
-}
-
-/**
- * Determine the browser language and then match it to one of Google's languages.
- */
-function get_browser_language() {
-  var lang = navigator.language || navigator.browserLanguage || navigator.systemLanguage || navigator.userLanguage;
-  var langcode = $.translate.toLanguageCode(lang) || lang.substr(0,2);
-  return langcode;
 }
