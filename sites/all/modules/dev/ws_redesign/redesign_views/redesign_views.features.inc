@@ -19,6 +19,20 @@ function redesign_views_imagecache_default_presets() {
         ),
       ),
     ),
+    'profile_tiny' => array(
+      'presetname' => 'profile_tiny',
+      'actions' => array(
+        '0' => array(
+          'weight' => '0',
+          'module' => 'imagecache',
+          'action' => 'imagecache_resize',
+          'data' => array(
+            'width' => '30',
+            'height' => '',
+          ),
+        ),
+      ),
+    ),
   );
   return $items;
 }
