@@ -40,6 +40,20 @@ You can stop receiving emails when someone replies to this post by <a href="!lin
   $strongarm = new stdClass;
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'extlink_subdomains';
+  $strongarm->value = 1;
+  $export['extlink_subdomains'] = $strongarm;
+
+  $strongarm = new stdClass;
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'extlink_target';
+  $strongarm->value = '_blank';
+  $export['extlink_target'] = $strongarm;
+
+  $strongarm = new stdClass;
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'languageicons_placement';
   $strongarm->value = 'replace';
   $export['languageicons_placement'] = $strongarm;
