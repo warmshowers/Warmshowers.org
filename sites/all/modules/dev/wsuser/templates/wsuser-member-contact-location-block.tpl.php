@@ -63,10 +63,15 @@
 
 <div class="member-actions"><?php
 if ($account->uid != $GLOBALS['user']->uid) {
-	print theme('linkbutton', array('title' => t('Send Message'), 'href' => 'user/' .  $account->uid . '/contact'));
+	print theme('linkbutton', array(
+      'title' => t('Send Message'),
+      'href' => 'user/' .  $account->uid . '/contact',
+      'classes'=> 'rounded light',
+    )
+  );
 }
 else {
-	print theme('linkbutton', array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit'));
-	print theme('linkbutton', array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location'));
+	print theme('linkbutton', array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit','classes'=> 'rounded light',));
+	print theme('linkbutton', array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location','classes'=> 'rounded light',));
 } ?></div>
 </div>

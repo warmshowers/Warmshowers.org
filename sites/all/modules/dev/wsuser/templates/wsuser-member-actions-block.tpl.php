@@ -26,15 +26,19 @@
 ?>
 
 <?php if (!$is_self):
-  print theme('linkbutton', array(
-    'title' => t('Recommend'),
-    'href' => url('node/add/trust-referral', array(
-      'absolute' => TRUE,
-      'query' => array(
-        'edit[field_member_i_trust][0][uid][uid]' => $username,
+  print theme('linkbutton',
+    array(
+      'title' => t('Recommend'),
+      'href' => url('node/add/trust-referral', array(
+          'absolute' => TRUE,
+          'query' => array(
+            'edit[field_member_i_trust][0][uid][uid]' => $username,
+          ),
+        )
       ),
-    )))
-);
+      'classes' => 'rounded dark big',
+    )
+  );
 endif;
 ?>
 
@@ -43,10 +47,13 @@ endif;
     <div class="flag-description">
       <?php print t('We count on members to say whether another member has been responsive or not. Please click below based on the responsiveness of this member'); ?>
     </div>
-    <?php print flag_create_link('responsive_member', $uid); ?>
-    <?php print flag_create_link('unresponsive_member', $uid); ?>
-  <?php endif; ?>
+    <div class="linkbutton_group"><?php
+    print flag_create_link('responsive_member', $uid);
+    print flag_create_link('unresponsive_member', $uid);
+    ?></div>
 
+  <?php endif; ?>
+  
   <div class="responsive-counts">
     <?php if ($responsive_member): ?>
       <div class="responsive-count">

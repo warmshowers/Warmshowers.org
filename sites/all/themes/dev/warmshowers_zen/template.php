@@ -270,83 +270,15 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
   }
 }
 
-
 /**
- * Override or insert variables into all templates.
- *
- * @param $vars
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered (name of the .tpl.php file.)
+ * Preprocess the classes variable for certain flags
  */
-/* -- Delete this line if you want to use this function
-function warmshowers_zen_preprocess(&$vars, $hook) {
-  $vars['sample_variable'] = t('Lorem ipsum.');
-}
-// */
-
-/**
- * Override or insert variables into the page templates.
- *
- * @param $vars
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("page" in this case.)
- */
-/* -- Delete this line if you want to use this function
-function warmshowers_zen_preprocess_page(&$vars, $hook) {
-  $vars['sample_variable'] = t('Lorem ipsum.');
-
-  // To remove a class from $classes_array, use array_diff().
-  //$vars['classes_array'] = array_diff($vars['classes_array'], array('class-to-remove'));
-}
-// */
-
-/**
- * Override or insert variables into the node templates.
- *
- * @param $vars
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("node" in this case.)
- */
-/* -- Delete this line if you want to use this function
-function warmshowers_zen_preprocess_node(&$vars, $hook) {
-  $vars['sample_variable'] = t('Lorem ipsum.');
-
-  // Optionally, run node-type-specific preprocess functions, like
-  // warmshowers_zen_preprocess_node_page() or warmshowers_zen_preprocess_node_story().
-  $function = __FUNCTION__ . '_' . $vars['node']->type;
-  if (function_exists($function)) {
-    $function($vars, $hook);
+function warmshowers_zen_preprocess_flag(&$variables) {
+  // Add specific link attributes to our responsive buttons
+  switch (@$variables['flag']->name){
+    case "unresponsive_member":
+    case "responsive_member":
+      $variables['flag_classes'] .= " rounded green lgrounded";
+    default: break;
   }
 }
-// */
-
-/**
- * Override or insert variables into the comment templates.
- *
- * @param $vars
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("comment" in this case.)
- */
-/* -- Delete this line if you want to use this function
-function warmshowers_zen_preprocess_comment(&$vars, $hook) {
-  $vars['sample_variable'] = t('Lorem ipsum.');
-}
-// */
-
-/**
- * Override or insert variables into the block templates.
- *
- * @param $vars
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("block" in this case.)
- */
-/* -- Delete this line if you want to use this function
-function warmshowers_zen_preprocess_block(&$vars, $hook) {
-  $vars['sample_variable'] = t('Lorem ipsum.');
-}
-// */
