@@ -551,6 +551,47 @@ function redesign_theme_and_block_context_default_contexts() {
   $context = new stdClass;
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
+  $context->name = 'forums';
+  $context->description = '';
+  $context->tag = 'forums';
+  $context->conditions = array(
+    'node' => array(
+      'values' => array(
+        'forum' => 'forum',
+      ),
+      'options' => array(
+        'node_form' => '0',
+      ),
+    ),
+    'path' => array(
+      'values' => array(
+        'forum' => 'forum',
+        'forum/*' => 'forum/*',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'search-0' => array(
+          'module' => 'search',
+          'delta' => 0,
+          'region' => 'sidebar_second',
+          'weight' => 0,
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 0;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('forums');
+  $export['forums'] = $context;
+
+  $context = new stdClass;
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
   $context->name = 'profile_page';
   $context->description = 'Profile page';
   $context->tag = 'all languages';
