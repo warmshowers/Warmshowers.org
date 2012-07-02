@@ -45,15 +45,15 @@ function redesign_theme_and_block_context_default_contexts() {
           'region' => 'highlight',
           'weight' => 0,
         ),
-        'wsuser-wsuser_member_recommendation' => array(
-          'module' => 'wsuser',
-          'delta' => 'wsuser_member_recommendation',
+        'nodeblock-15986' => array(
+          'module' => 'nodeblock',
+          'delta' => 15986,
           'region' => 'highlight',
           'weight' => 1,
         ),
-        'warmshowers_site-warmshowers_site_social_links' => array(
-          'module' => 'warmshowers_site',
-          'delta' => 'warmshowers_site_social_links',
+        'wsuser-wsuser_member_recommendation' => array(
+          'module' => 'wsuser',
+          'delta' => 'wsuser_member_recommendation',
           'region' => 'highlight',
           'weight' => 2,
         ),
