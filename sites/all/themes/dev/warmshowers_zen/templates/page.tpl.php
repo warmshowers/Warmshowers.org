@@ -159,12 +159,8 @@
         </div>
       </div>
 
-      <div id="signup_login">
-        <?php
-        if (!$logged_in) {
-          print  l(t('Sign up'), 'user/register', array('attributes' => array('class' => 'signup'))) .
-            l(t('Log in'), 'user', array('attributes' => array('class' => 'login')));
-        } ?>
+      <div id="authentication_block" <?php if ($logged_in): ?>class="logged_in"<?php endif; ?>>
+        <?php print $authentication_block; ?>
       </div>
 
       <?php print $header; ?>
