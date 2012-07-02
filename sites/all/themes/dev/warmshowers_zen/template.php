@@ -106,8 +106,8 @@ function warmshowers_zen_preprocess_page(&$variables) {
       l(t('Log in'), 'user', array('attributes' => array('class' => 'login')));
   }
   else {
-   $variables['authentication_block'] = t("Logged in as !name", array('!name' =>
-    l($user->fullname, 'user/' . $user->uid)));
+   $variables['authentication_block'] = t("Logged in as !name | !logout",
+     array('!name' => l($user->fullname, 'user/' . $user->uid), '!logout' => l('logout','logout')));
   }
 }
 
