@@ -92,13 +92,23 @@ function warmshowers_zen_preprocess_page(&$variables) {
   if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
     unset($variables['breadcrumb']);
   }
-  
+
   $directory = path_to_theme().'/css/z_misc/';
   // Add IE styles.
   $query_string = '?'. substr(variable_get('css_js_query_string', '0'), 0, 1);
   $base_path = base_path() . $directory;
   $variables['styles'] .= '<!--[if IE]><link type="text/css" rel="stylesheet" media="all" href="'.$base_path.'ie.css'.$query_string.'" /><![endif]-->
-<!--[if lte IE 6]><link type="text/css" rel="stylesheet" media="all" href="'.$base_path.'ie6.css'.$query_string.'" /><![endif]-->';
+    <!--[if lte IE 6]><link type="text/css" rel="stylesheet" media="all" href="'.$base_path.'ie6.css'.$query_string.'" /><![endif]-->';
+
+  // Add links to login, or if logged in, add link to profile
+  if (!$variables['logged_in']) {
+    $variables['authentication_block'] =  l(t('Sign up'), 'user/register', array('attributes' => array('class' => 'signup'))) .
+      l(t('Log in'), 'user', array('attributes' => array('class' => 'login')));
+  }
+  else {
+   $variables['authentication_block'] = t("Logged in as !name", array('!name' =>
+    l($user->fullname, 'user/' . $user->uid)));
+  }
 }
 
 /**
