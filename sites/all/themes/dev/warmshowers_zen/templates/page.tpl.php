@@ -160,7 +160,9 @@
       </div>
 
       <div id="authentication_block" <?php if ($logged_in): ?>class="logged_in"<?php endif; ?>>
-        <?php print $authentication_block; ?>
+        <div id="authentication_block_wrapper" class="clearfix">
+          <?php print $authentication_block; ?>
+        </div>
       </div>
 
       <?php print $header; ?>
