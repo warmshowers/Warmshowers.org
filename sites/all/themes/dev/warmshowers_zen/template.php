@@ -92,6 +92,13 @@ function warmshowers_zen_preprocess_page(&$variables) {
   if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
     unset($variables['breadcrumb']);
   }
+  
+  $directory = path_to_theme().'/css/z_misc/';
+  // Add IE styles.
+  $query_string = '?'. substr(variable_get('css_js_query_string', '0'), 0, 1);
+  $base_path = base_path() . $directory;
+  $variables['styles'] .= '<!--[if IE]><link type="text/css" rel="stylesheet" media="all" href="'.$base_path.'ie.css'.$query_string.'" /><![endif]-->
+<!--[if lte IE 6]><link type="text/css" rel="stylesheet" media="all" href="'.$base_path.'ie6.css'.$query_string.'" /><![endif]-->';
 }
 
 /**
