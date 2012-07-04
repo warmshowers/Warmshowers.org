@@ -122,7 +122,7 @@
     <div id="skip-link"><a href="#main-menu"><?php print t('Jump to Navigation'); ?></a></div>
   <?php endif; ?>
 
-  <div id="header-style"><div id="header-wrapper">
+  <div id="header-style" class="<?php print $classes; ?>"><div id="header-wrapper">
 
     <div id="header"><div class="section clearfix">
       <div id="logotitle">
@@ -170,7 +170,7 @@
     </div></div><!-- /.section, /#header -->
 
   </div></div> <!-- /#header-wrapper, /#header-style -->
-  <div id="page-wrapper"><div id="page">
+  <div id="page-wrapper" class="<?php print $classes; ?>"><div id="page">
 
     <?php if ($is_front && !$logged_in) {
         echo '<div id="highlight_wrapper_anon">';
@@ -237,7 +237,7 @@
     </div></div><!-- /#main, /#main-wrapper -->
 
     <?php if ($footer || $footer_message || $secondary_links): ?>
-      <div id="footer"><div class="section">
+      <div id="footer" class="<?php print $classes; ?>"><div class="section">
         <h2 class="title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
         <ul class="social">
             <li><a href="https://www.facebook.com/groups/135049549858210/" class="social_fb" title="<?php print t("Follow Warm Showers on"); ?> Facebook"></a></li>
