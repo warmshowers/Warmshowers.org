@@ -1,0 +1,158 @@
+<?php
+
+
+/**
+ * This is the name of the display plugin that rules_executor module provides.
+ */
+define('RULES_VIEWS_EXECUTOR_DISPLAY_PLUGIN', 'rules_views_executor');
+
+/**
+ * Implementation of hook_views_api().
+ */
+function rules_views_views_api() {
+  return array(
+    'api' => 2,
+  );
+}
+
+/**
+ * Theme the rule set view.
+ *
+ * Instead of setting ourselves up for rendering into HTML we return an array of
+ * usefully rendered fields for the row style handler to use. You probably don't
+ * want to override this theme function ever.
+ */
+function theme_rules_views_executor_view_ruleset($view = NULL, $options = NULL, $row = NULL, $field_alias = NULL) {
+  // Loop through the fields for this view.
+  $fields = array(); // ensure it's at least an empty array.
+  foreach ($view->field as $id => $field) {
+    // render this even if set to exclude so it can be used elsewhere.
+    $field_output = $view->style_plugin->get_field($view->row_index, $id);
+    $empty = $field_output !== 0 && empty($field_output);
+    if (empty($field->options['exclude']) && (!$empty || empty($field->options['hide_empty']))) {
+      $object = new stdClass();
+      $object->content = $field_output;
+      $object->handler = &$view->field[$id];
+      $fields[$id] = $object;
+    }
+  }
+
+  return $fields;
+}
+
+/**
+ * Executes a given rule set with the arguments given.
+ *
+ * @param $rule_set
+ *   The machine name of the rule set to execute.
+ * @param $arguments_parameters
+ *   An associative array of arguments for the rule set, these should be the
+ *   identifiers as this function will do any loading needed.
+ * @param $username
+ *   An optional username of a user that will execute the rule.
+ * @param $permissions
+ *   If the $username parameter causes a new user to be created, it will be
+ *   created with the permissions given in this array.
+ */
+function rules_views_executor_execute_ruleset($rule_set, $arguments_parameters, $username = 'Rules executor', $permissions = NULL) {
+  global $user;
+
+  module_load_include('inc', 'rules', 'rules.data_types');
+
+  $created_account = FALSE;
+  // Try to load the user first:
+  if ($account = user_load(array('name' => $username))) {
+
+  }
+  else {
+    $account = rules_views_executor_create_temp_user($username, $permissions);
+    $created_account = TRUE;
+  }
+  $previous_uid = $user->uid;
+  session_save_session(FALSE);
+  $user = $account;
+
+  $ruleset = rules_get_rule_sets($rule_set);
+  if ($ruleset) {
+    $arguments = isset($ruleset['arguments']) ? $ruleset['arguments'] : array();
+    $arguments_values = array();
+
+    // Load the arguments to the rule set:
+    foreach ($arguments as $arg_id => $argument) {
+      $rules_data_type = rules_get_data_types($argument['type']);
+      $this_rules_data_type = new $rules_data_type['class'];
+      $this_rules_data_type->construct($argument['type']);
+      if ($this_rules_data_type->is_identifiable()) {
+        $arguments_values[$arg_id] = $this_rules_data_type->load($arguments_parameters[$arg_id]);
+      }
+      else {
+        $arguments_values[$arg_id] = $arguments_parameters[$arg_id];
+      }
+    }
+    rules_invoke_rule_set($rule_set, $arguments_values);
+  }
+
+  // Change the user back:
+  $user = user_load(array('uid' => $previous_uid));
+  session_save_session(TRUE);
+  if ($created_account) {
+    rules_views_executor_remove_temp_user($account);
+  }
+}
+
+/**
+ * Creates a new temporary user with the given permissions.
+ *
+ * @param $username
+ *   The username of the user to create.
+ * @param $permissions
+ *   An array of permissions to grant to the user when they are created.
+ * @return
+ *   The user account object of the user that was created.
+ */
+function rules_views_executor_create_temp_user($username, $permissions = NULL) {
+  if (is_null($permissions)) {
+    $permissions = array(
+      'access comments',
+      'administer comments',
+      'access content',
+      'administer nodes',
+      'administer users',
+    );
+  }
+  $permissions = array_filter($permissions);
+  sort($permissions);
+
+  // Create a temporary role to give the user:
+  $role_name = user_password(10);
+  db_query("INSERT INTO {role} (name) VALUES ('%s')", $role_name);
+  $role_id = db_result(db_query("SELECT rid FROM {role} WHERE name = '%s'", $role_name));
+
+  db_query("INSERT INTO {permission} (rid, perm) VALUES (%d, '%s')", $role_id, implode(', ', $permissions));
+
+  $edit = array();
+  $edit['name']   = $username;
+  $edit['roles']  = array($role_id => $role_name);
+  $edit['mail']   = $username . '@example.com';
+  $edit['pass']   = user_password();
+
+  $account = user_save('', $edit);
+  return $account;
+}
+
+/**
+ * Removes the given user, and any temporary roles they may have had.
+ *
+ * @param $account
+ *   The user account to delete.
+ */
+function rules_views_executor_remove_temp_user($account) {
+  // Get the role that this user has (which we created earlier)
+  $rid = max(array_keys($account->roles));
+  if ($rid > DRUPAL_AUTHENTICATED_RID) {
+    db_query('DELETE FROM {role} WHERE rid = %d', $rid);
+    db_query('DELETE FROM {permission} WHERE rid = %d', $rid);
+  }
+
+  user_delete(array(), $account->uid);
+}
