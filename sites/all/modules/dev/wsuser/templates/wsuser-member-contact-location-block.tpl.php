@@ -24,7 +24,7 @@
 ?>
 
 <div class="member-map">
-	<a class="thickbox" href="/maponly/uid=<?php print $uid; ?>?KeepThis=true&TB_iframe=true&height=600&width=800" accesskey="" >
+	<a class="colorbox-load" href="/maponly/<?php print "$uid/8"; ?>?height=90%&width=90%&iframe=true" accesskey="" >
 		<img src="http://maps.googleapis.com/maps/api/staticmap?zoom=8&size=240x220&sensor=false&markers=color:blue%7Clabel:S%7C <?php print $latitude . ',' . $longitude; ?>" />
 	</a>
 </div>

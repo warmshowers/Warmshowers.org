@@ -15,6 +15,7 @@ var mapStatus; // (object) initial Location to be used when presenting map.
 var advcycl; // Overlay for advcycling stuff
 
 var mapwidth; // Integer percent
+var userInfo; // If map is to center on a user, set here.
 
 var debug = false;
 //var debug=true;
@@ -71,6 +72,7 @@ function wsmap_main_load_entry() {
     loggedin = Drupal.settings.wsmap.loggedin;
     mapwidth = Drupal.settings.wsmap.mapwidth; // Integer percent
     base_path = Drupal.settings.wsmap.base_path;
+    userInfo = Drupal.settings.wsmap.userInfo;
 
     $(window).resize(map_resize);
     map_resize();
@@ -123,9 +125,8 @@ function wsmap_main_load_entry() {
     });
 
 
-    if ($('#showuser').length) {
-      var user = $('#showuser');
-      zoomToUser(user.attr('uid'), user.attr('latitude'), user.attr('longitude'), 7);
+    if (userInfo && userInfo.uid) {
+      zoomToUser(userInfo.uid, userInfo.latitude, userInfo.longitude, 10);
     }
 
 
@@ -142,7 +143,7 @@ function wsmap_main_load_entry() {
         zoom:map.getZoom()
       };
 
-      $.cookie('mapStatus', JSON.stringify(mapStatus), {expires:cookieExpiration});
+      $.cookie('mapStatus', JSON.stringify(mapStatus), {expires:cookieExpiration, path: '/'});
 
     });
     loadMarkers();
@@ -267,15 +268,17 @@ function RequestChecker(request) {
 
 function makePopupHtml(host) {
   var txt;
-  var style = "";
-  if (loggedin) {
-    txt = '<table style="' + style + '" ><tbody><tr><td><b><a href="/user/' + host.uid + '">' + host.name + '</a>' + '</b><br/> ' + host.city + ", " + host.prov + ", " + host.country + '</td></tr><tr><td><a href="/user/' + host.uid + '/contact" target="_blank">' + Drupal.t('Click to email') + '</a><td></tr></tbody></table>';
-  } else {
-    txt = '<table style="' + style + '" ><tbody><tr><td>' + host.city + ", " + host.prov + ", " + host.country + '</td></tr><tr><td>' + Drupal.t('<a href="/user/login">Log in</a> or <a href="/user/register">register</a> to get more info') + '.</td></tr></tbody></table>';
+  txt = '<table class="map-marker"><tbody>'
+  if (host.na) {
+    txt += '<tr><td>' + Drupal.t("Approx member location") + '</td></tr><tr><td>(' + Drupal.t('Not currently available') + ')</td></tr>';
   }
+  else if (loggedin) {
+    txt += '<tr><td><b><a href="/user/' + host.uid + '">' + host.name + '</a>' + '</b><br/> ' + host.city + ", " + host.prov + ", " + host.country + '</td></tr><tr><td><a href="/user/' + host.uid + '/contact" target="_blank">' + Drupal.t('Click to email') + '</a><td></tr>';
+  } else {
+    txt = '<tr><td>' + host.city + ", " + host.prov + ", " + host.country + '</td></tr><tr><td>' + Drupal.t('<a href="/user/login">Log in</a> or <a href="/user/register">register</a> to get more info') + '.</td></tr>';
+  }
+  txt += '</tbody></table>';
   return txt;
-
-
 }
 
 /************************************************************\
@@ -408,15 +411,18 @@ function zoomToUser(uid, latitude, longitude, zoom) {
       GEvent.removeListener(loadMarkersListener);
       var host = hosts[uid];
 
-      if (!host) {
-        map.openInfoWindowHtml(
-          map.getCenter(),
-          Drupal.t("User's general location<br/>(Not currently available to host)"), {maxWidth:220});
-        return;
-      }
 
-      txt = makePopupHtml(host);
-      host.marker.openInfoWindowHtml(txt, {maxWidth:220});
+      if (!host) {
+        host = {
+          marker: new GMarker(map.getCenter(), redIcon),
+          location: map.getCenter(),
+          na: 1
+        };
+        clusterer.AddMarker(host.marker, Drupal.t('Unvailable member'));
+      }
+      var txt = makePopupHtml(host);
+
+      host.marker.openInfoWindowHtml(txt, { maxWidth: 220 });
     });
 
     loadMarkers();

@@ -54,8 +54,7 @@ function user_view_map()
 // @todo: CLEAN UP PHP->HTML->JS (cut out HTML step)
 // @todo: Remove unneeded variables, comments, and HTML
 // @todo: Put in template or make it nicer to read here
-function wsmap_view()
-{
+function wsmap_view($uid = NULL, $zoom = 0) {
 
   // Add jquery.cookie.
   $cookie_path = libraries_get_path('jquery.cookie');
@@ -68,6 +67,9 @@ function wsmap_view()
   drupal_add_js($wsmap_path . '/clusterer/MapUtils.js');
   drupal_add_js($wsmap_path . '/clusterer/OverlayMessage.js');
   drupal_add_js($wsmap_path . '/clusterer/Clusterer2.js');
+
+  // JSON not supported in IE6/IE7, so we'll add conditional view of it.
+  drupal_add_js($wsmap_path . '/js/json2.js');
   drupal_add_js($wsmap_path . '/js//wsmap_clusterer.js');
   drupal_add_js($wsmap_path . '/js/wsmap_map_behaviors.js');
   drupal_add_js('misc/autocomplete.js');
@@ -75,20 +77,34 @@ function wsmap_view()
   if (!($default_location = location_get_browser_location())) {
     $default_location = location_country_position_from_country('us'); // Have to start them somewhere
   }
+  if (!empty($uid)) {
+    $account = user_load($uid);
+    $default_location->latitude = $account->latitude;
+    $default_location->longitude = $account->longitude;
+    $default_location->zoom = $zoom;
+  }
 
-  $js_settings = array(
-    'wsmap' => array(
-      'mapdata_source' => url('wsmap_xml_hosts', array('absolute' => TRUE)),
-      'base_path' => base_path() . $wsmap_path,
-      'defaultLocation' => array(
-        'latitude' => round($default_location->latitude),
-        'longitude' => round($default_location->longitude),
-        'zoom' => $default_location->defaultzoom,
-      ),
-      'loggedin' => user_access('access map detail'),
-      'mapwidth' => 100,
+  $js_settings['wsmap'] = array(
+    'mapdata_source' => url('wsmap_xml_hosts', array('absolute' => TRUE)),
+    'base_path' => base_path() . $wsmap_path,
+    'defaultLocation' => array(
+      'latitude' => round($default_location->latitude),
+      'longitude' => round($default_location->longitude),
+      'zoom' => $default_location->defaultzoom,
     ),
+    'loggedin' => user_access('access map detail'),
+    'mapwidth' => 100,
   );
+
+  if ($uid) {
+    $account = user_load($uid);
+    $js_settings['wsmap']['userInfo'] = array(
+      'uid' => $account->uid,
+      'latitude' => $account->latitude,
+      'longitude' => $account->longitude,
+      'zoom' => $account->zoom,
+    );
+  }
   drupal_add_js($js_settings, 'setting');
 
   drupal_set_html_head('<script src="http://maps.google.com/maps?file=api&v=2&key=' . variable_get('user_location_google_key', '') . '"  type="text/javascript"></script>');
@@ -109,15 +125,6 @@ function wsmap_view()
 		         I hacked this to set the left value in wsmap_clusterer.js.
 		     -->
 	</div> <!-- mapframe -->";
-
-  if ($showuser = wsmap_get_user_arg()) {
-    $userobj = user_load(array('uid' => $showuser));
-    if ($userobj) {
-      $output .= '<div id="showuser" style="visible:false" uid="' . $showuser
-        . '" latitude="' . $userobj->latitude . '" longitude="' . $userobj->longitude
-        . '"country="' . $userobj->country . '"></div>';
-    }
-  }
 
   return $output;
 }
@@ -161,19 +168,6 @@ function wsmap_search_form()
 
   return $form;
 
-}
-
-function wsmap_get_user_arg()
-{
-
-  $arg1 = arg(1);
-  if (strlen($arg1)) {
-    $args = explode("=", $arg1);
-  }
-  if ($args[0] == "uid" && $args[1] > 0) {
-    return 0 + $args[1];
-  }
-  return;
 }
 
 
@@ -273,6 +267,7 @@ function wsmap_xml_hosts()
     print 'la="' . $row['latitude'] . '" ';
     print 'ln="' . $row['longitude'] . '" ';
     print 'd="' . $row['distance'] . '" ';
+    print 'a="' . $row['notcurrentlyavailable'] . '" ';
 
     print " />\n";
     // if ($maxresults && $count < $totalresults) { $status="incomplete"; break; }
