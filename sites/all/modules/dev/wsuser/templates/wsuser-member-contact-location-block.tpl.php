@@ -25,7 +25,7 @@
 
 <div class="member-map">
 	<a class="colorbox-load" href="/maponly/<?php print "$uid/8"; ?>?height=90%&width=90%&iframe=true" accesskey="" >
-		<img src="http://maps.googleapis.com/maps/api/staticmap?zoom=8&size=240x220&sensor=false&markers=color:blue%7Clabel:S%7C <?php print $latitude . ',' . $longitude; ?>" />
+		<img title="<?php print t('Click for more detail and nearby hosts'); ?>" alt="<?php print t('Location map');?>" src="http://maps.googleapis.com/maps/api/staticmap?zoom=8&size=240x220&sensor=false&markers=color:blue%7Clabel:S%7C <?php print $latitude . ',' . $longitude; ?>" />
 	</a>
 </div>
 
