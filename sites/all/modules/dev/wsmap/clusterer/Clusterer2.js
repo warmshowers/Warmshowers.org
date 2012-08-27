@@ -25,7 +25,7 @@
 // http://www.acme.com/javascript/
 //
 //
-// Copyright © 2005,2006 by Jef Poskanzer <jef@mail.acme.com>.
+// Copyright ï¿½ 2005,2006 by Jef Poskanzer <jef@mail.acme.com>.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -203,8 +203,8 @@ Clusterer.Display = function ( clusterer )
     var dx = ne.lng() - sw.lng();
     if (dx<0) { dx = 360-sw.lng() + ne.lng() }  // rfay 2007-10-10 adjust for around 180 degrees longitude
     var dy = ne.lat() - sw.lat();
-    
-    
+
+
     if ( dx < 300 && dy < 150 )
 	{
 	dx *= 0.10;
@@ -384,35 +384,33 @@ Clusterer.Display = function ( clusterer )
     };
 
 
-Clusterer.PopUp = function ( cluster )
-    {
-    var clusterer = cluster.clusterer;
-    var html = '<table width="300">';
-    var n = 0;
-    for ( var i = 0; i < cluster.markers.length; ++i )
-	{
-	var marker = cluster.markers[i];
-	if ( marker != null )
-	    {
-	    ++n;
-	    html += '<tr><td>';
-	    if ( marker.getIcon().smallImage != null )
-		html += '<img src="' + marker.getIcon().smallImage + '">';
-	    else
-		html += '<img src="' + marker.getIcon().image + '" width="' + ( marker.getIcon().iconSize.width / 2 ) + '" height="' + ( marker.getIcon().iconSize.height / 2 ) + '">';
-	    html += '</td><td>' + marker.title + '</td></tr>';
-	    if ( n == clusterer.maxLinesPerInfoBox - 1 && cluster.markerCount > clusterer.maxLinesPerInfoBox  )
-		{
-		html += '<tr><td colspan="2">...and ' + ( cluster.markerCount - n ) + ' more</td></tr>';
-		break;
-		}
-	    }
-	}
-    html += '</table>';
-    clusterer.map.closeInfoWindow();
-    cluster.marker.openInfoWindowHtml( html );
-    clusterer.poppedUpCluster = cluster;
-    };
+Clusterer.PopUp = function (cluster) {
+  var clusterer = cluster.clusterer;
+  var html = '<table width="300">';
+  var n = 0;
+  for (var i = 0; i < cluster.markers.length; ++i) {
+    var marker = cluster.markers[i];
+    if (marker != null) {
+      ++n;
+      html += '<tr><td>';
+      if (marker.getIcon().smallImage != null)
+        html += '<img src="' + marker.getIcon().smallImage + '">';
+      else
+        html += '<img src="' + marker.getIcon().image + '" width="' + ( marker.getIcon().iconSize.width / 2 ) + '" height="' + ( marker.getIcon().iconSize.height / 2 ) + '">';
+      html += '</td><td>' + marker.title + '</td></tr>';
+      if (n == clusterer.maxLinesPerInfoBox - 1 && cluster.markerCount > clusterer.maxLinesPerInfoBox) {
+        html += '<tr><td colspan="2">...' + Drupal.t('and %num more', {'%num' : cluster.markerCount - n } ) + '</td></tr>';
+        break;
+      }
+    }
+  }
+  html += '<tr><td colspan="2"><em>' + Drupal.t('Zoom in on the map to see individual hosts and their locations.') + '</em></td></tr>';
+
+  html += '</table>';
+  clusterer.map.closeInfoWindow();
+  cluster.marker.openInfoWindowHtml(html);
+  clusterer.poppedUpCluster = cluster;
+};
 
 
 Clusterer.RePop = function ( clusterer )
