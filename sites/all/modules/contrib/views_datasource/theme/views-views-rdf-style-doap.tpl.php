@@ -1,5 +1,4 @@
 <?php
-// $Id: views-views-rdf-style-doap.tpl.php,v 1.1.2.1 2010/07/16 04:39:03 allisterbeharry Exp $
 /**
  * @file views-views-rdf-style-doap.tpl.php
  * Default template for the Views RDF style plugin using the DOAP vocabulary

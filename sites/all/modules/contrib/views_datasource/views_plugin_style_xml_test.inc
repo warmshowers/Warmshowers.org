@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_style_xml_test.inc,v 1.1.2.1 2010/01/25 00:22:02 allisterbeharry Exp $
 
 /**
  * @file

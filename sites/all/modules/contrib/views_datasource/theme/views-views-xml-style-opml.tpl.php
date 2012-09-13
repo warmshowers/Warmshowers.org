@@ -1,5 +1,4 @@
 <?php
-// $Id: views-views-xml-style-opml.tpl.php,v 1.1.2.4 2010/06/07 03:27:07 allisterbeharry Exp $
 /**
  * @file views-views-xml-style-opml.tpl.php
  * Default template for the Views XML style plugin using the OPML schema

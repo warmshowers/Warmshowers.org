@@ -1,5 +1,4 @@
 <?php
-// $Id: views-views-xml-style-atom.tpl.php,v 1.1.2.5 2010/07/15 22:53:41 allisterbeharry Exp $
 /**
  * @file views-views-xml-style-atom.tpl.php
  * Default template for the Views XML style plugin using the Atom schema

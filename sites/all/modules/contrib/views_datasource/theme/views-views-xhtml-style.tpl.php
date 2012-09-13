@@ -1,5 +1,4 @@
 <?php
-// $Id: views-views-xhtml-style.tpl.php,v 1.1.2.1 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file views-views-xhtml-style.tpl.php

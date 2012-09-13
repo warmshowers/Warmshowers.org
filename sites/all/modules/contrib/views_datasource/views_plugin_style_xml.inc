@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_style_xml.inc,v 1.1.2.15 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file
@@ -26,6 +25,7 @@ class views_plugin_style_xml extends views_plugin_style {
     /*$options['skip_empty_fields'] = array('default' => TRUE, 'translatable' => FALSE);*/
     $options['element_output'] = array('default' => 'nested', 'translatable' => FALSE);
     $options['escape_as_CDATA'] = array('default' => 'no', 'translatable' => FALSE);
+    $options['fallback_empty_label'] = array('default' => 'field', 'translatable' => FALSE);
     $options['content_type'] = array('default' => 'text/xml', 'translatable' => FALSE);
     $options['header'] = array('default' => NULL, 'translatable' => FALSE);
     $options['author'] = array('default' => $user->name, 'translatable' => FALSE);
@@ -103,7 +103,15 @@ class views_plugin_style_xml extends views_plugin_style {
       '#title' => 'XML document header',
       '#description' => 'You can use this to place any additional lines you want after the document declaration (like !DOCTYPE.)',
       '#default_value' => $this->options['header'], 
-      );
+    );
+    /*
+    $form['fallback_empty_label'] = array (
+      '#type' => 'textfield',
+      '#title' => 'Fallback for empty label',
+      '#description' => 'If the element label is empty, use this string.',
+      '#default_value' => $this->options['fallback_empty_label'], 
+    );
+    */           
     $form['content_type'] = array(
       '#type'           => 'radios',
       '#title'          => ('Content-Type'),

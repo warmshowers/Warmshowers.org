@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_style_rdf.inc,v 1.1.2.13 2010/07/16 04:39:03 allisterbeharry Exp $
 
 /**
  * @file

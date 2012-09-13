@@ -1,5 +1,4 @@
 <?php
-//$Id: views-views-json-style-simple.tpl.php,v 1.1.2.4 2010/07/15 07:34:48 allisterbeharry Exp $
 /**
  * @file views-views-json-style-simple.tpl.php
  * Default template for the Views JSON style plugin using the simple format

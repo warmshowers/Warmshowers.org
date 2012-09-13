@@ -1,5 +1,4 @@
 <?php
-// $Id: views_plugin_style_json.inc,v 1.1.2.11 2010/07/15 07:34:48 allisterbeharry Exp $
 
 /**
  * @file

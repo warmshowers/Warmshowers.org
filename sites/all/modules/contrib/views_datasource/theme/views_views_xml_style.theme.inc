@@ -1,5 +1,4 @@
 <?php
-// $Id: views_views_xml_style.theme.inc,v 1.1.2.15 2010/07/15 22:53:41 allisterbeharry Exp $
 
 /**
  * @file
@@ -53,6 +52,7 @@ function template_preprocess_views_views_xml_style_raw($vars) {
 		    	foreach($object->raw as $n=>$oc) $content[$n] = ($plaintext_output ? check_plain(html_entity_decode(strip_tags($oc))) : _views_xml_xmlEntities($oc));
 		    }
 		  }
+		  //if (!$label) $label = $options['fallback_empty_label'];
 		  $endlabel = preg_replace("/\s+.*/", "", $label);
 		  if ($options['element_output'] == 'nested') {		  	
 			  if (!is_array($content)) {
