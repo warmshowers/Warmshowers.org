@@ -72,9 +72,39 @@ function warmshowers_zen_theme(&$existing, $type, $theme, $path) {
     'arguments' => array('form' => NULL),
     'path' => drupal_get_path('theme', 'warmshowers_zen') . '/templates',
   );
+  // Theme colorbox but with no gallery.
+  $hooks['colorbox_imagefield_no_gallery'] = array(
+    'arguments' => array('namespace' => NULL, 'path' => NULL, 'alt' => NULL, 'title' => NULL, 'gid' => NULL, 'field_name' => NULL, 'attributes' => NULL),
+  );
   return $hooks;
 }
 
+/**
+ * Copies from theme_colorbox_imagefield(), but with no rel= that creates gallery.
+ *
+ * @param $presetname
+ * @param $path
+ * @param string $alt
+ * @param string $title
+ * @param string $gid
+ * @param string $field_name
+ * @param null $attributes
+ * @return string
+ */
+function warmshowers_zen_colorbox_imagefield_no_gallery($presetname, $path, $alt = '', $title = '', $gid = '', $field_name = '', $attributes = NULL) {
+  if (!empty($path)) {
+    $image = theme('imagecache', $presetname, $path, $alt, $title, $attributes);
+    if ($colorbox_presetname = variable_get('colorbox_imagecache_preset', 0)) {
+      $link_path = imagecache_create_url($colorbox_presetname, $path);
+    }
+    else {
+      $link_path = file_create_url($path);
+    }
+    $class = 'colorbox imagefield imagefield-imagelink imagefield-'. $field_name;
+
+    return l($image, $link_path, array('html' => TRUE, 'attributes' => array('title' => $title, 'class' => $class)));
+  }
+}
 /**
  * Implementation of hook_preprocess_page().
  */
@@ -205,8 +235,9 @@ function warmshowers_zen_username($object) {
 /**
  * Override template_preprocess_user_picture().
  *
- * Copied from imagecache_profiles.module and adjusted for thickbox.
- * Requires thickbox and imagecache_profiles modules.
+ * Copied from imagecache_profiles.module
+ * (imagecache_profiles_preprocess_user_picture) and adjusted for colorbox.
+ * Requires colorbox and imagecache_profiles modules.
  *
  * @param $variables
  */
@@ -214,58 +245,34 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
   $default = $variables['picture'];
   if (variable_get('user_pictures', 0)) {
     $account = $variables['account'];
-    // Determine imagecache preset to use for user profile picture
-    // First let's determine if we have a default imagecache preset
-    if (variable_get('user_picture_imagecache_profiles_default', 0)) {
-      // Define default user picture size
-      $size = variable_get('user_picture_imagecache_profiles_default', 0);
-    }
-    // If on user profile page.
-    if (arg(0) == 'user') {
-      // Only show profile image for profile page, and edit account form,
-      // not user/123/relationships or other module define pages.
-      if (arg(2) == NULL || arg(2) == 'edit') {
-        if (is_numeric(arg(1)) || (module_exists('me') && arg(1) == me_variable_get('me_alias'))) {
-          if (variable_get('user_picture_imagecache_profiles', 0)) {
-            $size = variable_get('user_picture_imagecache_profiles', 0);
-          }
-        }
-      }
-    }
-    // If viewing a comment
-    if (is_object($account) && array_key_exists('cid', get_object_vars($account))) {
-      if (variable_get('user_picture_imagecache_comments', 0)) {
-        $size = variable_get('user_picture_imagecache_comments', 0);
-      }
-    }
 
-    // If views set an imagecache preset
     if (isset($account->imagecache_preset)) {
-      $size = $account->imagecache_preset;
+      // Manually set preset (e.g. Views)
+      $preset = $account->imagecache_preset;
+    }
+    elseif (variable_get('user_picture_imagecache_profiles_default', '')) {
+      // Default user picture preset.
+      $preset = variable_get('user_picture_imagecache_profiles_default', '');
     }
 
     if (!empty($account->picture) && file_exists($account->picture)) {
       $picture = $account->picture;
     }
-    else if (variable_get('user_picture_default', '')) {
+    elseif (variable_get('user_picture_default', '')) {
       $picture = variable_get('user_picture_default', '');
     }
 
     if (isset($picture)) {
       $alt = t("@user's picture", array('@user' => $account->name ? $account->name : variable_get('anonymous', t('Anonymous'))));
-      $preset = is_numeric($size) ? imagecache_preset($size) : imagecache_preset_by_name($size);
+      if (isset($preset)) {
+        $preset = is_numeric($preset) ? imagecache_preset($preset) : imagecache_preset_by_name($preset);
+      }
       if (empty($preset)) {
         $variables['picture'] = $default; //theme('image', $picture, $alt, $alt, '', FALSE);
       }
       else {
-        if (!empty($account->uid) && user_access('access user profiles')) {
-          $title = check_plain($account->fullname);
-          $attributes = array('attributes' => array('title' => $title), 'html' => TRUE);
-          $image = theme('imagefield_image_imagecache_thickbox', $preset['presetname'], $picture, $alt, $title);
-          $variables['picture'] = l($image, "user/$account->uid", $attributes);
-        }
-        else {
-          $variables['picture'] = theme('imagefield_image_imagecache_thickbox', $preset['presetname'], $picture, $alt, $alt);
+        if (!empty($account->uid)) {
+          $variables['picture'] = theme('colorbox_imagefield_no_gallery', $preset['presetname'], $picture, $alt, $alt);
         }
       }
     }
