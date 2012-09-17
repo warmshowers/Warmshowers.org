@@ -1,5 +1,4 @@
 <?php
-// ; $Id: imagecache_profiles.module,v 1.4.2.16 2010/03/25 10:58:23 andypost Exp $
 
 /**
  * Implements hook_help().
@@ -26,54 +25,38 @@ function imagecache_profiles_preprocess_user_picture(&$variables) {
   $default = $variables['picture'];
   if (variable_get('user_pictures', 0)) {
     $account = $variables['account'];
-    // Determine imagecache preset to use for user profile picture
-    // First let's determine if we have a default imagecache preset
-    if (variable_get('user_picture_imagecache_profiles_default', 0)) {
-      // Define default user picture size
-      $size = variable_get('user_picture_imagecache_profiles_default', 0);
-    }
-    // If on user profile page.
-    if (arg(0) == 'user') {
-      // Only show profile image for profile page, and edit account form,
-      // not user/123/relationships or other module define pages.
-      if (arg(2) == NULL || arg(2) == 'edit') {
-        if (is_numeric(arg(1)) || (module_exists('me') && arg(1) == me_variable_get('me_alias'))) {
-          if (variable_get('user_picture_imagecache_profiles', 0)) {
-            $size = variable_get('user_picture_imagecache_profiles', 0);
-          }
-        }
-      }
-    }
-    // If viewing a comment
-    if (is_object($account) && array_key_exists('cid', get_object_vars($account))) {
-      if (variable_get('user_picture_imagecache_comments', 0)) {
-        $size = variable_get('user_picture_imagecache_comments', 0);
-      }
-    }
 
-    // If views set an imagecache preset
     if (isset($account->imagecache_preset)) {
-      $size = $account->imagecache_preset;
+      // Manually set preset (e.g. Views)
+      $preset = $account->imagecache_preset;
+    }
+    elseif (variable_get('user_picture_imagecache_profiles_default', '')) {
+      // Default user picture preset.
+      $preset = variable_get('user_picture_imagecache_profiles_default', '');
     }
 
     if (!empty($account->picture) && file_exists($account->picture)) {
       $picture = $account->picture;
     }
-    else if (variable_get('user_picture_default', '')) {
+    elseif (variable_get('user_picture_default', '')) {
       $picture = variable_get('user_picture_default', '');
     }
 
     if (isset($picture)) {
       $alt = t("@user's picture", array('@user' => $account->name ? $account->name : variable_get('anonymous', t('Anonymous'))));
-      $preset = is_numeric($size) ? imagecache_preset($size) : imagecache_preset_by_name($size);
+      if (isset($preset)) {
+        $preset = is_numeric($preset) ? imagecache_preset($preset) : imagecache_preset_by_name($preset);
+      }
       if (empty($preset)) {
         $variables['picture'] = $default; //theme('image', $picture, $alt, $alt, '', FALSE);
       }
       else {
         if (!empty($account->uid) && user_access('access user profiles')) {
-          $title = t('View user profile.');
-          $attributes = array('attributes' => array('title' => $title), 'html' => TRUE);
-          $image = theme('imagecache', $preset['presetname'], $picture, $alt, $title);
+          $attributes = array(
+            'attributes' => array('title' => t('View user profile.')),
+            'html' => TRUE,
+          );
+          $image = theme('imagecache', $preset['presetname'], $picture, $alt, $alt);
           $variables['picture'] = l($image, "user/$account->uid", $attributes);
         }
         else {
@@ -109,6 +92,14 @@ function imagecache_profiles_form_user_admin_settings_alter(&$form, $form_state)
     '#default_value' => variable_get('user_picture_imagecache_comments', ''),
     '#options' => $presets,
     '#description' => t("This will set the picture size when viewing a comment post."),
+  );
+
+  $form['pictures']['settings']['user_picture_imagecache_nodes'] = array(
+    '#type' => 'select',
+    '#title' => t('Node picture preset'),
+    '#default_value' => variable_get('user_picture_imagecache_nodes', ''),
+    '#options' => $presets,
+    '#description' => t("This will set the picture size when viewing a node post."),
   );
 
   $form['pictures']['settings']['user_picture_imagecache_profiles_default'] = array(
@@ -185,6 +176,7 @@ function _imagecache_profiles_change_variables($preset, $delete = FALSE) {
   $vars = array(
     'user_picture_imagecache_profiles' => t('Profile picture preset'),
     'user_picture_imagecache_comments' => t('Comment picture preset'),
+    'user_picture_imagecache_nodes' => t('Node picture preset'),
     'user_picture_imagecache_profiles_default' => t('Default picture preset'),
   );
   $presetid = $preset['presetid'];
@@ -194,12 +186,12 @@ function _imagecache_profiles_change_variables($preset, $delete = FALSE) {
   foreach ($vars as $key => $param) {
     $value = variable_get($key, '');
     if (!empty($value)) {
-    	if (is_numeric($value) && $value == $presetid) {
-    	  $messages[$key] = $param;
-    	}
-    	else if ($value == $presetname) {
-    		$messages[$key] = $param;
-    	}
+      if (is_numeric($value) && $value == $presetid) {
+        $messages[$key] = $param;
+      }
+      else if ($value == $presetname) {
+        $messages[$key] = $param;
+      }
     }
   }
   // Update variables and notify user.
@@ -208,10 +200,10 @@ function _imagecache_profiles_change_variables($preset, $delete = FALSE) {
       variable_del($var);
       drupal_set_message(t('The imagecache profile setting %setting was deleted.', array('%setting' => $param)));
     }
-  	else if ($preset['presetname'] != $preset['presetname_new']) {
-  		variable_set($var, $preset['presetname_new']);
-  		drupal_set_message(t('The imagecache profile setting %setting was changed.', array('%setting' => $param)));
-  	}
+    else if ($preset['presetname'] != $preset['presetname_new']) {
+      variable_set($var, $preset['presetname_new']);
+      drupal_set_message(t('The imagecache profile setting %setting was changed.', array('%setting' => $param)));
+    }
   }
 }
 
@@ -221,6 +213,9 @@ function _imagecache_profiles_change_variables($preset, $delete = FALSE) {
  * @see imagecache_profiles_user_profile_form_validate()
  */
 function imagecache_profiles_form_user_profile_form_alter(&$form, $form_state) {
+  if (!isset($form['picture'])) {
+    return;
+  }
   $width = variable_get('user_picture_imagecache_profiles_min_width', '');
   $height = variable_get('user_picture_imagecache_profiles_min_height', '');
   $description = '';
@@ -273,6 +268,49 @@ function imagecache_profiles_user($op, &$edit, &$account, $category = NULL) {
   }
   elseif ($op == 'delete' && isset($account->picture)) {
     imagecache_image_flush($account->picture);
+  }
+}
+
+/**
+ * Implements hook_profile_alter().
+ *
+ * Change the user profile picture to use the preferred imagecache preset.
+ */
+function imagecache_profiles_profile_alter(&$account) {
+  if (isset($account->content['user_picture']['#value']) && $preset = variable_get('user_picture_imagecache_profiles', '')) {
+    $account->imagecache_preset = $preset;
+    $account->content['user_picture']['#value'] = theme('user_picture', $account);
+  }
+}
+
+/**
+ * Implements hook_comment().
+ *
+ * Change comment user pictures to use the preferred imagecache preset.
+ */
+function imagecache_profiles_comment(&$comment, $op) {
+  if ($op == 'view' && theme_get_setting('toggle_comment_user_picture')) {
+    // If this is a comment preview, we need to manually add $comment->picture.
+    if (!empty($comment->uid) && !isset($comment->picture)) {
+      $comment->picture = db_result(db_query("SELECT picture FROM {users} WHERE uid = %d", $comment->uid));
+    }
+    if ($preset = variable_get('user_picture_imagecache_comments', '')) {
+      $comment->imagecache_preset = $preset;
+    }
+  }
+}
+
+/**
+ * Implements hook_nodeapi().
+ *
+ * Change node user pictures to use the preferred imagecache preset.
+ */
+function imagecache_profiles_nodeapi(&$node, $op) {
+  // Panels module uses $op = alter to render nodes.
+  if ($op == 'view' || $op == 'alter') {
+    if ($preset = variable_get('user_picture_imagecache_nodes', '')) {
+      $node->imagecache_preset = $preset;
+    }
   }
 }
 

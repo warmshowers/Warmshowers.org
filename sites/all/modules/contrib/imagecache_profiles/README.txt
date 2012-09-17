@@ -1,4 +1,3 @@
-; $Id: README.txt,v 1.3.2.3 2010/02/22 16:39:25 andypost Exp $
 Imagecache_Profiles module allows you to set user profile pictures that are consistent throughout your site and allows avatars on the user profile pages to be a different size.
 
 - Download and enable the ImageCache module

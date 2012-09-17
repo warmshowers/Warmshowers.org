@@ -1,5 +1,4 @@
 <?php
-// $Id: imagecache_profiles.views.inc,v 1.1.2.2 2009/08/29 14:02:17 andypost Exp $
 
 function imagecache_profiles_views_handlers() {
   return array(

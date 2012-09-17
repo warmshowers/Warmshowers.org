@@ -1,5 +1,4 @@
 <?php
-// $Id: imagecache_profiles_handler_field_user_picture.inc,v 1.1.2.7 2010/03/24 15:28:43 andypost Exp $
 
 class imagecache_profiles_handler_field_user_picture extends views_handler_field_user_picture {
   function option_definition() {
