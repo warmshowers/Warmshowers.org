@@ -24,8 +24,6 @@
 ?>
 
 <?php
-/**
- * To make this output safe, we escape any html with check_plain
- */
-$data = check_plain($row->{$field->field_alias});
+
+$data = json_encode($row->{$field->field_alias});
 print $data;

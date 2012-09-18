@@ -22,5 +22,4 @@
   * the view is modified.
   */
 ?>
-<?php print $row->{$field->field_alias}; ?>
-<?php error_log($row); ?>
+<?php print strtotime($row->{$field->field_alias}); ?>
