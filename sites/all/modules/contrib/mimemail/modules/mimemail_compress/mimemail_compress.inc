@@ -145,6 +145,11 @@ class mimemail_compress {
     $nodes = $xpath->query('//*[contains(translate(@style," ",""), "display:none")]');
     foreach ($nodes as $node) $node->parentNode->removeChild($node);
 
+    if (variable_get('mimemail_preserve_class', 0) == FALSE) {
+      $nodes = $xpath->query('//*[@class]');
+      foreach ($nodes as $node) $node->removeAttribute('class');
+    }
+
     error_reporting($err);
 
     return $doc->saveHTML();

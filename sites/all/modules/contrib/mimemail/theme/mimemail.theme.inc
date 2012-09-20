@@ -43,7 +43,7 @@ function template_preprocess_mimemail_message(&$variables) {
   $themepath = (function_exists('path_to_subtheme')) ? path_to_subtheme() : drupal_get_path('theme', $theme);
 
   $sitestyle = variable_get('mimemail_sitestyle', 1);
-  $mailstyle = $themepath .'/mail.css';
+  $mailstyles = file_scan_directory($themepath, '^mail\.css*$');
 
   $css_all = drupal_add_css();
   $css_files_mail = $css_files_screen = array();
@@ -61,9 +61,11 @@ function template_preprocess_mimemail_message(&$variables) {
   }
   $styles = _mimemail_css_file_paths($css_files_mail);
 
-  // Check for the existence of a mail.css file in the current theme folder.
-  if (@file_exists($mailstyle)) {
-    array_push($styles, $mailstyle);
+  // Check recursively for the existence of a mail.css file in the default theme folder.
+  if (!empty($mailstyles)) {
+    foreach ($mailstyles as $mailstyle) {
+      array_push($styles, $mailstyle->filename);
+    }
   }
   // When no mail.css was found, include site style sheets if enabled.
   elseif ($sitestyle) {

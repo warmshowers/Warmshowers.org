@@ -36,8 +36,8 @@ USAGE
   E-mail messages are formatted using the mimemail-message.tpl.php template.
   This includes a CSS style sheet and uses an HTML version of the text.
   The included CSS is either:
-    the mail.css file found in your default theme or
-    the combined CSS style sheets of your default theme and
+    the mail.css file found anywhere in your default theme folder or
+    the combined CSS style sheets of your default theme.
 
   CSS style sheets with "email" media are always included.
 
@@ -60,6 +60,10 @@ USAGE
   attributes. It transmogrifies the HTML source by parsing the CSS and inserting the
   CSS definitions into tags within the HTML based on the CSS selectors. To use the
   Compressor, just enable it.
+
+  The 'send arbitrary files' permission allows you to attach or embed files located
+  outside Drupal's public files directory. Note that this has security implications:
+  arbitrary means even your settings.php! Give to trusted roles only!
 
 CREDITS
 

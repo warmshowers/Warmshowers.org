@@ -78,6 +78,14 @@ function mimemail_admin_settings() {
     '#default_value' => variable_get('mimemail_textonly', 0),
     '#description'   => t('This option disables the use of email messages with graphics and styles.  All messages will be converted to plain text.'),
   );
+  if (module_exists('mimemail_compress')) {
+    $form['mimemail']['mimemail_preserve_class'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Preserve class attributes'),
+      '#default_value' => variable_get('mimemail_preserve_class', 0),
+      '#description' => t('This option disables the removing of class attributes from the message source. Useful for debugging.'),
+    );
+  }
 
   $filter_format = variable_get('mimemail_format', FILTER_FORMAT_DEFAULT);
   $form['mimemail']['mimemail_format'] =  filter_form($filter_format, NULL, array("mimemail_format"));

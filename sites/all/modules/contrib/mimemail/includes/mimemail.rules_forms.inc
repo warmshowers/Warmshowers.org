@@ -48,7 +48,7 @@ function mimemail_rules_action_mail_to_user_form($settings = array(), &$form) {
     '#type' => 'textarea',
     '#title' => t('Attachments'),
     '#default_value' => $settings['attachments'],
-    '#description' => t('A list of attachments, one file per line like [mimetype]:[path] e.g. "image/png:/files/images/mypic.png".'),
+    '#description' => t('A list of attachments, one file per line like [mimetype]:[path] e.g. "image/png:/files/images/mypic.png" without quotes.'),
   );
 
   $form['settings']['message_html_filter']['format'] = filter_form($settings['message_html_filter']);

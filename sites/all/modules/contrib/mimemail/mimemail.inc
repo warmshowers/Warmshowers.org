@@ -56,15 +56,15 @@ function mimemail_headers($headers, $from = NULL) {
 
   // Overwrite standard headers.
   if ($from) {
-    if ($headers['From'] == $default_from) {
+    if (!isset($headers['From']) || $headers['From'] == $default_from) {
       $headers['From'] = $from;
     }
-    if ($headers['Sender'] == $default_from) {
+    if (!isset($headers['Sender']) || $headers['Sender'] == $default_from) {
       $headers['Sender'] = $from;
     }
     // This may not work. The MTA may rewrite the Return-Path.
-    if ($headers['Return-Path'] == $default_from) {
-      preg_match('/[a-z0-9\-\.]+@{1}[a-z0-9\-\.]+/i', $from, $matches);
+    if (!isset($headers['Return-Path']) || $headers['Return-Path'] == $default_from) {
+      preg_match('/[a-z0-9\-\.\+_]+@{1}[a-z0-9\-\.]+/i', $from, $matches);
       $headers['Return-Path'] = "<$matches[0]>";
     }
   }
@@ -96,12 +96,24 @@ function mimemail_headers($headers, $from = NULL) {
  */
 function mimemail_extract_files($html) {
   $pattern = '/(<link[^>]+href=[\'"]?|<object[^>]+codebase=[\'"]?|@import |[\s]src=[\'"]?)([^\'>"]+)([\'"]?)/mis';
-  $html = preg_replace_callback($pattern, '_mimemail_replace_files', $html);
+  $content = preg_replace_callback($pattern, '_mimemail_replace_files', $html);
+
+  $encoding = '8Bit';
+  $body = split("\n", $content);
+  foreach ($body as $line) {
+    if (strlen($line) > 998) {
+      $encoding = 'base64';
+      break;
+    }
+  }
+  if ($encoding == 'base64') {
+    $content = rtrim(chunk_split(base64_encode($content)));
+  }
 
   $document = array(array(
     'Content-Type' => "text/html; charset=utf-8",
-    'Content-Transfer-Encoding' => '8bit',
-    'content' => $html,
+    'Content-Transfer-Encoding' => $encoding,
+    'content' => $content,
   ));
 
   $files = _mimemail_file();
@@ -165,6 +177,12 @@ function _mimemail_file($url = NULL, $content = NULL, $name = '', $type = '', $d
   }
 
   if (isset($file) && (@is_file($file) || $content)) {
+    $public_path = file_directory_path();
+    $no_access = !user_access('send arbitrary files - Warning: has security implications!');
+    $not_in_public_path = strpos(realpath($file), $public_path) === FALSE;
+    if (@is_file($file) && $not_in_public_path && $no_access) {
+      return $url;
+    }
 
     if (!$name) $name = (@is_file($file)) ? basename($file) : 'attachment.dat';
     if (!$type) $type = ($name) ? file_get_mimetype($name) : file_get_mimetype($file);
@@ -309,7 +327,7 @@ function mimemail_multipart_body($parts, $content_type = 'multipart/mixed; chars
 
       if (isset($part['file'])) {
         $file = (is_file($part['file'])) ? file_get_contents($part['file']) : $part['file'];
-        $part_body = chunk_split(base64_encode($file));
+        $part_body = chunk_split(base64_encode($file), 76, variable_get('mimemail_crlf', "\n"));
       }
     }
 
@@ -635,7 +653,7 @@ function _mimemail_url($url, $embed_file = FALSE) {
   // If url() added a ?q= where there should not be one, remove it.
   if ($strip_clean) $url = preg_replace('!\?q=!', '', $url);
 
-  $url = str_replace('+', '%20', $url);
+  $url = str_replace('+', '%2B', $url);
   return $url;
 }
 
