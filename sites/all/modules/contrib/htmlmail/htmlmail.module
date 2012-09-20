@@ -2,23 +2,37 @@
 
 /**
  * @file
- * Send system emails in HTML
+ * Sends system emails in HTML.
  */
 
 /**
- * Implementation of hook_help().
+ * Implements hook_perm().
+ *
+ * Defines a permission for setting the per-user plaintext option.
+ */
+function htmlmail_perm() {
+  return array('choose htmlmail_plaintext');
+}
+
+/**
+ * Implements hook_help().
  */
 function htmlmail_help($path, $arg) {
   switch ($path) {
-    case 'admin/help#htmlmail':
     case 'admin/settings/htmlmail':
-      $output = '<p>' . t("HTML Mail provides formatting and semantic markup capabilities in e-mail that are not available with plain text. All system emails are effected if this module is enabled.") . '</p>';
-    return $output;
+      return '<h2>' . t('Theming') . '</h2><p>' . t('The email message goes through three transformations before sending:') . '</p>';
+    case 'admin/help#htmlmail':
+      return '<p>'
+        . t('<a href="!htmlmail">HTML Mail</a> lets you theme your messages the same way you theme the rest of your website.',
+          array('!htmlmail' => 'http://drupal.org/project/htmlmail')
+        ) . '</p>';
+    default:
+      return '';
   }
 }
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function htmlmail_menu() {
   $items['admin/settings/htmlmail'] = array(
@@ -28,205 +42,177 @@ function htmlmail_menu() {
     'page arguments' => array('htmlmail_admin_settings'),
     'access arguments' => array('administer site configuration'),
     'file' => 'htmlmail.admin.inc',
-   );
+  );
   $items['admin/settings/htmlmail/settings'] = array(
     'title' => 'Settings',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => '-2'
   );
-  $items['admin/settings/htmlmail/template'] = array(
-     'title' => 'Template',
-     'page callback' => 'drupal_get_form',
-     'page arguments' => array('htmlmail_template_settings'),
-     'access arguments' => array('access administration pages'),
-     'type' => MENU_LOCAL_TASK,
-     'weight' => '-1',
-     'file' => 'htmlmail.admin.inc',
-   );
   $items['admin/settings/htmlmail/test'] = array(
-     'title' => 'Send Test',
-     'page callback' => 'drupal_get_form',
-     'page arguments' => array('htmlmail_test_form'),
-     'access arguments' => array('access administration pages'),
-     'type' => MENU_LOCAL_TASK,
-     'file' => 'htmlmail.admin.inc',
-   );
+    'title' => 'Send Test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('htmlmail_test_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'htmlmail.admin.inc',
+  );
   return $items;
 }
 
 /**
- * Implementation of hook_mail_alter().
- */
-function htmlmail_mail_alter(&$message) {
-
-  // Match plain exclusions settings
-  if ($plain_settings = variable_get('htmlmail_plain_settings', '')) {
-    $items = preg_split('/(\r\n?|\n)/', $plain_settings);
-
-    $plain_match = FALSE;
-    foreach($items as $item) {
-      if (!strncmp($message['id'], $item, strlen($item))) {
-        $plain_match = TRUE;
-        break;
-      }
-    }
-
-    // reverse $plain_match if type is include
-    if (variable_get('htmlmail_plain_type', 0)) {
-      $plain_match = !$plain_match;
-    }
-  }
-
-  if (!$plain_match) { // All good, make mail html
-    $message['headers']['Content-Type'] = 'text/html; charset=UTF-8; format=flowed;';
-
-    // message body may be an array
-    $message['body'] = is_array($message['body']) ? implode("\n\n", $message['body']) : $message['body'];
-
-    // The paragraph an break stuff
-    if (variable_get('htmlmail_autop', '1')) {
-      $message['body'] = _filter_autop($message['body']);
-    }
-
-    if (variable_get('htmlmail_urlfilter', '1')) {
-    // defaults to 72 as there is no filter 0 -- make filters a configuration option?
-      $message['body'] = _filter_url($message['body'], 0);
-    }
-
-    // Theme from template htmlmail.tpl.php
-    $message['body'] = theme('htmlmail', $message['body'], $message['id']);
-
-    if (variable_get('htmlmail_emogrifier', '0')) {
-      $message['body'] = _htmlmail_emogrify($message);
-    }
-
-    // Convert relative urls to absolute if rel_to_abs is enabled.
-    if (module_exists('rel_to_abs') && variable_get('htmlmail_rel_to_abs', 1)) {
-      $message['body'] = rel_to_abs_filter('prepare', 0, -1, $message['body']);
-    }
-
-    // Send the message key in email for theme template suggestions
-    if (variable_get('htmlmail_debug', '0')) {
-      $message['body'] .= '<p> Message Key ID: '. $message['id'] .'</p>';
-    }
-  }
-}
-
-/**
- * Implementation of hook_theme().
+ * Implements hook_theme().
+ *
+ * Auto-detects htmlmail template files in the selected theme and in the
+ * htmlmail module directory.
  */
 function htmlmail_theme() {
-  $items['htmlmail'] = array(
-    'template' => 'htmlmail',
-    'arguments' => array('body' => NULL, 'key' => NULL),
-  );
-  if (module_exists('token')) {
-    $items['htmlmail_token_help'] = array(
-      'arguments' => array('prefix' => '[', 'suffix' => ']'),
+  $items = array();
+  $module_path = drupal_get_path('module', 'htmlmail');
+  $pattern = '^htmlmail.*\.tpl\.php$';
+  $files = file_scan_directory($module_path, $pattern, array('key' => 'name'));
+  if ($theme = htmlmail_get_selected_theme()) {
+    $theme_path = drupal_get_path('theme', $theme);
+    $files = array_merge($files,
+      file_scan_directory($theme_path, $pattern, array('key' => 'name'))
+    );
+  }
+  else {
+    $theme_path = $module_path;
+  }
+  ksort($files);
+  foreach ($files as $file) {
+    $path = dirname($file->filename);
+    $template = substr($file->name, 0, -4);
+    $suggestion = str_replace('-', '_', $template);
+    $items[$suggestion] = array(
+      'arguments' => array('message' => array()),
+      'template' => $template,
+      'path' => $path,
+      'theme paths' => array($theme_path),
     );
   }
   return $items;
 }
 
 /**
- *  Token support
- */
-function theme_htmlmail_token_help($prefix = '[', $suffix = ']') {
-  token_include();
-  $full_list = array_merge(token_get_list('user'), token_get_list('profile'));
-  $headers = array(t('Token'), t('Replacement value'));
-  $rows = array();
-  foreach ($full_list as $key => $category) {
-    $rows[] = array(array('data' => drupal_ucfirst($key) .' '. t('tokens'), 'class' => 'region', 'colspan' => 2));
-    foreach ($category as $token => $description) {
-      $row = array();
-      $row[] = $prefix . $token . $suffix;
-      $row[] = $description;
-      $rows[] = $row;
-    }
-  }
-  $output = theme('table', $headers, $rows, array('class' => 'description'));
-  return $output;
-}
-
-/**
- * Process variables to format e-mail.
+ * Process variables to format email messages.
  *
  * @see htmlmail.tpl.php
  */
-function template_preprocess_htmlmail(&$variables) {
-  $variables['path'] = url($variables['directory'], array('absolute' => TRUE));
-  if (module_exists('token') && variable_get('htmlmail_token', '0')) {
-    global $user;
-    $types = array('user' => $user, 'profile' => $user);
-    $variables['header'] = token_replace_multiple(variable_get('htmlmail_header', ''), $types);
-    $variables['footer'] = token_replace_multiple(variable_get('htmlmail_footer', ''), $types);
+function template_preprocess_htmlmail(array &$variables) {
+  $message = $variables['message'];
+  $variables += $message;
+  $variables['debug'] = variable_get('htmlmail_debug', '0');
+  $variables['theme'] = htmlmail_get_selected_theme($variables);
+  $variables['module_path'] = drupal_get_path('module', 'htmlmail');
+  if (empty($variables['theme'])) {
+    $variables['theme'] = 'no theme';
+    $variables['theme_path'] = $variables['module_path'];
   }
   else {
-    $variables['header'] = variable_get('htmlmail_header', '');
-    $variables['footer'] = variable_get('htmlmail_footer', '');
+    $variables['theme_path'] = drupal_get_path('theme', $variables['theme']);
   }
-  $variables['css'] = variable_get('htmlmail_css', '');
-  $module = preg_replace('/_.*$/', '', $variables['key']);
-  $variables['template_files'][] = 'htmlmail-'. $module;
-  $variables['template_files'][] = 'htmlmail-'. $variables['key'];
+  $variables['theme_url'] = url(
+    $variables['theme_path'], array('absolute' => TRUE)
+  );
+  $variables['message_id'] = $variables['module'] . '_' . $variables['key'];
+  $template = 'htmlmail-' . str_replace('_', '-', $variables['module']);
+  $variables['template_files'][] = $template;
+  $template = 'htmlmail-' . str_replace('_', '-', $variables['message_id']);
+  $variables['template_files'][] = $template;
 }
 
 /**
- * Implementation of hook_mail().
+ * Implements hook_mail().
  */
 function htmlmail_mail($key, &$message, $params) {
-  switch ($key) {
-  case 'test':
-    $message['subject'] = $params['subject'];
-    $message['body'] = $params['body'];
-    break;
+  $message['module'] = 'htmlmail';
+  $message['key'] = $key;
+  $message['subject'] = $params['subject'];
+  $message['body'] = explode(
+    MAIL_LINE_ENDINGS . MAIL_LINE_ENDINGS,
+    $params['body']
+  );
+  return $message;
+}
+
+/**
+ * Implements hook_user().
+ */
+function htmlmail_user($op, &$edit, $account, $category = NULL) {
+  if (!(user_access('choose htmlmail_plaintext') || user_access('administer users'))) {
+    return;
+  }
+  switch ("$op.$category") {
+    case 'form.account':
+    case 'register.':
+      return array(
+        'htmlmail' => array(
+          '#type' => 'fieldset',
+          '#title' => t('HTML Mail'),
+          '#collapsible' => TRUE,
+          'htmlmail_plaintext' => array(
+            '#type' => 'checkbox',
+            '#title' => t('Plaintext-only emails'),
+            '#default_value' => !empty($account->htmlmail_plaintext),
+            '#description' => t('The %htmlmail module can send emails with fonts, styles, and other HTML formatting.  If you prefer to receive all your emails in unformatted plain text, select this option.',
+              array('%htmlmail' => 'HTML Mail')
+            ),
+          ),
+        ),
+      );
+    default:
+      return;
   }
 }
 
 /**
- * If the Emogrifier <http://www.pelagodesign.com/sidecar/emogrifier/> exists,
- * the CSS styles inside the the $message['body'] are inserted into the other
- * HTML tags within the same $message['body'] as inline style attributes,
- * based on CSS selectors.
- *
- * This function is based on code in the simplenews_template module.
- *
- * This emogrifier differs from that of simplenews_template in that it permits
- * modules or users to adjoin CSS into the $message['body'] using the HTML
- * <style> tag.  The function searches the entire body for style tags,
- * concatenates them in order of appearance in the file, then sends them to
- * the Emogrifier script.
- *
- * Note that the method modifies the $message['body'] directly, and the
- * return value is the modified $message['body'] string as well.
- *
- * @param $message
- *           The message array to be sent. This function works directly
- *           on the $message['body'].
- * @return $message['body']
- *           The modified message body string with inlined CSS applied.
+ * Returns an associative array of allowed themes.  The keys are the
+ * machine-readable names and the values are the .info file names.
+ * Based on code from the og_theme module.
  */
-function _htmlmail_emogrify(&$message) {
-  $path = drupal_get_path('module', 'htmlmail') . '/emogrifier/emogrifier.php';
-  if (is_file($path)) {
-    $style = array();
-    // Pull out the contents of any style tags
-    if (preg_match_all("@<style[^>]*>(.*)</style>@Usi", $message['body'], $matches, PREG_PATTERN_ORDER)) {
-      $style = $matches[1];
+function &htmlmail_get_allowed_themes() {
+  static $allowed = NULL;
+  if (!isset($allowed)) {
+    $allowed = array('' => t('No theme'));
+    $themes = list_themes();
+    module_load_include('inc', 'system', 'system.admin');
+    uasort($themes, 'system_sort_modules_by_info_name');
+    foreach ($themes as $key => $value) {
+      if ($value->status) {
+        $allowed[$key] = check_plain($value->info['name']);
+      }
     }
-    // Emogrify can't handle several CSS rules on one line. As a precaution,
-    // we therefore insert LF after each closing bracket.
-    $style = preg_replace('/}\s*/', "}\n", implode("\n", $style));
-
-    // Inline the CSS rules.
-    include_once $path;
-    // get and reset error levels so we dont get DOMDocument::loadHTML() errors
-    $errorlevel = error_reporting();
-    error_reporting(0);
-    $emogrifier = new Emogrifier($message['body'], $style);
-    $message['body'] = $emogrifier->emogrify();
-    error_reporting($errorlevel);
   }
-  return $message['body'];
+  return $allowed;
+}
+
+/**
+ * Returns the selected theme to use for outgoing emails.
+ */
+function htmlmail_get_selected_theme(&$message = array()) {
+  $selected = isset($message['theme'])
+    ? $message['theme'] : variable_get('htmlmail_theme', '');
+  if ($selected) {
+    // Make sure the selected theme is allowed.
+    $themes = &htmlmail_get_allowed_themes();
+    if (empty($themes[$selected])) {
+      $selected = '';
+    }
+  }
+  return $selected;
+}
+
+/**
+ * Checks whether a given recipient email prefers plaintext-only messages.
+ *
+ * @param $email
+ *   The recipient email address.
+ *
+ * @return
+ *   FALSE if the recipient prefers plaintext-only messages; otherwise TRUE.
+ */
+function htmlmail_is_allowed($email) {
+  return !($recipient = user_load(array('mail' => $email)))
+    || empty($recipient->htmlmail_plaintext);
 }

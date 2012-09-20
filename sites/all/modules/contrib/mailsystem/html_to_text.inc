@@ -483,7 +483,7 @@ function _mailsystem_html_to_text_table(DOMNode $node, $allowed_tags = NULL, arr
     if (isset($current->tagName)) {
       switch ($current->tagName) {
         case 'caption':  // The table caption is added first.
-          $text = _mailsystem_html_to_text($caption, $allowed_tags, $notes, $table_width);
+          $text = _mailsystem_html_to_text($current, $allowed_tags, $notes, $table_width);
           break;
 
         case 'tr':

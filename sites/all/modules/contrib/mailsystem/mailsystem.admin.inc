@@ -77,7 +77,6 @@ function mailsystem_admin_settings() {
       '#options' => $mailsystem_classes,
       '#default_value' => $class,
     );
-    unset($descriptions[$module]);
   }
   // Generate a list of themes which may used to render emails.
   $theme_options = array('current' => t('Current'), 'default' => t('Default'));
