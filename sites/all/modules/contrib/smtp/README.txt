@@ -1,4 +1,3 @@
-// $Id: README.txt,v 1.11 2008/07/06 13:49:15 oadaeh Exp $
 
 SMTP Authentication Support module for Drupal 6.x.
 This module adds SMTP functionality to Drupal.
@@ -9,9 +8,11 @@ REQUIREMENTS
 * PHP version 4.0.0 and up.
 * The following PHP extensions need to be installed: ereg, hash, date & pcre.
 * The PHPMailer package from Codeworx Tech., which can be found here:
-  http://sourceforge.net/project/showfiles.php?group_id=26031
-  http://sourceforge.net/projects/phpmailer/
-  http://phpmailer.codeworxtech.com/
+  http://phpmailer.worxware.com/index.php?pg=phpmailer
+  http://sourceforge.net/projects/phpmailer/files/phpmailer%20for%20php5_6/
+
+  The latest version supported is 2.2.1
+
 * Optional: To connect to an SMTP server using SSL, you need to have the
   openssl package installed on your server, and your webserver and PHP
   installation need to have additional components installed and configured.
