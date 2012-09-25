@@ -1,18 +1,147 @@
 <?php
-// $Id: services.install,v 1.3.2.21.2.4 2010/05/12 19:17:06 heyrocker Exp $
-
 /**
  * @file
- *   Install, uninstall and update the module.
+ * Install, uninstall and update the Services module.
  */
 
 /**
  * Implementation of hook_schema().
  */
 function services_schema() {
-  return array();
-}
+  $schema = array();
 
+  $schema['services_endpoint'] = array(
+    'description' => 'Stores endpoint information for services',
+    'fields' => array(
+      'eid' => array(
+        'type'        => 'serial',
+        'description' => 'Primary ID field for the table. Not used for anything except internal lookups.',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+        'no export'   => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The name of the endpoint.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+      ),
+      'server' => array(
+        'description' => 'The name of the server used in this endpoint.',
+        'type'        => 'varchar',
+        'length'      => 32,
+        'not null'    => TRUE,
+      ),
+      'path' => array(
+        'description' => 'The path to the endpoint for this server.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+      ),
+      'authentication' => array(
+        'description'    => 'The authentication settings for the endpoint.',
+        'type'           => 'text',
+        'size'           => 'big',
+        'not null'       => TRUE,
+        'serialize'      => TRUE,
+        'object default' => array(),
+      ),
+      'server_settings' => array(
+         'description'    => 'The server settings for the endpoint.',
+         'type' => 'blob',
+         'size' => 'big',
+         'not null' => TRUE,
+         'serialize' => TRUE
+      ),
+      'resources' => array(
+        'description'    => 'Information about the resources exposed in this endpoint.',
+        'type'           => 'text',
+        'size'           => 'big',
+        'not null'       => TRUE,
+        'serialize'      => TRUE,
+        'object default' => array(),
+      ),
+      'debug' => array(
+        'description' => 'Set the endpoint in debug mode.',
+        'type'        => 'int',
+        'length'      => 2,
+        'not null'    => TRUE,
+        'default'     => 0
+      ),
+    ),
+    'primary key' => array('eid'),
+    'unique keys' => array(
+      'name' => array('name'),
+    ),
+    'export' => array(
+      'key' => 'name',
+      'identifier' => 'endpoint',
+      'primary key' => 'name',
+      'api' => array(
+        'owner' => 'services',
+        'api' => 'services',
+        'minimum_version' => 3,
+        'current_version' => 3,
+      ),
+    ),
+  );
+
+  return $schema;
+}
+ /**
+ * Implements hook_requirements().
+ */
+function services_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+  // Warn users of the possible threat.
+  if ($phase == 'runtime') {
+    // If rest_server is enabled, make sure it's from Services core.
+    if (module_exists('rest_server')) {
+      $rest_path = drupal_get_path('module', 'rest_server');
+      $core_path = drupal_get_path('module', 'services'). '/servers/rest_server';
+      if ($rest_path !== $core_path) {
+        $requirements['services_rest_server_compatibility'] = array(
+          'description' => $t('The enabled version of Rest Server is not from Services core. Uninstall then remove the old Rest Server module from'). ' '. $rest_path. ' '. t('to utilize Services core Rest Server'),
+          'severity' => REQUIREMENT_ERROR,
+          'title' => 'Services Rest Server Compatibility',
+        );
+      }
+    }
+
+    //Pull endpoints that do not have services authentication enabled
+    $result = db_query("SELECT * FROM {services_endpoint} AS se WHERE se.authentication NOT LIKE '%s'", '%services%');
+    $items = array();
+    $has_endpoint = FALSE;
+    while ($endpoint = db_fetch_object($result)) {
+      $has_endpoint = TRUE;
+      $items[] = l($endpoint->name, 'admin/build/services/list/'. $endpoint->name);
+    }
+    // theme the endpoints list
+    $endpoints = '';
+    if (!empty($items)) {
+      $endpoints = theme('item_list', array('items' => $items));
+    }
+    // Only display the list if we have at least one endpoint without services authentication.
+    if (count($items)) {
+      $requirements['services'] = array(
+        'description' => $t('Services authentication mechanism has not been enabled for the following endpoints. Requests to these endpoints will always be anonymous.'),
+        'severity' => REQUIREMENT_ERROR,
+        'value' => $endpoints,
+        'title' => 'Services Authentication Mechanism',
+      );
+    }
+    else {
+      $requirements['services'] = array(
+        'severity' => REQUIREMENT_OK,
+        'value' => 'Enabled for all Endpoints',
+        'title' => 'Services Authentication Mechanism',
+      );
+    }
+  }
+
+  return $requirements;
+}
 /**
  * Implementation of hook_install().
  */
@@ -37,7 +166,6 @@ function services_uninstall() {
 
   variable_del('services_use_key');
   variable_del('services_use_sessid');
-  variable_del('services_debug');
   variable_del('services_auth_module');
 }
 
@@ -88,14 +216,131 @@ function services_update_6002() {
   return $ret;
 }
 
-function services_update_6003() {
+/**
+ * Update 6300 adds the concept of endpoints which is a way to expose a
+ * specific server using a specific authentication method, with the full set
+ * or a subset of the installed services.
+ *
+ * This is a major change from the way services worked before: then all
+ * installed servers exposed all installed services and only one
+ * authentication method could be used for all servers. The endpoint was also
+ * non-configurable and was always 'services/[server path]'.
+ *
+ * As with most major changes, this is a _breaking_ update, in the sense that
+ * you will need to reconfigure services. If you have clients that expect the
+ * endpoint to remain the same you can easily set up a endpoint that exposes
+ * your server/authentication method/services set on the old
+ * 'services/[server path]' path.
+ */
+function services_update_6300() {
   $ret = array();
-  drupal_install_modules(array('services_keyauth'));
-  variable_set('services_auth_module', 'services_keyauth');
+
+  db_create_table($ret, 'services_endpoint', array(
+    'description' => 'Stores endpoint information for services',
+    'export' => array(
+      'identifier'      => 'endpoint',
+      'export callback' => 'services_endpoint_export',
+      'list callback'   => 'services_endpoint_list',
+    ),
+    'fields' => array(
+      'eid' => array(
+        'type'        => 'serial',
+        'description' => 'Primary ID field for the table. Not used for anything except internal lookups.',
+        'unsigned'    => TRUE,
+        'not null'    => TRUE,
+        'no export'   => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The name of the endpoint.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+      ),
+      'title' => array(
+        'description' => 'The title of the endpoint.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+      ),
+      'server' => array(
+        'description' => 'The name of the server used in this endpoint.',
+        'type'        => 'varchar',
+        'length'      => 32,
+        'not null'    => TRUE,
+      ),
+      'path' => array(
+        'description' => 'The path to the endpoint for this server.',
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+      ),
+      'authentication' => array(
+        'description' => 'The authentication modules used in this endpoint.',
+        'type'           => 'text',
+        'size'           => 'big',
+        'not null'       => TRUE,
+        'serialize'      => TRUE,
+        'object default' => array(),
+      ),
+      'resources' => array(
+        'description'    => 'Information about the resources exposed in this endpoint.',
+        'type'           => 'text',
+        'size'           => 'big',
+        'not null'       => TRUE,
+        'serialize'      => TRUE,
+        'object default' => array(),
+      ),
+    ),
+    'primary key' => array('eid'),
+    'unique keys' => array(
+      'name' => array('name'),
+    ),
+  ));
+
+  // Remove the auth_module variable as this won't be handled on a global basis anymore
+  variable_del('services_auth_module');
+
   return $ret;
 }
 
-// Force cache clear on this update.
-function services_update_6004() {
-  return array();
+/**
+ * Update 6301 adds debugging to each endopint to facilitate easier development
+ */
+function services_update_6301() {
+  $ret = array();
+  db_add_field($ret, 'services_endpoint', 'debug', array('type' => 'int', 'not null' => TRUE, 'default' => 0));
+  db_add_field($ret, 'services_endpoint', 'status', array('type' => 'int', 'not null' => TRUE, 'default' => 1));
+  return $ret;
+}
+
+function services_update_6302() {
+  $ret = array();
+  db_drop_field($ret, 'services_endpoint', 'status');
+  return $ret;
+}
+
+/**
+ * Update 6303 adds the possibility to configure server settings on a per-endpoint basis.
+ * and sets upgrades all new servers to have at least services session enabled.
+ */
+function services_update_6303() {
+  $ret = array();
+  // Add the new server settings field.
+  $new_field = array(
+    'description'    => 'The server settings for the endpoint.',
+    'type' => 'blob',
+    'size' => 'big',
+    'not null' => TRUE,
+    'serialize' => TRUE
+  );
+  db_add_field($ret, 'services_endpoint', 'server_settings', $new_field);
+  return $ret;
+}
+/**
+ * Update 6304 removes title functionality as it is no longer used.
+ */
+function services_update_6304() {
+  $ret = array();
+  db_drop_field($ret, 'services_endpoint', 'title');
+  return $ret;
 }

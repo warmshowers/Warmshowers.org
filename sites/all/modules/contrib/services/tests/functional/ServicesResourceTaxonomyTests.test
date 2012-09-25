@@ -1,0 +1,517 @@
+<?php
+
+/**
+ * @file
+ * Call the endpoint tests when no authentication is being used.
+ *
+ */
+
+require_once('ServicesWebTestCase.php') ;
+
+/**
+ * Run test cases for the endpoint with no authentication turned on.
+ *
+ */
+class ServicesResourceTaxonomyTests extends ServicesWebtestCase {
+  // Class variables
+  protected $privileged_user = NULL ;
+  // Endpoint details.
+  protected $endpoint = NULL;
+
+  /**
+   * Implementation of setUp().
+   */
+  public function setUp() {
+    parent::setUp(
+      'autoload',
+      'ctools',
+      'services',
+      'rest_server',
+      'inputstream'
+    );
+    // Set up endpoint.
+    $this->endpoint =  $this->saveNewEndpoint();
+    // Set up privileged user and login.
+    $this->privileged_user = $this->drupalCreateUser(array('administer taxonomy'));
+    $this->drupalLogin($this->privileged_user);
+
+  }
+
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name'        => t('Resource Taxonomy'),
+      'description' => t('Test the resource Taxonomy methods and actions.'),
+      'group'       => t('Services'),
+    );
+  }
+
+  /**
+   * Test taxonomy vocabulary create method.
+   */
+  function testVocabularyCreate() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = array(
+      'name'        => $this->randomName(),
+      'description' => $this->randomString(),
+      'help'        => $this->randomString(),
+      'relations'   => 1,
+      'hierarchy'   => 1,
+      'multiple'    => 1,
+      'required'    => 0,
+      'module'      => 'services',
+      'weight'      => 0,
+    );
+
+    $response = $this->servicesPost($path . '/taxonomy_vocabulary', $vocabulary);
+
+    $vid = db_result(db_query('SELECT vid FROM {vocabulary} WHERE name = "%s"', $vocabulary['name']));
+
+    $vocabulary_load = (array)taxonomy_vocabulary_load($vid);
+    $vocabulary_intersect = array_intersect_assoc($vocabulary, $vocabulary_load);
+
+    $this->assertEqual($vocabulary, $vocabulary_intersect, t('Taxonomy vocabulary created properly.'), 'TaxonomyVocabularyResource: Create');
+  }
+
+  /**
+   * Test taxonomy vocabulary create method (Legacy).
+   *
+   * TODO: To be removed in future version.
+   * @see http://drupal.org/node/1083242
+   */
+  function testVocabularyCreateLegacy() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = array(
+      'name'        => $this->randomName(),
+      'description' => $this->randomString(),
+      'help'        => $this->randomString(),
+      'relations'   => 1,
+      'hierarchy'   => 1,
+      'multiple'    => 1,
+      'required'    => 0,
+      'module'      => 'services',
+      'weight'      => 0,
+    );
+
+    $response = $this->servicesPost($path . '/taxonomy_vocabulary', array('vocabulary' => $vocabulary));
+
+    $vid = db_result(db_query('SELECT vid FROM {vocabulary} WHERE name = "%s"', $vocabulary['name']));
+
+    $vocabulary_load = (array)taxonomy_vocabulary_load($vid);
+    $vocabulary_intersect = array_intersect_assoc($response['body'], $vocabulary_load);
+    $this->assertEqual($vocabulary['name'], $response['body']['name'], t('Taxonomy vocabulary created properly.'), 'TaxonomyVocabularyResource: Create (Legacy)');
+  }
+
+  /**
+   * Test taxonomy vocabulry retrieve method.
+   */
+  function testVocabularyRetrieve() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $vid = $vocabulary['vid'];
+
+    $response = $this->servicesGet($path . '/taxonomy_vocabulary/' . $vid);
+    $vocabulary_retrieve = (array)$response['body'];
+
+    $vocabulary_intersect = array_intersect_assoc($vocabulary, $vocabulary_retrieve);
+
+    $this->assertEqual($vocabulary, $vocabulary_intersect, t('Taxonomy vocabulary retrieved properly.'), 'TaxonomyVocabularyResource: Retrieve');
+  }
+
+  /**
+   * Test taxonomy vocabulary update.
+   */
+  function testVocabularyUpdate() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $vid = $vocabulary['vid'];
+
+    $vocabulary['name'] = $this->randomName();
+    $vocabulary['description'] = $this->randomString();
+
+    $response = $this->servicesPUT($path . '/taxonomy_vocabulary/' . $vid, $vocabulary);
+
+    $vocabulary_load = (array)taxonomy_vocabulary_load($vid, TRUE);
+
+    $vocabulary_intersect = array_intersect_assoc($vocabulary, $vocabulary_load);
+    $this->assertEqual($vocabulary, $vocabulary_intersect, t('Taxonomy vocabulary updated properly.'), 'TaxonomyVocabularyResource: Update');
+  }
+
+  /**
+   * Test taxonomy vocabulary update (Legacy).
+   *
+   * TODO: To be removed in future version.
+   * @see http://drupal.org/node/1083242
+   */
+  function testVocabularyUpdateLegacy() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $vid = $vocabulary['vid'];
+
+    $vocabulary['name'] = $this->randomName();
+    $vocabulary['description'] = $this->randomString();
+
+    $response = $this->servicesPUT($path . '/taxonomy_vocabulary/' . $vid, array('vocabulary' => $vocabulary));
+
+    $vocabulary_load = (array)taxonomy_vocabulary_load($vid, TRUE);
+
+    $vocabulary_intersect = array_intersect_assoc($vocabulary, $vocabulary_load);
+    $this->assertEqual($vocabulary, $vocabulary_intersect, t('Taxonomy vocabulary updated properly.'), 'TaxonomyVocabularyResource: Update (Legacy)');
+  }
+
+  /**
+   * Test taxonomy vocabulary delete method.
+   */
+  function testVocabularyDelete() {
+    $path = $this->endpoint->path;
+    $vocabulary = $this->createVocabulary();
+    $vid = $vocabulary['vid'];
+
+    $this->servicesDelete($path . '/taxonomy_vocabulary/' . $vid);
+
+    $vocabulary_load = taxonomy_vocabulary_load($vid, TRUE);
+
+    $this->assertTrue(empty($vocabulary_load), t('Taxonomy vocabulary deleted properly.'), 'TaxonomyVocabularyResource: Delete');
+  }
+
+  /**
+   * Test taxonomy vocabulary getTree method.
+   */
+  function testVocabularyGetTree() {
+    $path = $this->endpoint->path;
+    $vocabulary = $this->createVocabulary();
+    $vid = $vocabulary['vid'];
+
+    $part_tree_parent = 0;
+
+    // Generate taxonomy tree.
+    for ($i = 0; $i < 10; $i++) {
+      $parent = rand(0, 1) * db_result(db_query('SELECT tid FROM {term_data} WHERE vid = %d ORDER BY RAND() LIMIT 1', $vid));
+      $edit = array(
+        'name'    => $this->randomName(),
+        'parent'  => $parent,
+        'vid'     => $vid,
+      );
+      taxonomy_save_term($edit);
+
+      if (!empty($parent)) {
+        $part_tree_parent = $parent;
+      }
+    }
+    // Add term as grandchild to test maxdepth.
+    $children = taxonomy_get_children($part_tree_parent);
+    $edit = array(
+      'name'    => $this->randomName(),
+      'parent'  => key($children),
+      'vid'     => $vid,
+    );
+    taxonomy_save_term($edit);
+
+    // Compare full tree.
+    $vocabulary_tree = taxonomy_get_tree($vid);
+
+    $response = $this->servicesPost($path . '/taxonomy_vocabulary/getTree', array('vid' => $vid));
+    $vocabulary_tree_response = $response['body'];
+    $this->assertEqual($vocabulary_tree, $vocabulary_tree_response, t('Vocabulary full tree received properly.'), 'TaxonomyVocabularyResource: getTree');
+
+    // Compare part tree.
+    $vocabulary_tree = taxonomy_get_tree($vid, $part_tree_parent);
+    $response = $this->servicesPost($path . '/taxonomy_vocabulary/getTree', array('vid' => $vid, 'parent' => $part_tree_parent));
+    $vocabulary_tree_response = $response['body'];
+    $this->assertEqual($vocabulary_tree, $vocabulary_tree_response, t('Vocabulary part tree received properly.'), 'TaxonomyVocabularyResource: getTree');
+
+    // Compare part tree with maxdepth.
+    $vocabulary_tree = taxonomy_get_tree($vid, $part_tree_parent, -1, 1);
+    $response = $this->servicesPost($path . '/taxonomy_vocabulary/getTree', array('vid' => $vid, 'parent' => $part_tree_parent, 'maxdepth' => 1));
+    $vocabulary_tree_response = $response['body'];
+    $this->assertEqual($vocabulary_tree, $vocabulary_tree_response, t('Vocabulary part tree with depth received properly.'), 'TaxonomyVocabularyResource: getTree');
+  }
+
+  /**
+   * Test taxonomy term create method.
+   */
+  function testTermCreate() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+
+    $term = array(
+      'vid' => $vocabulary['vid'],
+      'name' => $this->randomName(),
+      'description' => $this->randomString(),
+      'weight' => rand(0, 100),
+      'parent' => NULL,
+    );
+
+    $response = $this->servicesPost($path . '/taxonomy_term', $term);
+
+    // Load term by name.
+    $term_by_name = (array)current(taxonomy_get_term_by_name($term['name']));
+    $term_intersect = array_intersect_assoc($term, $term_by_name);
+
+    // As term_intersect will not have parent, we unset this property.
+    $term_data = $term;
+    unset($term_data['parent']);
+
+    $this->assertEqual($term_data, $term_intersect, t('Taxonomy term created properly.'), 'TaxonomyTermResource: Create');
+  }
+
+  /**
+   * Test taxonomy term create method (Legacy).
+   *
+   * TODO: To be removed in future version.
+   * @see http://drupal.org/node/1083242
+   */
+  function testTermCreateLegacy() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+
+    $term = array(
+      'vid' => $vocabulary['vid'],
+      'name' => $this->randomName(),
+      'description' => $this->randomString(),
+      'weight' => rand(0, 100),
+      'parent' => NULL,
+    );
+
+    $response = $this->servicesPost($path . '/taxonomy_term', array('term' => $term));
+
+    // Load term by name.
+    $term_by_name = (array)current(taxonomy_get_term_by_name($term['name']));
+    $term_intersect = array_intersect_assoc($term, $term_by_name);
+
+    // As term_intersect will not have parent, we unset this property.
+    $term_data = $term;
+    unset($term_data['parent']);
+
+    $this->assertEqual($term_data, $term_intersect, t('Taxonomy term created properly.'), 'TaxonomyTermResource: Create (Legacy)');
+  }
+
+  /**
+   * Test taxonomy term retrieve method.
+   */
+  function testTermRetrieve() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $term = $this->createTerm($vocabulary['vid']);
+
+    $response = $this->servicesGet($path . '/taxonomy_term/' . $term['tid']);
+    $term_retrieve = (array)$response['body'];
+
+    $this->assertEqual($term_retrieve, $term, t('Taxonomy term retrieved properly.'), 'TaxonomyTermResource: Retrieve');
+  }
+
+  /**
+   * Test taxonomy term update method.
+   */
+  function testTermUpdate() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $term = $this->createTerm($vocabulary['vid']);
+
+    $term_update_data = array(
+      'name' => $this->randomName(),
+      'description' => $this->randomString(),
+      'weight' => rand(0, 100),
+    );
+
+    $this->servicesPut($path . '/taxonomy_term/' . $term['tid'], $term_update_data);
+
+    $term_update = (array)current(taxonomy_get_term_by_name($term_update_data['name']));
+
+    // Ensure that terms have different names but same tid.
+    $this->assertTrue(($term['tid'] == $term_update['tid']) && ($term['name'] != $term_update['name']), t('Taxonomy term updated properly.'), 'TaxonomyTermResource: Update');
+  }
+
+  /**
+   * Test taxonomy term update method (Legacy).
+   *
+   * TODO: To be removed in future version.
+   * @see http://drupal.org/node/1083242
+   */
+  function testTermUpdateLegacy() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $term = $this->createTerm($vocabulary['vid']);
+
+    $term_update_data = array(
+      'name' => $this->randomName(),
+      'description' => $this->randomString(),
+      'weight' => rand(0, 100),
+    );
+
+    $this->servicesPut($path . '/taxonomy_term/' . $term['tid'], array('term' => $term_update_data));
+
+    $term_update = (array)current(taxonomy_get_term_by_name($term_update_data['name']));
+
+    // Ensure that terms have different names but same tid.
+    $this->assertTrue(($term['tid'] == $term_update['tid']) && ($term['name'] != $term_update['name']), t('Taxonomy term updated properly.'), 'TaxonomyTermResource: Update (Legacy)');
+  }
+
+  /**
+   * Test taxonomy term delete method.
+   */
+  function testTermDelete() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = $this->createVocabulary();
+    $term = $this->createTerm($vocabulary['vid']);
+
+    $this->servicesDelete($path . '/taxonomy_term/' . $term['tid']);
+
+    $term_load = taxonomy_get_term($term['tid'], TRUE);
+    $this->assertTrue(empty($term_load), t('Taxonomy term deleted properly.'), 'TaxonomyTermResource: Delete');
+  }
+
+  /**
+   * Test taxonomy term selectNodes method.
+   */
+  function testTermSelectNodes() {
+    $path = $this->endpoint->path;
+
+    $vocabulary = array(
+      'name'        => $this->randomName(),
+      'description' => $this->randomString(),
+      'help'        => $this->randomString(),
+      'relations'   => 1,
+      'hierarchy'   => 1,
+      'multiple'    => 1,
+      'required'    => 0,
+      'module'      => 'services',
+      'weight'      => 0,
+      'nodes'       => array('page' => 'page'),
+    );
+    taxonomy_save_vocabulary($vocabulary);
+    $vid = db_result(db_query('SELECT vid FROM {vocabulary} WHERE name = "%s"', $vocabulary['name']));
+
+    $term1 = $this->createTerm($vid);
+    $term2 = $this->createTerm($vid);
+
+    $nodes = array();
+    $nodes_term1  = array();
+    $nodes_term2 = array();
+    $nodes_term1_term2 = array();
+    $nodes_noterm = array();
+
+    // Create 7 page nodes with term1 attached.
+    for ($i = 0; $i < 7; $i++) {
+      $node = $this->drupalCreateNode(array('taxonomy' => array($vid => array($term1['tid']))));
+      $nodes[$node->nid] = $node;
+      $nodes_term1[] = $node->nid;
+    }
+
+    // Create 7 page nodes with term2 attached.
+    for ($i = 0; $i < 7; $i++) {
+      $node = $this->drupalCreateNode(array('taxonomy' => array($vid => array($term2['tid']))));
+      $nodes[$node->nid] = $node;
+      $nodes_term2[] = $node->nid;
+    }
+
+    // Create 7 page nodes with both term1 and term2 attached.
+    for ($i = 0; $i < 7; $i++) {
+      $node = $this->drupalCreateNode(array('taxonomy' => array($vid => array($term1['tid'], $term2['tid']))));
+      $nodes[$node->nid] = $node;
+      $nodes_term1_term2[] = $node->nid;
+    }
+
+    // Create 7 page nodes without any terms.
+    for ($i = 0; $i < 7; $i++) {
+      $node = $this->drupalCreateNode();
+      $nodes[$node->nid] = $node;
+      $nodes_noterm[] = $node->nid;
+    }
+
+    // If pager is FALSE query is limited by 'feed_default_items' variable.
+    variable_set('feed_default_items', 100);
+
+    // Select 14 nodes with term1 attached.
+    $response = $this->servicesPost($path . '/taxonomy_term/selectNodes', array('tids' => $term1['tid'], 'pager' => FALSE));
+    $response_nodes = $this->getNodeNids($response['body']);
+    sort($response_nodes);
+
+    $term1_nodes = array_merge($nodes_term1, $nodes_term1_term2);
+    sort($term1_nodes);
+
+    $this->assertEqual($response_nodes, $term1_nodes, t('selectNodes selected proper nodes by one term.'), 'TaxonomyTermResource: selectNodes');
+
+    // Ensure pager works.
+    $response = $this->servicesPost($path . '/taxonomy_term/selectNodes', array('tids' => $term1['tid'], 'pager' => TRUE));
+    $this->assertEqual(count($response['body']), 10, t('selectNodes pager works.'), 'TaxonomyTermResource: selectNodes');
+
+    // Test 'or' operator.
+    $response = $this->servicesPost($path . '/taxonomy_term/selectNodes', array('tids' => $term1['tid'] . ',' . $term2['tid'], 'pager' => FALSE));
+    $response_nodes = $this->getNodeNids($response['body']);
+    sort($response_nodes);
+
+    $term1_or_term2_nodes = array_merge($nodes_term1, $nodes_term1_term2, $nodes_term2);
+    sort($term1_or_term2_nodes);
+
+    $this->assertEqual($response_nodes, $term1_or_term2_nodes, t('selectNodes selected proper nodes "term1 or term2".'), 'TaxonomyTermResource: selectNodes');
+
+    // Test 'and' operator and order.
+    $response = $this->servicesPost($path . '/taxonomy_term/selectNodes', array('tids' => array($term1['tid'], $term2['tid']), 'pager' => FALSE, 'operator' => 'and', 'order' => 'n.nid ASC'));
+    $response_nodes = $this->getNodeNids($response['body']);
+
+    $this->assertEqual($response_nodes, $nodes_term1_term2, t('selectNodes selected proper nodes "term1 and term2" and proper order.'), 'TaxonomyTermResource: selectNodes');
+  }
+
+  /**
+   * Helper. Create taxonomy vocabulary.
+   */
+  function createVocabulary() {
+    $vocabulary = array(
+      'name'        => $this->randomName(),
+      'description' => $this->randomString(),
+      'help'        => $this->randomString(),
+      'relations'   => 1,
+      'hierarchy'   => 1,
+      'multiple'    => 1,
+      'required'    => 0,
+      'module'      => 'services',
+      'weight'      => 0,
+    );
+    taxonomy_save_vocabulary($vocabulary);
+    $vid = db_result(db_query('SELECT vid FROM {vocabulary} WHERE name = "%s"', $vocabulary['name']));
+
+    return (array)taxonomy_vocabulary_load($vid, TRUE);
+  }
+
+  /**
+   * Helper. Create taxonomy term.
+   */
+  function createTerm($vid) {
+    $term = array(
+      'vid' => $vid,
+      'name' => $this->randomName(),
+      'description' => $this->randomString(),
+      'weight' => rand(0, 100),
+      'parent' => NULL,
+    );
+    taxonomy_save_term($term);
+
+    // Load term by name.
+    return (array)current(taxonomy_get_term_by_name($term['name']));
+  }
+
+  /**
+   * Helper. Get array of nids from nodes array.
+   */
+  function getNodeNids($nodes) {
+    $return = array();
+    foreach ($nodes as $node) {
+      $return[] = $node->nid;
+    }
+    return $return;
+  }
+}

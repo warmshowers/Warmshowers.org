@@ -1,0 +1,200 @@
+<?php
+
+/**
+ * @file
+ * Test for file resource.
+ *
+ */
+
+require_once('ServicesWebTestCase.php');
+
+/**
+ * Test class.
+ */
+class ServicesResourceFileTests extends ServicesWebTestCase {
+  // Class variables
+  protected $privileged_user = NULL ;
+  // Endpoint details.
+  protected $endpoint = NULL;
+  // Test file.
+  protected $testfiles;
+
+  /**
+   * Implements setUp().
+   */
+  public function setUp() {
+    parent::setUp(
+      'upload',
+      'autoload',
+      'ctools',
+      'services',
+      'rest_server',
+      'inputstream'
+    );
+    // Set up endpoint.
+    $this->endpoint =  $this->saveNewEndpoint();
+    // Create and log in our privileged user.
+    $this->privileged_user = $this->drupalCreateUser(array(
+      'get own binary files',
+      'save file information',
+      'administer services',
+      'administer site configuration',
+      'upload files',
+    ));
+    $this->drupalLogin($this->privileged_user);
+    // Get a test file.
+    $this->testfiles = $this->drupalGetTestFiles('text');
+  }
+
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Resource File'),
+      'description' => t('Test the resource File methods.'),
+      'group' => t('Services'),
+    );
+  }
+
+  /**
+   * Test create method.
+   */
+  public function testResourceFileCreate() {
+    // Create file argument with data.
+    $file = array(
+      'filesize' => filesize($this->testfiles[0]->filename),
+      'filename' => str_replace('/simpletest/', '/' . $this->randomName() . '/'  . $this->randomName() . '/', $this->testfiles[0]->filename),
+      'file' => base64_encode(file_get_contents($this->testfiles[0]->filename)),
+      'uid' => $this->privileged_user->uid,
+    );
+
+    // Create file with call.
+    $result = $this->servicesPost($this->endpoint->path . '/file', $file);
+    $this->assertEqual($result['code'], 200, t('File created.'), 'FileResource: Create');
+
+    // Load file and assert that it exists.
+    //$file_load = file_load($result['body']['fid']);
+    $dbresult = db_query('SELECT * FROM {files} WHERE fid = %d', $result['body']['fid']);
+    $file_load = db_fetch_object($dbresult);
+    $this->assertTrue(is_file($file_load->filepath), t('New file saved to disk.'), 'FileResource: Create');
+
+    // Lets create another file with the same details
+    // and ensure name and path are changed automatically.
+    $result = $this->servicesPost($this->endpoint->path . '/file', $file);
+    $dbresult = db_query('SELECT * FROM {files} WHERE fid = %d', $result['body']['fid']);
+    $file1 = db_fetch_object($dbresult);
+    $file2 = db_fetch_object($dbresult);
+    $this->assertTrue($file1->filename != $file2->filename && $file1->filepath != $file2->filepath,
+      t('Two identical files created end up with different names.'), 'FileResource: Create');
+  }
+
+  /**
+   * Test create method (Legacy).
+   *
+   * TODO: To be removed in future version.
+   * @see http://drupal.org/node/1083242
+   */
+  public function testResourceFileCreateLegacy() {
+    // Create file argument with data.
+    $file = array(
+      'filesize' => filesize($this->testfiles[0]->filename),
+      'filename' => $this->testfiles[0]->filename,
+      'file' => base64_encode(file_get_contents($this->testfiles[0]->filename)),
+      'uid' => $this->privileged_user->uid,
+    );
+
+    // Create file with call.
+    $result = $this->servicesPost($this->endpoint->path . '/file', array('file' => $file));
+    $this->assertEqual($result['code'], 200, t('File created.'), 'FileResource: Create (Legacy)');
+
+    // Load file and assert that it exists.
+    //$file_load = file_load($result['body']['fid']);
+    $dbresult = db_query('SELECT * FROM {files} WHERE fid = %d', $result['body']['fid']);
+    $file_load = db_fetch_object($dbresult);
+    $this->assertTrue(is_file($file_load->filepath), t('New file saved to disk.'), 'FileResource: Create (Legacy)');
+
+    // Lets create another file with the same details
+    // and ensure name and path are changed automatically.
+    $result = $this->servicesPost($this->endpoint->path . '/file', array('file' => $file));
+    $dbresult = db_query('SELECT * FROM {files} WHERE fid = %d', $result['body']['fid']);
+    $file1 = db_fetch_object($dbresult);
+    $file2 = db_fetch_object($dbresult);
+    $this->assertTrue($file1->filename != $file2->filename && $file1->filepath != $file2->filepath,
+      t('Two identical files created end up with different names.'), 'FileResource: Create (Legacy)');
+  }
+
+  /**
+   * Test retrieve method.
+   */
+  public function testResourceFileRetrieve() {
+    // Emulate uploaded file.
+    $testfile = $this->uploadTestFile();
+
+    // Retrieve file.
+    $result = $this->servicesGet($this->endpoint->path . '/file/' . $testfile['fid']);
+    $file = $result['body'];
+
+    // Assert that fid, filesize and uri are the same.
+    $this->assertTrue($file['fid'] == $testfile['fid']
+                  && $file['filesize'] == $testfile['filesize'],
+      t('File retrieved.'), 'FileResource: Retrieve');
+  }
+
+  /**
+   * Test delete method.
+   */
+  public function testResourceFileDelete() {
+    // Emulate uploaded file.
+    $testfile = $this->uploadTestFile();
+
+    // Delete file via call.
+    $result = $this->servicesDelete($this->endpoint->path . '/file/' . $testfile['fid']);
+
+    // Check if record in files table still exists.
+    $fid = db_result(db_query('SELECT fid FROM {files} WHERE fid = %d', $testfile['fid']));
+    $this->assertTrue(empty($fid), t('File deleted.'), 'FileResource: Delete');
+  }
+    /**
+   * Emulate uploaded file.
+   *
+   * Copy file from simpletest file samples and create record in files table.
+   *
+   * @return array
+   *  File data.
+   */
+  public function uploadTestFile($file = NULL) {
+    if (empty($file)) {
+      $file = current($this->testfiles);
+    }
+    $testfile =  array(
+      'fid' => NULL,
+      'uid' => $this->privileged_user->uid,
+      'filename' => trim(basename($file->filename), '.'),
+      'filepath' => $file->filename,
+      'filemime' => file_get_mimetype($file->filename),
+      'filesize' => filesize($file->filename),
+      'status' => FILE_STATUS_PERMANENT,
+      'timestamp' => time(),
+    );
+    $source = $testfile['filepath'];
+    $destination = file_directory_path() . '/' . $testfile['filepath'];
+    $dirname = dirname($destination);
+
+    // Build the destination folder tree if it doesn't already exists.
+    // @see http://drupal.org/node/180970
+    $dir_array = explode('/', $dirname);
+    $file_check_directory_array = array();
+    foreach ($dir_array as $dir_element) {
+      $file_check_directory_array[] = $dir_element;
+      $dir_path_element = implode('/', $file_check_directory_array);
+      file_check_directory($dir_path_element, FILE_CREATE_DIRECTORY);
+    }
+
+    file_copy($source, $destination);
+
+    drupal_write_record('files', $testfile);
+
+    return $testfile;
+  }
+}

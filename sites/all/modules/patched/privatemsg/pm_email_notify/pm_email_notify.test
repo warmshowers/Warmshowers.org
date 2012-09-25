@@ -1,0 +1,455 @@
+<?php
+/**
+ * @file
+ * Test file for pm_email_notify.module
+ */
+
+class PrivatemsgEMailNotifyTestCase extends DrupalWebTestCase {
+
+  protected $handledMails = 0;
+
+  /**
+   * Implements getInfo().
+   */
+  function getInfo() {
+    return array
+    (
+      'name' => t('Privatemsg E-Mail notifications.'),
+      'description' => t('Test sending e-mail notifications according to the set configuration.'),
+      'group' => t('Privatemsg'),
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  function setUp() {
+    parent::setUp('privatemsg', 'pm_email_notify', 'privatemsg_roles');
+
+    $this->author = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'write privatemsg to all roles'));
+    $this->recipient = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'set privatemsg e-mail notification level', 'change privatemsg e-mail notification for indirect messages'));
+    $this->recipient2 = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+    $this->admin = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'administer privatemsg settings'));
+    $this->handledMails = 0;
+  }
+
+  /**
+   * Test Always configuration.
+   */
+  function testAlwaysConfiguration() {
+    $this->drupalLogin($this->author);
+
+    // Send a new message.
+    $message = array(
+      'recipient' => $this->recipient->name . ', ' . $this->recipient2->name,
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+    $this->verifyMails(array($this->recipient, $this->recipient2), $this->author, $message);
+
+    // Reply to the existing message.
+    $reply = array(
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $message['body'] = $reply['body'];
+
+    $this->verifyMails(array($this->recipient, $this->recipient2), $this->author, $message);
+
+    // Send a message to all users.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+
+    $recipients = array(user_load(1), $this->author, $this->recipient, $this->recipient2, $this->admin);
+    $this->verifyMails($recipients, $this->author, $message);
+
+    // Verify that the user with the necessary permission chan choose the exact
+    // notification level while the other can only opt out.
+    $this->drupalLogin($this->recipient);
+    $this->drupalGet('user/' . $this->recipient->uid . '/edit');
+
+    // Verify correct defaults.
+    $this->assertFieldByName('pm_email_notify_level', PM_EMAIL_NOTIFY_LEVEL_ALL, t('Notification level setting has the correct default value'));
+
+    $edit = array(
+      'pm_email_notify_level' => PM_EMAIL_NOTIFY_LEVEL_DISABLED,
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+    // Send another message, only recipient two should get a notification.
+    $this->drupalLogin($this->author);
+
+    // Send a new message.
+    $message = array(
+      'recipient' => $this->recipient->name . ', ' . $this->recipient2->name,
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+    $this->verifyMails(array($this->recipient2), $this->author, $message);
+
+    // Opt out of notifications with the other user.
+    $this->drupalLogin($this->recipient2);
+    $this->drupalGet('user/' . $this->recipient2->uid . '/edit');
+
+    // Verify correct defaults.
+    $this->assertFieldChecked('edit-pm-email-notify-level', PM_EMAIL_NOTIFY_LEVEL_DEFAULT, t('Notification level is set to default.'));
+
+    $edit = array(
+      'pm_email_notify_level' => FALSE,
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+    // Send another message, only recipient two should get a notification.
+    $this->drupalLogin($this->author);
+
+    // Send a new message.
+    $message = array(
+      'recipient' => $this->recipient->name . ', ' . $this->recipient2->name,
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $this->getNewMails(0);
+  }
+
+  /**
+   * Test Always configuration.
+   */
+  function testOnlyUserConfiguration() {
+    $this->drupalLogin($this->author);
+
+    // Send a message to all users.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+
+    $recipients = array(user_load(1), $this->author, $this->recipient, $this->recipient2, $this->admin);
+    $this->verifyMails($recipients, $this->author, $message);
+
+    // Enable only user.
+    $this->drupalLogin($this->admin);
+    $edit = array(
+      'privatemsg_setting_email_notify_only_user' => TRUE,
+    );
+    $this->drupalPost('admin/settings/messages/notify', $edit, t('Save configuration'));
+    $this->drupalLogin($this->author);
+
+    // No notifications should be sent now.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $this->getNewMails(0);
+
+    // Verify that only the user with the necessary permission can change
+    // the default setting.
+    $this->drupalLogin($this->recipient);
+    $this->drupalGet('user/' . $this->recipient->uid . '/edit');
+
+    // Verify correct defaults.
+    $this->assertFieldChecked('edit-pm-email-only-user', t('Only user option has the correct default value'));
+    //$this->assertFieldByName('pm_email_notify_level', PM_EMAIL_NOTIFY_LEVEL_ALL, t('Notification level setting has the correct default value'));
+
+    $edit = array(
+      'pm_email_only_user' => FALSE,
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+
+    $this->drupalLogin($this->recipient2);
+    $this->drupalGet('user/' . $this->recipient2->uid . '/edit');
+
+    // Verify correct defaults.
+    $this->assertNoFieldById('edit-pm-email-only-user', NULL, t('User is not allowed to customize noly user option.'));
+    //$this->assertNoText(t('Private messages'), t('Private messages fieldset is not displayed when there are no fields within it.'));
+
+    $this->drupalLogin($this->author);
+
+    // Send another message to all users, only $this->recipient should receive
+    // a notification.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+
+    $recipients = array($this->recipient);
+    $this->verifyMails($recipients, $this->author, $message);
+  }
+
+  /**
+   * Test Always configuration.
+   */
+  function testThreadConfiguration() {
+    // Configure to only send notifications for new messages.
+    $this->drupalLogin($this->admin);
+    $edit = array(
+      'privatemsg_setting_email_notify_level' => PM_EMAIL_NOTIFY_LEVEL_THREAD,
+    );
+    $this->drupalPost('admin/settings/messages/notify', $edit, t('Save configuration'));
+    $this->drupalLogin($this->author);
+
+    // Send a new message.
+    $message = array(
+      'recipient' => $this->recipient->name . ', ' . $this->recipient2->name,
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+    $this->verifyMails(array($this->recipient, $this->recipient2), $this->author, $message);
+
+    // Reply to the existing message.
+    $reply = array(
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $message['body'] = $reply['body'];
+    $this->getNewMails(0);
+
+    // Send a message to all users.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+
+    $recipients = array(user_load(1), $this->author, $this->recipient, $this->recipient2, $this->admin);
+    $this->verifyMails($recipients, $this->author, $message);
+  }
+
+  /**
+   * Test Always configuration.
+   */
+  function testUnreadConfiguration() {
+    // Configure to only send notifications for new messages.
+    $this->drupalLogin($this->admin);
+    $edit = array(
+      'privatemsg_setting_email_notify_level' => PM_EMAIL_NOTIFY_LEVEL_UNREAD_ONCE,
+    );
+    $this->drupalPost('admin/settings/messages/notify', $edit, t('Save configuration'));
+    $this->drupalLogin($this->author);
+
+    // Send a new message.
+    $message = array(
+      'recipient' => $this->recipient->name . ', ' . $this->recipient2->name,
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+    $this->verifyMails(array($this->recipient, $this->recipient2), $this->author, $message);
+
+    // Reply to the existing message.
+    $reply = array(
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $message['body'] = $reply['body'];
+    $this->getNewMails(0);
+
+    // Visit the thread with the first recipient.
+    $this->drupalLogin($this->recipient);
+    $this->drupalGet('messages');
+    $this->clickLink($message['subject']);
+
+    // Back to author, send another message.
+    $this->drupalLogin($this->author);
+    $this->drupalGet('messages/view/' . $message['thread_id']);
+    $reply = array(
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $message['body'] = $reply['body'];
+    $this->verifyMails(array($this->recipient), $this->author, $message);
+
+    // Another reply, again, no notifications.
+    $reply = array(
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $message['body'] = $reply['body'];
+    $this->getNewMails(0);
+
+    // Send a message to all users.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+
+    $recipients = array(user_load(1), $this->author, $this->recipient, $this->recipient2, $this->admin);
+    $this->verifyMails($recipients, $this->author, $message);
+  }
+
+  /**
+   * Test that no mails are sent when
+   */
+  function testNeverConfiguration() {
+    // Disable notifications by default.
+    $this->drupalLogin($this->admin);
+    $edit = array(
+      'privatemsg_setting_email_notify_level' => PM_EMAIL_NOTIFY_LEVEL_DISABLED,
+    );
+    $this->drupalPost('admin/settings/messages/notify', $edit, t('Save configuration'));
+
+    $this->drupalLogin($this->author);
+
+    // Send a new message.
+    $message = array(
+      'recipient' => $this->recipient->name . ', ' . $this->recipient2->name,
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $this->getNewMails(0);
+
+    // Send a message to all users.
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $this->getNewMails(0);
+
+    // Verify that only the user with the necessary permission enable email
+    // notifications.
+    $this->drupalLogin($this->recipient);
+    $this->drupalGet('user/' . $this->recipient->uid . '/edit');
+
+    // Verify correct defaults.
+    $this->assertFieldByName('pm_email_notify_level', PM_EMAIL_NOTIFY_LEVEL_ALL, t('Notification level setting has the correct default value'));
+
+    $edit = array(
+      'pm_email_notify_level' => PM_EMAIL_NOTIFY_LEVEL_ALL,
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+    $this->drupalLogin($this->recipient2);
+    $this->drupalGet('user/' . $this->recipient2->uid . '/edit');
+
+    // Verify correct defaults.
+    $this->assertNoFieldById('edit-pm-email-notify-level', NULL, t('User is not allowed change email notification setting.'));
+    $this->assertNoText(t('Private messages'), t('Private messages fieldset is not displayed when there are no fields within it.'));
+
+    // Send a message to all users, only recipient should receive an email.
+    $this->drupalLogin($this->author);
+    $message = array(
+      'recipient' => 'authenticated user',
+      'subject' => $this->randomName(),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('messages/new', $message, t('Send message'));
+    $message['thread_id'] = $this->getCurrentThreadId();
+
+    $recipients = array($this->recipient);
+    $this->verifyMails($recipients, $this->author, $message);
+  }
+
+  /**
+   * Extracts the current thread_id from the URl.
+   *
+   * @return
+   *   Thread id of the current page.
+   */
+  function getCurrentThreadId() {
+    preg_match('|messages\/view\/([0-9]+)|', $this->getURL(), $matches);
+    return $matches[1];
+  }
+
+  /**
+   * Return new mails.
+   *
+   * Returns all mails which were sent since the last call to this function.
+   *
+   * @param $expectedNumber
+   *   Number of new mails that should be there.
+   */
+  function getNewMails($expectedNumber) {
+    // Load all mails of the current test.
+    $mails = $this->drupalGetMails();
+
+    // Slice of the new ones.
+    $mails_slice = array_slice($mails, $this->handledMails);
+
+    // Update amount of already handled mails.
+    $this->handledMails = count($mails);
+
+    if ($expectedNumber !== FALSE) {
+      $this->assertEqual(count($mails_slice), $expectedNumber, t('@expected notification mails were sent.', array('@expected' => $expectedNumber)));
+    }
+    return $mails_slice;
+  }
+
+  /**
+   * Verify multiple notification mails
+   *
+   * @param $recipients
+   *   Array of recipients in the order in which they received their mail.
+   * @param $author
+   *   Author user object.
+   * @param $message
+   *   Message array, containing the keys thread_id, body and subject.
+   */
+  function verifyMails($recipients, $author, $message) {
+    $mails = $this->getNewMails(count($recipients));
+    foreach ($recipients as $id => $recipient) {
+      $this->verifyMail($mails[$id], $recipient, $author, $message);
+    }
+  }
+
+  /**
+   * Verify a notification mail.
+   *
+   * @param $mail
+   *   Mail array as returned by DrupalWebTestCase::drupalGetMails().
+   * @param $recipient
+   *   Recipient user object.
+   * @param $author
+   *   Author user object.
+   * @param $message
+   *   Message array, containing the keys thread_id, body and subject.
+   */
+  function verifyMail($mail, $recipient, $author, $message) {
+    $this->assertEqual($mail['id'], 'pm_email_notify_notice', t('Correct notification id.'));
+    $this->assertEqual($mail['to'], $recipient->mail, t('Correct recipient e-mail address.'));
+    $params = array(
+      '!author_uid' => $author->uid,
+      '!author' => privatemsg_recipient_format($author, array('plain' => TRUE)),
+      '!pm_subject' => trim(drupal_html_to_text(check_plain($message['subject']))),
+      '!pm_body' => trim(drupal_html_to_text(check_markup($message['body'], NULL, FALSE))),
+      '!thread' => $message['thread_id'],
+      '!user_uid' => $recipient->uid,
+      '!message' => url(privatemsg_get_dynamic_url_prefix($recipient->uid) . '/view/' . $message['thread_id'], array('absolute' => TRUE)),
+      '!settings' => url('user/' . $recipient->uid . '/edit', array('absolute' => TRUE)),
+      '!site' => variable_get('site_name', 'Drupal'),
+      '!username' => privatemsg_recipient_format($recipient, array('plain' => TRUE)),
+    );
+    $subject = strtr(_pm_email_notify_text('subject'), $params);
+    $body = drupal_wrap_mail(strtr(_pm_email_notify_text('body'), $params));
+    $this->assertEqual($mail['subject'], $subject, t('Correct subject'));
+    $this->assertEqual($mail['body'], $body, t('Correct body'));
+  }
+}

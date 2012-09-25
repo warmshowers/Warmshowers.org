@@ -1,17 +1,22 @@
 <?php
-// $Id: xmlrpc_server.module,v 1.6.2.14.2.5 2010/02/21 03:01:19 heyrocker Exp $
 /**
  * @file
  *  Enable XML-RPC for services module.
+ *
+ * Resource definitions get converted to RPC-style procedure names, but 
+ * otherwise this is really just a wrapper around the core xmlrpc server. 
+ * These procedures are renamed as <resource>.<method>. So the node 
+ * resource's retrieve method has an XMLRPC procedure name of node.retrieve,
+ * the user resource's login action has an XMLRPC procedure name of 
+ * user.login, etc.
  */
-
+ 
 /**
  * Implementation of hook_server_info().
  */
 function xmlrpc_server_server_info() {
   return array(
-    '#name' => 'XMLRPC',
-    '#path' => 'xmlrpc'
+    'name' => 'XMLRPC',
   );
 }
 
@@ -22,8 +27,7 @@ function xmlrpc_server_server() {
   require_once './includes/xmlrpc.inc';
   require_once './includes/xmlrpcs.inc';
 
-  // 
-  return xmlrpc_server(xmlrpc_server_xmlrpc());
+  return xmlrpc_server(array_merge(xmlrpc_server_xmlrpc(), module_invoke_all('xmlrpc')));
 }
 
 /**
@@ -33,9 +37,17 @@ function xmlrpc_server_server() {
  */
 function xmlrpc_server_xmlrpc() {
   $callbacks = array();
-  foreach (services_get_all() as $method) {
-    $callbacks[$method['method']] = 'xmlrpc_server_call_wrapper';
+  
+  $resources = services_get_resources();
+  if (!empty($resources)) {
+    // Translate all resources
+    foreach ($resources as $name => $def) {
+      foreach (services_resources_as_procedures($def) as $method) {
+        $callbacks[$method['method']] = 'xmlrpc_server_call_wrapper';
+      }
+    }
   }
+
   return $callbacks;
 }
 
@@ -49,30 +61,49 @@ function xmlrpc_server_call_wrapper() {
   $xmlrpc_server = xmlrpc_server_get();
   $method_name = $xmlrpc_server->message->methodname;
   $args = func_get_args();
-  return services_method_call($method_name, $args);
-}
+  $endpoint = services_get_server_info('endpoint', '');
+  $controller = services_controller_get($method_name, $endpoint);
 
-/**
- * Implementation of hook_server_error().
- *
- * Takes the error message and wraps it into an XMLRPC error object.
- *
- * @see xmlrpc_error() 
- */
-function xmlrpc_server_server_error($message) {
-  if (!is_array($message)) {
-    $message = (array)$message;
+  try {
+    // Add in default arguments if arguments still dont exist.
+    if (isset($controller['args'])  && is_array($controller['args'])) {
+      foreach ($controller['args'] as $index => $arg) {
+        if ($arg['optional'] && isset($arg['default value']) && !isset($args[$index])) {
+          $args[$index] = $arg['default value'];
+        }
+        elseif ($arg['optional'] == FALSE && !isset($args[$index])) {
+          return services_error(t('Missing required argument @arg', array('@arg' => $arg['name'])), 401);
+        }
+      }
+    }
+    return services_controller_execute($controller, $args);
   }
-
-  $message = implode(' ', $message);
-
-  $matches = array();
-  if (preg_match("/\#(\d+)/", $message, $matches)) {
-    $code = $matches[1];
-  } 
-  else {
-    $code = 1;
+  catch (Exception $e) {
+    $code = $e->getCode();
+    switch($code) {
+      case 204:
+        drupal_set_header('HTTP/1.0 204 No Content: ' . $e->getMessage());
+        break;
+      case 304:
+        drupal_set_header('HTTP/1.0 304 Not Modified: ' . $e->getMessage());
+        break;
+      case 401:
+        drupal_set_header('HTTP/1.0 401 Unauthorized: ' . $e->getMessage());
+        break;
+      case 404:
+        drupal_set_header('HTTP/1.0 404 Not found: ' . $e->getMessage());
+        break;
+      case 406:
+        drupal_set_header('HTTP/1.0 406 Not Acceptable: ' . $e->getMessage());
+        break;
+      default:
+        if ($code >= 400 && $code < 600) {
+          drupal_set_header('HTTP/1.0 ' . $code . ' ' . $e->getMessage());
+        }
+        else {
+          drupal_set_header('HTTP/1.0 500 An error occurred: (' . $code . ') ' . $e->getMessage());
+        }
+        break;
+    }
   }
-  
-  return xmlrpc_error($code, strip_tags($message));
 }

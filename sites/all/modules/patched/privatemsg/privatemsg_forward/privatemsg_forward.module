@@ -1,0 +1,142 @@
+<?php
+
+/**
+ * @file
+ * Module file for privatemsg_forward.module.
+ */
+
+/**
+ * Implements hook_perm().
+ */
+function privatemsg_forward_perm() {
+  return array('forward a privatemsg thread', 'remove from a privatemsg thread');
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function privatemsg_forward_form_privatemsg_form_reply_alter(&$form, &$form_state) {
+  // If there are no valid recipients, the reply form possibly only shows a
+  // error message. Don't add the forward fieldset in that case.
+  if (isset($form['submit'])) {
+    $form['forward'] = array(
+      '#type'               => 'fieldset',
+      '#access'             => privatemsg_user_access('forward a privatemsg thread'),
+      '#collapsible'        => TRUE,
+      '#collapsed'          => TRUE,
+      '#title'              => t('Forward conversation to others'),
+      '#weight'             => 5,
+      '#attributes'         => array('class' => 'privatemsg-forward'),
+    );
+
+    $form['forward']['to']  = array(
+      '#type'               => 'textfield',
+      '#title'              => t('To'),
+      '#description'        => t('Separate multiple names with commas.'),
+      '#required'           => FALSE,
+      '#weight'             => -10,
+      '#size'               => 50,
+      '#autocomplete_path'  => 'messages/autocomplete',
+    );
+
+    $form['forward']['remove'] = array(
+      '#type'               => 'checkbox',
+      '#title'              => t('Remove myself as a conversation participant'),
+      '#description'        => t('You will no longer be listed as a participant in this conversation nor will you receive new messages. However, any messages you have previously posted will still appear in the conversation.'),
+      '#default_value'      => FALSE,
+      '#access'             => privatemsg_user_access('remove from a privatemsg thread'),
+    );
+
+    $form['forward']['submit'] = array(
+      '#type'               => 'submit',
+      '#value'              => t('Forward this conversation'),
+      '#weight'             => 15,
+      '#submit'             => array('privatemsg_forward_form_submit', 'privatemsg_forward_form_delete_submit'),
+      '#validate'           => array('privatemsg_forward_form_validate'),
+    );
+
+    // Also add submit and validate function to the global ones so that the
+    // Send message button can be used.
+    $form['#validate'][] = 'privatemsg_forward_form_validate';
+    // Add forward submit callback before default so that the message is sent
+    // to the new recipients too.
+    array_unshift($form['#submit'], 'privatemsg_forward_form_submit');
+    // Add delete submit function at the end so that it also removes the current
+    // user from the new reply.
+    $form['#submit'][] = 'privatemsg_forward_form_delete_submit';
+  }
+}
+
+/**
+ * Validate function for forward form.
+ */
+function privatemsg_forward_form_validate($form, &$form_state) {
+  global $user;
+  // Parse user string.
+  list($new_recipients, $invalid) = _privatemsg_parse_userstring($form_state['values']['to']);
+
+  // Display invalid names.
+  if (!empty($invalid)) {
+    drupal_set_message(t('The following users will not receive this private message: @invalid.', array('@invalid' => implode(', ', $invalid))), 'error');
+  }
+
+  // Remove blocked participants.
+  if (!empty($new_recipients)) {
+    foreach (module_invoke_all('privatemsg_block_message', $user, $new_recipients) as $blocked) {
+      unset($new_recipients[$blocked['recipient']]);
+      drupal_set_message($blocked['message'], 'warning');
+    }
+  }
+
+  $form_state['new_recipients'] = $new_recipients;
+}
+
+/**
+ * Submit function for forward form.
+ */
+function privatemsg_forward_form_submit($form, &$form_state) {
+  global $user;
+  $new_recipients = $form_state['new_recipients'];
+
+  // Don't forward if no valid participants have been entered.
+  if (!empty($new_recipients)) {
+    $thread = privatemsg_thread_load($form_state['values']['thread_id']);
+    $new_names = array();
+    // For every message and every new participant, add them as recipient.
+    foreach ($thread['messages'] as $mid => $message)  {
+      foreach ($new_recipients as $new_recipient) {
+        $new_names[privatemsg_recipient_key($new_recipient)] = privatemsg_recipient_format($new_recipient);
+        privatemsg_message_change_recipient($mid, $new_recipient->recipient, $new_recipient->type);
+      }
+      _privatemsg_handle_recipients($mid, $new_recipients);
+    }
+    drupal_set_message(t('This conversation has been forwarded to !new.', array('!new' => implode(', ', $new_names))));
+  }
+
+  // If the body field is non-empty, add a new reply to the thread.
+  // Only do this if the form has not been submitted with the Send message
+  // button to avoid sending the message twice.
+  if (!empty($form_state['values']['body'])) {
+    // Call validate again to refresh information.
+    privatemsg_new_validate($form, $form_state);
+    // Only explicitly call submit callback if it won't happen automatically.
+    if ($form_state['clicked_button']['#value'] != t('Send message')) {
+      privatemsg_new_submit($form, $form_state);
+    }
+
+  }
+}
+
+/**
+ * Submit callback to remove the current user as recipient of the thread.
+ */
+function privatemsg_forward_form_delete_submit($form, &$form_state) {
+  global $user;
+  if ($form_state['values']['remove']) {
+    db_query("DELETE FROM {pm_index} WHERE thread_id = %d AND recipient = %d AND type IN ('hidden', 'user')", $form_state['values']['thread_id'], $user->uid);
+
+    // Display message and redirect to messages if user has removed himself.
+    $form_state['redirect'] = 'messages';
+    drupal_set_message(t('You have been removed as a participant in the conversation.'));
+  }
+}

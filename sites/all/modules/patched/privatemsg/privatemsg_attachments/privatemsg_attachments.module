@@ -1,0 +1,433 @@
+<?php
+
+/**
+ * @file
+ * Allows users to add attachments to messages
+ */
+
+/**
+ * Implements hook_perm()
+ */
+function privatemsg_attachments_perm() {
+  return array('upload private message attachments', 'view private message attachments');
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function privatemsg_attachments_form_privatemsg_form_reply_alter(&$form, &$form_state) {
+  // If there are no valid recipients, the reply form possibly only shows a
+  // error message. Don't add the forward fieldset in that case.
+  if (!isset($form['submit'])) {
+    return;
+  }
+
+  // Reply form is separate now, just forward to the existing hook.
+  privatemsg_attachments_form_privatemsg_new_alter($form, $form_state);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function privatemsg_attachments_form_privatemsg_new_alter(&$form, &$form_state) {
+  if (user_access('upload private message attachments')) {
+    $form['attachments'] = array(
+      '#type' => 'fieldset',
+      '#access' => user_access('upload private message attachments'),
+      '#title' => t('File attachments'),
+      '#collapsible' => TRUE,
+      '#collapsed' => empty($form['#privatemsg_message']['files']),
+      '#description' => t('Changes made to the attachments are not permanent until you send this message.'),
+      '#prefix' => '<div class="attachments">',
+      '#suffix' => '</div>',
+      '#weight' => 1,
+    );
+
+    // Wrapper for fieldset contents (used by ahah.js).
+    $form['attachments']['wrapper'] = array(
+      '#prefix' => '<div id="attach-wrapper">',
+      '#suffix' => '</div>',
+    );
+
+    // Make sure necessary directories for upload.module exist and are
+    // writable before displaying the attachment form.
+    $path = file_directory_path();
+    $temp = file_directory_temp();
+    $dir = variable_get('privatemsg_attachments_upload_dir', '');
+    if (!empty($dir) && $dir[0] !== '/') {
+      $dir = '/' . $dir;
+    }
+    $path .= $dir;
+
+    // Note: pass by reference
+    if (!file_check_directory($path, FILE_CREATE_DIRECTORY) || !file_check_directory($temp, FILE_CREATE_DIRECTORY)) {
+      $form['attachments']['#description'] =  t('File attachments are disabled. The file attachment fieldset in the module\'s administration settings may not have been properly configured.');
+      if (user_access('administer privatemsg settings')) {
+        $form['attachments']['#description'] .= ' '. t('Please visit the <a href="@admin-file-system">Private Messages module configuration page</a>.', array('@admin-file-system' => url('admin/settings/messages')));
+      }
+      else {
+        $form['attachments']['#description'] .= ' '. t('Please contact the site administrator.');
+      }
+    }
+    else {
+      $files = array();
+      if (!empty($form_state['storage']['files'])) {
+        $files = $form_state['storage']['files'];
+        $form['attachments']['#collapsed'] = FALSE;
+      }
+
+      $form['attachments']['wrapper'] += _privatemsg_attachments_form($files);
+      // Execute submit function as validate, to have it executed before
+      // $form_state['validate_built_message'] is created.
+      array_unshift($form['#validate'], '_privatemsg_attachments_upload_submit');
+
+      $form['#attributes']['enctype'] = 'multipart/form-data';
+    }
+  }
+}
+
+function privatemsg_attachments_form_privatemsg_admin_settings_alter(&$form, &$form_state) {
+  $form['attachments'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Privatemsg attachments'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#weight' => 25,
+  );
+
+  $form['attachments']['privatemsg_attachments_upload_dir'] = array(
+    '#title' => t('Privatemsg attachments directory'),
+    '#type'  => 'textfield',
+    '#default_value' => variable_get('privatemsg_attachments_upload_dir', ''),
+	'#description' => t("Relative path, based on Drupal's configured file attachments path, where private message attachments will be stored."),
+    '#weight' => -4,
+  );
+}
+
+function _privatemsg_attachments_form($files = array()) {
+  global $user;
+
+  $form = array(
+    '#theme' => 'upload_form_new',
+    '#cache' => TRUE,
+  );
+
+  if (!empty($files)) {
+    $form['files']['#theme'] = 'upload_form_current';
+    $form['files']['#tree'] = TRUE;
+    foreach ($files as $key => $file) {
+      if (is_numeric($key)) {
+        $file = (object)$file;
+        $description = file_create_url($file->filepath);
+        $description = "<small>". check_plain($description) ."</small>";
+        $form['files'][$key]['description'] = array('#type' => 'textfield', '#default_value' => !empty($file->description) ? $file->description : $file->filename, '#maxlength' => 256, '#description' => $description );
+        $form['files'][$key]['size'] = array('#value' => format_size($file->filesize));
+        $form['files'][$key]['remove'] = array('#type' => 'checkbox', '#default_value' => !empty($file->remove));
+        $form['files'][$key]['list'] = array('#type' => 'checkbox',  '#default_value' => $file->list);
+        $form['files'][$key]['weight'] = array('#type' => 'weight', '#delta' => count($files), '#default_value' => $file->weight);
+        $form['files'][$key]['filename'] = array('#type' => 'value',  '#value' => $file->filename);
+        $form['files'][$key]['filepath'] = array('#type' => 'value',  '#value' => $file->filepath);
+        $form['files'][$key]['filemime'] = array('#type' => 'value',  '#value' => $file->filemime);
+        $form['files'][$key]['filesize'] = array('#type' => 'value',  '#value' => $file->filesize);
+        $form['files'][$key]['fid'] = array('#type' => 'value',  '#value' => $file->fid);
+        $form['files'][$key]['new'] = array('#type' => 'value', '#value' => $file->new);
+      }
+    }
+  }
+
+  $limits = _upload_file_limits($user);
+  $form['new']['#weight'] = 10;
+  $form['new']['upload'] = array(
+    '#type' => 'file',
+    '#title' => t('Attach new file'),
+    '#size' => 40,
+    '#description' => ($limits['resolution'] ? t('Images are larger than %resolution will be resized.', array('%resolution' => $limits['resolution'])) : '') .' '. t('The maximum upload size is %filesize. Only files with the following extensions may be uploaded: %extensions.', array('%extensions' => $limits['extensions'], '%filesize' => format_size($limits['file_size']))),
+  );
+  $form['new']['attach'] = array(
+    '#type' => 'submit',
+    '#value' => t('Attach'),
+    '#name' => 'attach',
+    '#ahah' => array(
+      'path' => 'messages/upload/js',
+      'wrapper' => 'attach-wrapper',
+      'progress' => array('type' => 'bar', 'message' => t('Please wait...')),
+    ),
+  );
+  return $form;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function privatemsg_attachments_menu() {
+  $items['messages/upload/js'] = array(
+    'page callback' => 'privatemsg_attachments_upload_js',
+    'access arguments' => array('upload private message attachments'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Menu callback for JavaScript-based uploads.
+ *
+ * See upload_js() from upload.module.
+ */
+function privatemsg_attachments_upload_js() {
+  $form_state = array('values' => $_POST, 'storage' => NULL, 'submitted' => FALSE);
+
+  // Load the form from the Form API cache.
+  if (!($cached_form = form_get_cache($_POST['form_build_id'], $form_state)) || !isset($cached_form['attachments'])) {
+    form_set_error('form_token', t('Validation error, please try again. If this error persists, please contact the site administrator.'));
+    $output = theme('status_messages');
+    print drupal_to_js(array('status' => TRUE, 'data' => $output));
+    exit();
+  }
+
+  // Handle new uploads, and merge tmp files.
+  _privatemsg_attachments_upload_submit($cached_form, $form_state);
+
+  if (!empty($form_state['values']['files'])) {
+    foreach ($form_state['values']['files'] as $fid => $file) {
+      if (is_array($form_state['values']['files'][$fid]) && isset($form_state['storage']['files'][$fid]) && is_array($form_state['storage']['files'][$fid])) {
+        $form_state['values']['files'][$fid] += $form_state['storage']['files'][$fid];
+      }
+    }
+  }
+
+  $form_state['storage']['files'] = $form_state['values']['files'];
+  $form = _privatemsg_attachments_form($form_state['values']['files']);
+
+  unset($cached_form['attachments']['wrapper']['new']);
+  $cached_form['attachments']['wrapper'] = array_merge($cached_form['attachments']['wrapper'], $form);
+
+  $cached_form['attachments']['#collapsed'] = FALSE;
+
+  form_set_cache($_POST['form_build_id'], $cached_form, $form_state);
+
+  foreach ($form_state['values']['files'] as $fid => $file) {
+    if (is_numeric($fid)) {
+      $form['files'][$fid]['description']['#default_value'] = $form_state['values']['files'][$fid]['description'];
+      $form['files'][$fid]['list']['#default_value'] = !empty($form_state['values']['files'][$fid]['list']);
+      $form['files'][$fid]['remove']['#default_value'] = !empty($form_state['values']['files'][$fid]['remove']);
+      $form['files'][$fid]['weight']['#default_value'] = $form_state['values']['files'][$fid]['weight'];
+    }
+  }
+
+  // Render the form for output.
+  $form += array(
+    '#post' => $_POST,
+    '#programmed' => FALSE,
+    '#tree' => FALSE,
+    '#parents' => array(),
+    '#id' => '_privatemsg_upload_form',
+  );
+  $form['__drupal_alter_by_ref'] = array(&$form_state);
+  drupal_alter('form', $form, '_privatemsg_upload_form');
+  $form_state = array('submitted' => FALSE);
+  $form = form_builder('_privatemsg_upload_form', $form, $form_state);
+  $output = theme('status_messages') . drupal_render($form);
+
+  // We send the updated file attachments form.
+  // Don't call drupal_json(). ahah.js uses an iframe and
+  // the header output by drupal_json() causes problems in some browsers.
+  print drupal_to_js(array('status' => TRUE, 'data' => $output));
+  exit;
+}
+
+function _privatemsg_attachments_upload_submit(&$form, &$form_state) {
+  global $user;
+
+  $limits = _upload_file_limits($user);
+  $validators = array(
+    'file_validate_extensions' => array($limits['extensions']),
+    'file_validate_image_resolution' => array($limits['resolution']),
+    'file_validate_size' => array($limits['file_size'], $limits['user_size']),
+  );
+
+  // Save new file uploads.
+  $dir = variable_get('privatemsg_attachments_upload_dir', '');
+  if (!empty($dir) && $dir[0] !== '/') {
+    $dir = '/' . $dir;
+  }
+  if (user_access('upload private message attachments') && ($file = file_save_upload('upload', $validators, file_directory_path() . $dir))) {
+    $file->list = variable_get('upload_list_default', 1);
+    $file->description = $file->filename;
+    $file->weight = 0;
+    $file->new = TRUE;
+    $form_state['values']['files'][$file->fid] = (array)$file;
+  }
+
+  // Order the form according to the set file weight values.
+  if (!empty($form_state['values']['files'])) {
+    $microweight = 0.001;
+    foreach ($form_state['values']['files'] as $fid => $file) {
+      if (is_numeric($fid)) {
+        $form_state['values']['files'][$fid]['#weight'] = $file['weight'] + $microweight;
+        $microweight += 0.001;
+      }
+    }
+    uasort($form_state['values']['files'], 'element_sort');
+  }
+}
+
+function privatemsg_attachments_privatemsg_message_view_alter(&$vars) {
+  if (!empty($vars['message']['files']) && user_access('view private message attachments')) {
+    $vars['message_body'] .= theme('upload_attachments', $vars['message']['files']);
+  }
+}
+
+/**
+ * Implements hook_privatemsg_message_insert().
+ */
+function privatemsg_attachments_privatemsg_message_insert($message) {
+
+  if (empty($message['files']) || !is_array($message['files'])) {
+    return;
+  }
+
+  foreach ($message['files'] as $fid => $file) {
+    // Convert file to object for compatibility
+    $file = (object)$file;
+
+    // Remove file. Process removals first since no further processing
+    // will be required.
+    if (!empty($file->remove)) {
+      db_query('DELETE FROM {pm_attachments} WHERE fid = %d AND mid = %d', $fid, $message['mid']);
+
+      file_delete($file->filepath);
+      db_query('DELETE FROM {files} WHERE fid = %d', $fid);
+
+      // Remove it from the session in the case of new uploads,
+      // that you want to disassociate before node submission.
+      unset($message['files'][$fid]);
+      // Move on, so the removed file won't be added to new revisions.
+      continue;
+    }
+
+    // Create a new revision, or associate a new file needed.
+    if ($file->new) {
+      db_query("INSERT INTO {pm_attachments} (fid, mid, list, description, weight) VALUES (%d, %d, %d, '%s', %d)", $file->fid, $message['mid'], $file->list, $file->description, $file->weight);
+      file_set_status($file, FILE_STATUS_PERMANENT);
+    }
+  }
+}
+
+/**
+ * Implements hook_privatemsg_message_load().
+ */
+function privatemsg_attachments_privatemsg_message_load($message) {
+  $files = array();
+
+  $result = db_query('SELECT * FROM {files} f INNER JOIN {pm_attachments} pma ON f.fid = pma.fid WHERE pma.mid = %d ORDER BY pma.weight, f.fid', $message['mid']);
+  while ($file = db_fetch_object($result)) {
+    $files[$file->fid] = $file;
+  }
+
+  return array('files' => $files);
+}
+
+/**
+ * Implements hook_privatemsg_message_flush().
+ */
+function privatemsg_attachments_privatemsg_message_flush($message) {
+  if (!isset($message['files'])) {
+    return;
+  }
+
+  foreach ($message['files'] as $fid => $file) {
+    // Delete all files associated with the node
+    db_query('DELETE FROM {files} WHERE fid = %d', $fid);
+    file_delete($file->filepath);
+  }
+
+  // Delete all file revision information associated with the node
+  db_query('DELETE FROM {pm_attachments} WHERE mid = %d', $message['mid']);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Add attachment data to the table data.
+ */
+function privatemsg_attachments_form_privatemsg_list_alter(&$form, &$form_state) {
+  // Load enabled columns.
+  $fields = array_filter(variable_get('privatemsg_display_fields', array('participants')));
+  if (in_array('attachment', $fields) && !empty($form['#data'])) {
+    // Load thread id's of the current list.
+    $threads = array_keys($form['#data']);
+
+    // Fetch all tags of those threads.
+    $query = _privatemsg_assemble_query(array('count', 'privatemsg_attachments'), $threads);
+
+    // Add them to #data
+    $result = db_query($query['query']);
+    while ($attachment = db_fetch_array($result)) {
+      $form['#data'][$attachment['thread_id']]['attachment'] = $attachment['count'];
+    }
+  }
+}
+
+function privatemsg_attachments_sql_count(&$fragments, $threads) {
+  $fragments['primary_table'] = '{pm_attachments} pma';
+
+  $fragments['select'][] = 'pmi.thread_id';
+  $fragments['select'][] = 'COUNT(DISTINCT pma.fid) AS count';
+
+  $fragments['inner_join'][] = 'INNER JOIN {pm_index} pmi ON (pmi.mid = pma.mid)';
+
+  $fragments['where'][] = 'pmi.thread_id IN (' . db_placeholders($threads) . ')';
+  $fragments['query_args']['where'] = $threads;
+
+  $fragments['group_by'][] = 'pmi.thread_id';
+
+}
+
+/**
+ * Implements hook_privatemsg_header_info().
+ */
+function privatemsg_attachments_privatemsg_header_info() {
+  $a = array(
+    'attachment' => array(
+      'data' => '&nbsp;',
+      'class' => 'privatemsg-header-attachment',
+      '#title' => t('Attachment icon'),
+      '#weight' => -25,
+    ),
+  );
+  return $a;
+}
+
+/**
+ * Default theme pattern function to display attachment symbol.
+ *
+ * @see theme_privatemsg_list_field()
+ */
+function phptemplate_privatemsg_list_field__attachment($thread) {
+  if (isset($thread['attachment'])) {
+    $description = format_plural($thread['attachment'], t('Thread contains @count attachment.'), t('Thread contains @count attachments.'));
+    $img = theme('image', drupal_get_path('module', 'privatemsg_attachments') . '/icon_attachment.gif', $description, $description);
+    return $img;
+  }
+}
+
+/**
+ * Implements hook_file_download().
+ */
+function privatemsg_attachments_file_download($filepath) {
+  global $user;
+  $filepath = file_create_path($filepath);
+  $result = db_query("SELECT f.*, pma.mid FROM {files} f INNER JOIN {pm_attachments} pma ON f.fid = pma.fid WHERE filepath = '%s'", $filepath);
+  if ($file = db_fetch_object($result)) {
+    // Try to load the message, pass user object to check recipient status.
+    if (user_access('view private message attachments') && privatemsg_message_load($file->mid, $user)) {
+      return array(
+        'Content-Type: ' . $file->filemime,
+        'Content-Length: ' . $file->filesize,
+      );
+    }
+    else {
+      return -1;
+    }
+  }
+}

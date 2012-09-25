@@ -1,0 +1,163 @@
+<?php
+/**
+ * @file
+ * Test file for privatemsg_forward.module
+ */
+
+class PrivatemsgForwardTestCase extends DrupalWebTestCase {
+
+  private $author;
+  private $recipient1;
+  private $recipient2;
+
+  private $firstMessage;
+
+  /**
+   * Implements getInfo().
+   */
+  function getInfo() {
+    return array(
+      'name' => t('Privatemsg forward functionality.'),
+      'description' => t('Test forward/remove myself features of the module.'),
+      'group' => t('Privatemsg'),
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  function setUp() {
+    parent::setUp('privatemsg', 'privatemsg_forward');
+  }
+
+  /**
+   * Test forwarding a thread.
+   *
+   * Including with/without sending a message and/or removing from the thread.
+   */
+  function testForward() {
+    $this->author = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+    $this->recipient1 = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'forward a privatemsg thread', 'remove from a privatemsg thread'));
+    $this->recipient2 = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'forward a privatemsg thread'));
+
+    // Just forward.
+    $this->createThread();
+    $justForward = array('to' => $this->recipient2->name);
+    $this->drupalPost(NULL, $justForward, t('Forward this conversation'));
+
+    // Validate forwarding.
+    $this->assertText($this->firstMessage['body'], t('Thread is still displayed'));
+    $this->goToThread($this->recipient2);
+
+    // Forward and remove myself.
+    $this->createThread();
+    $forwardDelete = array(
+      'to' => $this->recipient2->name,
+      'remove' => TRUE,
+    );
+    $this->drupalPost(NULL, $forwardDelete, t('Forward this conversation'));
+    $this->assertNoText($this->firstMessage['subject'], t('User has been removed from thread'));
+    $this->goToThread($this->recipient2);
+
+    // Check that after sending a response, the thread is still hidden.
+    $reply = array(
+      'body' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText($reply['body'], t('New reply is displayed'));
+    $this->drupalLogin($this->recipient1);
+    $this->drupalGet('messages');
+    $this->assertNoText($this->firstMessage['subject'], t('Forwarded has not recieved the reply'));
+
+    //Forward and reply.
+    $this->createThread();
+    $forwardReply = array(
+      'to' => $this->recipient2->name,
+      'body' => $this->randomName(200),
+    );
+    // It is also possible to use the Send message button when there is a reply.
+    $this->drupalPost(NULL, $forwardReply, t('Send message'));
+
+    $this->assertText($forwardReply['body'], t('New reply is displayed'));
+    $this->goToThread($this->recipient2, $forwardReply['body']);
+
+    // Forward, reply and remove myself.
+    $this->createThread();
+    $forwardReplyDelete = array(
+      'to' => $this->recipient2->name,
+      'remove' => TRUE,
+      'body' => $this->randomName(200),
+    );
+    $this->drupalPost(NULL, $forwardReplyDelete, t('Forward this conversation'));
+
+    // Additional forward because thread name is displayed as a info message.
+    $this->assertNoText($this->firstMessage['subject'], t('User has been removed from thread'));
+    $this->goToThread($this->recipient2, $forwardReplyDelete['body']);
+
+    // Verify that the second recipient can see the forward fieldset but not
+    // the remove myself button.
+    $this->assertText(t('Forward conversation to others'));
+    $this->assertNoText(t('Remove myself as a conversation participant'));
+
+    // Remove only.
+    $this->createThread();
+    $removeOnly = array(
+      'remove' => TRUE,
+    );
+    $this->drupalPost(NULL, $removeOnly, t('Forward this conversation'));
+    $this->assertText(t('You have been removed as a participant in the conversation.'), t('Confirmation message displayed.'));
+    $this->assertNoText($this->firstMessage['subject'], t('User has been removed from thread'));
+
+    // Remove and reply.
+    $this->createThread();
+    $removeReply = array(
+      'remove' => TRUE,
+      'body'   => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $removeReply, t('Forward this conversation'));
+    $this->assertText(t('You have been removed as a participant in the conversation.'), t('Confirmation message displayed.'));
+    $this->assertNoText($this->firstMessage['subject'], t('User has been removed from thread'));
+    $this->goToThread($this->author, $removeReply['body']);
+
+    // Verify that the author can't see the forward fieldset.
+    $this->assertNoText(t('Forward conversation to others'));
+  }
+
+  /**
+   * Create the first message of a thread.
+   */
+  function createThread() {
+    $this->firstMessage = array(
+      'recipient' => $this->recipient1->name,
+      'subject' => $this->randomName(20),
+      'body' => $this->randomName(100),
+    );
+
+    // Login author.
+    $this->drupalLogin($this->author);
+
+    // Submit the message.
+    $this->drupalPost('messages/new', $this->firstMessage, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $this->recipient1->name)), 'Message sent confirmation displayed.');
+
+    // Login as recipient.
+    $this->drupalLogin($this->recipient1);
+    $this->drupalGet('messages');
+    $this->clickLink($this->firstMessage['subject']);
+  }
+
+  /**
+   * Go to the currently active thread and check if the user can see it.
+   */
+  function goToThread($user, $reply = NULL) {
+    $this->drupalLogin($user);
+    $this->drupalGet('messages');
+    $this->clickLink($this->firstMessage['subject']);
+    $this->assertText($this->firstMessage['body'], t('Thread is displayed for user @username', array('@username' => $user->name)));
+
+    // Check additional message if passed.
+    if ($reply) {
+      $this->assertText($reply, t('Reply is displayed.'));
+    }
+  }
+}
