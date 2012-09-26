@@ -40,7 +40,7 @@ function wsmap_menu()
 
 function user_view_map()
 {
-  return true;
+  return TRUE;
 }
 
 
@@ -94,6 +94,7 @@ function wsmap_view($uid = NULL, $zoom = 0) {
     ),
     'loggedin' => user_access('access map detail'),
     'mapwidth' => 100,
+    'maxresults' => variable_get('wsmap_max_hosts_retrievable', 2000),
   );
 
   if ($uid) {
@@ -170,6 +171,67 @@ function wsmap_search_form()
 
 }
 
+/**
+ * Get accounts within a geographic region.
+ * Can also just return the count of members in that region.
+ *
+ * Max # of hosts retrievable (limit) is controlled by the Drupal variable
+ * wsmap_max_hosts_retrievable
+ *
+ * @param float $minlat
+ * @param float $maxlat
+ * @param float $minlon
+ * @param float $maxlon
+ * @param float $centerlat
+ * @param float $centerlon
+ * @param int $maxresults
+ *
+ * @return array
+ *   Returns array containing hosts found in the range.
+ */
+function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $centerlat, $centerlon, $limit = 2000) {
+
+  $latlonwhere = "latitude > %f AND latitude < %f AND longitude >%f AND longitude <%f ";
+  if ($minlon > $maxlon) { // The case on the 180 degrees longitude (New Zealand)
+    $latlonwhere = "latitude > %f AND latitude < %f AND (longitude < %f OR longitude > %f)";
+  }
+
+  // The subquery on users_roles prevents unvalidated users from showing up.
+  $sql = "SELECT u.uid, w.fullname name, street, city, province, postal_code, country, latitude, longitude,
+    source, notcurrentlyavailable,
+    DEGREES(ACOS(SIN(RADIANS(%f)) * SIN(RADIANS(latitude))+COS(RADIANS(%f)) * COS(RADIANS(latitude)) * COS(RADIANS(%f-longitude)))) * 60 AS distance
+    FROM {users} u, {user_location} l, {wsuser} w
+    WHERE $latlonwhere
+    AND u.uid = l.oid AND u.uid=w.uid AND u.status>0 AND !w.isunreachable AND !w.isstale
+    AND !notcurrentlyavailable
+    AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
+		ORDER BY distance ASC";
+
+  $limit = min($limit, variable_get('wsmap_max_hosts_retrievable', 2000));
+
+  $start = microtime();
+  $result = db_query_range($sql, $centerlat, $centerlat, $centerlon, $minlat, $maxlat, $minlon, $maxlon, 0, $limit);
+  $duration = microtime() - $start;
+
+  $accounts = array();
+  while ($row = db_fetch_array($result)) {
+    $accounts[] = $row;
+  }
+  return array(
+    'query_data' => array(
+      'sql' => $sql,
+      'centerlat' => $centerlat,
+      'centerlon' => $centerlon,
+      'minlat' => $minlat,
+      'maxlat' => $maxlat,
+      'minlon' => $minlon,
+      'maxlon' => $maxlon,
+      'limit' => $limit,
+      'duration' => $duration,
+    ),
+    'accounts' => $accounts
+  );
+}
 
 /******* xml output for ajax request ************/
 
@@ -187,69 +249,23 @@ function wsmap_xml_hosts()
   $centerlat = (float)$_GET['centerlat'];
   $centerlon = (float)$_GET['centerlon'];
 
-  $limitlow = 0;
-  if (isset($_GET['limitlow'])) {
-    $limitlow = (int)$_GET['limitlow'];
-  }
-  $maxresults = 2000;
   if (isset($_GET['maxresults'])) {
-    $maxresults = (int)$_GET['maxresults'];
+    $limit = (int)$_GET['maxresults'];
   }
-
-
-  if (isset($_GET['count'])) {
-    $sql = "select count(*) count from {user_location} l,{wsuser} w,{users} u where u.uid=w.uid and u.uid = l.oid and !w.isunreachable and !w.isstale and latitude > %f and latitude < %f and longitude >%f and longitude <%f  and source <= 6";
-
-    $count = db_result(db_query($sql, $minlat, $maxlat, $minlon, $maxlon));
-
-    print "<count>$count</count>";
-    return;
-  }
-
-
-  $totalsql = "select count(*) count from {user_location} l, {wsuser} w, {users} u
-	where u.uid=w.uid and u.uid=l.oid and !w.isunreachable and !w.isstale and latitude > %f and latitude < %f and longitude >%f and longitude <%f
-	and source <= 6";
-
-  $totalresults = db_result(db_query($totalsql, $minlat, $maxlat, $minlon, $maxlon));
-
+  $limit = min($limit, variable_get('wsmap_max_hosts_retrievable', 2000));
+  $hosts = wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $centerlat, $centerlon, $limit);
 
   print "<root>\n";
 
-
-  $latlonwhere = "latitude > %f and latitude < %f and longitude >%f and longitude <%f ";
-  if ($minlon > $maxlon) { // The case on the 180 degrees longitude (New Zealand)
-    $latlonwhere = "latitude > %f and latitude < %f and (longitude < %f or longitude > %f)";
-  }
-  $sql = "SELECT u.uid, mail, w.fullname name, street, city, province, postal_code, country, latitude, longitude,
-		 source, notcurrentlyavailable,
-		 DEGREES(ACOS(SIN(RADIANS(%f)) * SIN(RADIANS(latitude))+COS(RADIANS(%f)) * COS(RADIANS(latitude))  *
-		COS(RADIANS(%f-longitude)))) * 60      as distance
-		from {users} u, {user_location} l, {wsuser} w
-		 where $latlonwhere
-		 and u.uid = l.oid and u.uid=w.uid and u.status>0 and !w.isunreachable and !w.isstale
-		 and !notcurrentlyavailable
-		order by distance asc";
-
-
-  $sql .= " limit %d, %d";
-
-  $result = db_query($sql, $centerlat, $centerlat, $centerlon, $minlat, $maxlat, $minlon, $maxlon, $limitlow, $maxresults);
-
-
-  $status = $totalresults <= $maxresults ? "complete" : "incomplete";
-
-
-  print "<!-- minlon=$minlon, maxlon=$maxlon, minlat=$minlat, maxlat=$maxlat -->\n";
-  print "<!-- Number of items= $delivered -->\n";
-  print "<!-- $sql -->\n";
-  print '<status id="status" delivered="' . $delivered . '" totalresults="' . $totalresults . '" status="' . $status . '">' . $status;
-  print "</status>";
+  print "<!-- minlon=$minlon, maxlon=$maxlon, minlat=$minlat, maxlat=$maxlat, centerlat=$centerlat, centerlon=$centerlon-->\n";
+  print "<!-- limit=$limit -->\n";
+  print "<!-- {$hosts['query_data']['sql']}
+  -->\n";
   print "<hosts>\n";
 
   $count = 0;
 
-  while ($row = db_fetch_array($result)) {
+  foreach ($hosts['accounts'] as $row) {
 
     $count++;
 

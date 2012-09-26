@@ -29,7 +29,7 @@ var numHostsToDetail = 8;
 var specificZoomSettings = {  // Handle countries that don't quite fit the calculation
   us:6, ca:5, ru:3, cn:4
 };
-var chunkSize = 5000;
+var chunkSize = 2000;
 /* Max size of a request to the db */
 var mapdata_source = null;
 var loggedin = false;
@@ -73,6 +73,7 @@ function wsmap_main_load_entry() {
     mapwidth = Drupal.settings.wsmap.mapwidth; // Integer percent
     base_path = Drupal.settings.wsmap.base_path;
     userInfo = Drupal.settings.wsmap.userInfo;
+    chunkSize = Drupal.settings.wsmap.maxresults;
 
     $(window).resize(map_resize);
     map_resize();
