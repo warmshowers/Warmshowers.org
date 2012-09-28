@@ -1,0 +1,73 @@
+<?php
+// $Id: drupal_queue.module,v 1.6 2010/10/07 02:12:28 davereid Exp $
+
+/**
+ * Get a queue object for a given name.
+ *
+ * @see DrupalQueue::get()
+ *
+ * @param $name
+ *   Arbitrary string. The name of the queue to work with.
+ * @return
+ *   The queue object for a given name.
+ */
+function drupal_queue_get($name) {
+  drupal_queue_include();
+  return DrupalQueue::get($name);
+}
+
+/**
+ * Helper. Make sure expensive module_load_include() does not run needlessly.
+ */
+function drupal_queue_include() {
+  static $included = FALSE;
+  if (!$included) {
+    module_load_include('inc', 'drupal_queue');
+    module_invoke_all('drupal_queue_load_classes');
+    $included = TRUE;
+  }
+}
+
+/**
+ * Alternative cron entry point.
+ *
+ * In comparison to drupal_cron_run(), drupal_queue_cron_run() does not use a
+ * semaphore. Every time it is called it starts workers for items it finds in
+ * the queue.
+ */
+function drupal_queue_cron_run() {
+  drupal_queue_include();
+
+  // Try to increase the maximum execution time if it is too low.
+  if (ini_get('max_execution_time') < 240 && !ini_get('safe_mode')) {
+    set_time_limit(240);
+  }
+
+  // Grab the defined cron queues.
+  $queues = module_invoke_all('cron_queue_info');
+  drupal_alter('cron_queue_info', $queues);
+
+  // Work off queues.
+  foreach ($queues as $queue_name => $info) {
+    $function = $info['worker callback'];
+    $end = time() + (isset($info['time']) ? $info['time'] : 15);
+    $queue = DrupalQueue::get($queue_name);
+    while (time() < $end && ($item = $queue->claimItem())) {
+      $function($item->data);
+      $queue->deleteItem($item);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function drupal_queue_cron() {
+  if (variable_get('drupal_queue_on_cron', TRUE)) {
+    drupal_queue_cron_run();
+  }
+
+  // Reset expired items in the default queue implementation table. If that's
+  // not used, this will simply be a no-op (see D7 system_cron())
+  db_query('UPDATE {queue} SET expire = 0 WHERE expire < %d', time());
+}
