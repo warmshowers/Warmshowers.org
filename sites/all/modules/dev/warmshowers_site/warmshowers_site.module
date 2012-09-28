@@ -191,4 +191,73 @@ function warmshowers_site_menu_alter(&$items) {
 
   // We don't want the node river of news page out there.
   unset($items['node']);
+
+  // Stop using contact form for member contact, and use privatemsg
+  // instead
+  $items['user/%user/contact'] = array(
+    'title' => 'Contact',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('warmshowers_site_contact_mail_user', 1),
+    'type' => MENU_CALLBACK,
+    'access callback' => '_contact_user_tab_access',
+    'access arguments' => array(1),
+  );
+}
+
+
+/**
+ * Replaces the contact module's form with our own, which just submits
+ * to privatemsg.
+ *
+ * @param $form_state
+ * @param $recipient
+ * @return mixed
+ */
+function warmshowers_site_contact_mail_user(&$form_state, $recipient) {
+  global $user;
+  $form['#token'] = $user->name . $user->mail;
+  $form['recipient'] = array('#type' => 'value', '#value' => $recipient);
+  $form['from'] = array('#type' => 'item',
+    '#title' => t('From'),
+    '#value' => theme('username', $user) .' &lt;'. check_plain($user->mail) .'&gt;',
+  );
+  $form['to'] = array('#type' => 'item',
+    '#title' => t('To'),
+    '#value' => theme('username', $recipient),
+  );
+  $form['subject'] = array('#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#maxlength' => 50,
+    '#required' => TRUE,
+  );
+  $form['message'] = array('#type' => 'textarea',
+    '#title' => t('Message'),
+    '#rows' => 15,
+    '#required' => TRUE,
+  );
+  $form['copy'] = array(
+    '#type' => 'hidden', // Hide from regular UI, but apps might still use it.
+    '#title' => t('Send yourself a copy.'),
+  );
+  $form['submit'] = array('#type' => 'submit',
+    '#value' => t('Send e-mail'),
+  );
+  return $form;
+}
+
+/**
+ * Process the personal contact page wrapper.
+ */
+function warmshowers_site_contact_mail_user_submit($form, &$form_state) {
+  global $user, $language;
+
+  $account = $form_state['values']['recipient'];
+  $account->type = 'user';
+
+  $result = privatemsg_new_thread(array($account), $form_state['values']['subject'], $form_state['values']['message']);
+
+  drupal_set_message(t('The message has been sent.'));
+
+  // Back to the requested users profile page.
+  $form_state['redirect'] = "user/$account->uid";
 }
