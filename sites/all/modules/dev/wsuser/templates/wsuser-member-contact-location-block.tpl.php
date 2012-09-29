@@ -68,7 +68,10 @@
 if ($account->uid != $GLOBALS['user']->uid) {
 	print theme('linkbutton', array(
       'title' => t('Send Message'),
-      'href' => 'user/' .  $account->uid . '/contact',
+      // Note that this href is dependent on the setting of BASE URL PATH
+      // in the privatemsg settings. It needs to be set to user/%user/messages
+      // for this to work.
+      'href' => 'user/' .  $GLOBALS['user']->uid . '/messages/new/' . $account->uid,
       'classes'=> 'rounded light',
     )
   );
