@@ -28,7 +28,7 @@
 <?php if (!$is_self):
   print theme('linkbutton',
     array(
-      'title' => t('Recommend'),
+      'title' => t('Provide Feedback'),
       'href' => url('node/add/trust-referral', array(
           'absolute' => TRUE,
           'query' => array(
