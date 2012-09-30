@@ -44,8 +44,11 @@
 		<span class="member-additional"><?php print $additional; ?></span><br/>
 	<?php endif; ?>
 	<?php if (!$notcurrentlyavailable): ?>
-		<span class="member-city"><?php print $city . ', ' . $province . ' ' . $postal_code . ' ' . $country; ?></span>
+		<span class="member-city"><?php print $city . ', ' . $province . ' ' . $postal_code . ' ' . $country; ?></span><br/>
 	<?php endif; ?>
+  <?php if ($source <= 5 && !$notcurrentlyavailable): ?>
+    <span class="member-latlon"><?php print t('Lat') . ": " .  $latitude . ", " . t('Lon') . ': ' . $longitude; ?> </span>
+  <?php endif; ?>
 <?php } ?>
 </div>
 
