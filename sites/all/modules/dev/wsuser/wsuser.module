@@ -607,11 +607,13 @@ function wsuser_search($op = 'search', $keys = null) {
         if (is_numeric($latitude) && is_numeric($longitude)) {
           // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
           // No guarantee expressed or implied, and no testing around 0 latitude.
+          // The role restriction removes members who are pre-authorized
           $sql = "SELECT
             SQRT(POW(69.1 * (l.latitude - %f), 2) + POW(69.1 * (%f - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
             FROM {users} u, {wsuser w}, {user_location} l
             WHERE u.uid = w.uid and u.uid=l.oid AND status > 0
             AND !w.isstale AND !w.isunreachable AND !notcurrentlyavailable
+            AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
             ORDER BY distance";
           $result = pager_query($sql, 50, 0, NULL, $latitude, $longitude);
 
@@ -620,6 +622,7 @@ function wsuser_search($op = 'search', $keys = null) {
         else {
           $sql = "SELECT * FROM {users} u, {wsuser w}, {user_location} l
                 WHERE u.uid = w.uid AND u.uid=l.oid AND status > 0
+                AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
                 AND !w.isstale AND !w.isunreachable AND
                 (LOWER(w.fullname) LIKE '%%%s%%' OR u.name like '%%%s%%'
                 OR l.city like '%%%s%%' OR u.mail LIKE '%s%%')";
@@ -1502,11 +1505,13 @@ function wsuser_member_list_html($country,$province,$include_unavailable) {
 		province "State/Province",
 		postal_code "Postal Code", country "Country", latitude "Latitude", longitude "Longitude",
 		source as "Geocoding Accuracy",
-		if (URL,concat("<a href=\'",URL,"\'>",URL,"</a>"),"") "Website",
-		date(from_unixtime(u.created)) as "Account Created",
-		date(from_unixtime(u.access)) as "Last Login"
-		from users u, wsuser w, user_location l
-		where u.uid=w.uid and u.uid=l.oid and status and !isunreachable and !isstale ';
+		IF (URL,concat("<a href=\'",URL,"\'>",URL,"</a>"),"") "Website",
+		DATE(FROM_UNIXTIME(u.created)) AS "Account Created",
+		DATE(FROM_UNIXTIME(u.access)) AS "Last Login"
+		FROM users u, wsuser w, user_location l
+		WHERE u.uid=w.uid AND u.uid=l.oid AND status AND !isunreachable AND !isstale
+		AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
+';
 
 	if ($country != "all") {
 		$sql .= " and country='%s' ";
