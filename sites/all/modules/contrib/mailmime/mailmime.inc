@@ -689,6 +689,12 @@ class MailMIME extends Mail_mime {
   public function toEmail($headers) {
     $headers = self::toHeaders($headers);
     $mime_headers = $this->headers();
+
+    // Drupal core does not handle correctly the \n before 'boundary' that
+    // mime.php inserts.
+    if (!empty($mime_headers['Content-Type'])) {
+      $mime_headers['Content-Type'] = preg_replace('/\n/', ' ', $mime_headers['Content-Type']);
+    }
     return array(
       array_diff_key($headers, $mime_headers) + $mime_headers,
       $this->get(NULL, NULL, TRUE),
