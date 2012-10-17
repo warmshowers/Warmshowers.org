@@ -267,3 +267,92 @@ function warmshowers_site_contact_mail_user_submit($form, &$form_state) {
   // Back to the requested users profile page.
   $form_state['redirect'] = "user/$account->uid";
 }
+
+/**
+ * Implements hook_services_resources_alter()
+ *
+ * We provide our own login service so that we can allow either username or
+ * email address for the username.
+ *
+ * @param $resources
+ * @param $endpoint
+ */
+function warmshowers_site_services_resources_alter(&$resources, $endpoint) {
+  $resources['user']['actions']['login'] = array(
+    'help' => 'Login a user for a new session - allows email address as username',
+    'callback' => 'warmshowers_site_user_resource_login',
+    'file' => array(
+      'type' => 'module',
+      'module' => 'warmshowers_site',
+    ),
+    'args' => array(
+      array(
+        'name' => 'username',
+        'type' => 'string',
+        'description' => 'A valid username or associated email address',
+        'source' => array('data' => 'username'),
+        'optional' => FALSE,
+      ),
+      array(
+        'name' => 'password',
+        'type' => 'string',
+        'description' => 'A valid password',
+        'source' => array('data' => 'password'),
+        'optional' => FALSE,
+      ),
+    ),
+    'access callback' => 'services_access_menu',
+  );
+
+}
+
+
+/**
+ * Login a user using the specified credentials.
+ *
+ * Copied from user_resource.inc: _user_resource_login(), but with addition
+ * of allowing the email address as username.
+ *
+ * Note this will transfer a plaintext password.
+ *
+ * @param $username
+ *   Username to be logged in.
+ * @param $password
+ *   Password, must be plain text and not hashed.
+ *
+ * @return
+ *   A valid session object.
+ */
+function warmshowers_site_user_resource_login($username, $password) {
+  global $user;
+
+  if ($user->uid) {
+    // user is already logged in
+    return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
+  }
+
+  // Handle the case where they have provided an email address. From logintoboggan.
+  $name_from_email = db_result(db_query("SELECT name FROM {users} WHERE LOWER(mail) = LOWER('%s')", $username));
+  if (!empty($name_from_email)) {
+    $username = $name_from_email;
+  }
+
+  user_authenticate(array('name' => $username, 'pass' => $password));
+
+  if (isset($user->uid) && $user->uid) {
+    // Regenerate the session ID to prevent against session fixation attacks.
+    sess_regenerate();
+
+    $return = new stdClass();
+    $return->sessid = session_id();
+    $return->session_name = session_name();
+
+    services_remove_user_data($user);
+
+    $return->user = $user;
+
+    return $return;
+  }
+  session_destroy();
+  return services_error(t('Wrong username or password.'), 401);
+}
