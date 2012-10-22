@@ -1,0 +1,229 @@
+<?php
+
+/**
+ * @file
+ *  Link general privatemsg module functionalities to services module.
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function privatemsg_service_perm() {
+  return array(
+    'get private messages from remote',
+    'send private messages from remote',
+  );
+}
+
+/**
+ * Implementation of hook_service().
+ */
+function privatemsg_service_service() {
+  return array(
+
+    // privatemsg.get
+    array(
+      '#method'           => 'privatemsg.get',
+      '#callback'         => 'privatemsg_service_get',
+      '#access arguments' => array('get private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_service'),
+      '#args'             => array(
+        array(
+          '#name'         => 'type',
+          '#type'         => 'string',
+          '#optional'     => TRUE,
+          '#description'  => t('The type of messages to retrieve. Can be inbox or sent.')
+        ),
+        array(
+          '#name'         => 'load_full',
+          '#type'         => 'boolean',
+          '#optional'     => TRUE,
+          '#description'  => t('A boolean to indicate whether to load the all messages in a thread or just the message preview. Do not pass FALSE, just leave it empty for message previews.')
+        ),
+        array(
+          '#name'           => 'offset',
+          '#type'           => 'int',
+          '#optional'       => TRUE,
+          '#description'    => t('An offset integer for paging.')
+        ),
+        array(
+          '#name'           => 'limit',
+          '#type'           => 'int',
+          '#optional'       => TRUE,
+          '#description'    => t('A limit integer for paging.')
+        ),
+        array(
+          '#name'           => 'uid',
+          '#type'           => 'int',
+          '#optional'       => TRUE,
+          '#description'    => t('Instead of receiving messages from the authenticated user, receive messages from another user. The currently authenticated user needs to have the "read all private messages" permission to get messages from another user.')
+        ),
+      ),
+      '#return'           => 'array',
+      '#help'             => t('Get a logged-in user\'s private messages.')
+    ),
+
+    // privatemsg.getUnreadCount
+    array(
+      '#method'           => 'privatemsg.unreadCount',
+      '#callback'         => 'privatemsg_service_unread_count',
+      '#access arguments' => array('get private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_service'),
+      '#args'             => array(
+        array(
+          '#name'           => 'uid',
+          '#type'           => 'int',
+          '#optional'       => TRUE,
+          '#description'    => t('Instead of receiving the count of unread messages from the authenticated user, receive the count of unread messages from another user. The currently authenticated user needs to have the "read all private messages" permission to get messages from another user.')
+        ),
+      ),
+      '#return'           => 'int',
+      '#help'             => t('Get a users private messages unread count.')
+    ),
+
+    // privatemsg.send
+    array(
+      '#method'           => 'privatemsg.send',
+      '#callback'         => 'privatemsg_service_send',
+      '#access arguments' => array('send private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_service'),
+      '#args'             => array(
+        array(
+          '#name'         => 'recipients',
+          '#type'         => 'string',
+          '#description'  => t('A comma separated list of recipients usernames.'),
+        ),
+        array(
+          '#name'         => 'subject',
+          '#type'         => 'string',
+          '#description'  => t('A message subject.'),
+        ),
+        array(
+          '#name'         => 'body',
+          '#type'         => 'string',
+          '#optional'     => TRUE,
+          '#description'  => t('A message body.'),
+        ),
+      ),
+      '#return'           => 'bool',
+      '#help'             => t('Returns TRUE if the message sending was a success.')
+    ),
+
+    // privatemsg.reply
+    array(
+      '#method'           => 'privatemsg.reply',
+      '#callback'         => 'privatemsg_service_reply',
+      '#access arguments' => array('send private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_service'),
+      '#args'             => array(
+        array(
+          '#name'         => 'body',
+          '#type'         => 'string',
+          '#description'  => t('A message body.'),
+        ),
+        array(
+          '#name'         => 'thread_id',
+          '#type'         => 'int',
+          '#description'  => t('A thread ID for an existing message.'),
+        ),
+      ),
+      '#return'           => 'bool',
+      '#help'             => t('Returns TRUE if the message reply was a success.')
+    ),
+
+    // privatemsg.getThread
+    array(
+      '#method'           => 'privatemsg.getThread',
+      '#callback'         => 'privatemsg_service_get_thread',
+      '#access arguments' => array('get private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_service'),
+      '#args'             => array(
+        array(
+          '#name'         => 'thread_id',
+          '#type'         => 'int',
+          '#description'  => t('The ID of the thread that should be retrieved.')
+        ),
+        array(
+          '#name'         => 'offset',
+          '#type'         => 'int',
+          '#optional'     => TRUE,
+          '#description'  => t('Message offset from the start of the thread.')
+        ),
+      ),
+      '#return'           => 'array',
+      '#help'             => t('Get all messages in a thread. User needs to be logged in. Unless the logged-in user has the \'read all private messages\' permission, the user will only be able to get threads that he/she participated in.')
+    ),
+  );
+}
+
+/**
+ * Helper Functions
+ */
+
+/**
+ * Collect additional information about messages participants.
+ *
+ * @param $pms
+ *   Array of private messages previews.
+ * @return
+ *   Array of private message previews with
+ *   more information than the participant user ids.
+ */
+function _privatemsg_service_enhance_participants($pms) {
+  // Update participant details for all threads.
+  foreach ($pms as $key => $message) {
+    $participants = array();
+    foreach (_privatemsg_generate_user_array($message->participants) as $account) {
+      $participants[] = _privatemsg_service_simplify_user($account);
+    }
+    $pms[$key]->participants = $participants;
+  }
+  return $pms;
+}
+
+/**
+ * Simplify the thread author object.
+ *
+ * Simplified means that every property that is not in the
+ * 'privatemsg_service_thread_author_fields' variable will be removed.
+ *
+ * @param $user
+ *   A user object that needs to be simplified.
+ * @return
+ *   Thread with simplified user object.
+ */
+function _privatemsg_service_simplify_user($user) {
+
+  // Determine what fields should be included with the user object.
+  $fields = variable_get('privatemsg_service_thread_author_fields', array('uid', 'name'));
+
+  $simple_author = new stdClass;
+  foreach ($fields as $field) {
+    $simple_author->$field = $user->$field;
+  }
+  return $simple_author;
+}
+
+/**
+ * Enhance messages and simplify author objects for a thread.
+ *
+ * @param $thread
+ *   Privatemsg thread array.
+ * @return
+ *   Thread with simplified messages.
+ */
+function _privatemsg_service_process_thread($thread) {
+
+  $thread['user'] = _privatemsg_service_simplify_user($thread['user']);
+
+  // Simplify the author object of every message in this thread.
+  foreach ($thread['messages'] as $mid => $message) {
+    // Allow other modules to add additional information.
+    $enhancements = module_invoke_all('privatemsg_service_enhance_message', $message);
+    if (!empty($enhancements)) {
+      $thread['messages'][$mid] = array_merge($enhancements, $message);
+    }
+    $thread['messages'][$mid]['author'] = _privatemsg_service_simplify_user($message['author']);
+  }
+  return $thread;
+}

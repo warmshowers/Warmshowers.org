@@ -1,0 +1,108 @@
+<?php
+
+/**
+ * @file
+ * This file contains tests for the upload module.
+ */
+
+
+class PrivatemsgAttachmentsTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Privatemsg Attachments functionality',
+      'description' => 'Check content uploaded to private messages.',
+      'group' => 'Privatemsg',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('upload', 'privatemsg', 'privatemsg_attachments');
+  }
+
+  /**
+   * Test with private download option.
+   */
+  function testPrivateDownloads() {
+    variable_set('file_downloads', FILE_DOWNLOADS_PRIVATE);
+    $this->testPublicDownloads();
+
+    // Make sure that other users can't view the private file.
+    $file_url = $this->getUrl();
+    $other_user = $this->drupalCreateUser(array('read privatemsg', 'view private message attachments'));
+    $this->drupalLogin($other_user);
+
+    $this->drupalGet($file_url);
+    $this->assertResponse(403, t('Access to private attachment denied for other user.'));
+  }
+
+  /**
+   * Test with public download directory, this is enabled by default.
+   */
+  function testPublicDownloads() {
+    global $base_url;
+    $admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer privatemsg settings'));
+    $author = $this->drupalCreateUser(array('access content', 'edit own page content', 'upload private message attachments', 'view private message attachments', 'write privatemsg', 'read privatemsg'));
+    $recipient = $this->drupalCreateUser(array('read privatemsg', 'view private message attachments'));
+
+    $this->drupalLogin($admin_user);
+
+    // Enable preview button.
+    variable_set('privatemsg_display_preview_button', TRUE);
+
+    $edit = array();
+    $edit['privatemsg_attachments_upload_dir'] = $this->randomName(10);
+    $this->drupalPost('admin/settings/messages', $edit, t('Save configuration'));
+    $this->assertText('The configuration options have been saved.', 'Privatemsg setting saved.');
+
+    // Setup upload settings.
+    $edit = array();
+    $edit['upload_list_default'] = '1'; // Yes.
+    $edit['upload_extensions_default'] = 'jpg jpeg gif png txt doc xls pdf ppt pps odt ods odp';
+    $edit['upload_uploadsize_default'] = '1.5';
+    $edit['upload_usersize_default'] = '1.5';
+    $this->drupalPost('admin/settings/uploads', $edit, t('Save configuration'));
+    $this->assertText('The configuration options have been saved.', 'Upload setting saved.');
+
+    $this->drupalLogin($author);
+
+    // Create a message and attempt to attach files.
+    $text_files = $this->drupalGetTestFiles('text');
+    $files = array(current($text_files)->filename, next($text_files)->filename);
+
+    // Prepare edit arrays, single recipient.
+    $edit = array(
+      'recipient'     => $recipient->name,
+      'subject'       => $this->randomName(20),
+      'body'          => $this->randomName(100),
+      'files[upload]' => $files[0],
+    );
+
+    // Preview first.
+    $this->drupalPost('messages/new', $edit, t('Preview message'));
+
+    // Make sure the attachment is still displayed:
+    $this->assertText(basename($files[0]), basename($files[0]) . ' found on message.');
+
+    // Submit the message now.
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $recipient->name)), 'Message sent confirmation displayed.');
+
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    // Check to see that uploaded file is listed in detail page.
+    $this->assertText(basename($files[0]), basename($files[0]) . ' found on message.');
+
+    // Prepare edit arrays, single recipient.
+    $reply = array(
+      'body'          => $this->randomName(100),
+      'files[upload]' => $files[1],
+    );
+
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(basename($files[1]), basename($files[1]) . ' found on message.');
+
+    // Check if the file can actually be accessed.
+    $this->clickLink(basename($files[1]));
+    $this->assertEqual(file_get_contents($files[1]), $this->drupalGetContent(), 'Downloaded file matches original');
+  }
+}

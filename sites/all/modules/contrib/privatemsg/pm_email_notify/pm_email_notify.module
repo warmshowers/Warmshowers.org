@@ -1,0 +1,442 @@
+<?php
+
+/**
+ * @file
+ * Notifies users about new Private Messages via Email.
+ */
+
+/**
+ * Disable e-mail notifications.
+ */
+define('PM_EMAIL_NOTIFY_LEVEL_DISABLED', 0);
+
+/**
+ * Enable e-mail notifications only for new threads.
+ */
+define('PM_EMAIL_NOTIFY_LEVEL_THREAD', 4);
+
+/**
+ * Enable e-mail notifications only once until a user visits a threads.
+ */
+define('PM_EMAIL_NOTIFY_LEVEL_UNREAD_ONCE', 8);
+
+/**
+ * Enable e-mail notifications for all messages.
+ */
+define('PM_EMAIL_NOTIFY_LEVEL_ALL', 12);
+
+/**
+ * Enable e-mail notifications and use the global default.
+ *
+ * A negative value will be ignored by the settings API.
+ */
+define('PM_EMAIL_NOTIFY_LEVEL_DEFAULT', -1);
+
+/**
+ * Implements hook_perm().
+ */
+function pm_email_notify_perm() {
+  return array('set privatemsg e-mail notification level', 'change privatemsg e-mail notification for indirect messages');
+}
+
+/**
+ * Implements hook_menu().
+ */
+function pm_email_notify_menu() {
+  $items['admin/settings/messages/notify'] = array(
+    'title'            => 'E-mail notify',
+    'description'      => 'E-mail notification settings',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('pm_email_notify_admin_settings_form'),
+    'file'             => 'pm_email_notify.admin.inc',
+    'access arguments' => array('administer privatemsg settings'),
+    'type'             => MENU_LOCAL_TASK,
+    'weight'           => 10,
+  );
+  return $items;
+}
+
+/**
+ * Retrieve notification level of a user.
+ *
+ * This function retrieves user's pm notification level from database,
+ * if user preference doesn't exist - it uses default value instead.
+ *
+ * @param $uid
+ *   User ID.
+ *
+ * @return
+ *   Returns a PM_EMAIL_NOTIFY_LEVEL_* constant indicating the notification
+ *   level of the requested user.
+ */
+function _pm_email_notify_user_level($uid = NULL) {
+  // Either check the setting for this user or the global default.
+  if ($uid) {
+    $keys = array(
+      'user' => array($uid),
+      'global' => array(0),
+    );
+  } else {
+    $keys = array(
+      'global' => array(0),
+    );
+  }
+
+  return privatemsg_get_setting('email_notify_level', $keys, PM_EMAIL_NOTIFY_LEVEL_ALL);
+}
+
+/**
+ * Check if a user should only be notified when addressed directly.
+ *
+ * @param $uid
+ *   User ID.
+ *
+ * @param
+ *   TRUE if notifications should only be sent for directly addressed
+ *   recipients.
+ */
+function _pm_email_notify_only_user($uid) {
+  // Either check the setting for this user or the global default.
+  $keys = array(
+    'user' => array($uid),
+    'global' => array(0),
+  );
+  return privatemsg_get_setting('email_notify_only_user', $keys);
+}
+
+/**
+ * Retrieve notification setting of a user and check if they should receive
+ * an e-mail notification for a message.
+ *
+ * Note: This function tries to return as quickly as possible, to avoid extra
+ * processing in batch executions.
+ *
+ * @param $uid
+ *   User uid
+ * @param $message
+ *   Message.
+ */
+function _pm_email_notify_send_check($uid, $message) {
+  static $notifications = array();
+
+  $mid = $message['mid'];
+  $thread_id = $message['thread_id'];
+  $level = _pm_email_notify_user_level($uid);
+
+  // If the user has notifications disabled, we can skip the rest.
+  if ($level == PM_EMAIL_NOTIFY_LEVEL_DISABLED) {
+    return FALSE;
+  }
+
+  // If the user has all notifications enabled, we can skip the rest.
+  if ($level == PM_EMAIL_NOTIFY_LEVEL_ALL) {
+    return TRUE;
+  }
+
+  // Cache the result set in case this method is executed in batched operation
+  // which will perform many unnecessary repeated processing.
+  if (!isset($notifications[$uid][$mid])) {
+    // Prime the setting to false.
+    $notifications[$uid][$mid] = FALSE;
+
+    if ($level == PM_EMAIL_NOTIFY_LEVEL_THREAD) {
+      // Is this the origin of a thread?
+      $notifications[$uid][$mid] = ($mid == $thread_id);
+    }
+    elseif ($level == PM_EMAIL_NOTIFY_LEVEL_UNREAD_ONCE) {
+      // If this is the first message of a thread, always send a notification.
+      if ($mid == $thread_id) {
+        $notifications[$uid][$mid] = TRUE;
+      } else {
+        // Check if this user has more than a single unread message
+        // in that thread. If yes, they already got a notification.
+        // They always have at least one unread message because they just
+        // received one.
+        $unread_count = db_result(db_query("SELECT COUNT(*) FROM {pm_index} WHERE thread_id = %d AND is_new = 1 AND recipient = %d AND type IN ('user', 'hidden')", $thread_id, $uid));
+        $notifications[$uid][$mid] = $unread_count == 1;
+      }
+    }
+  }
+
+  return $notifications[$uid][$mid];
+}
+
+/**
+ * Implements hook_privatemsg_message_insert().
+ */
+ function pm_email_notify_privatemsg_message_insert($message) {
+   foreach ($message['recipients'] as $recipient) {
+    pm_email_notify_send_mail($recipient, $message);
+  }
+}
+
+/**
+ * Implements hook_privatemsg_message_recipient_changed().
+ *
+ * Notifies users who were added to a message about new Private Messages
+ * via Email.
+ */
+function pm_email_notify_privatemsg_message_recipient_changed($mid, $thread_id, $recipient_id, $type, $added) {
+  $types = array('user');
+
+  // Only send mail if the recipient was added.
+  if ($added) {
+    if ($message = privatemsg_message_load($mid)) {
+      // Check if we should send an email to 'hidden' recipients.
+      if (!_pm_email_notify_only_user($recipient_id)) {
+        $types[] = 'hidden';
+      }
+      if (in_array($type, $types) && _pm_email_notify_send_check($recipient_id, $message) && ($recipient = privatemsg_user_load($recipient_id))) {
+        pm_email_notify_send_mail($recipient, $message);
+      }
+    }
+  }
+}
+
+/**
+ * Send a pm notification email to a recipient.
+ */
+function pm_email_notify_send_mail($recipient, $message) {
+  // check if recipient enabled email notifications
+  if (isset($recipient->uid) && !empty($recipient->mail) && _pm_email_notify_send_check($recipient->uid, $message)) {
+    // send them a new pm notification email if they did
+    $params['recipient'] = $recipient;
+    $params['message'] = $message;
+    $from = variable_get('pm_email_notify_from', '');
+    drupal_mail('pm_email_notify', 'notice', $recipient->mail, user_preferred_language($recipient), $params, !empty($from) ? $from : NULL);
+  }
+}
+
+/**
+* Implements hook_mail().
+ */
+function pm_email_notify_mail($key, &$message, $params) {
+  $language = $message['language'];
+  $variables = user_mail_tokens($params['recipient'], $language);
+  $variables = array_merge($variables, _pm_email_notify_token($params['recipient'], $params['message'], $language));
+  switch ($key) {
+    case 'notice':
+      $message['subject'] = strtr(_pm_email_notify_text('subject', $language), $variables);
+      $message['body'] = strtr(_pm_email_notify_text('body', $language), $variables);
+      break;
+  }
+}
+
+/**
+ * Return an array of token to value mappings for user e-mail messages.
+ *
+ * @param $message
+ *   The private message array being sent.  Must contain at
+ *   least the fields 'author', 'subject', 'thread_id' and 'body'.
+ * @return
+ *   Array of mappings from token names to values (for use with strtr()).
+ */
+function _pm_email_notify_token($recipient, $message, $language) {
+  $tokens = array(
+    '!author_uid' => $message['author']->uid,
+    '!author' => privatemsg_recipient_format($message['author'], array('plain' => TRUE)),
+    '!pm_subject' => trim(drupal_html_to_text(check_plain($message['subject']))),
+    '!pm_body' => trim(drupal_html_to_text(check_markup($message['body'], $message['format'], FALSE))),
+    '!thread' => $message['thread_id'],
+    '!user_uid' => $recipient->uid,
+    '!message' => url(privatemsg_get_dynamic_url_prefix($recipient->uid) . '/view/' . $message['thread_id'], array('absolute' => TRUE, 'language' => $language)),
+    '!settings' => url('user/' . $recipient->uid . '/edit', array('absolute' => TRUE, 'language' => $language)),
+  );
+
+  // Allow other modules to alter the token mapping.
+  drupal_alter('pm_email_notify_token', $tokens, $recipient, $message, $language);
+
+  return $tokens;
+}
+
+/**
+ * Return a list of available tokens for user e-mail messages.
+ *
+ * @return
+ *   A string containing all the available tokens.
+ */
+function _pm_email_notify_token_list() {
+  $tokens = drupal_map_assoc(array(
+    '!author_uid',
+    '!author',
+    '!pm_subject',
+    '!pm_body',
+    '!thread',
+    '!user_uid',
+    '!message',
+    '!settings',
+  ));
+
+  // Customize token descriptions.
+  $tokens['!message'] = '!message (URL)';
+  $tokens['!settings'] = '!settings (URL)';
+
+  // Allow other module to alter the token list.
+  drupal_alter('pm_email_notify_token_list', $tokens);
+
+  return implode(', ', $tokens);
+}
+
+/**
+ * Get the default text for body and subject texts.
+ *
+ * @param $key
+ *   Defines with string to return, either subject or body.
+ *
+ * @return
+ *   The default text for the given key.
+ */
+function _pm_email_notify_source_text($key) {
+  $text = variable_get('pm_email_notify_' . $key, FALSE);
+  if (empty($text)) {
+    switch ($key) {
+      case 'subject':
+        $text = 'New private message at !site.';
+        break;
+      case 'body':
+        $text = "Hi !username,\n\nThis is an automatic reminder from the site !site. You have received a new private message from !author.\n\nTo read your message, follow this link:\n!message\n\nIf you don't want to receive these emails again, change your preferences here:\n!settings";
+        break;
+    }
+  }
+  return $text;
+}
+
+/**
+ * Return (if possible, translated) body/subject strings.
+ *
+ * @param $key
+ *   Defines with string to return, either subject or body.
+ * @param $language
+ *   Optionally define into which language should be translated. Defaults to the
+ *   active language.
+ * @param $translate
+ *   Define if the translated text should be returned or the source. This is
+ *   used in the settings page to allow editing the source but still update the
+ *   translation system.
+ * @return
+ *   Either the translated text or the source, depending on the $translate
+ *   flag.
+ */
+function _pm_email_notify_text($key, $language = NULL, $translate = TRUE) {
+  $text = _pm_email_notify_source_text($key);
+  // Always call tt() so that the key and source is saved and can be translated.
+  // Only update the source if called from the settings page and $translate is
+  // FALSE.
+  $translated = pm_email_notify_tt('pm_email_notify:mail:' . $key, $text, $language, !$translate);
+  // Only return the translated text if requested so.
+  if ($translate) {
+    return $translated;
+  }
+  return $text;
+}
+
+/**
+ * Implements hook_user().
+ *
+ * Display settings form and store its information.
+ */
+function pm_email_notify_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'form':
+      if ($category == 'account' && privatemsg_user_access('read privatemsg', $account)) {
+        if (privatemsg_user_access('set privatemsg e-mail notification level')) {
+          $form['privatemsg']['pm_email_notify_level'] = array(
+            '#type' => 'radios',
+            '#title' => t('Send me an e-mail notification...'),
+            '#options' => array(
+              PM_EMAIL_NOTIFY_LEVEL_DISABLED => t('Never.'),
+              PM_EMAIL_NOTIFY_LEVEL_THREAD => t('Only for a new conversation'),
+              PM_EMAIL_NOTIFY_LEVEL_UNREAD_ONCE => t("Only once for a conversation until I've read the messages"),
+              PM_EMAIL_NOTIFY_LEVEL_ALL => t('Every time I receive a message'),
+            ),
+            '#default_value' => _pm_email_notify_user_level($account->uid),
+          );
+        }
+        else {
+          // If the user does not have permissions to customize the notification
+          // level, allow him to opt out of email notifications if they are not
+          // disabled by default.
+          $is_enabled = _pm_email_notify_user_level();
+          $form['privatemsg']['pm_email_notify_level'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Receive email notification for incoming private messages'),
+            '#default_value' => $is_enabled ? PM_EMAIL_NOTIFY_LEVEL_DEFAULT : PM_EMAIL_NOTIFY_LEVEL_DISABLED,
+            '#access' => $is_enabled,
+          );
+        }
+        $form['privatemsg']['pm_email_only_user'] = array(
+          '#type' => 'checkbox',
+          '#title' => t("Don't send me e-mail notifications for mass messages."),
+          '#default_value' => _pm_email_notify_only_user($account->uid),
+          '#access' => privatemsg_user_access('change privatemsg e-mail notification for indirect messages'),
+        );
+      }
+      return $form;
+
+    case 'submit':
+      if (isset($edit['pm_email_notify_level'])) {
+        privatemsg_set_setting('user', $account->uid, 'email_notify_level', $edit['pm_email_notify_level']);
+        unset($edit['pm_email_notify_level']);
+      }
+
+
+      if (isset($edit['pm_email_only_user'])) {
+        privatemsg_set_setting('user', $account->uid, 'email_notify_only_user', $edit['pm_email_only_user']);
+        unset($edit['pm_email_only_user']);
+      }
+      break;
+
+    case 'delete':
+      privatemsg_del_setting('user', $account->uid, 'email_notify_level');
+      privatemsg_del_setting('user', $account->uid, 'email_notify_only_user');
+      break;
+  }
+}
+
+/**
+ * Implements hook_locale().
+ */
+function pm_email_notify_locale($op = 'groups', $group = NULL) {
+  switch ($op) {
+    case 'groups':
+      return array('pm_email_notify' => t('Privatemsg Email Notification'));
+      break;
+    case 'info':
+      return array(
+        'pm_email_notify' => array(
+          'format' => FALSE,
+          'refresh callback' => 'pm_email_notify_locale_refresh',
+        )
+      );
+  }
+}
+
+/**
+ * Refresh callback to update the string translation sources.
+ */
+function pm_email_notify_locale_refresh() {
+  i18nstrings_update('pm_email_notify:mail:subject', _pm_email_notify_source_text('subject'));
+  i18nstrings_update('pm_email_notify:mail:body', _pm_email_notify_source_text('body'));
+  return TRUE;
+
+}
+
+
+/**
+ * Wrapper function for tt().
+ */
+function pm_email_notify_tt($name, $string, $language = NULL, $update = FALSE) {
+  static $tt;
+  if (!isset($tt)) {
+    $tt = variable_get('i18n_tt', 'tt');
+      if (!function_exists($tt)) {
+        $tt = FALSE;
+      }
+  }
+  if ($tt) {
+    return $tt($name, $string, isset($language) ? $language->language : NULL, $update);
+  }
+  else {
+    return $string;
+  }
+}

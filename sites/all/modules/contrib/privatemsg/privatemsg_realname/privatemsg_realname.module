@@ -1,0 +1,138 @@
+<?php
+
+/**
+ * Implements hook_privatemsg_name_lookup().
+ */
+function privatemsg_realname_privatemsg_name_lookup($string) {
+
+  // First, check the unique version.
+  if (preg_match('/\[user:(.+)\]/', $string, $match)) {
+    $account = user_load(array(variable_get('privatemsg_realname_unique_identifier', 'name') => trim($match[1])));
+    $account->type = 'user';
+    $account->recipient = $account->uid;
+    return array($account);
+  }
+
+  // Then try to look it up with the real name.
+  $result = db_query("SELECT r.uid FROM {realname} r WHERE r.realname = '%s'", $string);
+  $accounts = array();
+  while ($row = db_fetch_object($result)) {
+    if ($account = user_load($row->uid)) {
+      $account->type = 'user';
+      $account->recipient = $account->uid;
+      $accounts[] = $account;
+    }
+  }
+  return $accounts;
+}
+
+/**
+ * Implemenets hook_theme().
+ */
+function privatemsg_realname_theme() {
+  return array(
+    'privatemsg_realname_username'  => array(
+      'arguments' => array('recipient' => NULL, 'options' => array()),
+    ),
+  );
+}
+
+/**
+ * Implements hook_privatemsg_sql_autocomplete_alter().
+ */
+function privatemsg_realname_privatemsg_sql_autocomplete_alter(&$fragments, $search, $names) {
+  // Create necessary LEFT JOINs. LEFT because some users might not have a realname for any reason.
+  $fragments['inner_join'][] = 'LEFT JOIN {realname} r ON (r.uid = u.uid)';
+
+  // Either select users where the profile field name and value matches or the username.
+  // This does replace the default where.
+  if (variable_get('privatemsg_realname_search_username', TRUE)) {
+    $fragments['where'][1] = "(r.realname LIKE '%s' OR u.name LIKE '%s')";
+    array_unshift($fragments['query_args']['where'], $search . '%%');
+  }
+  else {
+    $fragments['where'][1] = "r.realname LIKE '%s'";
+  }
+
+  if (!empty($names)) {
+    // Exclude already existing realnames, but explicitly allow NULL.
+    // r.realname is left joined and cann be NULL => NULL NOT IN (...) => NOT (NULL) => NULL.
+    $fragments['where'][] = "r.realname NOT IN (". db_placeholders($names, 'text') .") OR r.realname IS NULL";
+    $fragments['query_args']['where'] = array_merge($fragments['query_args']['where'], array_values($names));
+  }
+}
+
+/**
+ * Implements hook_privatemsg_recipient_info_alter().
+ */
+function privatemsg_realname_privatemsg_recipient_type_info_alter(&$recipients) {
+  // Override format callback.
+  $recipients['user']['format'] = 'privatemsg_realname_username';
+}
+
+/**
+ * Used to theme and display user recipients.
+ *
+ * Wrapper for theme_username() with a few additional options.
+ */
+function theme_privatemsg_realname_username($recipient, $options) {
+  if (!isset($recipient->uid)) {
+    $recipient->uid = $recipient->recipient;
+  }
+  if (!empty($options['plain'])) {
+    $name = theme('username', $recipient, array('plain' => TRUE));
+    if (!empty($options['unique'])) {
+      $identifier = variable_get('privatemsg_realname_unique_identifier', 'name');
+      $name .= ' [user: ' . $recipient->$identifier . ']';
+    }
+    return $name;
+  }
+  else {
+    return theme('username', $recipient);
+  }
+}
+
+/**
+ * Implements hook_privatemsg_sql_participants_alter().
+ */
+function privatemsg_realname_privatemsg_sql_participants_alter(&$fragments, $thread_id) {
+  // Select the realname.
+  $fragments['select'][]      = 'r.realname';
+
+  // Join realname table.
+  $fragments['inner_join'][]  = 'LEFT JOIN {realname} r ON (r.uid = u.uid)';
+
+  // Add realname to GROUP BY.
+  $fragments['group_by'][]    = 'r.realname';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function privatemsg_realname_form_privatemsg_admin_settings_alter(&$form, &$form_state) {
+  $form['realname'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Realname integration'),
+    '#collapsed' => TRUE,
+    '#collapsible' => TRUE,
+    '#weight' => 25,
+  );
+
+  $form['realname']['privatemsg_realname_unique_identifier'] = array(
+    '#type' => 'radios',
+    '#title' => t('Field to use as a unique identifier'),
+    '#description' => t('Real names are often not unique. Choose which field should be used as a unique identifier when sending private messages.'),
+    '#default_value' => variable_get('privatemsg_realname_unique_identifier', 'name'),
+    '#options' => array(
+      'name' => t('Username'),
+      'uid' => t('UID'),
+      'mail' => t('E-mail'),
+    ),
+  );
+
+  $form['realname']['privatemsg_realname_search_username'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Search usernames for autocomplete suggestions'),
+    '#default_value' => variable_get('privatemsg_realname_search_username', TRUE),
+  );
+}
