@@ -1,0 +1,472 @@
+<?php
+
+/**
+ * @file
+ * Test the basic functions of the Inactive User module.
+ */
+
+/**
+ * Inactive user module testcase.
+ */
+class InactiveUserTest extends DrupalWebTestCase {
+
+  /**
+   * User with administration privileges for inactive user module.
+   *
+   * @var stdlcass
+   */
+  protected $admin;
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Inactive User'),
+      'description' => t('Test Inactive User.'),
+      'group' => t('Inactive User')
+    );
+  }
+
+  function setUp() {
+    parent::setUp('inactive_user');
+
+    // Create an admin user to configure inactive user module.
+    $this->admin = $this->drupalCreateUser(array('change inactive user settings'));
+    $this->drupalLogin($this->admin);
+  }
+
+  /**
+   * Check inactive user and administrator notifications are working
+   */
+  function testInactiveUserNotification() {
+
+    // Change user and admin notify options:
+    // Notify user about one weeks of inactivity.
+    // Notify admin about two week of inactivity
+    $settings = array(
+      'inactive_user_admin_email'  => 'test@email.com',
+      'inactive_user_notify'       => '604800',
+      'inactive_user_notify_admin' => '1209600',
+    );
+    $this->inactiveUserSettings($settings);
+
+    // Create an inactive user for more than a week.
+    $inactive = $this->drupalCreateInactiveUser( (604800 + 3600) );
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One email should have been sent to the inactive user.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      1,
+      t('Only one email has been sent for this inactivity validation.')
+    );
+
+    // Get the last email, and verify it was sent to user's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified of its inactiviy period.')
+    );
+
+    // Create an inactive user for more than two weeks
+    $inactive = $this->drupalCreateInactiveUser( (1209600 + 3600) );
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // Two emails should have been sent: one for the user, other for the admin.
+    // Note that the other inactive user has already been notified, and should
+    // not generate any more emails.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      3,
+      t('Two new emails have been sent for this inactivity validation.')
+    );
+
+    // Get the last email, and verify it was sent to user's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified of its inactiviy period.')
+    );
+
+    // Get the other email, and verify it was sent to admin's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $settings['inactive_user_admin_email'],
+      t('Administrator has been notified of inactive users.')
+    );
+    
+  }
+
+  /**
+   * Check inactive user blocking and notifications are working
+   */
+  function testInactiveUserBlocking() {
+
+    // Change user and admin blocking options:
+    // Notify user about being blocked after one week of inactivity.
+    // Block user after two weeks of inactivity.
+    // Notify both about blocking: user and admin
+    $settings = array(
+      'inactive_user_admin_email'  => 'test@email.com',
+      'inactive_user_auto_block_warn' => '604800',
+      'inactive_user_auto_block' => '1209600',
+      'inactive_user_notify_block' => '1',
+      'inactive_user_notify_block_admin' => '1',
+    );
+    $this->inactiveUserSettings($settings);
+
+    // Create an inactive user for more than a week.
+    $inactive = $this->drupalCreateInactiveUser( (604800 + 3600) );
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One email should have been sent to the inactive user about being blocked.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      1,
+      t('Only one email has been sent for this inactivity validation.')
+    );
+
+    // Get the last email, and verify it was sent to user's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified that its accout will be blocked.')
+    );
+
+    // Create an inactive user for more than two weeks
+    $inactive = $this->drupalCreateInactiveUser( (1209600 + 3600) );
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One more email should have been sent, notifying the user its account will
+    // be blocked, but blocking operation will not happen because the user was
+    // notified at the time of 'notify'. The notification period should last for
+    // a whole week before the account is blocked.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      2,
+      t('One new email have been sent for this inactivity validation.')
+    );
+
+    // Get the last email, and verify it was sent to user's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified that its accout will be blocked.')
+    );
+
+    // Inactive_user keeps the time of blocking notification in a separate table
+    // as the timestamp of the operation, need to be moved back in time. We are
+    // modifying the notification period so on next validation the account will
+    // be blocked.
+    db_query("UPDATE {inactive_users} SET warned_user_block_timestamp = %d WHERE uid = %d", (604800 + 3600), $inactive->uid);
+
+    // Perform inactive validations again
+    $this->checkInactiveAccounts();
+
+    // Now, two more emails have been sent.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      4,
+      t('Two new emails have been sent for this inactivity validation.')
+    );
+
+    // Get the other email, and verify it was sent to admin's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $settings['inactive_user_admin_email'],
+      t('Administrator has been notified of blocked accounts.')
+    );
+
+    // Admin has been notified that its account has been blocked.
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified of its blocked account.')
+    );
+
+    // Verify the user has been blocked. user_load does not work with blocked
+    // accounts.
+    $status = db_result(db_query('SELECT status FROM {users} WHERE uid = %d', $inactive->uid));
+    $this->assertEqual(
+      $status,
+      0,
+      t('Inactive user %name has been blocked.', array('%name' => $inactive->name))
+    );
+
+  }
+
+  /**
+   * Check inactive user deleting and notifications are working
+   */
+  function testInactiveUserDeleting() {
+
+    // Change user and admin deleting options:
+    // Notify user about being deleted after one week of inactivity.
+    // Delete user after two weeks of inactivity.
+    // Notify both about deleting: user and admin
+    // Do not delete users with content.
+    $settings = array(
+      'inactive_user_admin_email'  => 'test@email.com',
+      'inactive_user_auto_delete_warn' => '604800',
+      'inactive_user_auto_delete' => '1209600',
+      'inactive_user_notify_delete' => '1',
+      'inactive_user_notify_delete_admin' => '1',
+      'inactive_user_preserve_content' => '1',
+    );
+    $this->inactiveUserSettings($settings);
+
+    // Create an inactive user for more than a week.
+    $inactive = $this->drupalCreateInactiveUser( (604800 + 3600) );
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One email should have been sent to the inactive user about being deleted.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      1,
+      t('Only one email has been sent for this inactivity validation.')
+    );
+
+    // Get the last email, and verify it was sent to user's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified that its accout will be deleted.')
+    );
+
+    // Create an inactive user for more than two weeks
+    $inactive = $this->drupalCreateInactiveUser( (1209600 + 3600) );
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One more email should have been sent, notifying the user its account will
+    // be deleted, but deleting operation will not happen because the user was
+    // notified at the time of 'notify'. The notification period should last for
+    // a whole week before the account is deleted.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      2,
+      t('One new email have been sent for this inactivity validation.')
+    );
+
+    // Get the last email, and verify it was sent to user's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified that its accout will be deleted.')
+    );
+
+    // Inactive_user keeps the time of deleting notification in a separate table
+    // as the timestamp of the operation, need to be moved back in time. We are
+    // modifying the notification period so on next validation the account will
+    // be deleted.
+    db_query("UPDATE {inactive_users} SET warned_user_delete_timestamp = %d WHERE uid = %d", (604800 + 3600), $inactive->uid);
+
+    // Perform inactive validations again
+    $this->checkInactiveAccounts();
+
+    // Now, two more emails have been sent.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      4,
+      t('Two new emails have been sent for this inactivity validation.')
+    );
+
+    // Get the other email, and verify it was sent to admin's email address
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $settings['inactive_user_admin_email'],
+      t('Administrator has been notified of deleted accounts.')
+    );
+
+    // Admin has been notified that its account has been blocked.
+    $notification = array_pop($emails);
+    $this->assertEqual(
+      $notification['to'],
+      $inactive->mail,
+      t('User has been notified of its deleted account.')
+    );
+
+    // Verify the user has been deleted.
+    $status = db_result(db_query('SELECT uid FROM {users} WHERE uid = %d', $inactive->uid));
+    $this->assertEqual(
+      $status,
+      NULL,
+      t('Inactive user %name has been deleted.', array('%name' => $inactive->name))
+    );
+
+  }
+
+  /**
+   * Check inactive user (with content) deleting and notifications are working
+   */
+  function testInactiveUserWithContentDeleting() {
+
+    // Change user and admin deleting options:
+    // Notify user about being deleted after one week of inactivity.
+    // Delete user after two weeks of inactivity.
+    // Notify both about deleting: user and admin
+    // Do not delete users with content.
+    $settings = array(
+      'inactive_user_admin_email'  => 'test@email.com',
+      'inactive_user_auto_delete_warn' => '604800',
+      'inactive_user_auto_delete' => '1209600',
+      'inactive_user_notify_delete' => '1',
+      'inactive_user_notify_delete_admin' => '1',
+      'inactive_user_preserve_content' => '1',
+    );
+    $this->inactiveUserSettings($settings);
+
+    // Create an inactive user for more than a week.
+    $inactive = $this->drupalCreateInactiveUser( (604800 + 3600) );
+
+    // Create a node for this user.
+    $this->drupalCreateNode(array('uid' => $inactive->uid));
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One email should have been sent to the inactive user about being deleted.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      0,
+      t('Users with content should not be advised about deleting their account.')
+    );
+
+    // Create an inactive user for more than two weeks
+    $inactive = $this->drupalCreateInactiveUser( (1209600 + 3600) );
+
+    // Create a node for this user.
+    $this->drupalCreateNode(array('uid' => $inactive->uid));
+
+    // Perform inactive validations
+    $this->checkInactiveAccounts();
+
+    // One more email should have been sent, notifying the user its account will
+    // be deleted, but deleting operation will not happen because the user was
+    // notified at the time of 'notify'. The notification period should last for
+    // a whole week before the account is deleted.
+    $emails = $this->drupalGetMails();
+    $this->assertEqual(
+      count($emails),
+      0,
+      t('Users with content should not be advised about deleting their account.')
+    );
+
+    // Inactive_user keeps the time of deleting notification in a separate table
+    // as the timestamp of the operation, need to be moved back in time. We are
+    // modifying the notification period so on next validation the account will
+    // be deleted.
+    db_query("UPDATE {inactive_users} SET warned_user_delete_timestamp = %d WHERE uid = %d", (604800 + 3600), $inactive->uid);
+
+    // Verify the user is protected.
+    $protected = db_result(db_query('SELECT protected FROM {inactive_users} WHERE uid = %d', $inactive->uid));
+    $this->assertEqual(
+      $protected,
+      1,
+      t('Inactive user %name is protected becuase it owns content..', array('%name' => $inactive->name))
+    );
+
+    // Perform inactive validations again
+    $this->checkInactiveAccounts();
+
+    // Now, two more emails have been sent.
+    $emails = $this->drupalGetMails();
+    $this->pass(count($emails));
+    $this->assertEqual(
+      count($emails),
+      0,
+      t('Inactive users with content are protected and are not deleted, neither generates notifications.')
+    );
+
+    // Verify the user has not been deleted.
+    $status = db_result(db_query('SELECT uid FROM {users} WHERE uid = %d', $inactive->uid));
+    $this->assertEqual(
+      $status,
+      $inactive->uid,
+      t('Inactive user %name owning content has not been deleted.', array('%name' => $inactive->name))
+    );
+
+  }
+
+
+  /**
+   * Perform inactivity validation
+   */
+  function checkInactiveAccounts() {
+    // Make sure inactive user will be checked.
+    variable_set('inactive_user_timestamp', '0');
+    // run inactive user cron hook
+    inactive_user_cron();     
+  }
+
+  /**
+   * Configure Inactive user module
+   */
+  function inactiveUserSettings($options = array()) {
+    $this->drupalPost('admin/user/inactive-user', $options, t('Save configuration'));
+    $this->assertRaw(t('The configuration options have been saved.'), t('Inactive user settings saved.'));
+    foreach ($options as $option => $value) {
+      $this->assertEqual(
+        $value,
+        variable_get($option, ''),
+        t('Inactive user setting %option successfully saved.', array('%option' => $option))
+      );
+    }
+  }
+
+  /**
+   * Creates a drupal user and sets as inactive for a value of seconds.
+   *
+   * @param integer $seconds
+   *   number of seconds the user has been inactive.
+   * @return stdclass
+   *   Created user object.
+   */
+  function drupalCreateInactiveUser($seconds = 0) {
+    // Create a default user
+    $account = $this->drupalCreateUser();
+
+    // Mark as inactive..
+    $timestamp = time() - $seconds;
+    db_query('UPDATE {users} SET login = %d, created = %d, access = %d WHERE uid = %d', $timestamp, $timestamp, $timestamp, $account->uid);
+
+    // Verify inactivity.
+    $access = db_result(db_query("SELECT access FROM {users} WHERE uid = %d", $account->uid));
+    $this->assertEqual(
+      $timestamp,
+      $access,
+      t('User successfully updated as inactive since %date.', array('%date' => format_date($timestamp)))
+    );
+    
+    return $account;
+  }
+
+}
