@@ -35,7 +35,7 @@
   <div id="profile-top">
     <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
     <div id="name-title">
-      <h3><?php print $profile_title; ?></h3>
+      <h3><?php print $fullname; ?></h3>
 
       <ul id="user_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
         $i++;
