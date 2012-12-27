@@ -1,5 +1,4 @@
 <?php
-// $Id: context_reaction_block.inc,v 1.1.2.35 2010/08/06 16:13:32 jmiccolis Exp $
 
 /**
  * Expose blocks as context reactions.
@@ -555,8 +554,14 @@ class context_reaction_block extends context_reaction {
   function render_ajax($param) {
     // Besure the page isn't a 404 or 403.
     $headers = drupal_set_header();
-    foreach (explode("\n", $headers) as $header) {
-      if ($header == "HTTP/1.1 404 Not Found" || $header == "HTTP/1.1 403 Forbidden") {
+
+    // Support for Pressflow drupal_set_header.
+    if (!is_array($headers)) {
+      $headers = explode("\n", $headers);
+    }
+
+    foreach ($headers as $header) {
+      if (strpos($header, "404 Not Found") !== FALSE || strpos($header, "403 Forbidden") !== FALSE) {
         return;
       }
     }
@@ -567,6 +572,11 @@ class context_reaction_block extends context_reaction {
     if (strpos($param, ',') !== FALSE) {
       list($bid, $context) = explode(',', $param);
       list($module, $delta) = explode('-', $bid, 2);
+      // Check token to make sure user has access to block.
+      if (empty($_GET['context_token']) || $_GET['context_token'] != drupal_get_token($bid)) {
+        echo drupal_to_js(array('status' => 0));
+        exit;
+      }
 
       // Ensure $bid is valid.
       $info = $this->get_blocks();

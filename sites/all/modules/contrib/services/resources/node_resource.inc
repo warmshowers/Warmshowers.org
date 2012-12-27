@@ -8,114 +8,116 @@
 function _node_resource_definition() {
   $node_resource = array(
     'node' => array(
-      'retrieve' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
-        'callback' => '_node_resource_retrieve',
-        'args' => array(
-          array(
-            'name' => 'nid',
-            'optional' => FALSE,
-            'source' => array('path' => 0),
-            'type' => 'int',
-            'description' => 'The nid of the node to get',
+      'operations' => array(
+        'retrieve' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
+          'callback' => '_node_resource_retrieve',
+          'args' => array(
+            array(
+              'name' => 'nid',
+              'optional' => FALSE,
+              'source' => array('path' => 0),
+              'type' => 'int',
+              'description' => 'The nid of the node to get',
+            ),
           ),
+          'access callback' => '_node_resource_access',
+          'access arguments' => array('view'),
+          'access arguments append' => TRUE,
         ),
-        'access callback' => '_node_resource_access',
-        'access arguments' => array('view'),
-        'access arguments append' => TRUE,
-      ),
-      'create' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
-        'callback' => '_node_resource_create',
-        'args' => array(
-          array(
-            'name' => 'node',
-            'optional' => FALSE,
-            'source' => 'data',
-            'description' => 'The node data to create',
-            'type' => 'array',
+        'create' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
+          'callback' => '_node_resource_create',
+          'args' => array(
+            array(
+              'name' => 'node',
+              'optional' => FALSE,
+              'source' => 'data',
+              'description' => 'The node data to create',
+              'type' => 'array',
+            ),
           ),
+          'access callback' => '_node_resource_access',
+          'access arguments' => array('create'),
+          'access arguments append' => TRUE,
         ),
-        'access callback' => '_node_resource_access',
-        'access arguments' => array('create'),
-        'access arguments append' => TRUE,
-      ),
-      'update' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
-        'callback' => '_node_resource_update',
-        'args' => array(
-          array(
-            'name' => 'nid',
-            'optional' => FALSE,
-            'source' => array('path' => 0),
-            'type' => 'int',
-            'description' => 'The nid of the node to get',
+        'update' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
+          'callback' => '_node_resource_update',
+          'args' => array(
+            array(
+              'name' => 'nid',
+              'optional' => FALSE,
+              'source' => array('path' => 0),
+              'type' => 'int',
+              'description' => 'The nid of the node to get',
+            ),
+            array(
+              'name' => 'node',
+              'optional' => FALSE,
+              'source' => 'data',
+              'description' => 'The node data to update',
+              'type' => 'struct',
+            ),
           ),
-          array(
-            'name' => 'node',
-            'optional' => FALSE,
-            'source' => 'data',
-            'description' => 'The node data to update',
-            'type' => 'struct',
-          ),
+          'access callback' => '_node_resource_access',
+          'access arguments' => array('update'),
+          'access arguments append' => TRUE,
         ),
-        'access callback' => '_node_resource_access',
-        'access arguments' => array('update'),
-        'access arguments append' => TRUE,
-      ),
-      'delete' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
-        'callback' => '_node_resource_delete',
-        'args' => array(
-          array(
-            'name' => 'nid',
-            'optional' => FALSE,
-            'type' => 'int',
-            'source' => array('path' => 0),
+        'delete' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
+          'callback' => '_node_resource_delete',
+          'args' => array(
+            array(
+              'name' => 'nid',
+              'optional' => FALSE,
+              'type' => 'int',
+              'source' => array('path' => 0),
+            ),
           ),
+          'access callback' => '_node_resource_access',
+          'access arguments' => array('delete'),
+          'access arguments append' => TRUE,
         ),
-        'access callback' => '_node_resource_access',
-        'access arguments' => array('delete'),
-        'access arguments append' => TRUE,
-      ),
-      'index' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
-        'callback' => '_node_resource_index',
-        'args' => array(
-          array(
-            'name' => 'page',
-            'optional' => TRUE,
-            'type' => 'int',
-            'description' => 'The zero-based index of the page to get, defaults to 0.',
-            'default value' => 0,
-            'source' => array('param' => 'page'),
+        'index' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/node_resource'),
+          'callback' => '_node_resource_index',
+          'args' => array(
+            array(
+              'name' => 'page',
+              'optional' => TRUE,
+              'type' => 'int',
+              'description' => 'The zero-based index of the page to get, defaults to 0.',
+              'default value' => 0,
+              'source' => array('param' => 'page'),
+            ),
+            array(
+              'name' => 'fields',
+              'optional' => TRUE,
+              'type' => 'string',
+              'description' => 'The fields to get.',
+              'default value' => '*',
+              'source' => array('param' => 'fields'),
+            ),
+            array(
+              'name' => 'parameters',
+              'optional' => TRUE,
+              'type' => 'array',
+              'description' => 'Parameters array',
+              'default value' => array(),
+              'source' => array('param' => 'parameters'),
+            ),
+            array(
+              'name' => 'pagesize',
+              'optional' => TRUE,
+              'type' => 'int',
+              'description' => 'Number of records to get per page.',
+              'default value' => variable_get('services_node_index_page_size', 20),
+              'source' => array('param' => 'pagesize'),
+            ),
           ),
-          array(
-            'name' => 'fields',
-            'optional' => TRUE,
-            'type' => 'string',
-            'description' => 'The fields to get.',
-            'default value' => '*',
-            'source' => array('param' => 'fields'),
-          ),
-          array(
-            'name' => 'parameters',
-            'optional' => TRUE,
-            'type' => 'array',
-            'description' => 'Parameters array',
-            'default value' => array(),
-            'source' => array('param' => 'parameters'),
-          ),
-          array(
-            'name' => 'pagesize',
-            'optional' => TRUE,
-            'type' => 'init',
-            'description' => 'Number of records to get per page.',
-            'default value' => variable_get('services_node_index_page_size', 20),
-            'source' => array('param' => 'pagesize'),
-          ),
+          'access arguments' => array('access content'),
         ),
-        'access arguments' => array('access content'),
       ),
       'relationships' => array(
         'files' => array(

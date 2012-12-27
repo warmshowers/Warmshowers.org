@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_node_taxonomy.inc,v 1.1.2.3 2010/08/03 03:25:23 yhahn Exp $
 
 /**
  * Expose node taxonomy terms as a context condition.

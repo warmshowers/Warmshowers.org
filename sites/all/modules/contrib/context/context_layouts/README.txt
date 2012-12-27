@@ -1,4 +1,3 @@
-$Id: README.txt,v 1.1.2.1 2010/02/09 19:02:59 yhahn Exp $
 
 Context layouts
 ---------------

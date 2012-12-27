@@ -1,6 +1,4 @@
 <?php
-// $Id$
-
 /**
  * @file
  * Installation file for nodewords.module.
@@ -19,9 +17,9 @@ function nodewords_requirements($phase) {
       if (!count(module_implements('nodewords_tags_info'))) {
         $requirements['nodewords'] = array(
           'title' => t('Nodewords'),
-          'description' => t('There are no modules that implement meta tags.'),
+          'description' => t('There are no modules enabled that implement meta tags.'),
           'severity' => REQUIREMENT_ERROR,
-          'value' => t('Enable at least a module listed under the category <em>Meta tags</em> in <a href="@modules-page">modules page</a>'. array('@modules-page' => url('admin/build/modules'))),
+          'value' => t('Enable at least one module listed under the <em>Meta tags</em> category on the <a href="@modules-page">modules page</a>.', array('@modules-page' => url('admin/build/modules'))),
         );
       }
       else {
@@ -78,7 +76,7 @@ function nodewords_schema() {
       'name' => array(
         'description' => 'The meta tag name.',
         'type' => 'varchar',
-        'length' => 32,
+        'length' => 128,
         'not null' => TRUE,
         'default' => '',
       ),
@@ -150,6 +148,60 @@ function nodewords_install() {
   db_query("UPDATE {system} SET weight = 10 WHERE name = 'nodewords' AND type = 'module'");
 
   drupal_set_message(t('The Nodewords module has been installed. Now you can <a href="@settings-page">configure it</a>, after you have enabled at least one module implementing meta tags.', array('@settings-page' => url('admin/content/nodewords'))));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodewords_uninstall() {
+  drupal_uninstall_schema('nodewords');
+
+  variable_del('nodewords');
+  variable_del('nodewords-repeat');
+  variable_del('nodewords-use_front');
+  variable_del('nodewords_base_url');
+  variable_del('nodewords_metatags_generation_method');
+  variable_del('nodewords_metatags_generation_source');
+  variable_del('nodewords_collapse_fieldset');
+  variable_del('nodewords_edit');
+  variable_del('nodewords_enable_user_metatags');
+  variable_del('nodewords_global');
+  variable_del('nodewords_global_keywords');
+  variable_del('nodewords_keyword_vids');
+  variable_del('nodewords_list_repeat');
+  variable_del('nodewords_list_robots');
+  variable_del('nodewords_max_size');
+  variable_del('nodewords_update_6113');
+  variable_del('nodewords_update_6139');
+  variable_del('nodewords_update_6145');
+  variable_del('nodewords_update_6147');
+  variable_del('nodewords_update_6156');
+  variable_del('nodewords_update_6159');
+  variable_del('nodewords_update_6162');
+  variable_del('nodewords_update_6163');
+  variable_del('nodewords_update_6164');
+  variable_del('nodewords_update_6166');
+  variable_del('nodewords_use_alt_attribute');
+  variable_del('nodewords_use_frontpage_tags');
+  variable_del('nodewords_use_path_alias');
+  variable_del('nodewords_use_teaser');
+
+  $node_types = array_keys(node_get_types('names'));
+  $variables = array(
+    'nodewords_metatags_generation_method_',
+    'nodewords_metatags_generation_source_',
+    'nodewords_edit_metatags_',
+    'nodewords_filter_modules_output_',
+    'nodewords_filter_regexp_',
+    'nodewords_use_alt_attribute_',
+    'nodewords_use_teaser_',
+  );
+
+  foreach ($node_types as $node_type) {
+    foreach ($variables as $variable) {
+      variable_del($variable . $node_type);
+    }
+  }
 }
 
 /**
@@ -1588,55 +1640,128 @@ function nodewords_update_6181() {
 }
 
 /**
- * Implements hook_uninstall().
+ * Remove fields accidently stashed on users.data.
  */
-function nodewords_uninstall() {
-  drupal_uninstall_schema('nodewords');
+function nodewords_update_6182(&$sandbox) {
+  $ret = array();
+  // The number of users to be processed per batch.
+  $update_size = 100;
 
-  variable_del('nodewords');
-  variable_del('nodewords-repeat');
-  variable_del('nodewords-use_front');
-  variable_del('nodewords_base_url');
-  variable_del('nodewords_metatags_generation_method');
-  variable_del('nodewords_metatags_generation_source');
-  variable_del('nodewords_collapse_fieldset');
-  variable_del('nodewords_edit');
-  variable_del('nodewords_enable_user_metatags');
-  variable_del('nodewords_global');
-  variable_del('nodewords_global_keywords');
+  // If this is the first time the script has ran, set up some counters.
+  if (!isset($sandbox['progress'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['current_uid'] = 0;
+    // We'll -1 to disregard the uid 0...
+    $sandbox['max'] = db_result(db_query('SELECT MAX(uid) FROM {users}'));
+  }
+
+  // Get a list of all users that have not been processed already, up to the
+  // max number.
+  $users = db_query_range("SELECT
+      uid, data
+    FROM {users}
+    WHERE uid > %d
+    ORDER BY uid ASC", $sandbox['current_uid'], 0, $update_size);
+
+  // Loop over each user object.
+  while ($user = db_fetch_object($users)) {
+    $data = unserialize($user->data);
+    if (isset($data['nodewords'])) {
+      unset($data['nodewords']);
+
+      // Update the user record.
+      db_query("UPDATE {users}
+        SET data = '%s'
+        WHERE uid = %d", serialize($data), $user->uid);
+    }
+
+    $sandbox['current_uid'] = $user->uid;
+  }
+
+  $ret['#finished'] = (empty($sandbox['max']) || $sandbox['current_uid'] > $sandbox['max']) ? 1 : ($sandbox['current_uid'] / $sandbox['max']);
+
+  return $ret;
+}
+
+/**
+ * Notify the user that the /forum main page's meta tags are now handled via
+ * the new settings page.
+ */
+function nodewords_update_6183() {
+  $ret = array();
+
+  // If the forum module is enabled notify the user.
+  if (module_exists('forum')) {
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => t('Meta tags for the main forum page are now handled by a custom <a href="@url">forum settings page<a/>. Any existing meta tags defined via a custom page page will need to be manually converted.', array('@url' => 'admin/content/nodewords/meta-tags/forum')),
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Inform users that the module has changed regarding deciding which tags are
+ * output to now automatically output all non-empty tags.
+ */
+function nodewords_update_6184() {
+  $ret = array();
+
+  drupal_set_message(t('The Nodewords module will now automatically output all tags that are not empty.'));
   variable_del('nodewords_head');
-  variable_del('nodewords_keyword_vids');
-  variable_del('nodewords_list_repeat');
-  variable_del('nodewords_list_robots');
-  variable_del('nodewords_max_size');
-  variable_del('nodewords_update_6113');
-  variable_del('nodewords_update_6139');
-  variable_del('nodewords_update_6145');
-  variable_del('nodewords_update_6147');
-  variable_del('nodewords_update_6156');
-  variable_del('nodewords_update_6159');
-  variable_del('nodewords_update_6162');
-  variable_del('nodewords_update_6163');
-  variable_del('nodewords_update_6164');
-  variable_del('nodewords_update_6166');
-  variable_del('nodewords_use_alt_attribute');
-  variable_del('nodewords_use_frontpage_tags');
-  variable_del('nodewords_use_teaser');
 
-  $node_types = array_keys(node_get_types('names'));
-  $variables = array(
-    'nodewords_metatags_generation_method_',
-    'nodewords_metatags_generation_source_',
-    'nodewords_edit_metatags_',
-    'nodewords_filter_modules_output_',
-    'nodewords_filter_regexp_',
-    'nodewords_use_alt_attribute_',
-    'nodewords_use_teaser_',
+  return $ret;
+}
+
+/**
+ * Notify the user that the /blog main page's meta tags are now handled via
+ * the new settings page.
+ */
+function nodewords_update_6185() {
+  $ret = array();
+
+  // Notify the user about the new settings page if the blog module is enabled.
+  if (module_exists('blog')) {
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => t('Meta tags for the main blog page are now handled by a custom <a href="@url">blog settings page<a/>. Any existing meta tags defined via a custom page page will need to be manually converted.', array('@url' => 'admin/content/nodewords/meta-tags/blog')),
+    );
+  }
+
+  return $ret;
+}
+
+/**
+ * Expand the {nodewords}.name field to allow for longer meta tag names,
+ */
+function nodewords_update_6186() {
+  $ret = array();
+
+  $table = 'nodewords';
+  $field = 'name';
+  $spec = array(
+    'description' => 'The meta tag name.',
+    'type' => 'varchar',
+    'length' => 128,
+    'not null' => TRUE,
+    'default' => '',
   );
 
-  foreach ($node_types as $node_type) {
-    foreach ($variables as $variable) {
-      variable_del($variable . $node_type);
-    }
-  }
+  // Save the changes.
+  db_change_field($ret, $table, $field, $field, $spec);
+
+  return $ret;
+}
+
+/**
+ * Remove an unused variable.
+ */
+function nodewords_update_6187() {
+  $ret = array();
+
+  drupal_set_message(t('A legacy variable has been removed.'));
+  variable_del('nodewords_filter_regexp');
+
+  return $ret;
 }

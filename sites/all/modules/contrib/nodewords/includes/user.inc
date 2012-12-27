@@ -1,6 +1,4 @@
 <?php
-// $Id$
-
 /**
  * @file
  * Integration file for user.module.

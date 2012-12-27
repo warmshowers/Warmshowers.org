@@ -1,5 +1,4 @@
 <?php
-// $Id: context_layouts_reaction_block.inc,v 1.1.2.5 2010/07/28 22:56:06 yhahn Exp $
 
 class context_layouts_reaction_block extends context_reaction_block {
   /**

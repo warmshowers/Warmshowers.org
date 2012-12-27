@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_path.inc,v 1.1.2.6 2010/07/30 14:39:06 yhahn Exp $
 
 /**
  * Expose paths as a context condition.

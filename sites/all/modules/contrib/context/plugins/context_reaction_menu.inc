@@ -1,5 +1,4 @@
 <?php
-// $Id: context_reaction_menu.inc,v 1.1.2.6 2010/07/30 17:25:28 yhahn Exp $
 
 /**
  * Expose menu items as context reactions.
@@ -49,7 +48,7 @@ class context_reaction_menu extends context_reaction {
    * If primary + secondary links are pointed at the same menu, provide
    * contextual trailing by default.
    */
-  function execute(&$vars) {
+  function execute(&$vars = NULL) {
     if (variable_get('menu_primary_links_source', 'primary-links') == variable_get('menu_secondary_links_source', 'secondary-links')) {
       $vars['primary_links'] = theme_get_setting('toggle_primary_links') ? $this->menu_navigation_links(variable_get('menu_primary_links_source', 'primary-links')) : $vars['primary_links'];
       $vars['secondary_links'] = theme_get_setting('toggle_secondary_links') ? $this->menu_navigation_links(variable_get('menu_secondary_links_source', 'secondary-links'), 1) : $vars['secondary_links'];

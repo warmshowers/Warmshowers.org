@@ -1,5 +1,4 @@
 <?php
-// $Id: context_export_ui.class.php,v 1.1.2.5 2010/08/11 15:57:28 yhahn Exp $
 
 /**
  * CTools export UI extending class. Slightly customized for Context.

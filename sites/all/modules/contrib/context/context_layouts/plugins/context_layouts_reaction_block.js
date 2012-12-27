@@ -1,4 +1,3 @@
-// $Id: context_layouts_reaction_block.js,v 1.1.2.1 2009/12/14 22:36:12 yhahn Exp $
 
 Drupal.behaviors.contextLayoutsReactionBlock = function(context) {
   // ContextBlockForm: Init.

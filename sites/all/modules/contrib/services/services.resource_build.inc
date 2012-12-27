@@ -18,8 +18,29 @@
 function _services_build_resources($endpoint_name = '') {
   module_load_include('resource_runtime.inc', 'services');
 
+  $resources = array();
+  $version_info = services_resource_api_version_info();
+  $resource_modules = module_implements('services_resources');
   // Get all installed resources
-  $resources = module_invoke_all('services_resources');
+  foreach ($resource_modules as $resource_module) {
+    $module_resources = call_user_func("{$resource_module}_services_resources");
+    if (empty($module_resources)) {
+      continue;
+    }
+
+    // Check resource versions
+    $api_version = $version_info['default_version'];
+    if (!empty($module_resources['#api_version'])) {
+      $api_version = $module_resources['#api_version'];
+      unset($module_resources['#api_version']);
+    }
+    // Upgrade resources if needed.
+    if ($api_version < $version_info['current_version']) {
+      _services_resource_upgrade($api_version, $module_resources, $version_info);
+    }
+
+    $resources = array_merge_recursive($resources, $module_resources);
+  }
 
   // Load the endpoint
   $endpoint = NULL;
@@ -33,8 +54,17 @@ function _services_build_resources($endpoint_name = '') {
 
   // Process the resources, and collect all controllers in the process
   $controllers = array();
-  foreach ($resources as $name => &$resource) {
-    _services_process_resource($name, $resource, $controllers);
+  $class_info = services_operation_class_info();
+  foreach ($resources as $resource_name => &$resource) {
+    foreach ($class_info as $class_name => $class) {
+      if (!isset($resource[$class_name])) {
+        continue;
+      }
+
+      foreach (array_keys($resource[$class_name]) as $action_name) {
+        $controllers["{$resource_name}/{$class['class_singular']}/{$action_name}"] = &$resource[$class_name][$action_name];
+      }
+    }
   }
 
   // Make sure that we got a access callback for all resources
@@ -79,6 +109,33 @@ function _services_build_resources($endpoint_name = '') {
 }
 
 /**
+ * Upgrades old resource definition to the newer format.
+ *
+ * @param int $from
+ *  The API version that the resource was written for.
+ * @param array $resources
+ *  The resource definitions.
+ * @param array $version_info
+ *  Optional. The version info array as returned from services_resource_api_version_info().
+ * @return void
+ */
+function _services_resource_upgrade($from, &$resources, $version_info = NULL) {
+  module_load_include('resource_update.inc', 'services');
+
+  // Get version info if needed.
+  if ($version_info == NULL) {
+    $version_info = services_resource_api_version_info();
+  }
+
+  // Run upgrades.
+  foreach ($version_info['versions'] as $update) {
+    if ($update > $from) {
+      call_user_func_array("services_resource_api_update_{$update}", array(&$resources));
+    }
+  }
+}
+
+/**
  * Applies the endpoint to a set of resources. Resources and controllers that
  * aren't supported will be removed (if $strict is set to TRUE) and both
  * resources and controllers will get the 'endpoint' attribute set.
@@ -92,6 +149,10 @@ function _services_build_resources($endpoint_name = '') {
  * @return void
  */
 function _services_apply_endpoint(&$resources, $endpoint, $strict = TRUE) {
+  if (is_array($endpoint) && isset($endpoint['build_info'])) {
+    $endpoint = $endpoint['build_info']['args'][0];
+  }
+  $classes = array_keys(services_operation_class_info());
   foreach ($resources as $name => &$resource) {
     $cres = ($endpoint && isset($endpoint->resources[$name])) ? $endpoint->resources[$name] : array();
     $resource['endpoint'] = $cres;
@@ -100,18 +161,6 @@ function _services_apply_endpoint(&$resources, $endpoint, $strict = TRUE) {
       unset($resources[$name]);
     }
     else {
-      $crud = array('create', 'retrieve', 'update', 'delete', 'index');
-      foreach ($crud as $op) {
-        if (isset($resource[$op])) {
-          $cop = isset($cres['operations'][$op]) ? $cres['operations'][$op] : array();
-          $resource[$op]['endpoint'] = $cop;
-          if ($strict && (empty($cop) || !$cop['enabled'])) {
-            unset($resource[$op]);
-          }
-        }
-      }
-
-      $classes = array('targeted_actions', 'actions', 'relationships');
       foreach ($classes as $class) {
         if (!empty($resource[$class])) {
           foreach ($resource[$class] as $op => $def) {
@@ -122,46 +171,11 @@ function _services_apply_endpoint(&$resources, $endpoint, $strict = TRUE) {
               }
             }
             else {
-              $resource[$class][$op]['endpoint'] = $cop;
+              $resource[$class][$op]['endpoint'] = empty($cop['settings']) ? array() : $cop['settings'];
             }
           }
         }
       }
-    }
-  }
-}
-
-/**
- * Process resource runs through all the controllers of a resource and applies
- * some inheritance logic and adds the to the $controllers array.
- *
- * @param string $name
- *  The name of the resource
- * @param array &$resource
- *  The resource definition
- * @param array &$controllers
- *  An that will be fillew with all the controllers for the resource.
- * @return void
- */
-function _services_process_resource($name, &$resource, &$controllers) {
-  $resource['name'] = $name;
-
-  // CRUD operations.
-  foreach (array('retrieve', 'create', 'update', 'delete', 'index') as $op) {
-    if (isset($resource[$op])) {
-      $controllers[$name . '/' . $op] = &$resource[$op];
-    }
-  }
-
-  // Actions and relationships.
-  foreach (array('relationships', 'actions', 'targeted_actions') as $class) {
-    if (!isset($resource[$class])) {
-      continue;
-    }
-
-    foreach (array_keys($resource[$class]) as $action_name) {
-      $class_singular = trim($class, 's');
-      $controllers[$name . '/' . $class_singular . '/' . $action_name] = &$resource[$class][$action_name];
     }
   }
 }
@@ -179,7 +193,9 @@ function _services_core_resources() {
   require_once("resources/taxonomy_resource.inc");
   require_once("resources/user_resource.inc");
 
-  $resources = array();
+  $resources = array(
+    '#api_version' => 3002,
+  );
 
   $resources += _comment_resource_definition();
   $resources += _file_resource_definition();

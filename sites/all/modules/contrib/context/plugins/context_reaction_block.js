@@ -1,4 +1,3 @@
-// $Id: context_reaction_block.js,v 1.1.2.23 2010/08/05 20:09:11 yhahn Exp $
 
 Drupal.behaviors.contextReactionBlock = function(context) {
   $('form.context-editor:not(.context-block-processed)')
@@ -191,7 +190,7 @@ DrupalContextBlockEditor.prototype.updateBlocks = function() {
 
   // Mark empty regions.
   $(this.regions).each(function() {
-    if ($('div.block:has(a.context-block)', this).size() > 0) {
+    if ($('div.block:not(.context-block-hidden):has(a.context-block)', this).size() > 0) {
       $(this).removeClass('context-block-region-empty');
     }
     else {
@@ -210,9 +209,9 @@ DrupalContextBlockEditor.prototype.updateRegion = function(event, ui, region, op
       break;
     case 'out':
       if (
-        $('div.draggable-placeholder', region).size() === 0 &&
-        $('div.block:has(a.context-block)', region).size() == 1 &&
-        $('div.block:has(a.context-block)', region).attr('id') == ui.item.attr('id')
+        $('div.block:not(.context-block-hidden):has(a.context-block)', region).size() == 0 || 
+        ($('div.block:not(.context-block-hidden):has(a.context-block)', region).size() == 1 &&
+        $('div.block:not(.context-block-hidden):has(a.context-block)', region).attr('id') == ui.item.attr('id'))
       ) {
         $(region).addClass('context-block-region-empty');
       }
@@ -243,6 +242,11 @@ DrupalContextBlockEditor.prototype.addBlock = function(event, ui, editor, contex
     // Construct query params for our AJAX block request.
     var params = Drupal.settings.contextBlockEditor.params;
     params.context_block = bid + ',' + context;
+    if (!Drupal.settings.contextBlockEditor.block_tokens || !Drupal.settings.contextBlockEditor.block_tokens[bid]) {
+      alert(Drupal.t('An error occurred trying to retrieve block content. Please contact a site administer.'));
+      return;
+    }
+    params.context_token = Drupal.settings.contextBlockEditor.block_tokens[bid];
 
     // Replace item with loading block.
     var blockLoading = $('<div class="context-block-item context-block-loading"><span class="icon"></span></div>');

@@ -11,6 +11,7 @@ function _system_resource_definition() {
       'actions' => array(
         'connect' => array(
           'access callback' => 'services_access_menu',
+          'help' => t('Returns the details of currently logged in user.'),
           'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/system_resource'),
           'callback' => '_system_resource_connect',
         ),
@@ -82,10 +83,10 @@ function _system_resource_definition() {
 }
 
 /**
- * Return the details of a new anonymous session.
+ * Returns the details of currently logged in user.
  *
  * @return
- *   An object with an active anonymous session name and id.
+ *   An object with an session id and user object.
  */
 function _system_resource_connect() {
   global $user;

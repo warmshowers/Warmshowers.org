@@ -1,5 +1,4 @@
 <?php
-// $Id: context_reaction_breadcrumb.inc,v 1.1.2.3 2010/08/19 14:14:12 yhahn Exp $
 
 /**
  * Set the breadcrumb using a context reaction.

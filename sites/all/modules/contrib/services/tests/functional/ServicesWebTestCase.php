@@ -29,15 +29,26 @@ class ServicesWebTestCase extends DrupalWebTestCase {
     return array('header' => $header, 'status' => $status, 'code' => $code, 'body' => $body);
   }
 
-  protected function servicesPost($url, $data = array(), $headers = array()) {
+  protected function servicesPost($url, $data = array(), $headers = array(), $call_type = 'php') {
     $options = array();
-    // Add .php to get serialized response.
-    $url = $this->getAbsoluteUrl($url) . '.php';
-
-    // Otherwise Services will reject arguments.
-    $headers = array("Content-type: application/x-www-form-urlencoded");
-    // Prepare arguments.
-    $post = http_build_query($data, '', '&');
+    switch ($call_type) {
+      case 'php':
+        // Add .php to get serialized response.
+        $url = $this->getAbsoluteUrl($url) . '.php';
+        // Otherwise Services will reject arguments.
+        $headers = array("Content-type: application/x-www-form-urlencoded");
+        // Prepare arguments.
+        $post = http_build_query($data, '', '&');
+        break;
+      case 'json':
+        // Add .json to get json encoded response.
+        $url = $this->getAbsoluteUrl($url) . '.json';
+        // Set proper headers.
+        $headers = array("Content-type: application/json");
+        // Prepare arguments.
+        $post = json_encode($data);
+        break;
+    }
 
     $content = $this->curlExec(array(
       CURLOPT_URL => $url,
@@ -49,7 +60,7 @@ class ServicesWebTestCase extends DrupalWebTestCase {
     ));
 
     // Parse response.
-    list($info, $header, $status, $code, $body) = $this->parseHeader($content);
+    list($info, $header, $status, $code, $body) = $this->parseHeader($content, $call_type);
 
     $this->verbose('POST request to: ' . $url .
                    '<hr />Arguments: ' . highlight_string('<?php ' . var_export($data, TRUE), TRUE) .
@@ -129,13 +140,22 @@ class ServicesWebTestCase extends DrupalWebTestCase {
    * @param type $content
    * @return type
    */
-  function parseHeader($content) {
+  function parseHeader($content, $call_type = 'php') {
     $info = curl_getinfo($this->curlHandle);
     $header = drupal_substr($content, 0, $info['header_size']);
     $header = str_replace("HTTP/1.1 100 Continue\r\n\r\n", '', $header);
     $status = strtok($header, "\r\n");
     $code = $info['http_code'];
-    $body = unserialize(drupal_substr($content, $info['header_size'], drupal_strlen($content) - $info['header_size']));
+
+    $raw_body = drupal_substr($content, $info['header_size'], drupal_strlen($content) - $info['header_size']);
+    switch ($call_type) {
+      case 'php':
+        $body = unserialize($raw_body);
+        break;
+      case 'json':
+        $body = json_decode($raw_body);
+        break;
+    }
     return array($info, $header, $status, $code, $body);
   }
 

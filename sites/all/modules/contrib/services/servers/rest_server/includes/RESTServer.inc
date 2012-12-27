@@ -27,41 +27,38 @@ class RESTServer {
     if ($method == 'POST' && (isset($_GET['_method']) && $_GET['_method'])) {
       $method = $_GET['_method'];
     }
-    $path = explode('/', $canonical_path);
-    $leaf = array_pop($path);
-    $resource_name = array_shift($path);
-    // Extract response format info from the path
+    if (isset($_GET['_method'])) {
+      unset($_GET['_method']);
+    }
+    // Extract response format info from the canonical path.
     $matches = array();
-    if ($leaf && preg_match('/^(.+)\.([^\.]+)$/', $leaf, $matches)) {
-      $leaf = $matches[1];
+    $response_format = '';
+
+    if (preg_match('/^(.+)\.([^\.^\/]+)$/', $canonical_path, $matches)) {
+      $canonical_path = $matches[1];
       $response_format = $matches[2];
     }
+
+    // Prepare $path array and $resource_name.
+    $path = explode('/', $canonical_path);
+    $resource_name = array_shift($path);
+
     // Response will vary with accept headers
     // if no format was supplied as path suffix
     if (empty($response_format)) {
       drupal_set_header('Vary: Accept');
     }
 
-    // Return the leaf to the path array if it's not the resource name
-    if ($leaf) {
-      if (!$resource_name) {
-        $resource_name = $leaf;
-      }
-      else {
-        array_push($path, $leaf);
-      }
-    }
-
     $endpoint = services_get_server_info('endpoint', '');
 
     $endpoint_definition = services_endpoint_load($endpoint);
-
+    $this->endpoint = $endpoint_definition;
     // Get the server settings from the endpoint.
     $this->settings = !empty($endpoint_definition->server_settings['rest_server']) ? $endpoint_definition->server_settings['rest_server'] : array();
     // Normalize the settings so that we get the expected structure
     // and sensible defaults.
     $this->settings = rest_server_setup_settings($this->settings);
-    
+
     $resources = services_get_resources($endpoint);
     $controller = FALSE;
     if (!empty($resource_name) && isset($resources[$resource_name])) {
@@ -85,8 +82,7 @@ class RESTServer {
     }
 
     // Parse the request data
-    $data = array();
-    $arguments = $this->getControllerArguments($controller, $path, $method, $data);
+    $arguments = $this->getControllerArguments($controller, $path, $method);
 
     // Any authentication needed for REST Server must be set in the cookies
     $auth_arguments = $_COOKIE;
@@ -189,29 +185,24 @@ class RESTServer {
    *
    * @param array $controller
    *  The controller definition
-   * @param string $path
+   * @param array $path
    * @param string $method
    *  The method used to make the request
    * @param array $sources
    *  An array of the sources used for getting the arguments for the call
    * @return void
    */
-  private function getControllerArguments($controller, $path, $method, &$sources = array()) {
-    // Get argument sources
-    $parameters = $_GET;
-    unset($parameters['_method']);
+  private function getControllerArguments($controller, $path, $method) {
     $data = $this->parseRequest($method, $controller);
+    $headers = $this->parseRequestHeaders();
 
-    $defaults = array(
+    $sources = array(
       'path' => $path,
-      'param' => $parameters,
+      'param' =>  $_GET,
       'data' => $data,
+      'headers' => $headers,
     );
-    foreach ($defaults as $key => $data) {
-      if (!isset($sources[$key])) {
-        $sources[$key] = $data;
-      }
-    }
+
     // Map source data to arguments.
     $arguments = array();
     if (isset($controller['args'])) {
@@ -238,21 +229,23 @@ class RESTServer {
         // When argument isn't set, insert default value if provided or
         // throw a exception if the argument isn't optional.
         if (!isset($arguments[$i])) {
-          if (isset($info['default value'])) {
-            $arguments[$i] = $info['default value'];
+          if (!isset($info['optional']) || !$info['optional']) {
+            return services_error(t('Missing required argument @arg', array('@arg' => $info['name'])), 401);
           }
-          elseif (!isset($info['optional']) || !$info['optional']) {
-            return services_error(t('Missing required argument !arg', array(
-              '!arg' => $info['name'],
-            )), 406);
-          }
-          else {
-              $arguments[$i] = NULL;
-          }
+          // Set default value or NULL if default value is not set.
+          $arguments[$i] = isset($info['default value']) ? $info['default value'] : NULL;
         }
       }
     }
     return $arguments;
+  }
+
+  private function parseRequestHeaders() {
+    $headers = array();
+    if (!empty($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {
+      $headers['IF_MODIFIED_SINCE'] = strtotime(preg_replace('/;.*$/', '', $_SERVER['HTTP_IF_MODIFIED_SINCE']));
+    }
+    return $headers;
   }
 
   private function parseRequest($method, $controller) {
@@ -260,7 +253,9 @@ class RESTServer {
     switch ($method) {
       case 'POST':
       case 'PUT':
-        $type = self::parseContentHeader($_SERVER['CONTENT_TYPE']);
+        if (isset($_SERVER['CONTENT_TYPE'])) {
+          $type = self::parseContentHeader($_SERVER['CONTENT_TYPE']);
+        }
         // Get the mime type for the request, default to form-urlencoded
         if (isset($type['value'])) {
           $mime = $type['value'];
@@ -456,17 +451,20 @@ class RESTServer {
   public static function parsePHP($handle) {
     return unserialize(self::contentFromStream($handle));
   }
-  
+
   public static function parseFile($handle) {
     return self::contentFromStream($handle);
   }
 
+  public static function parseMultipart() {
+    return $_POST;
+  }
   public static function parseJSON($handle) {
     return json_decode(self::contentFromStream($handle), TRUE);
   }
 
   public static function parseYAML($handle) {
-    module_load_include('php', 'rest_server', 'lib/spyc');
+    include_once _rest_server_get_spyc_location();
     return Spyc::YAMLLoadString(self::contentFromStream($handle));
   }
 
@@ -482,7 +480,7 @@ class RESTServer {
     if ($format) {
       return isset($formatters[$format]) ? $formatters[$format] : FALSE;
     }
-    
+
     return $formatters;
   }
 
@@ -525,6 +523,9 @@ class RESTServer {
         }
         break;
     }
+    if($this->endpoint->debug) {
+      watchdog('services', 'Exception throw: <pre>@arguments</pre>', array('@arguments' => print_r($e, TRUE)), WATCHDOG_DEBUG);
+    }
     if (method_exists($e, 'getData')) {
       return $e->getData();
     }
@@ -532,11 +533,14 @@ class RESTServer {
 
   private function resolveController($resource, $method, $path) {
     $pc = count($path);
-    // Use the index handler for all empty path request, except on POST
-    if (!$pc && $method!='POST') {
-      return isset($resource['index']) ? $resource['index'] : NULL;
+    $class = NULL;
+    $operation = NULL;
+
+    // Use the index handler for all empty path GET-requests
+    if (!$pc && $method == 'GET') {
+      $class = 'operations';
+      $operation = 'index';
     }
-    // Detect the standard crud operations
     elseif (($pc == 1 && ($method == 'GET' || $method == 'PUT' || $method == 'DELETE')) || ($pc == 0 && $method == 'POST')) {
       $action_mapping = array(
         'GET' => 'retrieve',
@@ -544,29 +548,31 @@ class RESTServer {
         'PUT' => 'update',
         'DELETE' => 'delete',
       );
-      if (isset($resource[$action_mapping[$method]])) {
-        $controller = $resource[$action_mapping[$method]];
-        if (isset($resource['file'])) {
-          $controller['file'] = $resource['file'];
-        }
-        return $controller;
-      }
+      $class = 'operations';
+      $operation = $action_mapping[$method];
     }
     // Detect relationship requests
     elseif ($pc >= 2 && $method == 'GET') {
-      if (isset($resource['relationships']) && $resource['relationships'][$path[1]]) {
-        $relationship = $resource['relationships'][$path[1]];
-        return $relationship;
-      }
+      $class = 'relationships';
+      $operation = $path[1];
     }
     // Detect action requests
     elseif ($pc == 1 && $method == 'POST') {
-      return $resource['actions'][$path[0]];
+      $class = 'actions';
+      $operation = $path[0];
     }
     // Detect action requests targeted at specific resources
     elseif ($pc >= 2 && $method == 'POST') {
-      $action = $resource['targeted_actions'][$path[1]];
-      return $action;
+      $class = 'targeted_actions';
+      $operation = $path[1];
     }
+    $controller = FALSE;
+    if (!empty($class) && !empty($operation) && !empty($resource[$class][$operation])) {
+      $controller = $resource[$class][$operation];
+      if (isset($resource['file']) && empty($controller['file'])) {
+        $controller['file'] = $resource['file'];
+      }
+    }
+    return $controller;
   }
 }

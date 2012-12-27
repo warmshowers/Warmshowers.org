@@ -1,6 +1,4 @@
 <?php
-// $Id$
-
 /**
  * @file
 * Administration interface for nodewords.module.
@@ -252,7 +250,6 @@ function nodewords_custom_pages_edit_submit($form, &$form_state) {
 function nodewords_settings_form() {
   $edit_tags = variable_get('nodewords_edit', array());
   $form = array();
-  $head_tags = variable_get('nodewords_head', array());
   $options = array();
   $tags_info = nodewords_get_possible_tags();
 
@@ -267,7 +264,7 @@ function nodewords_settings_form() {
   $form['edit'] = array(
     '#type' => 'fieldset',
     '#title' => t('Meta tags to show on edit forms'),
-    '#description' => t('Select the meta tags that appear in the edit forms. Users with administration permissions can edit all the meta tags, even when they are not enabled to appear in the edit forms.'),
+    '#description' => t('Select the meta tags that appear on edit forms. Users with the "administer meta tags" permission can edit all meta tags, regardless of the follow.'),
     '#collapsible' => TRUE,
     '#group' => 'nodewords',
   );
@@ -284,29 +281,6 @@ function nodewords_settings_form() {
     $form['edit']['nodewords_edit'] = array(
       '#type' => 'value',
       '#value' => $edit_tags,
-    );
-  }
-
-  $form['head'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Meta tags to output in HTML'),
-    '#description' => t('Select the meta tags you want to appear in the HEAD section of the HTML pages.'),
-    '#collapsible' => TRUE,
-    '#group' => 'nodewords',
-  );
-
-  if (!empty($tags_info)) {
-    $form['head']['nodewords_head'] = array(
-      '#type' => 'checkboxes',
-      '#options' => $options,
-      '#default_value' => $head_tags,
-      '#checkall' => TRUE,
-    );
-  }
-  else {
-    $form['head']['nodewords_head'] = array(
-      '#type' => 'value',
-      '#value' => $head_tags,
     );
   }
 
@@ -362,6 +336,13 @@ function nodewords_settings_form() {
     '#default_value' => variable_get('nodewords_base_url', ''),
     '#element_validate' => array('nodewords_base_url_validate'),
     '#size' => 60,
+  );
+
+  $form['metatags_creation']['nodewords_use_path_alias'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use URL aliases'),
+    '#description' => t('By default URLs output in meta tags, e.g. the Canonical URL, will use the internal Drupal path, e.g. "node/123" and "taxonomy/term/123".  Enabling this option will instead make the URLs use the URL alias if one exists.  This option works best when the <a href="@url">GlobalRedirect</a> module is also used.', array('@url' => 'http://drupal.org/project/globalredirect')),
+    '#default_value' => variable_get('nodewords_use_path_alias', TRUE),
   );
 
   foreach ($tags_info as $name => $info) {

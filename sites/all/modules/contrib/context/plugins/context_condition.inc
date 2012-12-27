@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition.inc,v 1.1.2.9 2010/08/05 07:15:22 yhahn Exp $
 
 /**
  * Base class for a context condition.
@@ -90,7 +89,7 @@ class context_condition {
   /**
    * Context editor form for conditions.
    */
-  function editor_form($context) {
+  function editor_form($context = NULL) {
     $form = array();
     if (!empty($this->values)) {
       $options = $this->condition_values();

@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_language.inc,v 1.1.2.2 2010/08/02 19:54:03 yhahn Exp $
 
 /**
  * Expose current language as a context condition.

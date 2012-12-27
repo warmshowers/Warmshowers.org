@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_bookroot.inc,v 1.1.2.2 2010/06/14 17:53:08 yhahn Exp $
 
 /**
  * Set the context on the basis of the node type of page's book root.

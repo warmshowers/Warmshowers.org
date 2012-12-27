@@ -1,5 +1,4 @@
 <?php
-// $Id: context_reaction_css_injector.inc,v 1.1.2.1 2009/12/14 22:34:05 yhahn Exp $
 
 class context_reaction_css_injector extends context_reaction {
 

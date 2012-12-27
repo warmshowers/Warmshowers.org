@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_book.inc,v 1.1.2.4 2010/08/03 03:25:23 yhahn Exp $
 
 /**
  * Expose book properties as a context condition.

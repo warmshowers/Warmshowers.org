@@ -16,8 +16,8 @@ Features
 The primary features include:
 
 * The current supported basic meta tags are ABSTRACT, CANONICAL, COPYRIGHT,
-  GEO.POSITION, DESCRIPTION, ICBM, KEYWORDS, REVISIT-AFTER, ROBOTS.
-  These meta tags are provided by the module Basic meta tags.
+  GEO.POSITION, DESCRIPTION, ICBM, KEYWORDS, REVISIT-AFTER, ROBOTS, in addition
+  to the TITLE tag.
 
 * The Dublin Core meta tag schema may be added by enabling the "Nodewords
   extra meta tags" module.
@@ -43,8 +43,11 @@ Integration with other modules
 ------------------------------------------------------------------------------
 Nodewords integrates with other modules for automatic selection of meta tags.
 
-* On node pages all terms of some specified vocabularies associated can be
-  added to the KEYWORDS meta tag.
+* On node pages all terms of specified vocabularies associated can be added to
+  the KEYWORDS meta tag.
+
+* On node pages the DESCRIPTION meta tag can be automatically generated from
+  the node's teaser or body text.
 
 * On taxonomy pages, the term description is used as the meta tag DESCRIPTION.
   The term itself is added to the list of KEYWORDS. You can override the
@@ -76,9 +79,11 @@ Installing Nodewords (first time installation)
 
  4. Enable other modules which provide meta tags. The following are included:
     - Nodewords basic meta tags: for "abstract", "canonical", "copyright",
-      "description", "keywords", "revisit-after" and "robots" meta tags.
-    - Nodewords extra meta tags: for Dublin Core, "geo.position", "icbm" and
-      "shorturl" meta tags.
+      "description", "keywords", "logo", "original-source", "revisit-after",
+      "robots", "standout" and "syndication-source" meta tags, and the "title"
+      HTML tag.
+    - Nodewords extra meta tags: for Dublin Core, "geo.placename",
+      "geo.position", "geo.region", "icbm" and "shorturl" meta tags.
     - Nodewords Open Graph meta tags: for the Open Graph Protocol meta tags,
       used for integration with Facebook's API.
 
@@ -127,9 +132,8 @@ Configuration
     can specify the default settings for the module. To access this page users
     need the "administer meta tags" permission.
 
- 3. You should enable meta tags for editing before they are available for use.
-    The same operation should be done for meta tag output. Only allowed Meta
-    tags are available for editing or exposed in the HTML of your site.
+ 3. Enable specific meta tags for editing before they are available for use by
+    users who do not have the "administer meta tags" permission.
 
  4. The front page is an important page for each website, therefore you can
     specifically set the meta tags to use on the front page meta tags settings
@@ -147,6 +151,10 @@ Configuration
     Note that, in contrast to previous versions of this module, the site
     mission and/or site slogan are no longer used as DESCRIPTION or ABSTRACT
     on the front page!
+
+ 5. Each content type should be configured to control whether certain meta tags
+    should be automatically generated, e.g. the "description" tag can be
+    automatically taken from the node teaser.
 
 
 Open Graph Protocol Extra Steps
@@ -207,33 +215,52 @@ Known Issues
   The maintainers are terribly sorry about this and humbly apologize if your
   site(s) suffered data loss as a result of this and vow to do our utmost to
   ensure errors of this magnitude never happen again.
+* Many of the code & API changes from the 6.x-1.12-x development cycle have
+  been reverted; modules that integrate with the Nodewords APIs will have to
+  be updated accordingly.
+* Nodewords currently does not support tokens, that functionality was lost
+  when the 6.x-1.12-x codebase was reverted. Adding Token support is planned
+  for a future release: http://drupal.org/node/1380362
 
 
 Related modules
 ------------------------------------------------------------------------------
-Starting from nodewords-5.x-1.9 the following modules extend the nodewords
-functionality:
+Some modules are available that extend Nodewords with additional functionality:
 
-- Meta tags Node Type, by Ariel Barreiro
-- Meta Tags by Path, by Shannon Lucas
+* Domain Meta Tags, by Katrin Silvius
+  http://drupal.org/project/domain_meta
+  Integrates with the Domain Access module, so each site of a multi-domain
+  install can separately control their meta tags.
 
-The latest development snapshot (6.x-1.x-dev), and version 6.x-1.1 or higher
-implement a functionality similar to the one implemented in the module
-Meta Tags by Path, which is not anymore required for those versions.
+* Meta tags Node Type, by Ariel Barreiro
+  http://drupal.org/project/nodewords_nodetype
+  Allows meta tag defaults to be controlled by content type, not just globally
+  and per node.
 
-To assure compatibility between Nodewords and Meta tags Node Type, use the
-latest version available of Nodewords and Meta tags Node Type; previous
-versions were not compatible with the recent changes in Nodewords.
+* SEO Friend, by Kristen Pol
+  http://drupal.org/project/seo_friend
+  Provides some assistance with ensuring that meta tags are all properly
+  assigned, which can be very useful for SEO beginners.
+
+* Nodewords Meta Title, by Zoltán Adamek
+  http://drupal.org/project/nodewords_meta_title
+  Adds the <meta name="title" /> tag, which maybe be useful for some rare
+  scenarios.
 
 
 Credits / Contact
 ------------------------------------------------------------------------------
-The current maintainers are Damien McKenna [5] and Dave Reid [6].
+The current maintainer is Damien McKenna [5].
 
-The original author of this module is Andras Barthazi. Mike Carter [7],
-Gabor Hojtsy [8] and Robrecht Jacques [9] provided some feature enhancements,
-while Alberto Paderno [10] maintained the module for much of its Drupal 6
-lifecycle.
+The original author of this module is Andras Barthazi. Mike Carter [6],
+Gabor Hojtsy [7] and Robrecht Jacques [8] provided some feature enhancements,
+while Alberto Paderno [9] maintained the module for much of its Drupal 6
+lifecycle. Dave Reid [10] contributed greatly to the launch of v6.x-1.13, and
+Nate Haug [11] played an instrumental role in deciding to scrap the ill-
+conceived v6.x-1.12 release.
+
+Development is currently sponsored by Media Current [12], previous sponsors
+include Bluespark Labs [13] and others.
 
 The best way to contact the authors is to submit an issue, be it a support
 request, a feature request or a bug report, in the project issue queue:
@@ -247,8 +274,11 @@ References
 [3] http://drupal.org/project/domain
 [4] http://drupal.org/documentation/install/modules-themes/modules-5-6
 [5] http://drupal.org/user/108450
-[6] http://drupal.org/user/53892
-[7] http://drupal.org/user/13164
-[8] http://drupal.org/user/4166
-[9] http://drupal.org/user/22598
-[10] http://drupal.org/user/55077
+[6] http://drupal.org/user/13164
+[7] http://drupal.org/user/4166
+[8] http://drupal.org/user/22598
+[9] http://drupal.org/user/55077
+[10] http://drupal.org/user/53892
+[11] http://drupal.org/user/35821
+[12] http://www.mediacurrent.com/
+[13] http://www.bluesparklabs.com/

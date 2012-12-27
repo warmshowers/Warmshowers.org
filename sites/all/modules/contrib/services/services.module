@@ -166,7 +166,7 @@ function services_endpoint_callback($endpoint_name) {
       'endpoint'      => $endpoint_name,
       'endpoint_path' => $endpoint->path,
       'debug'         => $endpoint->debug,
-      'settings'      => $endpoint->server_settings[$server],
+      'settings'      => $endpoint->server_settings,
     ));
     if ($endpoint->debug) {
       watchdog('services', 'Server info main object: <pre>@info</pre>', array('@info' => print_r(services_server_info_object(), TRUE)), WATCHDOG_DEBUG);
@@ -174,8 +174,8 @@ function services_endpoint_callback($endpoint_name) {
     print call_user_func($server . '_server');
 
     // Do not let this output
-    module_invoke_all('exit');
-    exit;
+    drupal_page_footer();
+    exit();
   }
   // return 404 if the server doesn't exist
   drupal_not_found();
@@ -231,7 +231,7 @@ function services_endpoint_save($endpoint) {
     $endpoint = $endpoint['build_info']['args'][0];
   }
   // Set a default of an array if the value is not present.
-  foreach (array('server_settings', 'resources', 'authenication') as $endpoint_field) {
+  foreach (array('server_settings', 'resources', 'authentication') as $endpoint_field) {
     if (empty($endpoint->{$endpoint_field})) {
       $endpoint->{$endpoint_field} = array();
     }
@@ -290,6 +290,26 @@ function services_get_resources($endpoint_name = '') {
 }
 
 /**
+ * Returns information about resource API version information.
+ * The resource API is the way modules expose resources to services,
+ * not the API that is exposed to the consumers of your services.
+ *
+ * @return array
+ *  API version information. 'default_version' is the version that's assumed
+ *  if the module doesn't declare an API version. 'versions' is an array
+ *  containing the known API versions. 'current_version' is the current
+ *  version number.
+ */
+function services_resource_api_version_info() {
+  $info = array(
+    'default_version' => 3001,
+    'versions' => array(3002),
+  );
+  $info['current_version'] = max($info['versions']);
+  return $info;
+}
+
+/**
  * Implementation of hook_services_resources().
  */
 function services_services_resources() {
@@ -315,8 +335,54 @@ function services_services_authentication_info() {
  * @return void
  */
 function _services_sessions_authenticate_call() {
+  $arg = func_get_args();
   global $user;
-  $user = services_get_server_info('original_user');
+  $original_user = services_get_server_info('original_user');
+  //If the user is logged in already and the callback contains the string login
+  //we need to set it to the original user so that the already logged in as @user message
+  //is displayed
+  if (strpos($arg[1]['callback'], 'login') !== FALSE) {
+    if($original_user->uid != 0) {
+      $user = $original_user;
+    }
+  }
+  //For every callback that has nothing to do with login we need to
+  //set it to the original user so that they are no longer anonymous
+  
+  if (strpos($arg[1]['callback'], 'login') === FALSE) {
+    // The account should be restored to the session's user.
+    $user = $original_user;
+  }
+}
+
+/**
+ * Get operation class information.
+ *
+ * @return array An array with operation class information keyed by operation machine name.
+ */
+function services_operation_class_info() {
+  return array(
+    'operations' => array(
+      'title' => t('CRUD operations'),
+      'name' => t('CRUD operation'),
+      'class_singular' => 'operation',
+    ),
+    'actions' => array(
+      'title' => t('Actions'),
+      'name' => t('action'),
+      'class_singular' => 'action',
+    ),
+    'relationships' => array(
+      'title' => t('Relationships'),
+      'name' => t('relationship'),
+      'class_singular' => 'relationship',
+    ),
+    'targeted_actions' => array(
+      'title' => t('Targeted actions'),
+      'name' => t('targeted action'),
+      'class_singular' => 'targeted_action',
+    ),
+  );
 }
 
 /**
@@ -325,34 +391,34 @@ function _services_sessions_authenticate_call() {
  * @param string $endpoint
  *  The endpoint that should be used.
  * @return array
- *  Either a non associative array containing all controller names. Or, if
- *  $key_by_resource was set to TRUE, a associative array where the resource
- *  name is the key and the value is a non-associative array containing the
- *  resource's controller names.
+ *   an array containing all controller names
  */
 function services_controllers_list($endpoint) {
   $controllers = array();
-  $ops = array('actions', 'relationships', 'targeted_actions');
-  $resources = services_get_resources($endpoint);
-  foreach ($resources as $resource_name => $res) {
-    // Get all basic operations
-    foreach (array('create', 'retrieve', 'update', 'delete', 'index') as $op) {
-      if (isset($res[$op])) {
-        $controllers[] = $resource_name . '.' . $op;
-      }
-    }
+  $class_info = services_operation_class_info();
 
-    // Handle extended operatios
-    foreach ($ops as $op) {
-      if (isset($res[$op])) {
-        foreach ($res[$op] as $name => $def) {
-          // Append prefix if it isn't empty
-          $controllers[] = $resource_name . '.' . $name;
+  $resources = services_get_resources($endpoint);
+  foreach ($resources as $resource_name => $resource) {
+    foreach ($class_info as $class_name => $class) {
+      if (empty($resource[$class_name])) {
+        continue;
+      }
+      foreach ($resource[$class_name] as $op_name => $op) {
+        $method = "{$resource_name}.{$op_name}";
+        if (empty($controllers[$method])) {
+          $controllers[$method] = $method;
+        }
+        else {
+          watchdog('services', 'Naming collision when listing controllers as methods. The %class %operation is not included in the listing.', array(
+            '%class' => $class['name'],
+            '%operation' => $op_name,
+          ), WATCHDOG_WARNING);
         }
       }
     }
   }
   return $controllers;
+
 }
 
 /**
@@ -366,20 +432,18 @@ function services_controllers_list($endpoint) {
  */
 function services_controller_get($name, $endpoint) {
   list($resource_name, $method) = explode('.', $name);
-  $ops = array('actions', 'relationships', 'targeted_actions');
   $resources = services_get_resources($endpoint);
-
   if (isset($resources[$resource_name])) {
     $res = $resources[$resource_name];
-
     if (isset($res[$method])) {
       return $res[$method];
     }
     else {
+      $class_info = services_operation_class_info();
       // Handle extended operatios
-      foreach ($ops as $op) {
-        if (isset($res[$op]) && isset($res[$op][$method])) {
-          return $res[$op][$method];
+      foreach ($class_info as $class => $info) {
+        if (isset($res[$class]) && isset($res[$class][$method])) {
+          return $res[$class][$method];
         }
       }
     }
@@ -391,50 +455,36 @@ function services_controller_get($name, $endpoint) {
  *
  * @param array $resource
  *   A resource definition.
+ * @param string $resource_name
+ *   The resource name, ie: node.
  *
  * @return array
  *   An array of RPC method definitions
  */
-function services_resources_as_procedures($resource) {
-  static $controllers = array('create', 'retrieve', 'update', 'delete', 'index');
-  static $subcontrollers = array('actions', 'relationships', 'targeted_actions');
-
+function services_resources_as_procedures($resource, $resource_name) {
   $methods = array();
 
-  foreach ($controllers as $name) {
-    if (isset($resource[$name])) {
-      $methods[] = _services_resource_controller_as_procedure($resource['name'], $name, $resource[$name]);
+  $class_info = services_operation_class_info();
+  foreach ($class_info as $class_name => $class) {
+    if (empty($resource[$class_name])) {
+      continue;
     }
-  }
-
-  foreach ($subcontrollers as $name) {
-    if (isset($resource[$name])) {
-      foreach ($resource[$name] as $sc_name => $controller) {
-        $methods[] = _services_resource_controller_as_procedure($resource['name'], $sc_name, $controller);
+    foreach ($resource[$class_name] as $op_name => $op) {
+      $method_name = "{$resource_name}.{$op_name}";
+      if (empty($methods[$method_name])) {
+        $methods[$method_name] = array(
+          'method' => $method_name,
+        ) + $op;
+      }
+      else {
+        watchdog('services', 'Naming collision when listing controllers as methods. The %class %operation wont be available for RPC-style servers.', array(
+          '%class' => $class['name'],
+          '%operation' => $op_name,
+        ), WATCHDOG_WARNING);
       }
     }
   }
-
   return $methods;
-}
-/**
- * Helper function for _services_resources_as_procedures() that turns a resource
- * controller into an RPC method.
- *
- * @param $resource
- *   The resource being converted (node, user, etc.)
- * @param $name 
- *   The method name (retrieve, create, etc.)
- * @param $controller
- *   Associative array defining the method's properties and callbacks.
- *
- */
-function _services_resource_controller_as_procedure($resource, $name, $controller) {
-  $method = array_merge($controller, array(
-    'method' => $resource . '.' . $name,
-  ));
-
-  return $method;
 }
 
 
@@ -474,8 +524,11 @@ function services_resource_build_index_query($schema, $order, $page, $fields, $s
   // db_query().
   if (is_array($service_params)) {
     foreach ($service_params as $param_field => $param_value) {
+      if (!$schema['fields'][$param_field]) {
+        services_error('Parameter "' . $param_field . '" is not valid.');
+      }
       $in_placeholders = array();
-      foreach (explode(',', $param_value) as $single_value) {
+      foreach (services_str_getcsv($param_value) as $single_value) {
         $in_placeholders[] = db_type_placeholder($schema['fields'][$param_field]['type']);
         $query_params[] = $single_value;
       }
@@ -498,6 +551,29 @@ function services_resource_build_index_query($schema, $order, $page, $fields, $s
   $result = db_query_range($sql, $query_params, $page * $page_size, $page_size);
   return $result;
 }
+
+
+/**
+ * Emulate str_getcsv on systems where it is not available.
+ *
+ * @ingroup php_wrappers
+ */
+function services_str_getcsv($input, $delimiter = ',', $enclosure = '"', $escape = '\\') {
+  $ret = array();
+
+  if (!function_exists('str_getcsv')) {
+    $temp = fopen("php://memory", "rw");
+    fwrite($temp, $input);
+    fseek($temp, 0);
+    $ret = fgetcsv($temp, 0, $delimiter, $enclosure);
+    fclose($temp);
+  }
+  else {
+    $ret = str_getcsv($input, $delimiter, $enclosure, $escape);
+  }
+  return $ret;
+}
+
 
 /**
  * Helper function to build a list of items satisfying the index query.
@@ -534,4 +610,9 @@ function services_resource_build_index_list($results, $type, $field) {
 function services_remove_user_data(&$account) {
   // Remove the users password from the account object.
   unset($account->pass);
+  if (!user_access('administer users')) {
+    unset($account->mail);
+    unset($account->init);
+  }
+  drupal_alter('services_account_object', $account);
 }

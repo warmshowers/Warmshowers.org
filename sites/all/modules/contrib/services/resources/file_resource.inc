@@ -13,105 +13,107 @@
 function _file_resource_definition() {
   return array(
     'file' => array(
-      'create' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
-        'help' => 'Creates a file',
-        'callback' => '_file_resource_create',
-        'access callback' => '_file_resource_access',
-        'access arguments' => array('create'),
-        'access arguments append' => TRUE,
-        'args' => array(
-          array(
-            'name' => 'file',
-            'type' => 'array',
-            'description' => t('An array representing a file.'),
-            'source' => 'data',
-            'optional' => FALSE,
+      'operations' => array(
+        'create' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
+          'help' => 'Creates a file',
+          'callback' => '_file_resource_create',
+          'access callback' => '_file_resource_access',
+          'access arguments' => array('create'),
+          'access arguments append' => TRUE,
+          'args' => array(
+            array(
+              'name' => 'file',
+              'type' => 'array',
+              'description' => t('An array representing a file.'),
+              'source' => 'data',
+              'optional' => FALSE,
+            ),
           ),
         ),
-      ),
-      'retrieve' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
-        'help' => 'Retrieves a file',
-        'callback' => '_file_resource_retrieve',
-        'access callback' => '_file_resource_access',
-        'access arguments' => array('view'),
-        'access arguments append' => TRUE,
-        'args' => array(
-          array(
-            'name' => 'fid',
-            'type' => 'int',
-            'description' => 'The fid of the file to retrieve.',
-            'source' => array('path' => '0'),
-            'optional' => FALSE,
-          ),
-          array(
-            'name'         => 'file_contents',
-            'type'         => 'int',
-            'description'  => t('To return file contents or not.'),
-            'source'       => array('param' => 'file_contents'),
-            'optional'     => FALSE,
-            'default value' => TRUE,
-          ),
-        ),
-      ),
-      'delete' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
-        'help' => 'Deletes a file',
-        'callback' => '_file_resource_delete',
-        'access callback' => '_file_resource_access',
-        'access arguments' => array('delete'),
-        'access arguments append' => TRUE,
-        'args' => array(
-          array(
-            'name' => 'cid',
-            'type' => 'int',
-            'description' => 'The id of the file to delete',
-            'source' => array('path' => '0'),
-            'optional' => FALSE,
+        'retrieve' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
+          'help' => 'Retrieves a file',
+          'callback' => '_file_resource_retrieve',
+          'access callback' => '_file_resource_access',
+          'access arguments' => array('view'),
+          'access arguments append' => TRUE,
+          'args' => array(
+            array(
+              'name' => 'fid',
+              'type' => 'int',
+              'description' => 'The fid of the file to retrieve.',
+              'source' => array('path' => '0'),
+              'optional' => FALSE,
+            ),
+            array(
+              'name'         => 'file_contents',
+              'type'         => 'int',
+              'description'  => t('To return file contents or not.'),
+              'source'       => array('param' => 'file_contents'),
+              'optional'     => TRUE,
+              'default value' => TRUE,
+            ),
           ),
         ),
-      ),
-      'index' => array(
-        'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
-        'callback' => '_file_resource_index',
-        'args' => array(
-          array(
-            'name' => 'page',
-            'optional' => TRUE,
-            'type' => 'int',
-            'description' => 'The zero-based index of the page to get, defaults to 0.',
-            'default value' => 0,
-            'source' => array('param' => 'page'),
-          ),
-          array(
-            'name' => 'fields',
-            'optional' => TRUE,
-            'type' => 'string',
-            'description' => 'The fields to get.',
-            'default value' => '*',
-            'source' => array('param' => 'fields'),
-          ),
-          array(
-            'name' => 'parameters',
-            'optional' => TRUE,
-            'type' => 'array',
-            'description' => 'Parameters',
-            'default value' => array(),
-            'source' => array('param' => 'parameters'),
-          ),
-          array(
-            'name' => 'pagesize',
-            'optional' => TRUE,
-            'type' => 'init',
-            'description' => 'Number of records to get per page.',
-            'default value' => variable_get('services_file_index_page_size', 20),
-            'source' => array('param' => 'pagesize'),
+        'delete' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
+          'help' => 'Deletes a file',
+          'callback' => '_file_resource_delete',
+          'access callback' => '_file_resource_access',
+          'access arguments' => array('delete'),
+          'access arguments append' => TRUE,
+          'args' => array(
+            array(
+              'name' => 'cid',
+              'type' => 'int',
+              'description' => 'The id of the file to delete',
+              'source' => array('path' => '0'),
+              'optional' => FALSE,
+            ),
           ),
         ),
-        'access callback' => '_file_resource_access',
-        'access arguments' => array('index'),
-        'access arguments append' => TRUE,
+        'index' => array(
+          'file' => array('type' => 'inc', 'module' => 'services', 'name' => 'resources/file_resource'),
+          'callback' => '_file_resource_index',
+          'args' => array(
+            array(
+              'name' => 'page',
+              'optional' => TRUE,
+              'type' => 'int',
+              'description' => 'The zero-based index of the page to get, defaults to 0.',
+              'default value' => 0,
+              'source' => array('param' => 'page'),
+            ),
+            array(
+              'name' => 'fields',
+              'optional' => TRUE,
+              'type' => 'string',
+              'description' => 'The fields to get.',
+              'default value' => '*',
+              'source' => array('param' => 'fields'),
+            ),
+            array(
+              'name' => 'parameters',
+              'optional' => TRUE,
+              'type' => 'array',
+              'description' => 'Parameters',
+              'default value' => array(),
+              'source' => array('param' => 'parameters'),
+            ),
+            array(
+              'name' => 'pagesize',
+              'optional' => TRUE,
+              'type' => 'int',
+              'description' => 'Number of records to get per page.',
+              'default value' => variable_get('services_file_index_page_size', 20),
+              'source' => array('param' => 'pagesize'),
+            ),
+          ),
+          'access callback' => '_file_resource_access',
+          'access arguments' => array('index'),
+          'access arguments append' => TRUE,
+        ),
       ),
     ),
   );
@@ -237,6 +239,9 @@ function _file_resource_create($file) {
   }
   $file['filepath'] = $destination;
 
+  // Set the file user id.
+  $file['uid'] = $user->uid;
+
   // Update the timestamp to the current time, otherwise the file could
   // get deleted on the next cron run if its status is set to 0.
   $file['timestamp'] = time();
@@ -261,7 +266,7 @@ function _file_resource_create($file) {
 function _file_resource_retrieve($fid, $file_contents) {
   if ($file = db_fetch_array(db_query('SELECT * FROM {files} WHERE fid = %d', $fid))) {
     if ($file_contents) {
-      $absolute_file_path = $_SERVER['DOCUMENT_ROOT'] . '/' . file_create_path($file['filepath']);
+      $absolute_file_path = getcwd() . '/' . file_create_path($file['filepath']);
       $binaryfile = fopen($absolute_file_path, 'rb');
       if ($binaryfile === FALSE) {
         services_error(t('Cannot open file with ID %fid.', array('%fid' => $fid)));

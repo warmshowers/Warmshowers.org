@@ -28,7 +28,7 @@ class ServicesException extends Exception {
   public function __construct($message, $code = 0, $data = NULL) {
     parent::__construct($message, $code);
 
-    $this->data = $data;
+    $this->data = $message;
   }
 
   /**
@@ -104,10 +104,13 @@ function services_controller_execute($controller, $args = array(), $options = ar
   }
 
   $original_user = $user;
-  $old_state = session_save_session();
-  session_save_session(FALSE);
+  
+  if (strpos($controller['callback'], 'login') !== FALSE && strpos($controller['callback'], 'logout') !== FALSE) {
+    $old_state = drupal_save_session();
+    drupal_save_session(FALSE);
+  }
   $user = drupal_anonymous_user();
-
+  $user->timestamp = time();
   services_set_server_info('original_user', $original_user);
 
   // Check authentication.
@@ -168,9 +171,8 @@ function services_controller_execute($controller, $args = array(), $options = ar
   $controller['__drupal_alter_by_ref'] = array(&$args, &$result);
   drupal_alter('services_request_postprocess', $controller);
 
-  if (session_save_session($user) === FALSE) {
-    $user = $original_user;
-    session_save_session($old_state);
+  if (strpos($controller['callback'], 'login') !== FALSE && strpos($controller['callback'], 'logout') !== FALSE) {
+    drupal_save_session($old_state);
   }
   if ($server_info->debug) {
     watchdog('services', 'results: <pre>@results</pre>', array('@results' => print_r($result, TRUE)), WATCHDOG_DEBUG);

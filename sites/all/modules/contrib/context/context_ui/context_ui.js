@@ -1,4 +1,3 @@
-// $Id: context_ui.js,v 1.3.2.5.2.2.2.3 2010/01/08 23:54:14 yhahn Exp $
 
 /**
  * Context plugin form.

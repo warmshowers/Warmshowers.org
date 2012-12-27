@@ -1,4 +1,3 @@
-$Id: README.txt,v 1.1.4.2.2.7 2010/08/23 17:15:00 yhahn Exp $
 
 Context 3.x for Drupal 6.x
 --------------------------

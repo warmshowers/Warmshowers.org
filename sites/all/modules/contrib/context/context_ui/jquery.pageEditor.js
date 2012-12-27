@@ -1,4 +1,3 @@
-// $Id: jquery.pageEditor.js,v 1.1.2.1 2010/01/08 20:48:22 yhahn Exp $
 
 /**
  * Generic pageEditor plugin. Allows an editor DOM object to trigger

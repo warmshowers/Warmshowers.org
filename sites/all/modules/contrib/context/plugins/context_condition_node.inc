@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_node.inc,v 1.1.2.4 2010/08/03 03:25:23 yhahn Exp $
 
 /**
  * Trigger context on node view only.

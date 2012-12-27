@@ -1,5 +1,4 @@
 <?php
-// $Id: context.inc,v 1.1.2.1 2010/08/05 16:46:26 yhahn Exp $
 
 $plugin = array(
   'schema' => 'context',

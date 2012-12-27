@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_views.inc,v 1.1.2.6 2010/08/03 03:25:23 yhahn Exp $
 
 class context_condition_views extends context_condition {
 

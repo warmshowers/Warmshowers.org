@@ -298,7 +298,8 @@ function drupal_get_destination() {
  * @param $path
  *   A Drupal path or a full URL.
  * @param $query
- *   A query string component, if any.
+ *   A URL-encoded query string to append to the link, or an array of query
+ *   key/value-pairs without any URL-encoding. Passed to url().
  * @param $fragment
  *   A destination fragment identifier (named anchor).
  * @param $http_response_code
@@ -579,8 +580,10 @@ function drupal_http_request($url, $headers = array(), $method = 'GET', $data = 
   }
   fclose($fp);
 
-  // Parse response.
-  list($split, $result->data) = explode("\r\n\r\n", $response, 2);
+  // Parse response headers from the response body.
+  // Be tolerant of malformed HTTP responses that separate header and body with
+  // \n\n or \r\r instead of \r\n\r\n.  See http://drupal.org/node/183435
+  list($split, $result->data) = preg_split("/\r\n\r\n|\n\n|\r\r/", $response, 2);
   $split = preg_split("/\r\n|\n|\r/", $split);
 
   list($protocol, $code, $status_message) = explode(' ', trim(array_shift($split)), 3);
@@ -996,7 +999,7 @@ function t($string, $args = array(), $langcode = NULL) {
  */
 function valid_email_address($mail) {
   $user = '[a-zA-Z0-9_\-\.\+\^!#\$%&*+\/\=\?\`\|\{\}~\']+';
-  $domain = '(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])(\.[a-zA-Z0-9]+)*)+';
+  $domain = '(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.?)+';
   $ipv4 = '[0-9]{1,3}(\.[0-9]{1,3}){3}';
   $ipv6 = '[0-9a-fA-F]{1,4}(\:[0-9a-fA-F]{1,4}){7}';
 
@@ -2571,8 +2574,8 @@ function drupal_to_js($var) {
  *   (optional) If set, the variable will be converted to JSON and output.
  */
 function drupal_json($var = NULL) {
-  // We are returning JavaScript, so tell the browser.
-  drupal_set_header('Content-Type: text/javascript; charset=utf-8');
+  // We are returning JSON, so tell the browser.
+  drupal_set_header('Content-Type: application/json');
 
   if (isset($var)) {
     echo drupal_to_js($var);

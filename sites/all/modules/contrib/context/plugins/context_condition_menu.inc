@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_menu.inc,v 1.1.2.5 2010/07/30 06:28:43 yhahn Exp $
 
 /**
  * Expose menu items as a context condition.
@@ -9,7 +8,8 @@ class context_condition_menu extends context_condition {
    * Override of condition_values().
    */
   function condition_values() {
-    $menus = menu_parent_options(array_reverse(menu_get_menus()), NULL);
+    $menu_names = variable_get('context_condition_menu_selections', menu_get_menus());
+    $menus = menu_parent_options(array_reverse($menu_names), NULL);
     $root_menus = array();
     foreach ($menus as $key => $name) {
       $id = explode(':', $key);
@@ -57,6 +57,29 @@ class context_condition_menu extends context_condition {
   }
 
   /**
+   * Settings form for variables.
+   */
+  function settings_form() {
+    // Get the list of menus in the system.
+    $menus = array_values(menu_get_menus());
+
+    // Convert the list to the format menu_name => menu_name.
+    $options = array_combine($menus, $menus);
+
+    $form = array();
+    $form['context_condition_menu_selections'] = array(
+      '#title' => t('Menus'),
+      '#type' => 'select',
+      '#multiple' => TRUE,
+      '#options' => $options,
+      '#required' => TRUE,
+      '#default_value' => variable_get('context_condition_menu_selections', $options),
+      '#description' => t('Select one or more Drupal menus to use during Menu Context condition checks. If none are selected, all of the menus are used.')
+    );
+    return $form;
+  }
+
+  /**
    * Override of execute().
    */
   function execute() {
@@ -67,7 +90,15 @@ class context_condition_menu extends context_condition {
       // helper code below.
       if (menu_get_active_menu_name() === 'navigation') {
         $item = menu_get_item();
-        if ($menu_name = db_result(db_query("SELECT menu_name FROM {menu_links} WHERE link_path = '%s'", $item['href']))) {
+        $menus = variable_get('context_condition_menu_selections', menu_get_menus());
+
+        $params = array_values($menus);
+        $params[] = $item['href'];
+
+        $in_clause = implode(', ', array_fill(0, count($menus), "'%s'"));
+        $query = "SELECT menu_name FROM {menu_links} WHERE menu_name IN ($in_clause) AND link_path = '%s' ORDER BY mlid ASC";
+
+        if ($menu_name = db_result(db_query($query, $params))) {
           menu_set_active_menu_name($menu_name);
         }
       }

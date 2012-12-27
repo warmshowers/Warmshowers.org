@@ -1,4 +1,3 @@
-$Id: README.txt,v 1.1.4.3 2010/02/09 20:20:19 yhahn Exp $
 
 Context UI
 ----------

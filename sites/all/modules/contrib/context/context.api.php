@@ -1,5 +1,4 @@
 <?php
-// $Id: context.api.php,v 1.1.2.4 2010/07/29 16:24:04 yhahn Exp $
 
 /**
  * @file

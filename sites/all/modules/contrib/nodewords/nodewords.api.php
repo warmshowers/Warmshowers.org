@@ -1,7 +1,4 @@
 <?php
-
-// $Id$
-
 /**
  * @file.
  * Nodewords hooks.
@@ -22,22 +19,24 @@
  *     NODEWORDS_API_VERSION.
  */
 function hook_nodewords_api() {
-  return array('version' => '1.1');
+  return array('version' => '1.14');
 }
 
 /**
  * This hook declares the meta tags implemented by the module.
  *
- *
  * @return
- *   An array containing the following values:
+ *   A nested array containing the following values:
  *
- *  - attributes - the tag attributes used when outputing the tag on HTML HEAD.
+ *  - attributes - the tag attributes used when outputting the tag.
  *  - callback - the string used to built the name of the functions called for 
  *    any meta tags operations.
  *  - context - the contexts in which the meta tags are allowed (and denied).
  *  - label - the label used as title in the fieldset for the form field
  *    shown in the form to edit the meta tags values.
+ *  - multiple - if set to TRUE, splits the tag value on each line break and
+ *    outputs each item as a fully separate copy of the tag; best used when the
+ *    form uses a textarea instead of a textfield.
  *  - permission - the permission associated with the form fields used to
  *    edit the meta tags values; this permission is used only when the meta tag
  *    edit form fields are shown in a form that is accessible not only from the
@@ -45,11 +44,12 @@ function hook_nodewords_api() {
  *    profile form).
  *  - templates - the templates used when the meta tag is output.
  *  - weight - the weight used to order the meta tags before to output them;
- *    the lighter meta tag will be output first.
+ *    the lighter meta tag will be output first. See API.txt for a list of the
+ *    weights of all included meta tags.
  */
 function hook_nodewords_tags_info() {
   $tags = array(
-    'dc.title' => array(
+    'dcterms.title' => array(
       'callback' => 'nodewords_extra_dc_title',
       'context' => array(
         'denied' => array(
@@ -60,7 +60,7 @@ function hook_nodewords_tags_info() {
       'permission' => 'edit meta tag Dublin Core TITLE',
       'templates' => array(
         'head' => array(
-          'dc.title' => NODEWORDS_META,
+          'dcterms.title' => NODEWORDS_META,
         ),
       ),
     ),

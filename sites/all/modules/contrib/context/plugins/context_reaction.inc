@@ -1,5 +1,4 @@
 <?php
-// $Id: context_reaction.inc,v 1.1.2.6 2010/08/05 07:15:22 yhahn Exp $
 
 /**
  * Base class for a context reaction.

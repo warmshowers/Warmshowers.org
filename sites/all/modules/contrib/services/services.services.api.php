@@ -19,17 +19,29 @@
  * @return
  *   An associative array which defines available resources.
  *
- *   The associative array which defines services has seven possible top
- *   level keys:
+ *   The associative array which defines services has five possible top
+ *   level keys. The operations array has five possible keys representing
+ *   the CRUD operations.
  *
- *     - create
- *     - retrieve
- *     - update
- *     - delete
+ *     - #api_version
+ *     - operations
+ *       - create
+ *       - retrieve
+ *       - update
+ *       - delete
+ *       - index
  *     - actions
  *     - targeted_actions
  *     - relationships
  *
+ *   The #api_version is the services resource API that the resource is written
+ *   for. This makes it possible for services to upgrade resource declarations
+ *   if the format changes. See services_resource_api_version_info(). If no
+ *   version is given then 3001 is assumed. Which is the format used before the
+ *   versioning was introduced.
+ *
+ *   The CRUD functions in 'operations' are pretty self-explanatory. Index is
+ *   an extra CRUD-type function that allows you to create pageable lists.
  *
  *   The first four (the CRUD functions) define the indvidual service
  *   callbacks for each function. However 'actions' and 'targeted_actions'

@@ -1,5 +1,4 @@
 <?php
-// $Id: context_condition_context.inc,v 1.1.2.1 2010/07/30 14:39:06 yhahn Exp $
 
 /**
  * Expose active contexts as a context condition.
