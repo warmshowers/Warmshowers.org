@@ -109,6 +109,13 @@ function warmshowers_zen_colorbox_imagefield_no_gallery($presetname, $path, $alt
  * Implementation of hook_preprocess_page().
  */
 function warmshowers_zen_preprocess_page(&$variables) {
+
+  // On front page, let users know about the iOS app
+  if(drupal_is_front_page()) {
+    drupal_set_html_head('<meta name="apple-itunes-app" content="app-id=359056872" />');
+    $variables['head'] = drupal_get_html_head();
+  }
+
   if (!empty($variables['highlight'])) {
     $variables['classes_array'][] = 'with-highlight';
   }
