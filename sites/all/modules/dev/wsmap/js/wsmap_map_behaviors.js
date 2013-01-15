@@ -1,4 +1,8 @@
-
+/**
+ * Map add-ons (Adventure Cycling routes, Expand/collapse, etc.)
+ *
+ * @param context
+ */
 Drupal.behaviors.mapBehaviors = function(context) {
     // Grab css vars upon page load to reuse
     var originalMapHeight = $('#wsmap_map').height();

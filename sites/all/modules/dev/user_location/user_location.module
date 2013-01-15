@@ -1,20 +1,26 @@
 <?php
 
-// $Id: user_location.module 547 2009-09-20 00:31:41Z rfay $
 
+global $source_desc;
+$source_desc = array(
+  1 => t("User-specified"),
+  2 => t("Nearly Exact, from Address Data"),
+  3 => t("Postal code lookup"),
+  4 => t("Premise-level accuracy (google)"),
+  5 => t("City/Province lookup"),
+  6 => t("City/Country lookup"),
+  7 => t("Regional Accuracy"),
+  8 => t('Center of country only'),
+);
 
-// Map location source type to text translation
-global $sources;
-$sources = array();
-$sources[1]=t("User-specified");
-$sources[2]=t("Nearly Exact, from Address Data");
-$sources[3]=t("Postal code lookup");
-$sources[4] = t("Premise-level accuracy (google)");
-
-$sources[5]=t("City/Province lookup");
-$sources[6]=t("City/Country lookup");
-$sources[7] = t("Regional Accuracy");
-$sources[8] = t('Center of country only');
+function wsuser_source_to_description($source) {
+  // Map location source type to text translation
+  $desc = t('unknown');
+  if (!empty($GLOBALS['source_desc'][$source])) {
+    $desc = $GLOBALS['source_desc'][$source];
+  }
+  return $desc;
+}
 
 /**
  * Get all the fields and their config items.
@@ -65,8 +71,6 @@ function user_location_user($op, &$edit, &$user, $category = NULL) {
     case 'delete':
       _user_location_delete($edit, $user);
       return;
-    case 'view':
-      return _user_location_view($edit, $user);
     case 'load':
       _user_location_load($user);
 
@@ -91,7 +95,6 @@ function user_location_menu() {
 		'type' => MENU_NORMAL_ITEM,
 
   );
-
   $items['user/%user/location'] = array(
     'title' => 'map my location',
     'page callback' => '_user_location_map_set_lat_long',
@@ -106,6 +109,21 @@ function user_location_menu() {
 }
 
 /**
+ * Implements hook_theme()
+ *
+ * @return array
+ */
+function user_location_theme() {
+  $items = array(
+    'user_location_setlocation' => array(
+      'arguments' => array('account' => NULL, 'sources' => NULL),
+      'template' => 'user-location-setlocation',
+      ),
+  );
+  return $items;
+
+}
+/**
  * Determine whether user has access to set location on map
  * @return unknown_type
  */
@@ -116,8 +134,11 @@ function user_location_map_permission($account) {
   return FALSE;
 }
 
-
-
+/**
+ * View API registration for User Location
+ *
+ * @return array
+ */
 function user_location_views_data() {
   $data = array();
   $data['user_location']['table']['group'] = t("Warmshowers");
@@ -325,34 +346,6 @@ function _user_location_validate($form, $user) { //CHANGEd all the $edits to $fo
 
 }
 
-/**
- * Display the user_location stuff on the user provile
- *
- * @param unknown_type $edit
- * @param unknown_type $user
- * @return unknown
- */
-function _user_location_view($edit, $user) {
-  $fieldlist = _user_location_fieldlist();
-  $showvalue = array();
-
-
-  $showvalue['map']['value'] = _user_location_show_map($user);
-  $showvalue['map']['value_type'] = 'html';
-
-  foreach ($fieldlist as $item => $value) {
-    $showvalue[$item] = array('title' => $fieldlist[$item]['title'],
-		'value' => check_plain($user->$item),
-		'class' => 'value');
-
-  }
-  $countrylist = _user_location_supported_countries();
-  $showvalue['country']['value'] = $countrylist[$user->country];
-  $provincelist = _user_location_provincelist($user->country);
-  $showvalue['province']['value'] = $provincelist[$user->province];
-  $user->content['#mapHTML'] = $showvalue['map']['value'];
-
-}
 
 
 /**
@@ -714,7 +707,7 @@ function _user_location_geocode($location = array()) {
  *      'longitude' => approximate longitude of the center of the postal code's area
  *
  */
-function location_geocode_from_db($location = array(), $must_match_province=false) {
+function location_geocode_from_db($location = array(), $must_match_province=FALSE) {
   //watchdog('user', "location_get_postalcode_data_default: location=". print_r($location, true));
 
   $provinces = _user_location_get_provincecode_to_province_map($location['country']);
@@ -925,7 +918,7 @@ function location_geonames_geocoder($location = array()) {
 
   if ($result->code != 200) {
     watchdog('geocode', "Geonames.org geocode failed for %fullurl, details=%details", array('%fullurl'=>$fullurl, '%details'=> drupal_to_js($result)), WATCHDOG_WARNING);
-    return null;
+    return NULL;
   }
 
   $data = $result->data;
@@ -938,7 +931,7 @@ function location_geonames_geocoder($location = array()) {
   $level = array();
   foreach ($vals as $xml_elem) {
     if ($xml_elem['tag'] == 'TOTALRESULTSCOUNT' && $xml_elem['value'] == 0) {  // No results returned
-      return null;
+      return NULL;
     }
     if ($xml_elem['type'] == 'open') {
       if (array_key_exists('attributes',$xml_elem)) {
@@ -1037,7 +1030,7 @@ function location_latlon_placename_geonames($location = array()) {
   }
 
 
-  $res = null;
+  $res = NULL;
   foreach ($params['GEONAMES'] as $key => $value) {
     if (substr($key,0,7) == 'GEONAME') {
       $res = array('latitude' => floatval($value['latitude']), 'longitude' => floatval($value['LNG']), 'postal_code' => $value['POSTALCODE'], 'city' => $value['NAME'], 'source'=>6, 'geocoding_source'=>'geonames_placename');
@@ -1069,53 +1062,24 @@ function _user_location_map_set_lat_long($account) {
   $key = variable_get("user_location_google_key", "");
   $path = drupal_get_path('module','user_location');
 
-  drupal_set_html_head('
-   		<script src="http://maps.google.com/maps?file=api&v=2.x&key='.$key .'" type="text/javascript"></script>');
-  drupal_add_js("$path/setlocation.js");
-
+  $google_map_location = "https://maps.googleapis.com/maps/api/js?sensor=false&key=" . variable_get('user_location_google_key', '0');
+  drupal_set_html_head("<script src='$google_map_location'  type='text/javascript'></script>");
+  drupal_add_js("$path/user_location_setlocation.js");
   drupal_add_css($path . '/user_location.css');
 
-  if (!isset($account->latitude) ||  !isset($account->longitude)) {
-    $ret = '<div class="mapholder">' . t("There is no map for this host because the latitude and longitude have not been confirmed."). '</div>';
-  } else {
-    $ret = '
+  $settings = array(
+    'user_location' => array(
+      'location' => array(
+        'latitude' => $account->latitude,
+        'longitude' => $account->longitude,
+      )
+    )
+  );
+  drupal_add_js($settings, 'setting');
 
-	<div class="mapholder">
-	<p>' . t('Here is a map showing where the website currently thinks you live.
-	Please move the map and zoom in to the exact correct location, and
-	click in that location to select the latitude and longitude of the
-	point you double-click on. Alternately, you can fill in the exact location
-	(in decimal form) on the form below. Then click "submit" to update your coordinates.') . '
-	</p>
-	<div id="locationset" style="width: 100%; height: 480px; border: 1px solid black;">
-	    <b>'. t('Sorry, you need a more recent browser (IE6+, Firefox, etc.) and javascript must be turned on. JavaScript must be enabled in order for you to see or use the maps on Warmshowers.org.</b>
-      However, it seems JavaScript is either disabled or not supported by your browser.
-      To view the map, enable JavaScript by changing your browser options, and then
-      try again.  Alternately, you might want to try the excellent free <a href="http://getfirefox.com">Firefox browser</a>.<br/><br/>
-      You <i>can</i> enter your latitude and longitude below in decimal format.') .'
-	</noscript>
-	</div>
-	<div id="locationmap_debug" class="debug" ></div>
-';
-
-    $ret .= '<div id="location_lat"  class="debug">' . $account->latitude . "</div>";
-    $ret .= '<div id="location_lon" class="debug">' . $account->longitude. "</div>";
-    $ret .= "<div>" . t('Geocoding accuracy = '). $account->source . " (" ;
-    if ($sources[$account->source]) {
-      $ret .= $sources[$account->source];
-    } else {
-      $ret .= t("unknown");
-    }
-    $ret .=  ") </div>";
-    $ret .= t("Need a <a target='_blank' href='http://www.fcc.gov/mb/audio/bickel/DDDMMSS-decimal.html'>converter from decimal to degrees/minutes/seconds</a> or back? ");
-
-    $ret .= "</div>";
-
-    $ret .= drupal_get_form("user_location_set_map_location", $account);
-
-  }
-  return $ret;
-
+  $output = theme('user_location_setlocation', $account, $sources);
+  $output .= drupal_get_form("user_location_set_map_location", $account);
+  return $output;
 }
 
 
@@ -1128,21 +1092,23 @@ function _user_location_map_set_lat_long($account) {
  */
 function user_location_set_map_location(&$form_state, $user)
 {
-  $form['#id'] = 'latlon';
   $form['setlocation'] = array('#type' => 'fieldset',
     '#title' => t("Set Location from the map"),
+    '#description' => t('Enter your latitude/longitude or click on the map.'),
   );
   $form['setlocation']['latitude'] = array(
 		'#title' => t('Latitude'),
 		'#type' => 'textfield',
-		'#description' => t('Enter your latitude or select on the map above'),
+		//'#description' => t('Enter your latitude or click on the map'),
 		'#default_value' => $user->latitude,
+    '#size' => 15,
   );
   $form['setlocation']['longitude'] = array(
 		'#title' => t('Longitude'),
 		'#type' => 'textfield',
-		'#description' => t('Enter your longitude or select on the map above'),
+		//'#description' => t('Enter your longitude or click on the map'),
 		'#default_value' => $user->longitude,
+    '#size' => 15,
   );
   $form['setlocation']['submit'] = array(
 		'#type' => 'submit',
@@ -1224,73 +1190,6 @@ function user_location_reset_location_submit($form, &$form_state) {
   user_save($account,$edit);
   $form_state['redirect'] = "user/$uid";
 
-}
-/**** Show Map on User Page ****/
-/**
- * Display map for user profile page
- *
- * @param unknown_type $location
- * @return unknown
- */
-function _user_location_show_map($location) {
-  global $sources;
-
-  $key = variable_get("user_location_google_key", "");
-  $path = drupal_get_path('module','user_location');
-  drupal_add_css($path .  '/user_location.css');
-
-  drupal_add_js("$path/location.js");
-  drupal_set_html_head('<script src="http://maps.google.com/maps?file=api&v=2.x&hl=en&key='.variable_get('user_location_google_key', '').'" type="text/javascript"></script>');
-
-  global $sources;
-
-  // TODO: Make this into a here document. Much more elegant
-  if (!isset($location->latitude) || !isset($location->longitude) || ($location->latitude == 0 && $location->longitude ==0))
-  {
-    $ret = '<div class="mapholder">'.t('There is no map for this host because the latitude and longitude have not been confirmed').'.</div>';
-  } else {
-    $ret = '<div class="mapholder"><p>'.t('Here is a map showing the location for this host.
-	Please note that this may be an approximate location, and it also may be an incorrect location.
-	Please make sure to make contact with the host before using this information.'). '</p>';
-    if (user_location_user_is_current($user)) {
-      $ret .= t('<p>Is this location marker in error?  You can correct it ' .
-		' by clicking on the "<a href="/user/%uid/location">set location</a>" tab.
-		', array('%uid' => $user->uid));
-    }
-    $ret .= '<div id="locationmap" style="width: 100%; height: 480px; border: 1px solid black;">
-	<b>' .t('Sorry, you need a more recent browser (IE6+, Firefox, etc.) and javascript must be turned on. JavaScript must be enabled in order for you to see or use the maps on Warmshowers.org.</b>
-      However, it seems JavaScript is either disabled or not supported by your browser.
-      To view the map, enable JavaScript by changing your browser options, and then
-      try again.  Alternately, you might want to try the excellent free <a href="http://getfirefox.com">Firefox browser</a>.<br/><br/>') .'
-
-
-	</div>
-
-<div id="locationmap_debug" class="debug" ></div>
-';
-
-    $ret .= '<div id="location_lat"  class="debug">' . $location->latitude. "</div>";
-    $ret .= '<div id="location_lon" class="debug">' . $location->longitude. "</div>";
-    $ret .= '<div id="infowindowhtml" class="debug"><div class="infowindow">'  ;
-    if (strlen($location->street)) { $ret .=  check_plain($location->street) . "<br/>"; }
-    $ret .= check_plain($location->city). ", " . $location->province . "<br />".
-	    '<a href="/map/' . "uid=" . $location->uid .
-  		'">' . t("Search for other hosts in the vicinity") . '</a></div></div>';
-
-    $ret .= '<div id="location_description">'.t('Latitude/Longitude'). "= {$location->latitude}/{$location->longitude}</div>";
-    $ret .= '<div id="source_description">'.t('Latitude/Longitude source').': ' ;
-    if ($sources[$location->source]) {
-      $ret .= $sources[$location->source];
-    } else {
-      $ret .= "guess";
-    }
-    $ret .= " (" . $location->source . ")<br/></div>"
-    .t("Geocoding courtesy of <a href='http://geonames.org'>geonames.org</a> and <a href='http://maps.google.com'>Google Maps API</a>")."</div>";
-
-
-
-  }
-  return $ret;
 }
 
 

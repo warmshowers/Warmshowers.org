@@ -51,29 +51,20 @@ function user_view_map()
  * the output filters.
  */
 
-// @todo: CLEAN UP PHP->HTML->JS (cut out HTML step)
-// @todo: Remove unneeded variables, comments, and HTML
-// @todo: Put in template or make it nicer to read here
 function wsmap_view($uid = NULL, $zoom = 0) {
-
-  // Add jquery.cookie.
-  $cookie_path = libraries_get_path('jquery.cookie');
-  if (!empty($cookie_path)) {
-    drupal_add_js($cookie_path . '/jquery.cookie.js');
-  }
-
   $wsmap_path = drupal_get_path('module', 'wsmap');
-  drupal_add_js($wsmap_path . '/clusterer/Utils.js');
-  drupal_add_js($wsmap_path . '/clusterer/MapUtils.js');
-  drupal_add_js($wsmap_path . '/clusterer/OverlayMessage.js');
-  drupal_add_js($wsmap_path . '/clusterer/Clusterer2.js');
 
   // JSON not supported in IE6/IE7, so we'll add conditional view of it.
   drupal_add_js($wsmap_path . '/js/json2.js');
-  drupal_add_js($wsmap_path . '/js//wsmap_clusterer.js');
+  drupal_add_js($wsmap_path . '/js/wsmap.js');
   drupal_add_js($wsmap_path . '/js/wsmap_map_behaviors.js');
-  drupal_add_js('misc/autocomplete.js');
+  drupal_add_js($wsmap_path . '/js/markerclusterer/src/markerclusterer.js');
+  drupal_add_css($wsmap_path . '/wsmap.css');
 
+  $google_map_location = "https://maps.googleapis.com/maps/api/js?sensor=false&key=" . variable_get('user_location_google_key', '0');
+  drupal_set_html_head("<script src='$google_map_location'  type='text/javascript'></script>");
+
+  // Determine starting center location and zoom for the map
   if (!($default_location = location_get_browser_location())) {
     $default_location = location_country_position_from_country('us'); // Have to start them somewhere
   }
@@ -84,6 +75,7 @@ function wsmap_view($uid = NULL, $zoom = 0) {
     $default_location->zoom = $zoom;
   }
 
+  // Provide settings to the js
   $js_settings['wsmap'] = array(
     'mapdata_source' => url('wsmap_xml_hosts', array('absolute' => TRUE)),
     'base_path' => base_path() . $wsmap_path,
@@ -95,6 +87,10 @@ function wsmap_view($uid = NULL, $zoom = 0) {
     'loggedin' => user_access('access map detail'),
     'mapwidth' => 100,
     'maxresults' => variable_get('wsmap_max_hosts_retrievable', 2000),
+    'clusterer' => array(
+      'maxZoom' => variable_get('wsmap_clusterer_max_zoom', 6),
+      'gridSize' => variable_get('wsmap_clusterer_grid_size', 50),
+    ),
   );
 
   if ($uid) {
@@ -108,68 +104,10 @@ function wsmap_view($uid = NULL, $zoom = 0) {
   }
   drupal_add_js($js_settings, 'setting');
 
-  drupal_set_html_head('<script src="http://maps.google.com/maps?file=api&v=2&key=' . variable_get('user_location_google_key', '') . '"  type="text/javascript"></script>');
-
-  $output = '<a id="collapse_map" href="#">' . t('Collapse Map') . '</a>';
-  $output .= "
-<noscript><b>" . t("This page isn't going to be much use to you until you turn on javascript in your browser. We apologize.") . "</b></noscript>
-
-   <div class='wsmap_instructions'></div>
-	<div id='mapframe' style='width:100%;position:relative;clear:both;'>
-		<div id='mapholder'>
-				<div id='wsmap_map' style='width:100%;height:550px' >
-				   <div id='wsmap_debug'> </div>
-
-				</div><!-- end of wsmap_map -->
-		</div><!-- end mapholder -->
-		    <!-- HACK ALERT - note that style below should have left in it, but it gets removed by some js
-		         I hacked this to set the left value in wsmap_clusterer.js.
-		     -->
-	</div> <!-- mapframe -->";
-
-  return $output;
+  return theme('wsmap_view');
 }
 
 
-function wsmap_search_form()
-{
-
-  $countrylist = array('xx' => t('Select Country...'));
-  $countrylist = array_merge($countrylist, user_location_current_countries());
-
-
-  $form['country'] = array(
-    '#title' => t("Country"),
-    '#description' => t("Quick jump to country"),
-
-    '#type' => 'select',
-    '#options' => $countrylist,
-
-    '#attributes' => array(
-      'onChange' => "editCountryOnchange();",
-
-    ),
-    '#prefix' => "<div class='form-item-div' style='float:left'>",
-    '#suffix' => "</div>",
-
-  );
-  $form['city'] = array(
-    '#title' => t("City/Town/Suburb"),
-    '#type' => 'textfield',
-    '#size' => 45,
-    '#description' => t('Try typing just a few characters and wait'),
-    '#autocomplete_path' => 'location_autocomplete', // Overwritten in js above
-    '#attributes' => array(
-      'onFocus' => 'this.select(); '
-    ),
-    '#prefix' => "<div id='city-field' class='form-item-div' style='float:left'>",
-    '#suffix' => "</div>",
-
-  );
-
-  return $form;
-
-}
 
 /**
  * Get accounts within a geographic region.
@@ -207,8 +145,9 @@ function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $center
 
   // The subquery on users_roles prevents unvalidated users from showing up.
   $sql = "SELECT u.uid, w.fullname name, street, city, province, postal_code, country, latitude, longitude,
-    source, notcurrentlyavailable,
-    DEGREES(ACOS(SIN(RADIANS(%f)) * SIN(RADIANS(latitude))+COS(RADIANS(%f)) * COS(RADIANS(latitude)) * COS(RADIANS(%f-longitude)))) * 60 AS distance
+    source, picture, notcurrentlyavailable,
+    DEGREES(ACOS(SIN(RADIANS(%f)) * SIN(RADIANS(latitude))+COS(RADIANS(%f)) * COS(RADIANS(latitude)) * COS(RADIANS(%f-longitude)))) * 60 AS distance,
+    CONCAT(latitude, ',', longitude) AS position
     FROM {users} u, {user_location} l, {wsuser} w
     WHERE $latlonwhere
     AND u.uid = l.oid AND u.uid=w.uid AND u.status>0 AND !w.isunreachable AND !w.isstale
@@ -226,7 +165,13 @@ function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $center
   while ($row = db_fetch_array($result)) {
     $accounts[] = $row;
   }
+
   return array(
+    'status' => array(
+      'delivered' => count($accounts),
+      'totalresults' => $avail_results_count,
+      'status' => 'complete',
+    ),
     'query_data' => array(
       'sql' => $sql,
       'centerlat' => $centerlat,
@@ -238,16 +183,14 @@ function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $center
       'limit' => $limit,
       'duration' => $duration,
     ),
-    'status' => array(
-      'delivered' => "",
-      'totalresults' => $avail_results_count,
-      'status' => 'complete',
-    ),
     'accounts' => $accounts
   );
 }
 
+
 /******* xml output for ajax request ************/
+// TODO: Delete this when JSON version is deployed. Assuming that the apps
+// don't use it... Check!
 
 function wsmap_xml_hosts()
 {
@@ -370,6 +313,10 @@ function wsmap_theme() {
       'path' => $template_path,
       'template' => 'wsmap-map-behaviors-block',
     ),
+    'wsmap_view' => array(
+      'path' => $template_path,
+      'template' => 'wsmap-view',
+    )
   );
 }
 
