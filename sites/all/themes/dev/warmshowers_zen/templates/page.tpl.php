@@ -184,7 +184,7 @@
     <div id="main-wrapper"><div id="main" class="clearfix<?php if ($primary_links || $navigation) { print ' with-navigation'; } ?>">
 
       <div id="content" class="column"><div class="section">
-        <?php if (preg_match("/^(admin|forum)/", $menu_item['path'])) { print $breadcrumb; } ?>
+        <?php if (preg_match("/^(admin|forum)/", $menu_item['path']) || $node->type == 'forum') { print $breadcrumb; } ?>
         <?php if ($title && !$is_front): ?>
           <h1 class="title"><?php print $title; ?></h1>
         <?php endif; ?>
