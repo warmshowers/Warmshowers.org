@@ -81,14 +81,9 @@ function warmshowers_site_user_profile_form_submit($form, &$form_state) {
  * We don't want people to have any choice but to delete it all.
  */
 function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
-  switch($form_id) {
+  switch ($form_id) {
     case 'user_confirm_delete':
-      $form['user_delete_action'] = array(
-      '#type' => 'value',
-      '#value' => 'user_delete_delete',
-      );
-      $form['actions']['submit']['#value'] = t('Delete user account "@account"', array('@account' => $form['_account']['#value']->name));
-      $form['description']['#value'] = t('The user account %account and all comments or other content associated with it will be deleted.', array('%account' => $form['_account']['#value']->name));
+      _warmshowers_site_alter_user_delete(&$form, &$form_state, $form_id);
       break;
 
     // Use a translatable name for button instead of just "Delete".
@@ -110,6 +105,40 @@ function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
   }
 }
 
+/**
+ * Form handling for user delete is dependent on who is doing it and what they
+ * want to do. Since it's a little complicated, factored out into this function.
+ *
+ * What we want to do is provide one option for the admin (keep content or not,
+ * based on whether it's a spammer or not) and no options for the user. Their
+ * content will be retained.
+ *
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function _warmshowers_site_alter_user_delete(&$form, &$form_state, $form_id) {
+  $acting_user = $GLOBALS['user'];
+  $account_to_delete = $form['_account']['#value'];
+
+  // If they are deleting themselves, then don't offer any options, but keep
+  // the stuff they have posted.
+  if ($acting_user->uid == $account_to_delete->uid) {
+    $form['user_delete_action'] = array(
+      '#type' => 'value',
+      '#value' => 'user_delete_reassign',
+    );
+    $form['description']['#value'] = t('The user account %account will be deleted, but feedback and other postings will be retained.', array('%account' => $account_to_delete->name));
+  }
+
+  //Else if admin is deleting a user, hide the "block" options and allow either
+  // a spammer approach or non-spammer approach.
+  else if (user_access('administer users')) {
+    $form['user_delete_action']['#default_value'] = 'user_delete_delete';
+    unset($form['user_delete_action']['#options']['user_delete_block'], $form['user_delete_action']['#options']['user_delete_block_unpublish']);
+  }
+  $form['actions']['submit']['#value'] = t('Delete user account "@account"', array('@account' => $account_to_delete->name));
+}
 
 /**
  * Implements hook_block()
