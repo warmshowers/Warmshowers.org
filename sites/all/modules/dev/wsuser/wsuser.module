@@ -599,21 +599,26 @@ function wsuser_search($op = 'search', $keys = null) {
 			break;
 		case 'search':
 			if (user_access('access user profiles')) {
-				$find = array();
+        $find = array();
 				// Replace wildcards with MySQL/PostgreSQL wildcards.
 				$keys = preg_replace('!\*+!', '%', $keys);
         // If this search provides lat/lon, then do the search based on location only.
         list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
+
+        // The role restriction removes pre-authorized, members, but user admins should be able to see them
+        $AND = (user_access('administer users')) ? '' : 'AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)';
+
         if (is_numeric($latitude) && is_numeric($longitude)) {
           // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
           // No guarantee expressed or implied, and no testing around 0 latitude.
-          // The role restriction removes members who are pre-authorized
-          $sql = "SELECT
-            SQRT(POW(69.1 * (l.latitude - %f), 2) + POW(69.1 * (%f - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
+          $sql = "
+            SELECT SQRT(POW(69.1 * (l.latitude - %f), 2) + POW(69.1 * (%f - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
             FROM {users} u, {wsuser w}, {user_location} l
-            WHERE u.uid = w.uid and u.uid=l.oid AND status > 0
-            AND !w.isstale AND !w.isunreachable AND !notcurrentlyavailable
-            AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
+            WHERE u.uid = w.uid
+            AND u.uid=l.oid
+            AND status > 0
+            AND !w.isstale AND !w.isunreachable AND !notcurrentlyavailable " .
+            $AND . "
             ORDER BY distance";
           // Limit page to 50 results and to 100 total results
           $result = pager_query($sql, 50, 0, "SELECT 100", $latitude, $longitude);
@@ -621,12 +626,15 @@ function wsuser_search($op = 'search', $keys = null) {
         }
         // Otherwise, just use the keys in the search, including wildcards.
         else {
-          $sql = "SELECT * FROM {users} u, {wsuser w}, {user_location} l
-                WHERE u.uid = w.uid AND u.uid=l.oid AND status > 0
-                AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
-                AND !w.isstale AND !w.isunreachable AND
-                (LOWER(w.fullname) LIKE '%%%s%%' OR u.name like '%%%s%%'
-                OR l.city like '%%%s%%' OR u.mail LIKE '%s%%')";
+          $sql = "
+            SELECT * FROM {users} u, {wsuser w}, {user_location} l
+            WHERE u.uid = w.uid
+            AND u.uid=l.oid
+            AND status > 0
+            AND !w.isstale AND !w.isunreachable " .
+            $AND . "
+            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name like '%%%s%%'
+            OR l.city like '%%%s%%' OR u.mail LIKE '%s%%')";
           $result = pager_query($sql, 50, 0, NULL, $keys, $keys, $keys, $keys);
       }
 
