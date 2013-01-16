@@ -54,13 +54,13 @@
 
 <div class="member-phones">
 	<?php if ($homephone) : ?>
-		<div class="phone homephone"><span class="number"><?php print $homephone; ?></span><br /><?php print t('Home Phone Number'); ?></div>
+		<div class="phone homephone"><span class="number"><?php print $homephone; ?></span><br /><?php print t('Home Number'); ?></div>
 	<?php endif; ?>
 	<?php if ($mobilephone) : ?>
 		<div class="phone mobilephone"><span class="number"><?php print $mobilephone; ?></span><br /><?php print t('Mobile Number'); ?></div>
 	<?php endif; ?>
 	<?php if ($workphone) : ?>
-	<div class="phone workphone"><span class="number"><?php print $workphone; ?></span><br /><?php print t('Work Phone Number'); ?></div>
+	<div class="phone workphone"><span class="number"><?php print $workphone; ?></span><br /><?php print t('Work Number'); ?></div>
 	<?php endif; ?>
 </div>
 
