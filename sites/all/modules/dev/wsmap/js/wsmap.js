@@ -75,7 +75,9 @@ function wsmap_initialize() {
   var mapOptions = {
     center:new google.maps.LatLng(defaultLocation.latitude, defaultLocation.longitude),
     zoom:defaultLocation.zoom,
-    mapTypeId:google.maps.MapTypeId.TERRAIN
+    mapTypeId:google.maps.MapTypeId.TERRAIN,
+    scaleControl: true,
+    overviewMapControl: true
   };
 
   map = new google.maps.Map(document.getElementById("wsmap_map"), mapOptions);
