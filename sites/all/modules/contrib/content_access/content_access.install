@@ -1,0 +1,80 @@
+<?php
+// $Id: content_access.install,v 1.1.4.3 2008/10/28 13:36:17 fago Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function content_access_install() {
+  // Create tables.
+  drupal_install_schema('content_access');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function content_access_uninstall() {
+  variable_del('content_access_settings');
+  // Remove tables.
+  drupal_uninstall_schema('content_access');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function content_access_schema() {
+  $schema['content_access'] = array(
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+        ),
+      'settings' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'size' => 'medium'
+        ),
+    ),
+    'primary key' => array('nid')
+  );
+  return $schema;
+}
+
+
+/**
+ * Upgrade from d5 to d6
+ */
+function content_access_update_6001() {
+  drupal_load('module', 'content_access');
+  module_load_include('inc', 'content_access', 'content_access.admin');
+
+  // Migrate old ca settings to new available d6 permissions
+  $permissions = content_access_get_permissions_by_role();
+  $settings = content_access_get_settings();
+  
+  foreach (node_get_types('names') as $type => $type_name) {
+    foreach (array('update', 'delete') as $op) {
+      // Set permission for roles that are allowed to access
+      foreach (content_access_get_settings($op, $type) as $rid => $value) {
+        if (is_numeric($rid)) {
+          $permissions[$rid][ content_access_get_permission_by_op($op, $type) ] = TRUE;
+        }
+        else if ($rid == 'author') {
+          // CA 5.x let authors access, but only if they were authenticated. So we set the d6 permissions like this.
+          $permissions[DRUPAL_AUTHENTICATED_RID][ content_access_get_permission_by_op($op . '_own', $type) ] = TRUE;
+        }
+      }
+      // Make sure to delete the old setting, so that the defaults (permissions) will be used.
+      unset($settings[$op][$type]);
+    }
+  }
+  content_access_save_permissions($permissions);
+  content_access_set_settings($settings);
+
+  // Rebuild node access for all nodes
+  node_access_needs_rebuild(TRUE);
+
+  return array();
+}
+
