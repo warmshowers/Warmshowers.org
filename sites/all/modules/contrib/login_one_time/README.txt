@@ -1,4 +1,3 @@
-// $Id: README.txt,v 1.2.2.4 2010/05/05 04:01:01 danielb Exp $
 
 Login one time README
 
@@ -9,7 +8,7 @@ CONTENTS OF THIS FILE
   * Installation
   * Configuration
   * Usage
-
+  * API Usage
 
 INTRODUCTION
 ------------
@@ -21,29 +20,90 @@ Instructions on http://drupal.org/project/login_one_time.
 INSTALLATION
 ------------
 1. Copy login_one_time folder to modules directory.
-2. At admin/build/modules enable the Login One Time module.
+2. At admin/build/modules enable the Login one time module.
 3. Enable permissions at admin/user/permissions.
-4. profit
 
 
 CONFIGURATION
 -------------
-Configuration is at: User management -> Login one time 
-(admin/user/login_one_time)
+The configuration page for this module is at:
+User management > Login one time (admin/user/login_one_time)
+
+There is also an email template configurable at:
+User management > User settings (admin/user/settings)
 
 
 USAGE
 -----
-To put a one time button somewhere for user object $account use this php:
+There are several ways to send one time login links:
 
-print login_one_time_button($account);
+- Pressing the "Send login one time link [...]" button in a user profile.
 
-This will create a button, that when pressed sends an email to the email address of that account giving them a one-time login link.
+- Using the operations on the user administration page, or with the module
+  'Views Bulk Operations': http://drupal.org/project/views_bulk_operations.
+  Embedding such a view somewhere can allow you to direct users to the page
+  where the view is embedded.  Check the View Reference project page for some
+  ideas on how to embed views: http://drupal.org/project/viewreference.
 
-If you would like them to start on a particular page, you can add an extra parameter $path like so:
+- Configure the login one time block, and use it to select a user and send the
+  link.  You can easily use this block in nodes as a CCK field using the Block
+  Reference module: http://drupal.org/project/blockreference.
 
-print login_one_time_button($account, $path);
+- Using PHP, print out a button somewhere (e.g. in a node template) or directly
+  send the emails using available functions as described below in API USAGE.
 
-If you would like to skip the button and just call a function that send the email straight away:
+API USAGE
+---------
+Here are some function definitions and their descriptions to point you in the
+right direction.
 
-login_one_time_send_mail($account, $path);
+login_one_time_button($username = NULL, $path = NULL, $select = FALSE)
+  Get a login one time form.
+  $username
+    If supplied force the email to go to this user, if not supplied will
+    display a select element with all active users.
+  $path
+    If supplied will force the emailed link to redirect to this path. If not
+    supplied will use default setting, or fallback to the URL of the page this
+    code is called from.  Supply empty string to prompt for selection.
+  $select
+    If TRUE will display a select element to choose from configured paths, the
+    default choice will come from $path or be calculated the same way, or if 
+    empty string supplied it will prompt for selection.
+  Return value
+    The HTML string of the form, for use in output.
+
+login_one_time_send_mail($account, $path = NULL)
+  Send the login one time link to a user via email.
+  $account
+    The loaded account object for the user to whom the email will be sent.
+  $path
+    If supplied will force the emailed link to redirect to this path. If not
+    supplied will use default setting, or fallback to the URL of the page this
+    code is called from.
+  Return value
+    The return value from drupal_mail_send(), if ends up being called.
+
+login_one_time_bulk_send_mail($accounts, $path = NULL)
+  Bulk send login one time links to users via email.
+  $account
+    An array of user IDs.
+  $path
+    If supplied will force the emailed link to redirect to this path. If not
+    supplied will use default setting, or fallback to the URL of the page this
+    code is called from.
+  Return value
+    Multidimensional array of return data including user IDs and responses
+    from login_one_time_send_mail.
+
+These are some hooks you can implement to modify login one time's behaviour.
+
+hook_login_one_time_path_options_alter(&$options)
+  Alter the list of path options that the module uses in various places.  Use
+  this instead of a hook_form_alter approach to affect all forms and lists 
+  with this data.
+
+hook_login_one_time_user_options_alter(&$options)
+  Alter the list of user options that the module uses in various places.  Use
+  this instead of a hook_form_alter approach to affect all forms and lists 
+  with this data.
