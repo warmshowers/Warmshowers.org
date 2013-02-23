@@ -1,0 +1,294 @@
+<?php
+
+/**
+ * Implements hook_help().
+ */
+function lang_dropdown_help($path, $arg) {
+  switch ($path) {
+    case 'admin/build/block/configure':
+      if ($arg[4] == 'lang_dropdown' && $arg[5] == 0) {
+        return '<p>' . t('This block is only shown if <a href="@languages">at least two languages are enabled</a> and <a href="@configuration">language negotiation</a> is set to something other than <em>None</em>.', array('@languages' => url('admin/settings/language'), '@configuration' => url('admin/settings/language/configure'))) . '</p>';
+      }
+      break;
+  }
+}
+
+/**
+ * Implements hook_block().
+ */
+function lang_dropdown_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0] = array(
+      'info' => t('Language switcher dropdown'),
+      'cache' => BLOCK_NO_CACHE,
+    );
+    return $blocks;
+  }
+  elseif ($op == 'view' && variable_get('language_count', 1) > 1 && variable_get('language_negotiation', LANGUAGE_NEGOTIATION_NONE) != LANGUAGE_NEGOTIATION_NONE && $delta == 0) {
+    switch ($delta) {
+      case 0:
+        $block = array(
+          'subject' => t('Languages'),
+          'content' =>  drupal_get_form('lang_dropdown_form'),
+        );
+        break;
+    }
+    return $block;
+  }
+  elseif ($op == 'configure' && $delta == 0) {
+    drupal_add_js(drupal_get_path('module', 'lang_dropdown') .'/lang_dropdown.admin.js');
+    return lang_dropdown_block_form();
+  }
+  elseif ($op == 'save' && $delta == 0) {
+    $lang_dropdown_settings = array(
+      'showall' => $edit['showall'],
+      'js_widget' => $edit['js_widget'],
+      'js_widget_settings' => array(
+        'visible_rows' => $edit['visible_rows'],
+        'row_height' => $edit['row_height'],
+        'width' => $edit['width'],
+        'animation' => $edit['animation'],
+      ),
+      'languageicons' => array(),
+    );
+
+    if (module_exists('languageicons')) {
+      $lang_dropdown_settings['languageicons']['flag_position'] = $edit['flag_position'];
+    }
+    variable_set('lang_dropdown', $lang_dropdown_settings);
+  }
+}
+
+/**
+ * Builds the select widget form
+ */
+function lang_dropdown_form() {
+
+  global $language;
+
+  if (module_exists('languageicons')) {
+    variable_set('languageicons_show_block', 0);
+  }
+
+  $module_path = drupal_get_path('module', 'lang_dropdown');
+  $path = drupal_is_front_page() ? '<front>' : $_GET['q'];
+  $settings = _lang_dropdown_get_settings();
+  $languages = language_list('enabled');
+
+  $options = $select_options = $js_settings = array();
+  $selected_option_language_icon = '';
+
+  foreach ($languages[1] as $lang_item) {
+    $options[$lang_item->language] = array(
+      'href'       => $path,
+      'title'      => $lang_item->native,
+      'language'   => $lang_item,
+    );
+  }
+
+  // All languages
+  $all_languages = $options;
+
+  // Only languages for which there is a translation
+  drupal_alter('translation_link', $options, $path);
+
+  // If show all languages is configured we have
+  // to take into account languages with no translation
+  // linking them to homepage <front>
+  if($settings['showall'] && (count($all_languages) != count($options))) {
+    foreach ($all_languages as $key => $value) {
+      if (!array_key_exists($key, $options)) {
+        $all_languages[$key]['href'] = '<front>'; 
+      } else {
+        $all_languages[$key] = $options[$key];
+      }
+    }
+    $options = $all_languages;
+  }
+
+  drupal_add_js($module_path . '/lang_dropdown.js');
+  drupal_add_css($module_path . '/lang_dropdown.css');
+
+  foreach ($options as $lang_option) {
+
+    $path = check_url(url($lang_option['href'], array(
+      'language' => $lang_option['language'],
+      'query' => drupal_query_string_encode($_GET, array('q')),
+    )));
+
+    $select_options += array($path => $lang_option['language']->native);
+
+    // Set the selected option
+    if ($language->language == $lang_option['language']->language) {
+      $selected_option = $path;
+      if (module_exists('languageicons')) {
+        $selected_option_language_icon = theme('languageicons_icon', $lang_option['language']);
+      }
+    }
+
+    // Handle flags with Language icons module using JS widget
+    if (module_exists('languageicons') && $settings['js_widget']) {
+      $selected_option_language_icon = '';
+      $icons_path = variable_get('languageicons_path', drupal_get_path('module', 'languageicons') .'/flags/*.png');
+      $js_settings['languageicons'][$path] = base_path() . str_replace('*', $lang_option['language']->language, $icons_path);
+    }
+  }
+
+  // Add required files and settings for JS widget
+  if ($settings['js_widget']) {
+
+    drupal_add_js($module_path .'/msdropdown/jquery.dd.js');
+
+    $js_settings += array(
+      'visibleRows' => $settings['js_widget_settings']['visible_rows'],
+      'rowHeight' => $settings['js_widget_settings']['row_height'],
+      'animStyle' => $settings['js_widget_settings']['animation'],
+    );
+
+    if ($settings['languageicons']['flag_position']) {
+      drupal_add_css($module_path . '/msdropdown/dd_after.css');
+      $js_settings += array(
+        'mainCSS' => 'dd_after',
+      );
+    } else {
+      drupal_add_css($module_path . '/msdropdown/dd.css');
+      $js_settings += array(
+        'mainCSS' => 'dd',
+      );
+    }
+
+    drupal_add_js(array('langDropdown' => array('jsWidget' => $js_settings)), 'setting');
+  }
+
+  ($settings['languageicons']['flag_position']) ? $flag_position = '#suffix' : $flag_position = '#prefix';
+
+  $form['lang_dropdown_select'] = array(
+    '#type' => 'select',
+    '#default_value' => isset($selected_option) ? $selected_option : key($select_options),
+    '#options' => $select_options,
+    '#attributes' => array('style' => 'width:' . $settings['js_widget_settings']['width'] . 'px'),
+  );
+  if (module_exists('languageicons') && !$settings['js_widget']) {
+    $form['lang_dropdown_select'][$flag_position] = $selected_option_language_icon;
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Go'),
+    // The below prefix & suffix for gracefull fallback if JavaScript was disabled
+    '#prefix' => "<noscript><div>\n",
+    '#suffix' => "\n</div></noscript>",
+  );
+  return $form;
+}
+
+/**
+ * Handles graceful degrade when JS is disabled.
+ */
+function lang_dropdown_form_submit($form, &$form_state) {
+  drupal_goto($form_state['values']['lang_dropdown_select']);
+}
+
+/**
+ * Generates block settings form
+ */
+function lang_dropdown_block_form() {
+  $settings = _lang_dropdown_get_settings();
+
+  $form = array();
+  $form['lang_dropdown'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Language switcher dropdown settings'),
+    '#weight' => 10,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+  $form['lang_dropdown']['showall'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show all enabled languages'),
+    '#description' => t('Show all languages in the switcher no matter if there is a translation for the node or not. For languages without translation the switcher will redirect to homepage.'),
+    '#default_value' => $settings['showall'],
+  );
+  $form['lang_dropdown']['js_widget'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Output as JavaScript widget instead of HTML <em>select</em> element.'),
+    '#description' => t('This option is amazing with <a href="!href">Language icons</a> module.', array('!href' => 'http://drupal.org/project/languageicons')),
+    '#default_value' => $settings['js_widget'],
+  );
+  $form['lang_dropdown']['width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Width of dropdown element'),
+    '#size' => 5,
+    '#maxlength' => 3,
+    '#required' => TRUE,
+    '#field_suffix' => 'px',
+    '#default_value' => $settings['js_widget_settings']['width'],
+  );
+  $form['lang_dropdown']['wrapper'] = array(
+    '#prefix' => '<div class="clear-block" id="lang-dropdown-js-widget-settings-wrapper">',
+    '#suffix' => '</div>',
+  );
+  $num_rows = array(2, 3, 4, 5 , 6, 7, 8, 9, 10);
+  $form['lang_dropdown']['wrapper']['visible_rows'] = array(
+    '#type' => 'select',
+    '#title' => t('Number of visible rows'),
+    '#options' => array_combine($num_rows, $num_rows),
+    '#default_value' => $settings['js_widget_settings']['visible_rows'],
+  );
+  $form['lang_dropdown']['wrapper']['row_height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Row height'),
+    '#size' => 5,
+    '#maxlength' => 3,
+    '#required' => TRUE,
+    '#field_suffix' => 'px',
+    '#default_value' => $settings['js_widget_settings']['row_height'],
+  );
+  $form['lang_dropdown']['wrapper']['animation'] = array(
+    '#type' => 'select',
+    '#title' => t('Animation style for dropdown'),
+    '#options' => array('slideDown' => t('Slide down'), 'fadeIn' => t('Fade in')),
+    '#default_value' => $settings['js_widget_settings']['animation'],
+  );
+
+  $form['lang_dropdown']['languageicons'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Language icons settings'),
+    '#weight' => 10,
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  if (module_exists('languageicons')) {
+    $form['lang_dropdown']['languageicons']['flag_position'] = array(
+      '#type' => 'select',
+      '#title' => t('Position of the flag'),
+      '#options' => array(0 => t('Before'), 1 => t('After')),
+      '#default_value' => $settings['languageicons']['flag_position']
+    );
+  }
+  else {
+    $form['lang_dropdown']['languageicons']['#description'] = t('Enable <a href="!href">Language icons</a> to enhance the Language dropdown widget.', array('!href' => 'http://drupal.org/project/languageicons'));
+  }
+
+  return $form;
+}
+
+/**
+ * Helper function to get Language switcher dropdown settings
+ */
+function _lang_dropdown_get_settings() {
+  $defaults = array(
+    'showall' => 0,
+    'js_widget' => 1,
+    'js_widget_settings' => array(
+      'visible_rows' => 5,
+      'row_height' => 23,
+      'width' => 140,
+      'animation' => 'slideDown',
+    ),
+    'languageicons' => array(
+      'flag_position' => 1,
+    ),
+  );
+  return array_merge($defaults, variable_get('lang_dropdown', $defaults));
+}
