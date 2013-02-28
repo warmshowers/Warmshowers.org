@@ -1,4 +1,3 @@
-// $Id: l10n_client.js,v 1.10 2009/04/15 19:10:13 goba Exp $
 
 // Store all l10n_client related data + methods in its own object
 jQuery.extend(Drupal, {
@@ -17,12 +16,12 @@ jQuery.extend(Drupal, {
           if(userSelection.length > 0) {
             Drupal.l10nClient.filter(userSelection);
             Drupal.l10nClient.toggle(1);
-            $('#l10n-client #edit-search').focus();      
+            $('#l10n-client .string-search').focus();      
           } else {
-            if($('#l10n-client').is('.hidden')) {
+            if($('#l10n-client').is('.l10n-client-minimized')) {
               Drupal.l10nClient.toggle(1);
               if(!$.browser.safari) {
-                $('#l10n-client #edit-search').focus();
+                $('#l10n-client .string-search').focus();
               }
             } else { 
               Drupal.l10nClient.toggle(0);
@@ -39,7 +38,7 @@ jQuery.extend(Drupal, {
       switch(state) {
         case 1:
           $('#l10n-client-string-select, #l10n-client-string-editor, #l10n-client .labels .label').show();
-          $('#l10n-client').height('22em').removeClass('hidden');
+          $('#l10n-client').height('22em').removeClass('l10n-client-minimized');
           $('#l10n-client .labels .toggle').text('X');
           if(!$.browser.msie) {
             $('body').css('border-bottom', '22em solid #fff');
@@ -48,7 +47,7 @@ jQuery.extend(Drupal, {
         break;
         case 0:
           $('#l10n-client-string-select, #l10n-client-string-editor, #l10n-client .labels .label').hide();
-          $('#l10n-client').height('2em').addClass('hidden');
+          $('#l10n-client').height('2em').addClass('l10n-client-minimized');
           $('#l10n-client .labels .toggle').text(Drupal.t('Translate Text'));
           if(!$.browser.msie) {
             $('body').css('border-bottom', '0px');
@@ -68,15 +67,15 @@ jQuery.extend(Drupal, {
     // Filter the the string list by a search string
     this.filter = function(search) {
       if(search == false || search == '') {
-        $('#l10n-client #search-filter-clear').focus();
+        $('#l10n-client #l10n-client-search-filter-clear').focus();
         $('#l10n-client-string-select li').show();
-        $('#l10n-client #edit-search').val('');
-        $('#l10n-client #edit-search').focus();
+        $('#l10n-client .string-search').val('');
+        $('#l10n-client .string-search').focus();
       } else {
         if(search.length > 0) {
           $('#l10n-client-string-select li').hide();
           $('#l10n-client-string-select li:contains('+search+')').show();
-          $('#l10n-client #edit-search').val(search);
+          $('#l10n-client .string-search').val(search);
         }
       }
     }
@@ -85,6 +84,13 @@ jQuery.extend(Drupal, {
 
 // Attaches the localization editor behavior to all required fields.
 Drupal.behaviors.l10nClient = function (context) {
+  // Killswitch - attach only once.
+  if ($('#l10n-client').is('.l10n-client-processed')) {
+    return;
+  }
+
+  // First time - init & attach all handlers.
+  $('#l10n-client').addClass('l10n-client-processed');
 
   switch($.cookie('Drupal_l10n_client')) {
     case '1':
@@ -103,14 +109,15 @@ Drupal.behaviors.l10nClient = function (context) {
     var index = $('#l10n-client-string-select li').index(this);
 
     $('#l10n-client-string-editor .source-text').text(Drupal.l10nClient.getString(index, 'source'));
-    $('#l10n-client-form #edit-target').val(Drupal.l10nClient.getString(index, 'target'));
-
+    $('#l10n-client-form .translation-target').val(Drupal.l10nClient.getString(index, 'target'));
+    $('#l10n-client-form .source-textgroup').val(Drupal.l10nClient.getString(index, 'textgroup'));
     Drupal.l10nClient.selected = index;
+    $('#l10n-client-form .form-submit').removeAttr("disabled");
   });
 
   // When l10n_client window is clicked, toggle based on current state.
   $('#l10n-client .labels .toggle').click(function() {
-    if($('#l10n-client').is('.hidden')) {
+    if($('#l10n-client').is('.l10n-client-minimized')) {
       Drupal.l10nClient.toggle(1);
     } else { 
       Drupal.l10nClient.toggle(0);
@@ -118,47 +125,54 @@ Drupal.behaviors.l10nClient = function (context) {
   });
 
   // Copy source text to translation field on button click.
-  $('#l10n-client-form #edit-copy').click(function() {
-    $('#l10n-client-form #edit-target').val($('#l10n-client-string-editor .source-text').text());
+  $('#l10n-client-form .edit-copy').click(function() {
+    $('#l10n-client-form .translation-target').val($('#l10n-client-string-editor .source-text').text());
+    return false;
   });
 
   // Clear translation field on button click.
-  $('#l10n-client-form #edit-clear').click(function() {
-    $('#l10n-client-form #edit-target').val('');
+  $('#l10n-client-form .edit-clear').click(function() {
+    $('#l10n-client-form .translation-target').val('');
+    return false;
   });
 
   // Register keybindings using jQuery hotkeys
   if($.hotkeys) {
     $.hotkeys.add(Drupal.l10nClient.keys['toggle'], function(){Drupal.l10nClient.key('toggle')});
-    $.hotkeys.add(Drupal.l10nClient.keys['clear'], {target:'#l10n-client #edit-search', type:'keyup'}, function(){Drupal.l10nClient.key('clear')});
+    $.hotkeys.add(Drupal.l10nClient.keys['clear'], {target:'#l10n-client .string-search', type:'keyup'}, function(){Drupal.l10nClient.key('clear')});
   }
   
   // Custom listener for l10n_client livesearch
-  $('#l10n-client #edit-search').keyup(function(key) {
-    Drupal.l10nClient.filter($('#l10n-client #edit-search').val());
+  $('#l10n-client .string-search').keyup(function(key) {
+    Drupal.l10nClient.filter($('#l10n-client .string-search').val());
   });
 
   // Clear search
-  $('#l10n-client #search-filter-clear').click(function() {
+  $('#l10n-client #l10n-client-search-filter-clear').click(function() {
     Drupal.l10nClient.filter(false);
+    return false;
   });
 
   // Send AJAX POST data on form submit.
   $('#l10n-client-form').submit(function() {
+    $('#l10n-client-form .form-submit').attr("disabled", "true");
     $.ajax({
       type: "POST",
       url: $('#l10n-client-form').attr('action'),
       // Send source and target strings.
-      data: 'source=' + Drupal.encodeURIComponent($('#l10n-client-string-editor .source-text').text()) +
-            '&target=' + Drupal.encodeURIComponent($('#l10n-client-form #edit-target').val()) +
-            '&form_token=' + Drupal.encodeURIComponent($('#l10n-client-form #edit-l10n-client-form-form-token').val()),
+      data: {
+        source: $('#l10n-client-string-editor .source-text').text(),
+        target: $('#l10n-client-form .translation-target').val(),
+        textgroup: $('#l10n-client-form .source-textgroup').val(),
+        'form_token': $('#l10n-client-form #edit-l10n-client-form-form-token').val()
+      },
       success: function (data) {
         // Store string in local js
-        Drupal.l10nClient.setString(Drupal.l10nClient.selected, $('#l10n-client-form #edit-target').val());
+        Drupal.l10nClient.setString(Drupal.l10nClient.selected, $('#l10n-client-form .translation-target').val());
 
         // Figure out the display of the new translation in the selection list.
-        var newTranslationDisplay = '';
-        var newTranslation = $('#l10n-client-form #edit-target').val();
+        var newTranslation = $('#l10n-client-form .translation-target').val();
+        var newTranslationDisplay = newTranslation;
         var newTranslationStripped = newTranslation.replace(/<\/?[^<>]+>/gi, '')
                                                    .replace(/&quot;/g, '"')
                                                    .replace(/&lt;/g, "<")
@@ -180,8 +194,9 @@ Drupal.behaviors.l10nClient = function (context) {
         $('#l10n-client-string-select li').eq(Drupal.l10nClient.selected).removeClass('untranslated').removeClass('active').addClass('translated').text(newTranslationDisplay);
 
         // Empty input fields.
-        $('#l10n-client-string-editor .source-text').html('');
-        $('#l10n-client-form #edit-target').val('');
+        var messageValue = Drupal.parseJson(data);
+        $('#l10n-client-string-editor .source-text').html(messageValue.message);
+        $('#l10n-client-form .translation-target').val('');
 
       },
       error: function (xmlhttp) {
