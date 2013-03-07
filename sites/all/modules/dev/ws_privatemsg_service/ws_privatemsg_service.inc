@@ -298,3 +298,58 @@ function ws_privatemsg_service_get_thread($thread_id, $offset = 0) {
   return $thread;
 
 }
+
+/**
+ * Change the status of a PM thread, by default to "read"
+ *
+ * @param $thread_id
+ *   Thread ID to be marked read
+ * @param $status
+ *   Status to set to. Default is PRIVATEMSG_READ. Also PRIVATEMSG_UNREAD
+ * @return bool
+ *   Always returns TRUE
+ */
+function ws_privatemsg_service_change_thread_status($thread_id, $status = PRIVATEMSG_READ) {
+  // Return if wrong paramters are passed.
+  if (!$thread_id || !is_numeric($thread_id) || ($status != PRIVATEMSG_READ && $status != PRIVATEMSG_UNREAD)) {
+    return services_error(t('Invalid parameters passed'), 400);
+  }
+
+  // Make sure the user is logged in.
+  global $user;
+  $account = user_load($user->uid);
+  if (!user_is_logged_in()) {
+    return services_error(t('The user is not logged in.'), 403);
+  }
+  privatemsg_thread_change_status($thread_id, $status);
+
+  return TRUE;
+}
+
+/**
+ * Change message status to 0 (read) or 1 (not yet read).
+ *
+ * @param $pmid
+ *   Message ID to act on.
+ * @param $status
+ *   Status to set, PRIVATEMSG_READ or PRIVATEMSG_UNREAD. Default PRIVATEMSG_READ
+ * @return bool
+ *   Unconditionally returns TRUE
+ */
+function ws_privatemsg_service_change_message_status($pmid, $status = PRIVATEMSG_READ) {
+  // Return if wrong paramters are passed.
+  if (!$pmid || !is_numeric($pmid) || (!status != PRIVATEMSG_READ && $status != PRIVATEMSG_UNREAD)) {
+    return services_error(t('Invalid parameters passed'), 400);
+  }
+
+  // Make sure the user is logged in.
+  global $user;
+  $account = user_load($user->uid);
+  if (!user_is_logged_in()) {
+    return services_error(t('The user is not logged in.'), 403);
+  }
+
+  privatemsg_message_change_status($pmid, PRIVATEMSG_READ);
+
+  return TRUE;
+}
