@@ -209,6 +209,40 @@ function warmshowers_zen_form_element($element, $value) {
   return $output;
 }
 
+/**
+ * Override privatemsg theming of username.
+ *
+ * This actually adds a new option 'email', which is for when the name is
+ * being viewed in email.
+ *
+ * @param $recipient
+ * @param $options
+ * @return mixed|string
+ */
+function warmshowers_zen_privatemsg_username($recipient, $options) {
+  if (!isset($recipient->uid)) {
+    $recipient->uid = $recipient->recipient;
+  }
+
+  if (!empty($options['email'])) {
+    $name = $recipient->fullname;
+    if (!empty($options['unique'])) {
+      $name .= ' [user]';
+    }
+    return $name;
+  }
+  else if (!empty($options['plain'])) {
+    $name = $recipient->name;
+    if (!empty($options['unique'])) {
+      $name .= ' [user]';
+    }
+    return $name;
+
+  }
+  else {
+    return theme('username', $recipient);
+  }
+}
 
 /**
  * Override username to present fullname instead. Experimental.
