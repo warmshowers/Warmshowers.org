@@ -799,7 +799,7 @@ function _user_location_get_country_center($location = array()) {
 
 /**
  * Calls up a web-service to retrieve a lat/lon pair using Google geocoding .
- * See info at http://www.google.com/apis/maps/documentation under geocoding
+ * See info at https://developers.google.com/maps/documentation/geocoding
  *
  * Note that Google may return a city-level accuracy result when it actually had
  * no province and therefore no real info.
@@ -825,20 +825,14 @@ function location_google_geocoder($location = array()) {
   $province_codes = _user_location_get_provincecode_to_province_map($location['country']);
 
   $map_google_returns = array(
-  0 => 99, // 0 means unknown location
-  1 => 8,  // 1 means country-level accuracy; it's a guess. Use our 8
-  2 => 7,  // 2 means region. Probably better than our 8, but use 8)
-  3 => 7,  // 3 means subregion. Definitely better than our 8
-  4 => 5,  // 4 is town-level accuracy. Same as our 5.
-  5 => 3,  // 5 is postal code, same as our 3
-  6 => 3,  // 6 is street level in google; we'll say it's as good as postal code
-  7 => 3,  // 7 is intersection level, well call it postal code
-  8 => 2, // 8 is full address-level accuracy. Same as our 2
-  9 => 4, // 9 is premise-level accuracy
+    "APPROXIMATE" => 3,  // 5 is postal code, same as our 3
+    "RANGE_INTERPOLATED" => 3,  // ; we'll say it's as good as postal code
+    "GEOMETRIC_CENTER" => 3,  // 7 is intersection level, well call it postal code
+    "ROOFTOP" => 2, // ROOFTOP is full address-level accuracy. Same as our 2
   );
 
 
-  $baseurl = "http://maps.google.com/maps/geo?";
+  $baseurl = "https://maps.googleapis.com/maps/api/geocode/json?";
   if (!empty($location['street']) ) {
     $addr .= urlencode($location['street']) . "," ;
   }
@@ -852,10 +846,8 @@ function location_google_geocoder($location = array()) {
   $addr .= $location['country'];
 
 
-  $query = $basequery = "q=".$addr;
-  $query .= "&output=csv";
-  $query .= "&key=" . variable_get("user_location_google_key", "");
-  $fullurl = $baseurl . $query;
+  $fullurl = "${baseurl}address=${addr}&components=country:${location['country']}";
+  $fullurl .= "&sensor=false";
 
   $results = drupal_http_request($fullurl);
 
@@ -863,22 +855,20 @@ function location_google_geocoder($location = array()) {
     watchdog('geocode', "Google geocoder failed with code=" . $results->code . " " . $fullurl, WATCHDOG_WARNING);
     return NULL;
   }
-  $lines = explode('\n', $results->data);
-  foreach($lines as $line) {
-    $fields = explode(',', $line);
-    $status=$fields[0];
-    $accuracy=$fields[1];
-    $lat = $fields[2];
-    $long  = $fields[3];
+  $geocoded = json_decode($results->data);
+
+  if (count($geocoded->results)) {
+    $geo1 = $geocoded->results[0];
+    $accuracy = $geo1->geometry->location_type;
+    $lat = $geo1->geometry->location->lat;
+    $long  = $geo1->geometry->location->lng;
   }
-  if ($status == 200 && isset($lat) && isset($long)) {
-
-
+  if (isset($lat) && isset($long)) {
     $source = 99;
     if (array_key_exists($accuracy,$map_google_returns)) {
       $source = $map_google_returns[$accuracy];
     }
-    return array('latitude' => $lat, 'longitude' => $long, 'source'=>$source, 'geocoding_source' =>'google_geocoder', 'google_accuracy'=>$accuracy, 'google_status'=>$status, 'google_query' => $basequery, 'google_results' => $results);
+    return array('latitude' => $lat, 'longitude' => $long, 'source'=>$source, 'geocoding_source' =>'google_geocoder', 'google_accuracy'=>$accuracy, 'google_query' => $fullquery, 'google_results' => $results);
   }
 
   return NULL;
