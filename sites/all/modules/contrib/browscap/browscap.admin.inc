@@ -36,16 +36,6 @@ function browscap_settings_form(&$form_state) {
     '#options' => drupal_map_assoc(array(3600, 10800, 21600, 32400, 43200, 86400, 172800, 259200, 604800, 1209600, 2419200, 4838400, 9676800), 'format_interval'),
     '#description' => t('Newer user agent detection information will be automatically downloaded and installed. (Requires a correctly configured <a href="@cron">cron maintenance task</a>.)', array('@cron' => url('http://drupal.org/cron'))),
   );
-  $form['user_agent_log'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('User agent log settings'),
-  );
-  $form['user_agent_log']['browscap_enable_user_agent_log'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable user agent log'),
-    '#default_value' => variable_get('browscap_enable_user_agent_log', FALSE),
-    '#description' => t('Increment a counter each time content is viewed by a user agent.'),
-  );
   $form['buttons']['browscap_refresh'] = array(
     '#type' => 'submit',
     '#value' => t('Refresh browscap data'),
@@ -64,5 +54,5 @@ function browscap_refresh_submit($form, &$form_state) {
   _browscap_import(FALSE);
 
   // Record when the browscap information was updated
-  variable_set('browscap_imported', REQUEST_TIME);
+  variable_set('browscap_imported', time());
 }

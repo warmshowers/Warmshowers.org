@@ -12,8 +12,6 @@ limitations, namely:
 Browscap automates maintenance by storing browser data in a database and
 automatically retrieving the latest data on a configurable schedule.
 
-Browscap also provides statistics on visiting browsers.
-
 Requirements
 ------------
 

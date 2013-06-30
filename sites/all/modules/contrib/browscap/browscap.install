@@ -18,7 +18,7 @@ function browscap_install() {
   _browscap_import();
 
   // Record when the browscap information was updated
-  variable_set('browscap_imported', REQUEST_TIME);
+  variable_set('browscap_imported', time());
 }
 
 /**
@@ -40,64 +40,8 @@ function browscap_schema() {
     ),
     'primary key' => array('useragent'),
   );
-  $schema['browscap_statistics'] = array(
-    'fields' => array(
-      'parent' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'counter' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'is_crawler' => array(
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-      ),
-    ),
-    'primary key' => array('parent'),
-  );
-  $schema['cache_browscap'] = array(
-    'fields' => array(
-      'cid' => array(
-        'type' => 'varchar',
-        'length' => 255,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'data' => array(
-        'type' => 'blob',
-        'size' => 'big',
-      ),
-      'expire' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'created' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-      'headers' => array(
-        'type' => 'text',
-      ),
-      'serialized' => array(
-        'type' => 'int',
-        'size' => 'small',
-        'not null' => TRUE,
-        'default' => 0,
-      ),
-    ),
-    'primary key' => array('cid'),
-    'indexes' => array(
-      'expire' => array('expire'),
-    ),
-  );
+  $schema['cache_browscap'] = drupal_get_schema_unprocessed('system', 'cache');
+
   return $schema;
 }
 
@@ -111,46 +55,40 @@ function browscap_uninstall() {
   variable_del('browscap_version');
   variable_del('browscap_enable_automatic_updates');
   variable_del('browscap_automatic_updates_timer');
-  variable_del('browscap_enable_user_agent_log');
 }
 
 /**
- * Updates existing tables to UTF-8.
- */
-function browscap_update_1() {
-  return _system_update_utf8(array('browscap'));
-  return _system_update_utf8(array('browscap_statistics'));
-}
-
-/**
- * Implementation of hook_update_N.
- * Update from D5 to D6.
+ * Add the browscap cache table.
  */
 function browscap_update_6000() {
-  $return = array();
+  $ret = array();
 
   if (!db_column_exists('cache_browscap', 'serialized')) {
-    db_add_field($return, 'cache_browscap', 'serialized', array('type' => 'int', 'size' => 'small', 'not null' => TRUE, 'default' => 0));
+    db_add_field($ret, 'cache_browscap', 'serialized', array('type' => 'int', 'size' => 'small', 'not null' => TRUE, 'default' => 0));
   }
 
-  return $return;
+  return $ret;
 }
 
 /**
- * Port and remove old variables.
+ * Rename and remove old variables.
  */
 function browscap_update_6001() {
-  // Port and remove browscap_update_interval
+  // Find the length of the update interval
   $browscap_update_interval = variable_get('browscap_update_interval', 7);
 
+  // If the interval length was 0 then disable updates
   if ($browscap_update_interval == 0) {
     variable_set('browscap_enable_automatic_updates', FALSE);
   }
 
+  // Delete the interval variable
   variable_del('browscap_update_interval');
 
-  // Port and remove browscap_monitor
+  // Rename the user agent monitoring variable
   $browscap_monitor = variable_get('browscap_monitor', FALSE);
   variable_set('browscap_enable_user_agent_log', $browscap_monitor);
   variable_del('browscap_monitor');
+
+  return array(array('success' => TRUE, 'query' => 'Renamed and removed old variables.'));
 }

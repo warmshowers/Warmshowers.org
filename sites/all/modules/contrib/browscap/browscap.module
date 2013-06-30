@@ -4,7 +4,7 @@
  * Replacement for PHP's get_browser() function.
  */
 
-// Include browscap data import functions
+// Include browscap data import and user agent recording functions
 include_once('import.inc');
 
 /**
@@ -13,8 +13,6 @@ include_once('import.inc');
 function browscap_perm() {
   return array(
     'administer browscap',
-    'view browscap reports',
-    'bypass browscap monitoring',
   );
 }
 
@@ -30,46 +28,6 @@ function browscap_menu() {
     'access arguments' => array('administer browscap'),
     'file' => 'browscap.admin.inc',
   );
-  $items['admin/reports/browscap'] = array(
-    'title' => 'Browscap',
-    'description' => 'Browser-specific site statistics.',
-    'page callback' => 'browscap_top_useragents',
-    'page arguments' => array('all'),
-    'access arguments' => array('view browscap reports'),
-    'file' => 'browscap.reports.inc',
-    'weight' => 5,
-  );
-  $items['admin/reports/browscap/useragents'] = array(
-    'title' => 'All',
-    'access arguments' => array('view browscap reports'),
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => 1,
-  );
-  $items['admin/reports/browscap/browsers'] = array(
-    'title' => 'Browsers',
-    'page callback' => 'browscap_top_useragents',
-    'page arguments' => array('browsers'),
-    'access arguments' => array('view browscap reports'),
-    'file' => 'browscap.reports.inc',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 2,
-  );
-  $items['admin/reports/browscap/crawlers'] = array(
-    'title' => 'Crawlers',
-    'page callback' => 'browscap_top_useragents',
-    'page arguments' => array('crawlers'),
-    'access arguments' => array('view browscap reports'),
-    'file' => 'browscap.reports.inc',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 3,
-  );
-  $items['admin/reports/browscap/useragent/%'] = array(
-    'title' => 'Useragent details',
-    'page callback' => 'browscap_useragent_properties',
-    'page arguments' => array(4),
-    'access arguments' => array('view browscap reports'),
-    'file' => 'browscap.user_agent.inc',
-  );
 
   return $items;
 }
@@ -81,50 +39,6 @@ function browscap_help($path, $arg) {
   switch ($path) {
     case 'admin/settings/browscap':
       return '<p>' . t('Settings for user agent detection and the log that Browscap will keep about user agents that visit the site. See <a href="@statistics">user agent statistics</a> for the actual information.', array('@statistics' => url('admin/reports/browscap'))) . '</p>';
-    case 'admin/reports/browscap':
-      return '<p>' . t('This page displays the most popular visiting user agents.') . '</p>';
-    case 'admin/reports/browscap/browsers':
-      return '<p>' . t('This page displays the most popular visiting user agents which have been classified as browsers.') . '</p>';
-    case 'admin/reports/browscap/crawlers':
-      return '<p>' . t('This page displays the most popular visiting user agents which have been classified as crawlers.') . '</p>';
-  }
-}
-
-/**
- * Implementation of hook_exit().
- */
-function browscap_exit() {
-  // Record the current user agent if monitoring is enabled and the user does not
-  // have permission to bypass monitoring
-  if (variable_get('browscap_enable_user_agent_log', FALSE) == TRUE && user_access('bypass browscap monitoring') != TRUE) {
-    // Get browscap data about the current user agent
-    $user_agent = browscap_get_browser();
-
-    // Identify the user agent using browscap data
-    // Otherwise, use the USER_AGENT header from the current request
-    if (!empty($user_agent['parent'])) {
-      $user_agent_string = substr(check_plain(trim($user_agent['parent'])), 0, 255);
-    }
-    else {
-      $user_agent_string = substr(check_plain(trim($_SERVER['HTTP_USER_AGENT'])), 0, 255);
-    }
-
-    // Determine if the user agent is a crawler using browscap data
-    // Otherwise, assume that the user agent isn't a crawler
-    if (!empty($user_agent['crawler'])) {
-      $user_agent_crawler = check_plain(trim($user_agent['crawler']));
-    }
-    else {
-      $user_agent_crawler = 0;
-    }
-
-    // Record the user agent in the database
-    db_query("UPDATE {browscap_statistics} SET counter = counter + 1, is_crawler=%d WHERE parent='%s'", $user_agent_crawler, $user_agent_string);
-    // If no rows were affected then this is the first time that the current user agent has been encountered
-    if (!db_affected_rows()) {
-      // Create a new row to store counters for the user agent
-      db_query("INSERT INTO {browscap_statistics} (parent,counter,is_crawler) VALUES('%s', 1, %d)", $user_agent_string, $user_agent_crawler);
-    }
   }
 }
 
@@ -137,16 +51,16 @@ function browscap_cron() {
     $automatic_update_timer = variable_get('browscap_automatic_updates_timer', 604800);
 
     // Check when the last update occurred
-    $last_imported = variable_get('browscap_imported', REQUEST_TIME);
+    $last_imported = variable_get('browscap_imported', time());
 
     // Update the browscap data if the amount of time specified by the update
     // timer has passed
-    if (($last_imported + $automatic_update_timer) < REQUEST_TIME) {
+    if (($last_imported + $automatic_update_timer) < time()) {
       // Update the browscap information
       _browscap_import();
 
       // Record when the browscap information was updated
-      variable_set('browscap_imported', REQUEST_TIME);
+      variable_set('browscap_imported', time());
     }
   }
 }
