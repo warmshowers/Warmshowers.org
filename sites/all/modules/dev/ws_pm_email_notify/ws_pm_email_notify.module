@@ -204,7 +204,7 @@ function ws_pm_email_notify_send_mail($recipient, $message) {
     $params['message'] = $message;
     // The type on author determines how the author is themed.
     $params['message']['author']->type = 'user';
-    $from = variable_get('pm_email_notify_from', '');
+    $from = variable_get('ws_pm_email_notify_from', '');
     drupal_mail('ws_pm_email_notify', 'notice', $recipient->mail, user_preferred_language($recipient), $params, !empty($from) ? $from : NULL);
   }
 }
@@ -219,14 +219,33 @@ function ws_pm_email_notify_mail($key, &$message, $params) {
 
   switch ($key) {
     case 'notice':
-      // Add a reply-to of the sending member, so that responses will go there
-      // if they won't read the email :-)
-      $message['headers']['Reply-To'] = '"'. preg_replace('/["<>]/', '', $params['message']['author']->fullname) . '" <' . $params['message']['author']->mail . '>';
+
+      // TODO: #betareply This handling of from _user and to_user should be deletable after launch of this feature
+      $from_user = user_load($params['message']['author']->uid);
+      $to_user = user_load($params['recipient']->uid);
+      if (!empty($from_user->ws_pm_email_notify_email_reply_enabled) || !empty($to_user->ws_pm_email_notify_email_reply_enabled)) {
+        if (variable_get('ws_pm_email_notify_mandrill_reply_enabled', 0)) {
+          $from = variable_get('ws_pm_email_notify_mandrill_from', '');
+          if (!empty($from)) {
+            $message['from'] = $message['headers']['From'] = $from;
+          }
+        }
+      }
+      else {
+        // Add a reply-to of the sending member, so that responses will go there
+        // if they won't read the email. Hopefully this can be retired.
+        $message['headers']['Reply-To'] = '"'. preg_replace('/["<>]/', '', $params['message']['author']->fullname) . '" <' . $params['message']['author']->mail . '>';
+      }
+
       $message['subject'] = strtr(_ws_pm_email_notify_text('subject', $language), $variables);
+
+      // Add pm_mid and hash of user to the subject so we can validate this.
+      $message['subject'] .= " (mid:{$variables['!pm_mid']}:{$variables['!pm_recipient_uid']}:{$variables['!pm_mhash']})";
       $message['body'] = strtr(_ws_pm_email_notify_text('body', $language), $variables);
       break;
   }
 }
+
 
 /**
  * Return an array of token to value mappings for user e-mail messages.
@@ -243,10 +262,12 @@ function _ws_pm_email_notify_token($recipient, $message, $language) {
     '!author' => privatemsg_recipient_format($message['author'], array('email' => TRUE, 'plain' => TRUE)),
     '!pm_subject' => trim(drupal_html_to_text(check_plain($message['subject']))),
     '!pm_body' => trim(drupal_html_to_text(check_markup($message['body'], $message['format'], FALSE))),
-    '!thread' => $message['thread_id'],
-    '!user_uid' => $recipient->uid,
+    '!pm_mid' => $message['mid'],
+    '!pm_thread' => $message['thread_id'],
+    '!pm_recipient_uid' => $recipient->uid,
     '!message' => url(privatemsg_get_dynamic_url_prefix($recipient->uid) . '/view/' . $message['thread_id'], array('absolute' => TRUE, 'language' => $language)),
     '!settings' => url('user/' . $recipient->uid . '/edit', array('absolute' => TRUE, 'language' => $language)),
+    '!pm_mhash' => ws_pm_email_notify_hash_mid_tid($message['mid'], $message['thread_id']),
   );
 
   // Allow other modules to alter the token mapping.
@@ -377,7 +398,30 @@ function ws_pm_email_notify_user($op, &$edit, &$account, $category = NULL) {
           '#access' => privatemsg_user_access('change privatemsg e-mail notification for indirect messages'),
         );
       }
+
+      // TODO: #betareply Provide beta opportunity to opt into reply-through notifications
+      // Remove when this is rolled out for everybody
+      // #betareply
+      if ($category == 'account' && $account->language == 'en-working') {
+        return _ws_pm_email_notify_element(&$edit, &$account);
+      }
+
       return $form;
+
+    // TODO: #betareply We should be able to remove when fully live
+    case 'insert':
+    case 'update':
+      _ws_pm_email_notify_email_reply_save(&$edit, &$account);
+      break;
+    case 'load':
+      if ($reply_by_email = db_result(db_query("SELECT email_reply_enabled FROM {ws_pm_email_notify} WHERE uid = %d", $account->uid))) {
+        $account->ws_pm_email_notify_email_reply_enabled = $reply_by_email;
+      }
+      break;
+    case 'validate':
+      _ws_pm_email_notify_email_reply_validate(&$edit, &$account);
+      break;
+
 
     case 'submit':
       if (isset($edit['pm_email_notify_level'])) {
@@ -395,6 +439,9 @@ function ws_pm_email_notify_user($op, &$edit, &$account, $category = NULL) {
     case 'delete':
       privatemsg_del_setting('user', $account->uid, 'email_notify_level');
       privatemsg_del_setting('user', $account->uid, 'email_notify_only_user');
+
+      // TODO: #betareply This could theoretically be ripped out when this is rolled out for all
+      db_query("DELETE FROM {ws_pm_email_notify} WHERE uid = %d", $account->uid);
       break;
   }
 }
@@ -445,4 +492,156 @@ function ws_pm_email_notify_tt($name, $string, $language = NULL, $update = FALSE
   else {
     return $string;
   }
+}
+
+
+/**
+ * Implements hook_mandrill_incoming_event() to handle a single inbound
+ * mandrill message.
+ *
+ * @param $event
+ * @return array|int
+ */
+function ws_pm_email_notify_mandrill_incoming_event($event) {
+  $ts = $event->ts;
+  $msg = $event->msg;
+
+  // dd($msg->subject, 'incoming mandrill event subject');
+  // dd($msg->from_email, 'incoming from_email');
+
+  $matches = array();
+  // Here we have to match in the mhash anything that can be in a base64_encode().
+  if ($count = preg_match('/mid:([0-9]+):([0-9]+):([a-zA-Z0-9_\+\/=]+)/', $msg->subject, $matches)) {
+    // dd($count, 'preg_match count');
+
+    $mid = $matches[1];
+    $sender_uid = $matches[2];
+    $their_mhash = $matches[3];
+
+    $pm = privatemsg_message_load($mid);
+    if (empty($pm)) {
+      watchdog('privatemsg', 'Failed to identify message id for incoming mid=%mid', array('%mid' => $mid));
+      // dd($mid, 'Empty load for this mid on privatemsg_load');
+      watchdog('mandrill_incoming', 'Failed to identify message ID in incoming subject (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
+      return array(MANDRILL_INCOMING_ERROR);
+    }
+
+    $tid = $pm['thread_id'];
+
+    $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
+    // dd($our_mhash, 'our mhash');
+    // dd($their_mhash, 'their mhash');
+    if ($their_mhash != $our_mhash) {
+      // dd('mhashes do not match, so bailing');
+      watchdog('mandrill_incoming', 'Message hash in incoming subject did not match correct (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
+      return array(MANDRILL_INCOMING_ERROR);
+    }
+
+    // It's good to *try* to get the account from the email here, but they could
+    // very well reply from another email account. So if it fails, that should not
+    // be fatal.
+    $account = user_load($sender_uid);
+    // dd($account->name, "account loaded from uid {$sender_uid}");
+
+    // dd($pm, 'pm in play');
+
+    $thread = privatemsg_thread_load($tid, $account);
+    // dd($thread, 'thread in play');
+    if (!array_key_exists("user_{$sender_uid}", $thread['participants'])) {
+      // dd("Sender uid=$sender_uid not found in the msg recipients");
+      watchdog('mandrill_incoming', 'Sender UID not found in msg recipients (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
+
+      return array(MANDRILL_INCOMING_ERROR);
+    }
+
+    // watchdog('privatemsg', 'Found tid=%tid account=%name', array('%tid' => $tid, '%name' => $account->name));
+
+    $text = preg_replace('/\n>[^\n]*/', '', $msg->text);
+
+    $text .= "\r\n\r\n" . t('Posted by email from Warmshowers member @username (@link)', array('@username' => $account->name, '@link' => url("user/{$account->uid}", array('absolute' => TRUE))));
+
+    // Attempt to send a reply.
+    $result = privatemsg_reply($tid, $text, array('author' => $account));
+
+    if (!$result['success']) {
+      watchdog('privatemsg', 'Failed to privatemsg_reply (%result)', array('%result' => print_r($result, TRUE)), WATCHDOG_ERROR);
+      return MANDRILL_INCOMING_ERROR;
+    }
+
+    // dd($result['success'], 'privatemsg_reply result');
+    // dd($result['messages'], 'privatemsg_msgs');
+    // dd($result['message']['body'], 'body');
+
+    return MANDRILL_INCOMING_HANDLED;  // Successfully handled message
+  }
+  // Else failed to match on the subject message id, hash, etc.
+  else {
+    // dd($count, 'preg_match count');
+    // dd('missed the match in preg_match');
+    watchdog('mandrill_incoming', 'Failed to handle incoming event - Subject did not match expected pattern (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
+    return array(MANDRILL_INCOMING_ERROR);
+  }
+}
+
+
+/**
+ * Simple form element for ws_pm_email_notify_user() to use to allow people to
+ * turn on the email_reply_enabled.
+ *
+ * TODO: #betareply: SHould be able to rip this out later.
+ *
+ * @param $edit
+ * @param $account
+ * @return array
+ */
+function _ws_pm_email_notify_element(&$edit, &$account) {
+  $form = array();
+
+  $form['email_reply_enabled'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Experimental email replies'),
+    '#description' => t('Until 2013, private messages were generally handled by logging into the site to reply. With this setting, you can reply to email and it will update the private message on the site. Also, people who receive a private message notification from you can reply to it. If you enable this setting we ask you to notify us quickly if you think that mail is not being handled correctly. You can log into the site and view private messages and you should see any email that you have replied to'),
+    '#weight' => 25,
+  );
+  $form['email_reply_enabled']['email_reply_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Experimental: Email replies to my private messages should go through the site'),
+    '#default_value' => (!empty($account->ws_pm_email_notify_email_reply_enabled) ? $account->ws_pm_email_notify_email_reply_enabled : FALSE),
+  );
+
+  return $form;
+}
+
+function _ws_pm_email_notify_email_reply_validate(&$edit, &$account) {
+  if ($edit['email_reply_enabled'] != TRUE && $edit['email_reply_enabled' != FALSE]) {
+    form_set_error('email_reply_enabled', t('Email reply enabled must be TRUE or FALSE'));
+  }
+}
+
+function _ws_pm_email_notify_email_reply_save(&$edit, &$account) {
+  if (!db_result(db_query("SELECT TRUE from {ws_pm_email_notify} WHERE uid = %d", $account->uid))) {
+    db_query("INSERT INTO {ws_pm_email_notify} (uid, email_reply_enabled) VALUES (%d, '%s')", $account->uid, $edit['email_reply_enabled']);
+  }
+  else {
+    db_query("UPDATE {ws_pm_email_notify} SET email_reply_enabled = '%s' WHERE uid = %d", $edit['email_reply_enabled'], $account->uid);
+  }
+
+  // We need to set this to NULL so the value also doesn't get saved in the
+  // default "data" serialized array in the {users} table.
+  $edit['email_reply_enabled'] = NULL;
+}
+
+/**
+ * Hash the private msg id and thread id together to provide a way to prove
+ * that the sender knew the thread id
+ *
+ * @param $mid
+ * @param $tid
+ * @return string
+ */
+function ws_pm_email_notify_hash_mid_tid($mid, $tid) {
+  $key = variable_get('ws_pm_email_notify_hashkey', '');
+
+  $signed_data = "$mid:$tid";
+  return base64_encode(hash_hmac('sha1', $signed_data, $key, TRUE));
 }

@@ -228,8 +228,8 @@ function _node_resource_retrieve($nid) {
   if ($node) {
     // Apply field level content permissions
     if (module_exists('content') && variable_get('services_use_content_permissions', TRUE)) {
-      $fields = content_fields(NULL, $node->type);
-      foreach ($fields as $field_name => $field_info) {
+      $type_info = content_types($node->type);
+      foreach ($type_info['fields'] as $field_name => $field_info) {
         if (isset($node->$field_name)) {
           $access = module_invoke_all('field_access', 'view', $field_info, $user, $node);
           if (in_array(FALSE, $access)) {
@@ -279,13 +279,11 @@ function _node_resource_create($node) {
   module_load_include('inc', 'node', 'node.pages');
   $nid = NULL;
   if (module_exists('content') && variable_get('services_use_content_permissions', TRUE)) {
-    $fields = content_fields(NULL, $node['type']);
-    foreach ($fields as $field_name => $field_info) {
-      if (isset($node[$field_name])) {
-        $access = module_invoke_all('field_access', 'view', $field_info, $user, (object)$node);
-        if (in_array(FALSE, $access)) {
-          unset($node[$field_name]);
-        }
+    $type_info = content_types($node['type']);
+    $node_object = (object)$node;
+    foreach ($type_info['fields'] as $field_name => $field_info) {
+      if (isset($node[$field_name]) && !content_access('view', $field_info, $user, $node_object)) {
+        unset($node[$field_name]);
       }
     }
   }

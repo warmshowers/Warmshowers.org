@@ -133,7 +133,6 @@ function theme_services_resource_table($variables) {
     return '<strong>' . t('No resourcess to display.') . '</strong>';
   }
   else {
-      watchdog('rows', print_r($rows, 1));
     return theme('table', $header, $rows, array('id' => 'resource-form-table'));
     //return theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'resource-form-table')));
   }

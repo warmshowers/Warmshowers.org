@@ -45,7 +45,7 @@ function ws_pm_email_notify_admin_settings_form() {
     '#description' => t('Customize the e-mail notification sent to users. Available variables are: !author, !author_uid, !pm_subject, !pm_body, !thread, !site, !login_url, !uri, !uri_brief, !message (URL) and !settings (URL).</p><p>To translate these messages use the i18nstrings.module and translate them trough the <a href="!translate_url">Translate interface</a> ("Privatemsg Email Notification" text group).</p>', array('!translate_url' => url('admin/build/translate/search'))),
   );
 
-  $form['pm_email']['pm_email_template']['ws_pm_email_notify_from'] = array(
+  $form['pm_email']['pm_email_template']['pm_email_notify_from'] = array(
     '#type' => 'textfield',
     '#title' => t('From e-mail address for notifications'),
     '#default_value' => variable_get('pm_email_notify_from',''),
@@ -66,10 +66,36 @@ function ws_pm_email_notify_admin_settings_form() {
     '#default_value' => _ws_pm_email_notify_text('body', NULL, FALSE),
     '#weight' => 10,
   );
+
+  $form['pm_email']['mandrill_integration'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Mandrill Integration'),
+    '#weight' => 20,
+  );
+
+  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable email reply via Mandrill Inbound webhook'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_enabled', 0),
+  );
+
+  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_from'] = array(
+    '#type' => 'textfield',
+    '#title' => t('From address used when mandrill is to be used for replies)'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_from', ''),
+  );
+
+  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_hashkey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Hash key to validate Message/Thread id (can be same as Mandrill webhook key)'),
+    '#default_value' => variable_get('ws_pm_email_notify_hashkey', ''),
+  );
+
   $form = system_settings_form($form);
   if (module_exists('i18nstrings')) {
     $form['#submit'][] = 'ws_pm_email_notify_admin_settings_update_strings';
   }
+
   return $form;
 }
 

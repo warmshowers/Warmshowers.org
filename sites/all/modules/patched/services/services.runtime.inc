@@ -28,7 +28,7 @@ class ServicesException extends Exception {
   public function __construct($message, $code = 0, $data = NULL) {
     parent::__construct($message, $code);
 
-    $this->data = $message;
+    $this->data = !empty($data) ? $data : $message;
   }
 
   /**
@@ -104,10 +104,10 @@ function services_controller_execute($controller, $args = array(), $options = ar
   }
 
   $original_user = $user;
-  
+
   if (strpos($controller['callback'], 'login') !== FALSE && strpos($controller['callback'], 'logout') !== FALSE) {
-    $old_state = drupal_save_session();
-    drupal_save_session(FALSE);
+    $old_state = session_save_session();
+    session_save_session(FALSE);
   }
   $user = drupal_anonymous_user();
   $user->timestamp = time();
@@ -158,7 +158,7 @@ function services_controller_execute($controller, $args = array(), $options = ar
 
   // Preprocess controller and arguments.
   $controller['__drupal_alter_by_ref'] = array(&$args);
-  drupal_alter('services_request_preprocess', $controller);
+  drupal_alter('services_request_preprocess', $controller, $args, $options);
 
   // Execute the controller callback.
   $result = call_user_func_array($controller['callback'], $args);
@@ -172,7 +172,7 @@ function services_controller_execute($controller, $args = array(), $options = ar
   drupal_alter('services_request_postprocess', $controller);
 
   if (strpos($controller['callback'], 'login') !== FALSE && strpos($controller['callback'], 'logout') !== FALSE) {
-    drupal_save_session($old_state);
+    session_save_session($old_state);
   }
   if ($server_info->debug) {
     watchdog('services', 'results: <pre>@results</pre>', array('@results' => print_r($result, TRUE)), WATCHDOG_DEBUG);
@@ -341,27 +341,6 @@ function services_server_info_object($reset = FALSE) {
  */
 function services_error($message, $code = 0, $data = NULL) {
   throw new ServicesException($message, $code, $data);
-}
-
-/**
- * Make any changes we might want to make to node.
- */
-function services_node_load($node, $fields = array()) {
-  if (!isset($node->nid)) {
-    return NULL;
-  }
-
-  // Loop through and get only requested fields
-  if (count($fields) > 0) {
-    foreach ($fields as $field) {
-      $val->{$field} = $node->{$field};
-    }
-  }
-  else {
-    $val = $node;
-  }
-
-  return $val;
 }
 
 /**

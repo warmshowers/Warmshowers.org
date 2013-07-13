@@ -537,7 +537,7 @@ class RESTServer {
     $operation = NULL;
 
     // Use the index handler for all empty path GET-requests
-    if (!$pc && $method == 'GET') {
+    if (!$pc && ($method == 'GET' || $method == 'HEAD')) {
       $class = 'operations';
       $operation = 'index';
     }
