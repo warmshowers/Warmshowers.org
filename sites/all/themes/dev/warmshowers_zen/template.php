@@ -251,7 +251,7 @@ function warmshowers_zen_privatemsg_username($recipient, $options) {
  */
 function warmshowers_zen_username($object) {
 
-  $name = !empty($object->fullname) ? $object->fullname : $object->name;
+  $name = (!empty($object->fullname) && user_access('access user profiles')) ? $object->fullname : $object->name;
 
   if ($object->uid && $name) {
     // Shorten the name when it is too long or it will break many tables.
