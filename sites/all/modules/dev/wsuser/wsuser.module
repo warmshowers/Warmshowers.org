@@ -202,9 +202,13 @@ function wsuser_action_info() {
       'description' => t('Send Warmshowers User Email'),
       'type' => 'user',
       'configurable' => TRUE,
-      'hooks' => array(
-        'user' => array('view', 'insert', 'update', 'delete', 'login'),
-      )
+      'hooks' => array('any' => TRUE),
+    ),
+    'wsuser_resend_validation_link_action' => array(
+      'description' => t('Resend validation link as from logintoboggan'),
+      'type' => 'user',
+      'configurable' => FALSE,
+      'hooks' => array('any' => TRUE),
     ),
   );
 }
@@ -212,14 +216,40 @@ function wsuser_action_info() {
 
 /**
  * Implementation of hook_mail().
- * Applies Warmshowers-based token manipulation to the suject and message
+ *
+ * Applies Warmshowers-based token manipulation to the subject and message
+ *
+ * logintoboggan_resend_validation is, of course, brought over from logintoboggan
+ * but had to be redone here to use i18n_variable_get() instead of just variable_get().
  */
 function wsuser_mail($key, &$message, $params) {
-  if ($key == 'action_wsuser_send_email') {
-    $language = $message['language'];
-    $message['subject'] = $params['subject'];
-    $message['body'] = $params['body'];
 
+  global $base_url;
+
+  $language = $message['language'];
+  $langcode = isset($language) ? $language->language : NULL;
+
+  $variables = user_mail_tokens($params['account'], $language);
+  // Customize special tokens.
+  $variables['!uri_brief'] = substr($base_url, strlen(_logintoboggan_protocol() . '://'));
+  if (isset($params['login_url'])) {
+    $variables['!login_url'] = $params['login_url'];
+  }
+
+  switch ($key) {
+    case 'action_wsuser_send_email':
+      $message['subject'] = $params['subject'];
+      $message['body'] = $params['body'];
+      break;
+
+    case 'logintoboggan_resend_validation':
+      $message['subject'] .= strtr(i18n_variable_get('user_mail_register_no_approval_required_subject', $langcode, _user_mail_text('register_no_approval_required_subject')), $variables);
+      $message['body'][] = strtr(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, _user_mail_text('register_no_approval_required_body')), $variables);
+      break;
+
+    default:
+      $message['subject'] .= strtr(i18n_variable_get('user_mail_' . $key . '_subject', $langcode, _user_mail_text($key . '_subject')), $variables);
+      $message['body'][] = strtr(i18n_variable_get('user_mail_' . $key . '_body', $langcode, _user_mail_text($key . '_body')), $variables);
   }
 }
 
@@ -1578,7 +1608,7 @@ function ahah_get_provinces_profile() {
 
 
 	$output = ahah_render_profile_form($formElement, 'province');
-	echo drupal_to_js(array('data' => $output, 'status' => true));
+	echo drupal_to_js(array('data' => $output, 'status' => TRUE));
 	exit();
 }
 
@@ -1720,7 +1750,7 @@ function wsuser_send_email_action_form($context) {
 function wsuser_send_email_action_validate($form, $form_state) {
   $form_values = $form_state['values'];
   // Validate the configuration form.
-  if (!valid_email_address($form_values['recipient']) && $form_values['recipient'] != '%author') {
+  if (!valid_email_address($form_values['recipient']) && $form_values['recipient'] != '%author' && $form_values['recipient'] != '[mail]') {
     // We want the literal %author placeholder to be emphasized in the error message.
     form_set_error('recipient', t('Please enter a valid email address or %author.', array('%author' => '%author')));
   }
@@ -1764,6 +1794,27 @@ function wsuser_send_email_action($object, $context) {
   else {
     watchdog('error', 'Unable to send email to %recipient', array('%recipient' => $recipient));
   }
+}
+
+
+function wsuser_resend_validation_link_action($object, $context) {
+  $account = $object;
+
+  $languages = language_list();
+  $language = $languages[$account->language];
+
+  $params['account'] = $account;
+  $params['login_url'] = wsuser_eml_validate_url($account, $language);
+
+  if (in_array('pre-authorized', $account->roles) && module_exists('logintoboggan')) {
+    drupal_mail('wsuser', 'logintoboggan_resend_validation', $account->mail, $language, $params);
+    watchdog('logintoboggan', 'A validation email has been sent to %account in language %language', array('%account' => $account->name, '%language' => $account->language));
+  }
+}
+
+function wsuser_eml_validate_url($account, $language){
+  $timestamp = time();
+  return url("user/validate/$account->uid/$timestamp/". logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail), array('absolute' => TRUE, 'language' => $language));
 }
 
 
