@@ -165,22 +165,25 @@ function theme_linkbuttons($links) {
  * @return unknown_type
  */
 function wsuser_token_values($type, $object = NULL, $options = array()) {
-  if ($type == 'user' || $type == 'global') {
-    $user = user_load(array('uid'=>$object->uid));
-    $tokens['fullname']      = $user->fullname;
-    $tokens['about_me']      = $user->comments;
-    $tokens['source'] = $user->source;
-    $tokens['country'] = $user->country;
-    $tokens['province'] = $user->province;
-    $tokens['city'] = $user->city;
-    $tokens['notcurrentlyavailable'] = $user->notcurrentlyavailable;
-    $tokens['howdidyouhear'] = $user->howdidyouhear;
+  if (!empty($object->uid) && ($type == 'user' || $type == 'global')) {
+    $account = user_load(array('uid' => $object->uid));
+    $tokens['fullname']      = $account->fullname;
+    $tokens['about_me']      = $account->comments;
+    $tokens['source'] = $account->source;
+    $tokens['country'] = $account->country;
+    $tokens['province'] = $account->province;
+    $tokens['city'] = $account->city;
+    $tokens['notcurrentlyavailable'] = $account->notcurrentlyavailable;
+    $tokens['howdidyouhear'] = $account->howdidyouhear;
+    $tokens['validate_url'] = wsuser_eml_validate_url($account);
+    $tokens['login_url'] = wsuser_pass_reset_url($account);
+
     return $tokens;
   }
 }
 
 function wsuser_token_list($type = 'all') {
-  if ($type == 'user') {
+  if ($type == 'user' || $type == 'all') {
     $tokens['user']['fullname']      = t("The user's fullname");
     $tokens['user']['about_me']      = t("The 'about me' from user's profile");
     $tokens['user']['source'] =  t("Geocoding accuracy of location info");
@@ -189,6 +192,8 @@ function wsuser_token_list($type = 'all') {
     $tokens['user']['city'] = t("User's city");
     $tokens['user']['notcurrentlyavailable'] = t("User's availability status");
     $tokens['user']['howdidyouhear'] = t("How did you hear about WarmShowers.org?");
+    $tokens['user']['validate_url'] = t('Validation URL (logintoboggan)');
+    $tokens['user']['login_url'] = t('One-time login URL/Password reset URL');
 
     return $tokens;
   }
@@ -198,12 +203,6 @@ function wsuser_token_list($type = 'all') {
  */
 function wsuser_action_info() {
   return array(
-    'wsuser_send_email_action' => array(
-      'description' => t('Send Warmshowers User Email'),
-      'type' => 'user',
-      'configurable' => TRUE,
-      'hooks' => array('any' => TRUE),
-    ),
     'wsuser_resend_validation_link_action' => array(
       'description' => t('Resend validation link as from logintoboggan'),
       'type' => 'user',
@@ -1698,105 +1697,12 @@ function wsuser_ahah_callback_helper() {
 
 
 /**
- * Return a form definition so the Send email action can be configured.
+ * Provides an action that can be used with rules which will resend the
+ * validation link a la logintoboggan
  *
- * @see wsuser_send_email_action_validate()
- * @see wsuser_send_email_action_submit()
+ * @param $object
  * @param $context
- *   Default values (if we are editing an existing action instance).
- * @return
- *   Form definition.
  */
-function wsuser_send_email_action_form($context) {
-  // Set default values for form.
-  if (!isset($context['recipient'])) {
-    $context['recipient'] = '';
-  }
-  if (!isset($context['subject'])) {
-    $context['subject'] = '';
-  }
-  if (!isset($context['message'])) {
-    $context['message'] = '';
-  }
-
-  $form['recipient'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Recipient'),
-    '#default_value' => $context['recipient'],
-    '#maxlength' => '254',
-    '#description' => t('The email address to which the message should be sent OR enter %author if you would like to send an e-mail to the author of the original post.', array('%author' => '%author')),
-  );
-  $form['subject'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Subject'),
-    '#default_value' => $context['subject'],
-    '#maxlength' => '254',
-    '#description' => t('The subject of the message.'),
-  );
-  $form['message'] = array(
-    '#type' => 'textarea',
-    '#title' => t('Message'),
-    '#default_value' => $context['message'],
-    '#cols' => '80',
-    '#rows' => '20',
-    '#description' => t('The message that should be sent. You may include the following variables: ' . theme('token_help','user')),
-  );
-  return $form;
-}
-
-/**
- * Validate wsuser_send_email_action form submissions.
- */
-function wsuser_send_email_action_validate($form, $form_state) {
-  $form_values = $form_state['values'];
-  // Validate the configuration form.
-  if (!valid_email_address($form_values['recipient']) && $form_values['recipient'] != '%author' && $form_values['recipient'] != '[mail]') {
-    // We want the literal %author placeholder to be emphasized in the error message.
-    form_set_error('recipient', t('Please enter a valid email address or %author.', array('%author' => '%author')));
-  }
-}
-
-/**
- * Process wsuser_send_email_action form submissions.
- */
-function wsuser_send_email_action_submit($form, $form_state) {
-  $form_values = $form_state['values'];
-  // Process the HTML form to store configuration. The keyed array that
-  // we return will be serialized to the database.
-  $params = array(
-    'recipient' => $form_values['recipient'],
-    'subject'   => $form_values['subject'],
-    'message'   => $form_values['message'],
-  );
-  return $params;
-}
-
-/**
- * Implementation of a configurable Drupal action. Sends an email with user details
- * Note that this won't work correctly unless the module weight is set in the system
- * database to something lower than the action module's weight. I set it to -10
- * The utility module will do this, or you can just do it in the database:
- *   update system set weight=-10 where name in ("user_location","wsuser")
- */
-function wsuser_send_email_action($object, $context) {
-  global $user;
-  $account = $object;
-  $recipient = $context['recipient'];
-
-  $language = user_preferred_language($account);
-  $params = array('account' => $account, 'object' => $object, 'context' => $context);
-  $params['subject'] = str_replace(array("\r", "\n"), '', token_replace_multiple($context['subject'], array('user'=>$account)));
-  $params['body'] = drupal_html_to_text(token_replace_multiple($context['message'], array('user'=>$account)));
-
-  if (drupal_mail('wsuser', 'action_wsuser_send_email', $recipient, $language, $params)) {
-    watchdog('action', 'Sent email to %recipient', array('%recipient' => $recipient));
-  }
-  else {
-    watchdog('error', 'Unable to send email to %recipient', array('%recipient' => $recipient));
-  }
-}
-
-
 function wsuser_resend_validation_link_action($object, $context) {
   $account = $object;
 
@@ -1804,7 +1710,7 @@ function wsuser_resend_validation_link_action($object, $context) {
   $language = $languages[$account->language];
 
   $params['account'] = $account;
-  $params['login_url'] = wsuser_eml_validate_url($account, $language);
+  $params['login_url'] = wsuser_eml_validate_url($account);
 
   if (in_array('pre-authorized', $account->roles) && module_exists('logintoboggan')) {
     drupal_mail('wsuser', 'logintoboggan_resend_validation', $account->mail, $language, $params);
@@ -1812,9 +1718,35 @@ function wsuser_resend_validation_link_action($object, $context) {
   }
 }
 
-function wsuser_eml_validate_url($account, $language){
+/**
+ * Returns a validation URL normalized to the user's selected language
+ * Of course, this is from logintoboggan_eml_validate_url(), but had to be
+ * forked because logintoboggan doesn't actualy respect language.
+ *
+ * @param $account
+ * @return string
+ */
+function wsuser_eml_validate_url($account){
+  $languages = language_list();
+  $language = $languages[$account->language];
+
   $timestamp = time();
   return url("user/validate/$account->uid/$timestamp/". logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail), array('absolute' => TRUE, 'language' => $language));
+}
+
+/**
+ * Returns a onetime-login link properly set up for the language of the user.
+ * Adapted from user_pass_reset_url()
+ *
+ * @param $account
+ * @return string
+ */
+function wsuser_pass_reset_url($account) {
+  $languages = language_list();
+  $language = $languages[$account->language];
+
+  $timestamp = time();
+  return url("user/reset/$account->uid/$timestamp/". user_pass_rehash($account->pass, $timestamp, $account->login), array('absolute' => TRUE, 'language' => $language));
 }
 
 
