@@ -504,13 +504,15 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
     // It's good to *try* to get the account from the email here, but they could
     // very well reply from another email account. So if it fails, that should not
     // be fatal.
-    $account = user_load($sender_uid);
-    // dd($account->name, "account loaded from uid {$sender_uid}");
+    $sender_account = user_load($sender_uid);
 
-    // dd($pm, 'pm in play');
+    if (!$sender_account || user_is_blocked($sender_account->name) || !privatemsg_user_access('write privatemsg', $sender_account)) {
+      watchdog('mandrill_incoming', 'Sender %sender_uid does not have privilege to write privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
+      return array(MANDRILL_INCOMING_ERROR);
+    }
 
-    $thread = privatemsg_thread_load($tid, $account);
-    // dd($thread, 'thread in play');
+    $thread = privatemsg_thread_load($tid, $sender_account);
+
     if (!array_key_exists("user_{$sender_uid}", $thread['participants'])) {
       // dd("Sender uid=$sender_uid not found in the msg recipients");
       watchdog('mandrill_incoming', 'Sender UID not found in msg recipients (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
@@ -525,10 +527,10 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
       $text = $msg->html;
     }
 
-    $text .= "\r\n\r\n" . t('Sent by email from Warmshowers member @username (@link)', array('@username' => $account->name, '@link' => url("user/{$account->uid}", array('absolute' => TRUE))));
+    $text .= "\r\n\r\n" . t('Sent by email from Warmshowers member @username (@link)', array('@username' => $sender_account->name, '@link' => url("user/{$sender_account->uid}", array('absolute' => TRUE))));
 
     // Attempt to send a reply.
-    $result = privatemsg_reply($tid, $text, array('author' => $account));
+    $result = privatemsg_reply($tid, $text, array('author' => $sender_account));
 
     if (!$result['success']) {
       watchdog('privatemsg', 'Failed to privatemsg_reply (%result)', array('%result' => print_r($result, TRUE)), WATCHDOG_ERROR);
@@ -540,10 +542,10 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
     // dd($result['message']['body'], 'body');
 
     // If this sender replied by email, it's just as if they just logged in, so update account.
-    user_save($account, array('login' => time()));
+    user_save($sender_account, array('login' => time()));
 
     // Mark the thread as read for the user who sent the message
-    privatemsg_thread_change_status($tid, PRIVATEMSG_READ, $account);
+    privatemsg_thread_change_status($tid, PRIVATEMSG_READ, $sender_account);
 
     return MANDRILL_INCOMING_HANDLED;  // Successfully handled message
   }
