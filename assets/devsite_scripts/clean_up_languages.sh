@@ -1,6 +1,6 @@
 #!/bin/bash
 
-devsite_host=warmshowers.thefays.us
+devsite_host=warmshowers.dev
 # If the English language version of the site has www on it, put "www." here.
 # Otherwise www. will be deleted from the language URLs.
 www_prefix=""

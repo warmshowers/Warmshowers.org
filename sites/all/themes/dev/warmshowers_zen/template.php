@@ -251,7 +251,8 @@ function warmshowers_zen_privatemsg_username($recipient, $options) {
  */
 function warmshowers_zen_username($object) {
 
-  $name = (!empty($object->fullname) && user_access('access user profiles')) ? $object->fullname : t("WS Member");
+  $name = (!empty($object->name) && user_access('access user profiles')) ? $object->name : t("WS Member");
+  list($name) = preg_split('/@/', $name);
 
   if ($object->uid && $name) {
     // Shorten the name when it is too long or it will break many tables.
@@ -304,7 +305,8 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
     }
 
     if (isset($picture)) {
-      $name = (!empty($account->fullname) && user_access('access user profiles')) ? $account->fullname : t("WS Member");
+      $name = (!empty($account->name) && user_access('access user profiles')) ? $account->name : t("WS Member");
+      list($name) = preg_split('/@/', $name);
       $alt = t("@user's picture", array('@user' => $name));
       if (isset($preset)) {
         $preset = is_numeric($preset) ? imagecache_preset($preset) : imagecache_preset_by_name($preset);
