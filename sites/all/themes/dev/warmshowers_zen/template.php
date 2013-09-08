@@ -250,14 +250,12 @@ function warmshowers_zen_privatemsg_username($recipient, $options) {
  * @return string
  */
 function warmshowers_zen_username($object) {
-
-  $name = (!empty($object->name) && user_access('access user profiles')) ? $object->name : t("WS Member");
-  list($name) = preg_split('/@/', $name);
+  $name = warmshowers_zen_sanitized_username($object);
 
   if ($object->uid && $name) {
     // Shorten the name when it is too long or it will break many tables.
-    if (drupal_strlen($name) > 20) {
-      $name = drupal_substr($name, 0, 15) . '...';
+    if (drupal_strlen($name) > 22) {
+      $name = drupal_substr($name, 0, 18) . '...';
     }
 
     if (user_access('access user profiles')) {
@@ -272,6 +270,34 @@ function warmshowers_zen_username($object) {
   }
 
   return $output;
+}
+
+/**
+ * Custom function to sanitize username
+ *
+ * We want to use fullname generally for *member* access. But it's not always
+ * populated, in that case use username. But it might have an email address in it;
+ * in which case use the user part of the email address.
+ *
+ * For unauth access, we'll just use 'WS Member'
+ *
+ * @param $account
+ *   User object
+ * @return name to use
+ */
+function warmshowers_zen_sanitized_username($account) {
+  $name = t('WS Member');
+  if (user_access('access user profiles')) {
+    if (!empty($account->fullname)) {
+      $name = $account->fullname;
+    }
+    else {
+      // Some members use email as username, we don't want to display.
+      list($name) = preg_split('/@/', $account->name);
+    }
+  }
+  // Otherwise, no access to profiles, so just use 'WS member', the default.
+  return $name;
 }
 
 /**
