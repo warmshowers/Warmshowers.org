@@ -1,0 +1,204 @@
+<?php
+// $Id: views_atom.module,v 1.1 2010/09/21 21:36:52 crell Exp $
+
+/**
+ * Implementation of hook_init().
+ */
+function views_atom_init() {
+  //require_once drupal_get_path('module', 'views_atom') .'/views_atom.theme.inc';
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function views_atom_views_api() {
+  return array(
+    'api' => 2.0,
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function views_atom_theme() {
+  return array(
+    'views_atom_fields_item' => array(
+      'arguments' => array(
+        'content' => '',
+        'view' => NULL,
+        'item' => NULL,
+      ),
+      'file' => 'views_atom.theme.inc',
+      'template' => 'views-atom-fields-item',
+    ),
+   'views_rss_feed_icon' => array(
+      'arguments' => array('url', 'title', 'icon'),
+      'file' => 'views_atom.theme.inc',
+    ),
+  );
+}
+
+/**
+ * Returns an array containing information about all Feed displays in the system.
+ *
+ * @return array
+ *   An array of descriptive arrays about the available feed displays.
+ */
+function views_atom_get_feed_displays() {
+
+  static $used_views = array();
+
+  if (empty($used_views)) {
+    views_include('cache');
+    $cache = views_cache_get("views_atom:feeds");
+    if (isset($cache->data)) {
+      $used_views = $cache->data;
+    }
+    else {
+      $views = views_get_all_views();
+      foreach ($views as $view) {
+        foreach ($view->display as $display_id => $display) {
+          if ($display->display_plugin == 'feed') {
+            $title = $view->get_title();
+            if (!$title) {
+              $title = $view->name;
+            }
+            $used_views[] = array('name' => $view->name, 'display' => $display_id, 'title' => $title, 'display_title' => $display->display_title);
+          }
+        }
+        $view->destroy();
+      }
+
+      views_cache_set("views_atom:feeds", $used_views);
+    }
+  }
+
+  return $used_views;
+}
+
+/**
+ * Generate a GUID for Atom feeds.
+ *
+ * @param $entity_type
+ *   The type of entity for which to generate a URI, such as "node" or "user".
+ * @param $entity_id
+ *   The ID of the entity.
+ * @return
+ *   A unique string that identifies the specified entity.
+ */
+function views_atom_guid($entity_type, $entity_id) {
+  // This is currently set to the absolute system path until a better UUID
+  // system can be implemented
+  return url("$entity_type/$entity_id", array('absolute' => TRUE, 'alias' => TRUE, 'purl' => array('disabled' => TRUE)));
+}
+
+/**
+ * Sanitize a string for an atom feed.
+ *
+ * Certain HTML character entities are not valid in XML and cause character
+ * encoding to go completely bananas.  This function converts those characters
+ * to their unicode equivalents.
+ *
+ * @link http://changelog.ca/log/2006/06/12/making_nbsp_work_with_xml_rss_and_atom
+ * @param $string
+ *   The string to sanitize. If any other data type is passed it is returned
+ *   unaffected.
+ */
+function views_atom_sanitize($string) {
+  $search = array();
+  $replace = array();
+
+  if (empty($search)) {
+    $replacements = array(
+      ' & ' => ' &#38; ',
+      '&amp;' => '&#38;',
+      '&nbsp;' => '&#160;',
+      '\r\n' => '\n',
+    );
+    $search = array_keys($replacements);
+    $replace = array_values($replacements);
+  }
+
+  if (is_string($string)) {
+    return str_replace($search, $replace, $string);
+  }
+
+  return $string;
+}
+
+
+/**
+ * Implementation of hook_views_atom_render().
+ */
+function content_views_atom_render($node, $entity_xml) {
+  // If there are any Fields associated with this entity, those each get
+  // added via a <field> element.  Each <field> element is assumed to be
+  // multi-value, just as Fields in Drupal are.
+
+  // This is totally the wrong way to do it, but CCK's API is too convoluted
+  // for me to figure out something else right now.
+  $result = db_query("SELECT field_name, type FROM {content_node_field}");
+
+  while ($record = db_fetch_object($result)) {
+    if (!empty($node->{$record->field_name})) {
+      $field = array_filter($node->{$record->field_name});
+      $field_xml = $entity_xml->addChild('field');
+      $field_xml->addAttribute('type', $record->type);
+      $field_xml->addAttribute('name', $record->field_name);
+      foreach ($field as $instance) {
+        $field_instance_xml = $field_xml->addChild('field-instance');
+        foreach ($instance as $column => $value) {
+          $serialize = FALSE;
+          if (is_array($value)) {
+            $value = serialize($value);
+            $serialize = TRUE;
+          }
+          $element_xml = $field_instance_xml->addChild('column', views_atom_sanitize($value));
+          $element_xml->addAttribute('name', $column);
+          if (!empty($serialize)) {
+            $element_xml->addAttribute('serialize', $serialize);
+          }
+        }
+      }
+
+      module_invoke_all('views_atom_render_field', $field_xml, $field, $record->type);
+    }
+  }
+}
+
+function filefield_views_atom_render_field(SimpleXMLElement $field_xml, $field, $field_type) {
+
+  // For filefields, also encode the complete URL to the file so that it can be
+  // pulled by the remote system.
+  if ($field_type == 'filefield') {
+    $instances = $field_xml->{'field-instance'};
+
+    foreach ($field as $i => $instance) {
+      $url = file_create_url($instance['filepath']);
+      $new_column = $instances[$i]->addChild('column', $url);
+      $new_column->addAttribute('name', 'full_url');
+    }
+  }
+}
+
+/**
+ * Implementation of hook_views_atom_render().
+ */
+function taxonomy_views_atom_render($node, $entity_xml) {
+  $taxonomy_xml = $entity_xml->addChild('taxonomy');
+  foreach ($node->taxonomy as $tid => $term) {
+    global $base_url;
+    $term_path = url(taxonomy_term_path($term), array('absolute' => TRUE, 'alias' => TRUE));
+    $vocabulary = taxonomy_vocabulary_load($term->vid);
+
+    $term_xml = $taxonomy_xml->addChild('term');
+    $term_xml->addAttribute('name', $term->name);
+    $term_xml->addChild('link', $term_path);
+    $term_xml->addChild('label', $term->name);
+    $term_xml->addChild('title', $term->name);
+    $term_xml->addChild('subject', $term->name);
+    $term_xml->addChild('description', views_atom_sanitize($term->description));
+    $term_xml->addChild('vocabulary', $vocabulary->name);
+  }
+}
+
