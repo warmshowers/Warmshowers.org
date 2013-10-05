@@ -91,6 +91,11 @@ function wsuser_menu() {
     'page arguments' => array(1),
     'access arguments' => array('administer users'),
   );
+  $items['country_count'] = array(
+    'title' => 'Users by Continent and Country',
+    'page callback' => 'wsuser_country_counts',
+    'access callback' => TRUE,
+  );
 
 	return $items;
 }
@@ -2196,4 +2201,73 @@ function wsuser_admin_details_page($account) {
 END;
 
   return $output;
+}
+
+
+/**
+ * Provide member counts page.
+ *
+ * @return string
+ */
+function wsuser_country_counts() {
+
+  $cache_key = 'wsuser_country_counts_html_' . $GLOBALS['language']->language;
+  $cached = cache_get($cache_key);
+  if (!empty($cached->data)) {
+    return $cached->data;
+  }
+
+  $output = '<p>' . t('Click the headers to change sort order.') . '</p>';
+
+  $output .= '<h3>' . t('Members by Continent') . '</h3>';
+
+  db_query("SET @total=(SELECT  COUNT(*) from {users} u JOIN {wsuser} w ON u.uid=w.uid WHERE u.status)");
+
+  $continents = array(
+    'AF' => t('Africa'),
+    'SA' => t('South America') . '&nbsp;&nbsp;',
+    'NA' => t('North America')  . '&nbsp;&nbsp;',
+    'EU' => t('Europe'),
+    'OC' => t('Oceania'),
+    'AS' => t('Asia'),
+  );
+  $header = array(
+    array('data' => t('Continent'), 'field' => 'continent', 'sort' => 'desc'),
+    array('data' => t('Members'), 'field' => 'members'),
+    array('data' => t('Percent'), 'field' => 'percent'),
+  );
+
+  $res = pager_query("SELECT g.continent, COUNT(*) members, ROUND((COUNT(*) * 100)/@total, 1) AS percent FROM {users} u, {wsuser} w, {user_location} l, {geonames_countryinfo} g WHERE u.uid = l.oid AND u.uid = w.uid AND l.country=g.iso_alpha2 AND u.status  GROUP BY g.continent " . tablesort_sql($header), 30);
+  $data = array();
+  while ($row = db_fetch_array($res)) {
+    $row['continent'] = $continents[$row['continent']];
+    $row['members'] = number_format($row['members']);
+    $data[] = array_values($row);
+  }
+  $output .= theme('table', $header, $data);
+
+
+  $output .= "<br/><br/>";
+  $output .= "<h3>" . t('Members by country') . '</h3>';
+
+  $header = array(
+    array('data' => t('Country Name'), 'field' => 'name', 'sort' => 'asc'),
+    array('data' => t('Country Code') . '&nbsp;&nbsp;', 'field' => 'country'),
+    array('data' => t('Members'), 'field' => 'members'),
+  );
+  $data = array();
+
+  $sql="SELECT g.name, l.country country, COUNT(*) members from {users} u, {wsuser} w, {user_location} l, geonames_countryinfo g WHERE u.uid = l.oid AND u.uid = w.uid AND l.country=g.iso_alpha2 AND u.status  AND ! w.isstale AND ! w.isunreachable GROUP BY g.continent, g.name " . tablesort_sql($header);
+  $res = pager_query($sql, 200);
+
+  while ($row = db_fetch_array($res)) {
+    $row['continent'] = $continents[$row['continent']];
+    $row['members'] = number_format($row['members']);
+    $data[] = array_values($row);
+
+  }
+  $output .= theme('table', $header, $data);
+  cache_set($cache_key, $output, 'cache', time() + 86400); // Expire after 1 day
+  return $output;
+
 }
