@@ -7,6 +7,7 @@ www_prefix=""
 
 #drush vset language_negotiation 0
 sed "s/warmshowers.org/$devsite_host/g
+s/https/http/g
 s/www./$www_prefix/g" languages.sql  | drush sqlc
 drush cc all
 
