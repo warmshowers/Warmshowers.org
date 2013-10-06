@@ -45,10 +45,10 @@ function ws_pm_email_notify_admin_settings_form() {
     '#description' => t('Customize the e-mail notification sent to users. Available variables are: !author, !author_uid, !pm_subject, !pm_body, !thread, !site, !login_url, !uri, !uri_brief, !message (URL) and !settings (URL).</p><p>To translate these messages use the i18nstrings.module and translate them trough the <a href="!translate_url">Translate interface</a> ("Privatemsg Email Notification" text group).</p>', array('!translate_url' => url('admin/build/translate/search'))),
   );
 
-  $form['pm_email']['pm_email_template']['pm_email_notify_from'] = array(
+  $form['pm_email']['pm_email_template']['ws_pm_email_notify_from'] = array(
     '#type' => 'textfield',
     '#title' => t('From e-mail address for notifications'),
-    '#default_value' => variable_get('pm_email_notify_from',''),
+    '#default_value' => variable_get('ws_pm_email_notify_from',''),
     '#weight' => 10,
     '#description' => t('This is the e-mail address that notifications will come from. Leave blank to use the site default.'),
   );
