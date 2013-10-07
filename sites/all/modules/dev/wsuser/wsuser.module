@@ -2134,6 +2134,8 @@ function wsuser_preprocess(&$variables, $key) {
 
   module_load_include('inc', 'ctools', 'includes/menu');
   $variables['menu_primary_local_tasks'] = '<ul class="links">' .  ctools_menu_primary_local_tasks() . '</ul>';
+  list($variables['pm_responsiveness'], $variables['pm_requests'], $variables['pm_responses'], $variables['pm_start_date']) = wsuser_privatemsg_responsiveness($account->uid);
+  $variables['pm_start_date'] = date('Y-m-d', $variables['pm_start_date']);
 
 }
 
@@ -2295,4 +2297,41 @@ function wsuser_country_counts() {
   cache_set($cache_key, $output, 'cache', time() + 86400); // Expire after 1 day
   return $output;
 
+}
+
+/**
+ * Calculate responsiveness to privatemsgs (initial privatemsg) for a user.
+ *
+ * @todo: Add this to wsuser table and stash it there.  Implement in views, services
+ *
+ * @param $uid
+ * @return array
+ *   - responsiveness percent OR 'N/A'
+ *   - number of requests initiated by others (int)
+ *   - number of responses to requests initiated by others (int)
+ *   - beginning of timeframe
+ */
+function wsuser_privatemsg_responsiveness($uid) {
+  static $result = array();
+  if (!empty($result[$uid])) {
+    return $result[$uid];
+  }
+  // Set the default calculation period to 1 year.
+  // This may be too much for initial deployment as messages returned by email have only been
+  // going through the site since August 10, 2013.
+  $period = max(strtotime(variable_get('wsuser_privatemsg_responsiveness_start', '2013-08-15')), time() - variable_get('wsuser_privatemsg_responsiveness_period', 31536000));
+
+  $received = db_result(db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND NOT pi.deleted AND pm.timestamp > %d', array($uid, $uid, $period)));
+
+  $responded = db_result(db_query('
+    SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi INNER JOIN {pm_message} pm ON pm.mid=pi.mid
+    WHERE pm.author = %d AND pi.thread_id IN
+      (SELECT DISTINCT(thread_id)
+       FROM {pm_index} pi, {pm_message} pm
+       WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND NOT pi.deleted AND pm.timestamp > %d)
+    ', array($uid, $uid, $uid, $period)));
+  $responsiveness = number_format(100 * $responded / $received);
+
+  $result[$uid] = array($responsiveness ? $responsiveness . '%' : t('N/A'), $received, $responded, $period);
+  return $result[$uid];
 }

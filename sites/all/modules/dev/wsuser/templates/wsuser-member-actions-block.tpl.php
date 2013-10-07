@@ -41,31 +41,3 @@
   );
 endif;
 ?>
-
-<div class="flags">
-  <?php if (!$is_self) : ?>
-    <div class="flag-description">
-      <?php print t('We count on members to say whether another member has been responsive or not. Please click below based on the responsiveness of this member'); ?>
-    </div>
-    <div class="linkbutton_group"><?php
-    print flag_create_link('responsive_member', $uid);
-    print flag_create_link('unresponsive_member', $uid);
-    ?></div>
-
-  <?php endif; ?>
-  
-  <div class="responsive-counts">
-    <?php if ($responsive_member): ?>
-      <div class="responsive-count">
-      <?php print format_plural($responsive_member, '%count member marked this member responsive', '%count members marked this member responsive', array('%count' => $responsive_member)); ?>
-      </div>
-    <?php endif; ?>
-    <?php if ($unresponsive_member): ?>
-      <div class="unresponsive-count">
-      <?php print format_plural($unresponsive_member, '%count member marked this member unresponsive', '%count members marked this member unresponsive', array('%count' => $unresponsive_member)); ?>
-      </div>
-    <?php endif; ?>
-  </div>
-
-
-</div>
