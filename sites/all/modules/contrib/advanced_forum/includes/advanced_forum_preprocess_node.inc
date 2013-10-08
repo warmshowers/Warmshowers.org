@@ -38,6 +38,11 @@ function _advanced_forum_preprocess_node(&$variables) {
     advanced_forum_add_template_suggestions("post", $variables['template_files']);
   }
 
+  // Add the JS for nodes (as opposed to listings)
+  //  added here in order that the template file selection logic above could decide
+  //  not to add this JS in certain circumstances.
+  drupal_add_js(drupal_get_path('module', 'advanced_forum') . '/js/advanced_forum_node.js', 'module');
+
   /* Topic header */
   // Check if this node is the first post, aka topic head. When using the
   // comment module, this will always be true because replies are not nodes

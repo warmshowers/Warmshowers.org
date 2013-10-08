@@ -141,7 +141,7 @@ function advanced_forum_is_styled($content, $teaser = FALSE, $type = 'node') {
   static $master_topic_id;
 
   // Give other modules a first crack at making the decision. To keep this
-  // simple, he last one in the array wins.
+  // simple, the last one in the array wins.
   $topic_ids = module_invoke_all('advanced_forum_is_styled_alter', $content, $teaser, $type);
   $topic_id = end($topic_ids);
 

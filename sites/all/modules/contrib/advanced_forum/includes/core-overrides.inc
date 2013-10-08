@@ -78,6 +78,8 @@ function advanced_forum_page($tid = 0) {
 function advanced_forum_get_forums($tid = 0) {
 
   $forums = array();
+  $node_types = array();
+  $only_forum_node_types = '';
   $vid = variable_get('forum_nav_vocabulary', '');
   $_forums = taxonomy_get_tree($vid, $tid);
 
@@ -85,12 +87,20 @@ function advanced_forum_get_forums($tid = 0) {
 
     $counts = array();
 
+    if ($vid) {
+      $vocabulary = taxonomy_vocabulary_load($vid);
+      $node_types = $vocabulary->nodes;
+      if (count($node_types) > 0) {
+        $only_forum_node_types = 'AND n.type IN (' . db_placeholders($node_types, 'varchar') . ')';
+      }
+    }
+
     $sql = "
       SELECT r.tid AS tid, n.nid AS nid, l.comment_count AS nid_comment_count
         FROM {node} n
         INNER JOIN {node_comment_statistics} l ON n.nid = l.nid
         INNER JOIN {term_node} r ON n.vid = r.vid
-        WHERE n.status = 1
+        WHERE n.status = 1 $only_forum_node_types
         GROUP BY r.tid, n.nid, l.comment_count";
     $sql_rewritten = db_rewrite_sql($sql);
     if ($sql_rewritten == $sql) {
@@ -99,7 +109,7 @@ function advanced_forum_get_forums($tid = 0) {
           FROM {node} n
           INNER JOIN {node_comment_statistics} l ON n.nid = l.nid
           INNER JOIN {term_node} r ON n.vid = r.vid
-          WHERE n.status = 1
+          WHERE n.status = 1 $only_forum_node_types
           GROUP BY r.tid";
       $sql = db_rewrite_sql($sql);
     }
@@ -110,7 +120,7 @@ function advanced_forum_get_forums($tid = 0) {
           GROUP BY tid";
     }
 
-    $_counts = db_query($sql);
+    $_counts = db_query($sql, $node_types);
     while ($count = db_fetch_object($_counts)) {
       $counts[$count->tid] = $count;
     }
@@ -179,8 +189,16 @@ function advanced_forum_get_topics($tid, $sortby, $forum_per_page, $sort_form = 
 
   // Views handles this page
   $view = views_get_view('advanced_forum_topic_list');
+  if (!is_object($view)) {
+    // views wasn't able to get the view - perhaps due to a bad cache?
+    // @see: http://drupal.org/node/687196
+    drupal_set_message(t('Sorry, the topic listing for %term is temporarily unavailable.', array('%term' => $term->name)), 'error', FALSE);
+    return;
+  }
   $view->set_display('default');
   $view->set_arguments(array($tid));
   $view->sort_form = $sort_form;
+  // apply the 'Topics per page' setting from core Forum
+  $view->display['default']->handler->options['items_per_page'] = $forum_per_page;
   return $view->preview();
 }

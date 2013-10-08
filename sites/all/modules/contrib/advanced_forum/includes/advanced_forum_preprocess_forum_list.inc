@@ -10,11 +10,19 @@ function _advanced_forum_preprocess_forum_list(&$variables) {
   // Tell Drupal to use our forum list template file.
   advanced_forum_add_template_suggestions("forum-list", $variables['template_files']);
 
+  // Added variable for default collapsed configuration
+  $variables['collapsed_main_list'] = variable_get('advanced_forum_default_collapsed_list', '');
+
   // Add needed items for the collapsible containers.
-  $variables['collapsible'] = variable_get('advanced_forum_collapsible_containers', 'slide');
+  $variables['collapsible'] = variable_get('advanced_forum_collapsible_containers', 'toggle');
   if ($variables['collapsible'] != 'none') {
     drupal_add_js(drupal_get_path('module', 'advanced_forum') . '/js/advanced_forum.js', 'module');
     drupal_add_js(array('advanced_forum' => array('effect' => $variables['collapsible'])), 'setting');
+    // Add JS setting for default collapsed config so that intial display for this list will be collapsed
+    drupal_add_js(array('advanced_forum' => array('default_collapsed_list' => $variables['collapsed_main_list'])), 'setting');
+  }
+  else {
+    $variables['collapsible'] = FALSE;
   }
 
   // The tid is the ID of the container or forum we are in. Assign it to
@@ -44,6 +52,7 @@ function _advanced_forum_preprocess_forum_list(&$variables) {
     }
   }
 
+  // Calculate number of and number of new child posts for each item. 
   for ($depth = $lowest_depth; $depth > 0; $depth--)
     foreach ($items as $id => $item) {
       if ($item->depth == $depth) {
@@ -175,7 +184,7 @@ function _advanced_forum_preprocess_forum_list(&$variables) {
     }
   }
 
-  // Theme subcontainers, subforums and add post counts to parents.
+  // Theme subcontainers and subforums.
   foreach ($tables as $table_id => $table) {
     foreach ($table['items'] as $item_id => $item) {
       if (!empty($item->subforum_list)) {
@@ -229,7 +238,7 @@ function advanced_forum_process_container($container) {
 
   // Add in the taxonomy image, if any.
   if (function_exists('taxonomy_image_display') && variable_get('advanced_forum_use_taxonomy_image', TRUE)) {
-    $container->forum_image = taxonomy_image_display($container->tid);
+    $container->forum_image = taxonomy_image_display($container->tid, NULL, variable_get('advanced_forum_use_taxonomy_image_preset', ''));
   }
 
   // Initialize these variables to avoid notices later.
@@ -306,6 +315,7 @@ function advanced_forum_process_forum($forum) {
 
       if ($forum->new_posts) {
         $forum->new_posts_text = format_plural($forum->new_posts, '1 new', '@count new');
+        $forum->new_posts_path = "forum/$forum->tid";
         $forum->new_posts_link = url("forum/$forum->tid", array('fragment' => 'new'));
       }
     }
@@ -314,14 +324,18 @@ function advanced_forum_process_forum($forum) {
   // Process the "last post" object into a printable string.
   // Trying to copy the string back into the variable directly caused odd bugs
   // so we move it to a temp variable then unset the original.
+  // Before doing so, however, we make a copy in case another module implementing
+  // hook_TYPE_alter() needs access to the raw data.
+  $forum->last_post_obj = $forum->last_post;
   $last_post = (empty($forum->last_post)) ? '' : $forum->last_post;
   unset($forum->last_post);
   $forum->last_post = theme('forum_submitted', $last_post);
 
   // Add in the taxonomy image, if any
   if (function_exists('taxonomy_image_display') && variable_get('advanced_forum_use_taxonomy_image', TRUE)) {
-    $forum->forum_image = taxonomy_image_display($forum->tid);
+    $forum->forum_image = taxonomy_image_display($forum->tid, NULL, variable_get('advanced_forum_use_taxonomy_image_preset', ''));
   }
 
+  drupal_alter('advanced_forum', $forum);
   return $forum;
 }

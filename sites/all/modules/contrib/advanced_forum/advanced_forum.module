@@ -28,22 +28,23 @@ function advanced_forum_menu() {
     'page arguments' => array('advanced_forum_settings_page'),
     'page callback' => 'drupal_get_form',
     'title' => 'Advanced Forum',
-    'file' => 'includes/settings.inc'
+    'file' => 'includes/settings.inc',
   );
 
   $items['forum/markasread'] = array(
     'access callback' => 'advanced_forum_markasread_access',
     'page callback' => 'advanced_forum_markasread',
     'type' => MENU_CALLBACK,
+    'file' => 'includes/mark-read.inc',
   );
 
   if (variable_get('advanced_forum_add_local_task', TRUE)) {
     $items['forum/view'] = array(
       'title' => 'View Forums',
       'page callback' => 'advanced_forum_page',
-      'access arguments' => array('access content'),
       'type' => MENU_DEFAULT_LOCAL_TASK,
       'weight' => -100,
+      'file' => 'includes/core-overrides.inc'
     );
   }
 
@@ -164,8 +165,8 @@ function advanced_forum_theme() {
     )
   );
 
-  // These only exist if nodecomment is on.
-  if (module_exists('nodecomment')) {
+  // These only exist if both search and nodecomment are on.
+  if (module_exists('search') && module_exists('nodecomment')) {
     $items['advanced_forum_search_forum'] = array(
       'arguments' => array('tid' => NULL),
       'template' => 'advanced_forum-search-forum',
@@ -647,6 +648,9 @@ function advanced_forum_forum_topic_list_sort() {
 
 function advanced_forum_forum_topic_list_sort_form(&$form_state) {
   $view = views_get_view('advanced_forum_topic_list');
+  if (!is_object($view)) {
+    return;
+  }
   $view->set_display('default');
   $view->init_handlers();
   $view->init_style();
@@ -793,6 +797,17 @@ function advanced_forum_statistics_online_users() {
 
 // CALCULATING LINKS - New, Last, Etc *****************************************/
 
+function advanced_forum_user_can_reply($node) {
+  if (module_exists('nodecomment') && !empty($node->node_comment) && !empty($node->comment_type)) {
+    $access = user_access('create ' . $node->comment_type . ' content');
+  }
+  else {
+    $access = user_access('post comments');
+  }
+  return $access;
+}
+
+
 function advanced_forum_get_reply_link($node) {
   $reply_link = array();
 
@@ -803,7 +818,7 @@ function advanced_forum_get_reply_link($node) {
   $fragment = (empty($node->node_comment)) ? 'comment-form'  : 'node-form';
 
   if ($comment_setting == COMMENT_NODE_READ_WRITE) {
-    if (user_access('post comments')) {
+    if (advanced_forum_user_can_reply($node)) {
       if (variable_get('comment_form_location_'. $node->type, COMMENT_FORM_SEPARATE_PAGE) == COMMENT_FORM_SEPARATE_PAGE) {
         // Reply form is on separate page. Grab the href from the node links
         // so it's automatically corrected for Node Comments if needed.
@@ -850,6 +865,10 @@ function advanced_forum_get_reply_link($node) {
  */
 function advanced_forum_last_post_link($node) {
   $last_comment_id = advanced_forum_last_post_in_topic($node->nid);
+  // Return empty link if post doesn't have comments.
+  if (empty($last_comment_id)) {
+    return;
+  }
   $last_page = advanced_forum_get_last_page($node);
   $query = ($last_page > 0) ? "page=$last_page" : '';
 
@@ -930,8 +949,19 @@ function advanced_forum_reply_num_new($nid, $timestamp = 0) {
     $viewed = 0; // If not told otherwise, it has been viewed before
     if ($user->uid) {
       $viewed = node_last_viewed($nid);
-      // Set it to 1 if it has not been viewed before.
-      $viewed = ($viewed == 0 ? 1 : 0);
+      // Set it to 1 if it has not been viewed before, but only if it has been
+      // modified after NODE_NEW_LIMIT; that is, it wouldn't have been purged
+      // from {history}.
+      if ($viewed == 0) {
+        if (node_last_changed($nid) > NODE_NEW_LIMIT) {
+          $viewed = 1;
+        }
+      }
+      else {
+        // seems counterintuitive, but set to zero as node_last_viewed gave us a timestamp
+        //  indicating that the node has been viewed before
+        $viewed = 0;
+      }
     }
 
     $comment_type = module_invoke('nodecomment', 'get_comment_type', $node->type);
@@ -1021,6 +1051,7 @@ function advanced_forum_first_new_comment($nid, $timestamp = 0) {
 
     }
     else {
+      // If this query is appearing in your slow query log @see: http://drupal.org/node/1728770
       $query = "SELECT c.cid
                 FROM {comments} c
                 WHERE c.nid = %d AND c.timestamp > %d AND c.status = %d
@@ -1265,7 +1296,7 @@ function advanced_forum_unread_replies_in_forum($tid, $uid) {
               WHERE n.status = 1 AND n.changed > %d AND (n.changed > h.timestamp OR h.timestamp IS NULL)
               GROUP BY f.tid";
 
-      $sql = db_rewrite_sql($sql);
+      $sql = db_rewrite_sql($sql, 'nc', 'cid');
     }
     else {
       $sql = "SELECT COUNT(c.cid) AS count, f.tid

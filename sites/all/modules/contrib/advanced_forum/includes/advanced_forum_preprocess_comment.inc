@@ -172,5 +172,5 @@ function _advanced_forum_preprocess_comment(&$variables) {
   }
 
   /* Post edited */
-  $variables['post_edited'] = (isset($variables['comment_edited'])) ? $variables['comment_edited'] : "";
+  $variables['post_edited'] = (isset($comment->comment_edited)) ? $comment->comment_edited : "";
 }

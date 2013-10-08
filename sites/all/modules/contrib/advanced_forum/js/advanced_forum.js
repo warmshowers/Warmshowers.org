@@ -29,7 +29,15 @@
 
     // Get data for current page
     Drupal.advanced_forum.collapsed_current = Drupal.advanced_forum.collapsed_page[encodeURIComponent(window.location.pathname)];
-    if (!Drupal.advanced_forum.collapsed_current) Drupal.advanced_forum.collapsed_current = new Array();
+    if (!Drupal.advanced_forum.collapsed_current) {
+      Drupal.advanced_forum.collapsed_current = new Array();
+
+      // For intial load default collapsed state settings needs to checked in init function.
+      Drupal.advanced_forum.initial_load = 1;
+    }
+    else {
+      Drupal.advanced_forum.initial_load = 0;
+    }
     var handleSpan = $('span.advanced-forum-toggle', context);
 
     // Set initial collapsed state
@@ -71,13 +79,28 @@
     // get forum id
     var id = $(this).attr('id').split('-')[2];
 
-    // Check if item is collapsed
-    if ($.inArray(id, Drupal.advanced_forum.collapsed_current) > -1) {
-      $(this).addClass('advanced-forum-collapsed');
-      $('#forum-table-' + id).hide();
-    } else {
-      $(this).removeClass('advanced-forum-collapsed');
-      $('#forum-table-' + id).show();
+    var list = 0;
+    // On initial load, deal with default collapsed state of containers.
+    if(Drupal.advanced_forum.initial_load) {
+      for(list in Drupal.settings.advanced_forum.default_collapsed_list) {
+        if (id == list) {
+          $(this).addClass('advanced-forum-collapsed');
+          $('#forum-table-' + id).hide();
+          break;
+        }
+      }
+    }
+
+    // if it doesn't match to above default config list.
+    if(id != list) {
+      // Check if item is collapsed
+      if ($.inArray(id, Drupal.advanced_forum.collapsed_current) > -1) {
+        $(this).addClass('advanced-forum-collapsed');
+        $('#forum-table-' + id).hide();
+      } else {
+        $(this).removeClass('advanced-forum-collapsed');
+        $('#forum-table-' + id).show();
+      }
     }
   };
 

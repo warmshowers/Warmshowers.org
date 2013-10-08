@@ -46,6 +46,12 @@ function advanced_forum_views_data_alter(&$data) {
       'handler' => 'advanced_forum_handler_field_node_topic_pager',
     ),
   );
+
+  // Define a custom field handler for node title, which overrides the render_as_link function
+  // The purpose of doing so is to avoid character encoding errors caused by views.
+  //  @see: http://drupal.org/node/1361526
+  // If the problem is fixed in views, this can be removed.
+  $data['node']['title']['field']['handler'] = 'advanced_forum_handler_field_node_title';
 }
 
 /**
@@ -63,6 +69,9 @@ function advanced_forum_views_handlers() {
       ),
       'advanced_forum_handler_field_node_topic_pager' => array(
         'parent' => 'views_handler_field',
+      ),
+      'advanced_forum_handler_field_node_title' => array(
+        'parent' => 'views_handler_field_node',
       ),
     ),
   );

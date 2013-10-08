@@ -131,7 +131,7 @@ function theme_advanced_forum_topic_pager($pagecount, $topic) {
       $last_page = ' &hellip; ' . $topic_pager->last_page_text;
     }
 
-    return '<span class="topic-pager">(Page: ' . implode(", ", $topic_pager->initial_pages) . $last_page . ')</span>';
+    return '<span class="topic-pager">(' . t('Page') . ': ' . implode(", ", $topic_pager->initial_pages) . $last_page . ')</span>';
   }
 }
 
@@ -174,7 +174,7 @@ function theme_advanced_forum_subforum_list($subforum_list) {
       $text .= ')';
     }
     else {
-      $text .= ' - ' . l($subforum->new_posts_text, $subforum->new_posts_link) . ')';
+      $text .= ' - ' . l($subforum->new_posts_text, $subforum->new_posts_path, array('fragment' => 'new')) . ')';
     }
 
     $subforums[] = $text;
@@ -204,7 +204,7 @@ function theme_advanced_forum_subcontainer_list($subcontainer_list) {
       $text .= ')';
     }
     else {
-      $text .= ' - ' . l($subforum->new_posts_text, $subforum->new_posts_link) . ')';
+      $text .= ' - ' . l($subcontainer->new_posts_text, $subcontainer->new_posts_path, array('fragment' => 'new')) . ')';
     }
 
     $subcontainers[] = $text;

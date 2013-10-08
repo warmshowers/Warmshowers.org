@@ -45,11 +45,8 @@ function _template_preprocess_advanced_forum_topic_list_view(&$variables) {
   $stickies_done = FALSE;
   $sticky_count = 0;
 
+  $renders = $handler->render_fields($result);
   foreach ($result as $count => $row) {
-
-    foreach ($keys as $id) {
-      $renders[$count][$id] = $view->field[$id]->theme($row);
-    }
 
     // Grab the teaser so it can be used on the title of the td as a popup
     // preview. By default, the view provides the teaser as a popup on the
