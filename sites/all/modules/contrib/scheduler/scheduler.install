@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ * Installation file for Scheduler module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function scheduler_schema() {
+  return array(
+    'scheduler' => array(
+      'description' => t('The main table to hold the scheduler data.'),
+      'fields' => array(
+        'nid' => array(
+          'description' => t('The foreign key to node.nid'),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'publish_on' => array(
+          'description' => t('The UNIX UTC timestamp when to publish'),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'unpublish_on' => array(
+          'description' => t('The UNIX UTC timestamp when to unpublish'),
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'indexes' => array(
+        'scheduler_publish_on' => array('publish_on'),
+        'scheduler_unpublish_on' => array('unpublish_on'),
+      ),
+      'primary key' => array('nid'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function scheduler_install() {
+  drupal_install_schema('scheduler');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function scheduler_uninstall() {
+  drupal_uninstall_schema('scheduler');
+  db_query("DELETE FROM {variable} WHERE name LIKE '%s_%%'", 'scheduler');
+}
+
+function scheduler_update_2() {
+  $ret = array();
+  db_change_column($ret, 'scheduler', 'timestamp_posted', 'publish_on', 'integer', array('not null' => TRUE, 'default' => "0"));
+  db_change_column($ret, 'scheduler', 'timestamp_hidden', 'unpublish_on', 'integer', array('not null' => TRUE, 'default' => "0"));
+  db_add_column($ret, 'scheduler', 'timezone', 'integer', array('not null' => TRUE, 'default' => "0"));
+  return $ret;
+}
+
+function scheduler_update_3() {
+  $ret = array();
+  db_add_index($ret, 'scheduler', 'scheduler_publish_on', array('publish_on'));
+  db_add_index($ret, 'scheduler', 'scheduler_unpublish_on', array('unpublish_on'));
+  return $ret;
+}
+
+function scheduler_update_6100() {
+  $ret = array();
+  if (db_column_exists('scheduler', 'timezone')) {
+    $ret[] = update_sql("UPDATE {scheduler} SET publish_on=publish_on-timezone WHERE publish_on<>0");
+    $ret[] = update_sql("UPDATE {scheduler} SET unpublish_on=unpublish_on-timezone WHERE unpublish_on<>0");
+    db_drop_field($ret, 'scheduler', 'timezone');
+  }
+  return $ret;
+}
+
+function scheduler_update_6101() {
+  $ret = array();
+  $types = node_get_types('types');
+  foreach ($types as $type) {
+    $type_name = $type->type;
+  	$publish_enable = variable_get('scheduler_'. $type_name, 0);
+  	$publish_touch = variable_get('scheduler_touch_'. $type_name, 0);
+
+  	variable_set('scheduler_publish_enable_'. $type_name, $publish_enable);
+  	variable_set('scheduler_unpublish_enable_'. $type_name, $publish_enable);
+   	variable_set('scheduler_publish_touch_'. $type_name, $publish_touch);
+
+  	variable_del('scheduler_touch_'. $type_name);
+  	variable_del('scheduler_'. $type_name);
+  }
+  return $ret;
+}
