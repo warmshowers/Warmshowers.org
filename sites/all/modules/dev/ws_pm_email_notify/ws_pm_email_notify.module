@@ -32,6 +32,7 @@ define('PM_EMAIL_NOTIFY_LEVEL_ALL', 12);
  */
 define('PM_EMAIL_NOTIFY_LEVEL_DEFAULT', -1);
 
+
 /**
  * Implements hook_perm().
  */
@@ -219,9 +220,8 @@ function ws_pm_email_notify_mail($key, &$message, $params) {
 
   switch ($key) {
     case 'notice':
-
       // Add a reply-to for our replymail service
-      $message['headers']['Reply-To'] = variable_get('ws_pm_email_notify_mandrill_from', 'messages@reply.warmshowers.org');
+      $message['headers']['Reply-To'] = ws_pm_email_notify_reply_to_address($params['message']['mid'], $params['recipient']);
       $message['subject'] = strtr(_ws_pm_email_notify_text('subject', $language), $variables);
       $message['body'][0] = strtr(_ws_pm_email_notify_text('body', $language), $variables);
       break;
@@ -251,7 +251,8 @@ function _ws_pm_email_notify_token($recipient, $message, $language) {
     '!message' => url(privatemsg_get_dynamic_url_prefix($recipient->uid) . '/view/' . $message['thread_id'], array('absolute' => TRUE, 'language' => $language)),
     '!settings' => url('user/' . $recipient->uid . '/edit', array('absolute' => TRUE, 'language' => $language)),
     '!pm_mhash' => ws_pm_email_notify_hash_mid_tid($message['mid'], $message['thread_id']),
-    '!pm_routing_hash' => "(mid:{$message['mid']}:{$recipient->uid}:" . ws_pm_email_notify_hash_mid_tid($message['mid'], $message['thread_id']) . ')',
+    '!pm_routing_hash' => ws_pm_email_notify_routing_hash($message['mid'], $message['thread_id'], $recipient->uid),
+    '!pm_routing_email_addr' => ws_pm_email_notify_reply_to_email($message['mid'], $recipient),
   );
 
   // Allow other modules to alter the token mapping.
@@ -455,6 +456,72 @@ function ws_pm_email_notify_tt($name, $string, $language = NULL, $update = FALSE
   }
 }
 
+/**
+ * Parse the incoming Mandrill message to find the routing info in ->email (new, preferred) or in subject
+ *
+ * @param $msg
+ *   Mandrill message object
+ *
+ * @return array or NULL
+ *   Array of
+ *     'mid' => privatemsg
+ *     'sender_uid'
+ *     'their_mhash' (message hash provided in incoming email
+ */
+function ws_pm_email_notify_routing_from_msg($msg) {
+  $matches = array();
+  $routing_re = '/mid[:.]([0-9]+)[:.]([0-9]+)[:.]([a-zA-Z0-9\/=\+]+)/';
+
+  if ($count = preg_match($routing_re, $msg->email, $matches) || $count =  preg_match($routing_re, $msg->subject, $matches)) {
+    list($fullmatch, $mid, $sender_uid, $their_mhash) = $matches;
+    return array($mid, $sender_uid, $their_mhash);
+  }
+}
+
+/**
+ * Validate that routing information we received from message is valid and usable
+ *
+ * @param $msg
+ * @param $mid
+ * @param $sender_uid
+ * @param $their_mhash
+ * @return boolean
+ *   FALSE = failed validation
+ */
+function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash) {
+  $pm = privatemsg_message_load($mid);
+
+  // Validate that we can find the pm
+  if (empty($pm)) {
+    watchdog('mandrill_incoming', 'Failed to load message id for incoming mid=%mid', array('%mid' => $mid));
+    return FALSE;
+  }
+
+  // Validate privatemsg mid and thread_id, which is hidden in hash.
+  $tid = $pm['thread_id'];
+  $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
+  if ($our_mhash != $their_mhash) {
+    watchdog('mandrill_incoming', 'Message hash in incoming message (%their_mhash) did not match hash (%our_mhash)', array('%their_mhash' => $their_mhash, '%our_mhash' => $our_mhash), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  // Validate sender uid
+  $sender_account = user_load($sender_uid);
+  if (!$sender_account || user_is_blocked($sender_account->name) || !privatemsg_user_access('write privatemsg', $sender_account)) {
+    watchdog('mandrill_incoming', 'Sender %sender_uid does not have privilege to write privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  // Validate thread and permissions to the thread by sender
+  $thread = privatemsg_thread_load($tid, $sender_account);
+  if (!array_key_exists("user_{$sender_uid}", $thread['participants'])) {
+    // dd("Sender uid=$sender_uid not found in the msg recipients");
+    watchdog('mandrill_incoming', 'Sender UID %uid not found in msg recipients %recipients', array('%uid' => $sender_uid, '%recipients' => print_r($thread['participants'], TRUE)), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  return TRUE;
+}
 
 /**
  * Implements hook_mandrill_incoming_event() to handle a single inbound
@@ -464,100 +531,43 @@ function ws_pm_email_notify_tt($name, $string, $language = NULL, $update = FALSE
  * @return array|int
  */
 function ws_pm_email_notify_mandrill_incoming_event($event) {
-  $ts = $event->ts;
+  $ts = $event->ts;  // Consider setting the event ts as the ts of the PM.
   $msg = $event->msg;
 
-  // dd($msg->subject, 'incoming mandrill event subject');
-  // dd($msg->from_email, 'incoming from_email');
-
-  $matches = array();
-  // Here we have to match in the mhash anything that can be in a base64_encode().
-  if ($count = preg_match('/mid:([0-9]+):([0-9]+):([a-zA-Z0-9_\+\/=]+)/', $msg->subject, $matches)) {
-    // dd($count, 'preg_match count');
-
-    $mid = $matches[1];
-    $sender_uid = $matches[2];
-    $their_mhash = $matches[3];
-
-    $pm = privatemsg_message_load($mid);
-    if (empty($pm)) {
-      watchdog('privatemsg', 'Failed to identify message id for incoming mid=%mid', array('%mid' => $mid));
-      // dd($mid, 'Empty load for this mid on privatemsg_load');
-      watchdog('mandrill_incoming', 'Failed to identify message ID in incoming subject (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
-      return array(MANDRILL_INCOMING_ERROR);
-    }
-
-    $tid = $pm['thread_id'];
-
-    $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
-    // dd($our_mhash, 'our mhash');
-    // dd($their_mhash, 'their mhash');
-    if ($their_mhash != $our_mhash) {
-      // dd('mhashes do not match, so bailing');
-      watchdog('mandrill_incoming', 'Message hash in incoming subject did not match correct (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
-      return array(MANDRILL_INCOMING_ERROR);
-    }
-
-    // It's good to *try* to get the account from the email here, but they could
-    // very well reply from another email account. So if it fails, that should not
-    // be fatal.
-    $sender_account = user_load($sender_uid);
-
-    if (!$sender_account || user_is_blocked($sender_account->name) || !privatemsg_user_access('write privatemsg', $sender_account)) {
-      watchdog('mandrill_incoming', 'Sender %sender_uid does not have privilege to write privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
-      return array(MANDRILL_INCOMING_ERROR);
-    }
-
-    $thread = privatemsg_thread_load($tid, $sender_account);
-
-    if (!array_key_exists("user_{$sender_uid}", $thread['participants'])) {
-      // dd("Sender uid=$sender_uid not found in the msg recipients");
-      watchdog('mandrill_incoming', 'Sender UID not found in msg recipients (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
-
-      return array(MANDRILL_INCOMING_ERROR);
-    }
-
-    $text = $msg->text;
-    // We have some messages with no text part. In that case, use html part.
-    // Later we'll replace this and just use the html, maybe.
-    if (empty($text)) {
-      $text = $msg->html;
-    }
-
-    // Replace from our message divider to the end of the message
-    $text = preg_replace('/[\r\n ]*[> ]*------* .* -----*\+(.|[\r\n\t])*$/', '', $text);
-
-    // Attempt to send a reply.
-    $result = privatemsg_reply($tid, $text, array('author' => $sender_account));
-
-    if (!$result['success']) {
-      watchdog('privatemsg', 'Failed to privatemsg_reply (<pre>@result</pre>)', array('@result' => print_r($result, TRUE)), WATCHDOG_ERROR);
-      return MANDRILL_INCOMING_ERROR;
-    }
-
-    // dd($result['success'], 'privatemsg_reply result');
-    // dd($result['messages'], 'privatemsg_msgs');
-    // dd($result['message']['body'], 'body');
-
-    // If this sender replied by email, it's just as if they just logged in, so update account.
-    user_save($sender_account, array('login' => time()));
-
-    // Mark the thread as read for the user who sent the message
-    privatemsg_thread_change_status($tid, PRIVATEMSG_READ, $sender_account);
-
-    return MANDRILL_INCOMING_HANDLED;  // Successfully handled message
-  }
-  elseif (!strcasecmp($msg->subject, 'test')) {
-    watchdog('mandrill_incoming', 'Received inbound test message from @email: %message', array('@email' => $msg->from, '%message' => print_r($msg, TRUE)));
-    return MANDRILL_INCOMING_HANDLED;  // We can ignore test messages from new members.
-  }
-  // Else failed to match on the subject message id, hash, etc.
-  else {
-    // dd($count, 'preg_match count');
-    // dd('missed the match in preg_match');
-    watchdog('mandrill_incoming', 'Failed to handle incoming event - Subject did not match expected pattern (%subject)', array('%subject' => $msg->subject), WATCHDOG_ERROR);
+  list($mid, $sender_uid, $their_mhash) = ws_pm_email_notify_routing_from_msg($msg);
+  $valid = ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash);
+  if (!$valid) {
     return array(MANDRILL_INCOMING_ERROR);
   }
+
+  $pm = privatemsg_message_load($mid);
+  $tid = $pm['thread_id'];
+  $sender_account = user_load($sender_uid);
+
+  $text = $msg->text;
+  // We have some messages with no text part. In that case, use html part.
+  // Later we'll replace this and just use the html, maybe.
+  if (empty($text)) {
+    $text = $msg->html;
+  }
+
+  // Replace from our message divider to the end of the message
+  $text = preg_replace('/[\r\n ]*[> ]*------* .* -----*\+(.|[\r\n\t])*$/', '', $text);
+
+  // Attempt to send a reply.
+  $result = privatemsg_reply($tid, $text, array('author' => $sender_account));
+
+  if (!$result['success']) {
+    watchdog('privatemsg', 'Failed to privatemsg_reply (<pre>@result</pre>)', array('@result' => print_r($result, TRUE)), WATCHDOG_ERROR);
+    return array(MANDRILL_INCOMING_ERROR);
+  }
+
+  // If this sender replied by email, it's just as if they just logged in, so update account.
+  user_save($sender_account, array('login' => time()));
+
+  // Mark the thread as read for the user who sent the message
+  privatemsg_thread_change_status($tid, PRIVATEMSG_READ, $sender_account);
+  return array(MANDRILL_INCOMING_HANDLED);  // Successfully handled message
 }
 
 /**
@@ -573,4 +583,50 @@ function ws_pm_email_notify_hash_mid_tid($mid, $tid) {
 
   $signed_data = "$mid:$tid";
   return base64_encode(hash_hmac('sha1', $signed_data, $key, TRUE));
+}
+
+
+/**
+ * Create a reply-to address with routing information
+ *
+ * @param $message
+ * @param $recipient
+ * @return string
+ */
+function ws_pm_email_notify_reply_to_address($mid, $recipient) {
+  $reply_to_friendlyname = variable_get('ws_pm_email_notify_mandrill_reply_to_friendlyname', 'Warmshowers Messages');
+  $reply_to_email = ws_pm_email_notify_reply_to_email($mid, $recipient);
+
+  return "{$reply_to_friendlyname} <$reply_to_email>";
+}
+
+/**
+ * Return the actual email to be used in reply-to header
+ *
+ * @param $mid
+ * @param $recipient
+ * @return string
+ */
+function ws_pm_email_notify_reply_to_email($mid, $recipient) {
+  $pm = privatemsg_message_load($mid);
+  $reply_to_localpart = variable_get('ws_pm_email_notify_mandrill_reply_to_localpart_base', 'messages');
+  $reply_to_domain = variable_get('ws_pm_email_notify_mandrill_reply_to_domain', 'reply.warmshowers.org');
+  $reply_to_routing = ws_pm_email_notify_routing_hash($mid, $pm['thread_id'], $recipient->uid);
+  return "{$reply_to_localpart}+{$reply_to_routing}@{$reply_to_domain}";
+}
+/**
+ * Return routing hash which can be used on subject and/or reply-to
+ * This is chosen as something that is safe in the email and is not used in
+ * base64.
+ *
+ * @param $mid
+ *   Privatemsg message id
+ * @param $thread_id
+ *   Privatemsg thread_id
+ * @param $recipient_uid
+ *
+ * @return string
+ */
+function ws_pm_email_notify_routing_hash($mid, $thread_id, $recipient_uid) {
+  return "mid.{$mid}.{$recipient_uid}." . ws_pm_email_notify_hash_mid_tid($mid, $thread_id);
 }

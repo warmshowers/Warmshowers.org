@@ -79,10 +79,24 @@ function ws_pm_email_notify_admin_settings_form() {
     '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_enabled', 0),
   );
 
-  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_from'] = array(
+  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_friendlyname'] = array(
     '#type' => 'textfield',
-    '#title' => t('From address used when mandrill is to be used for replies)'),
-    '#default_value' => variable_get('ws_pm_email_notify_mandrill_from', ''),
+    '#title' => t('Friendly name of email address for reply-to'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_from_reply_to_friendlyname', 'Warmshowers Messages'),
+  );
+
+  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_localpart_base'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Localpart base of email address for reply-to'),
+    '#description' => t('If the reply-to is messages+nonsense.32.none@reply.warmshowers.org, the localpart base is "messages"'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_from_reply_to_localpart_base', 'messages'),
+  );
+
+  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_domain'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Domain of email address for reply-to'),
+    '#description' => t('If the reply-to is messages+nonsense.32.none@reply.warmshowers.org, the domain is "reply.warmshowers.org"'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_domain', 'reply.warmshowers.org'),
   );
 
   $form['pm_email']['mandrill_integration']['ws_pm_email_notify_hashkey'] = array(
