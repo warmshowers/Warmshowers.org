@@ -64,13 +64,6 @@
 	<?php endif; ?>
 </div>
 
-<div class="responsive-counts">
-  <div class="responsive-count">
-    <?php print t('Message responsiveness: @responsiveness', array('@responsiveness' => $pm_responsiveness)); ?>
-  </div>
-  (<?php print t('@responses responses to @requests requests since @start', array('@responses' => $pm_responses, '@requests' => $pm_requests, '@start' => $pm_start_date)); ?>)
-</div>
-
 <div class="member-actions"><?php
 if ($account->uid != $GLOBALS['user']->uid) {
 	print theme('linkbutton', array(
@@ -86,5 +79,15 @@ if ($account->uid != $GLOBALS['user']->uid) {
 else {
 	print theme('linkbutton', array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit','classes'=> 'rounded light',));
 	print theme('linkbutton', array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location','classes'=> 'rounded light',));
-} ?></div>
+} ?>
+
+</div>
+
+  <div class="responsive-counts">
+    <div class="responsive-count">
+      <?php print t('Message responsiveness: @responsiveness', array('@responsiveness' => $pm_responsiveness)); ?>
+    </div>
+    (<?php print t('@responses responses to @requests requests since @start', array('@responses' => $pm_responses, '@requests' => $pm_requests, '@start' => $pm_start_date)); ?>)
+  </div>
+
 </div>
