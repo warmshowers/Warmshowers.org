@@ -899,6 +899,10 @@ function check_plain($text) {
     if (is_array($text)) {
       watchdog('php', 'array %array sent to check_plain, stacktrace=<pre>@stacktrace</pre>', array('%array' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
     }
+    if (!drupal_validate_utf8($text)) {
+      watchdog('php', 'Invalid utf8 in check_plain() text=%text, stacktrace=<pre>@stacktrace</pre>', array('%text' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
+    }
+
     return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
   }
   return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
