@@ -896,6 +896,9 @@ function check_plain($text) {
   // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
 
   if ($php525) {
+    if (is_array($text)) {
+      watchdog('php', 'array %array sent to check_plain, stacktrace=<pre>@stacktrace</pre>', array('%array' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
+    }
     return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
   }
   return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
