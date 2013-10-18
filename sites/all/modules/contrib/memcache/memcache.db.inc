@@ -1,5 +1,8 @@
 <?php
-// $Id: memcache.db.inc,v 1.2.2.11.2.2 2008/11/01 12:32:13 jvandyk Exp $
+
+/** THIS FILE IS DEPRECATED - DO NOT USE **/
+// http://drupal.org/node/959200
+// http://drupal.org/node/961496
 
 require_once 'dmemcache.inc';
 
@@ -23,10 +26,10 @@ function cache_get($cid, $table = 'cache') {
   global $memcache_online;
 
   // Garbage collection necessary when enforcing a minimum cache lifetime
-  $cache_flush = variable_get('cache_flush', 0);
-  if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= time())) {
+  $cache_flush = variable_get('cache_flush_'. $table, 0);
+  if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= $_SERVER['REQUEST_TIME'])) {
     // Reset the variable immediately to prevent a meltdown in heavy load situations.
-    variable_set('cache_flush', 0);
+    variable_set('cache_flush_'. $table, 0);
     // Time to flush old cache data
     db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire <= %d", CACHE_PERMANENT, $cache_flush);
   }
@@ -127,7 +130,7 @@ function cache_get($cid, $table = 'cache') {
  */
 function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $headers = NULL, $db_storage = TRUE) {
   global $memcache_online;
-  $created = time();
+  $created = $_SERVER['REQUEST_TIME'];
 
   // Create new cache object.
   $cache = new stdClass;
@@ -145,14 +148,16 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
     }
 
     // Save to the database
-    db_query("DELETE FROM {%s} WHERE cid = '%s'", $table, $cid);
-    db_query("INSERT INTO {%s} (cid, data, expire, created, headers, serialized) VALUES ('%s', %b, %d, %d, '%s', '%s')", $table, $cid, $data, $expire, $created, $headers, $serialized);
+    db_query("UPDATE {". $table ."} SET data = %b, created = %d, expire = %d, headers = '%s', serialized = %d WHERE cid = '%s'", $data, $created, $expire, $headers, $serialized, $cid);
+    if (!db_affected_rows()) {
+      @db_query("INSERT INTO {". $table ."} (cid, data, created, expire, headers, serialized) VALUES ('%s', %b, %d, %d, '%s', %d)", $cid, $data, $created, $expire, $headers, $serialized);
+    }
   }
 
   // Save to memcache
   if ($expire == CACHE_TEMPORARY) {
     // 2591199 seconds = about 1 month
-    $expire = variable_get('cache_lifetime', 2591999);
+    $expire = $_SERVER['REQUEST_TIME'] + variable_get('cache_lifetime', 2591999);
   }
   if ($memcache_online !== FALSE) {
     dmemcache_set($cid, $cache, $expire, $table);
@@ -173,9 +178,9 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
  *   argument if $cid is set.
  *
  * @param $wildcard
- *   If set to TRUE, the $cid is treated as a substring
- *   to match rather than a complete ID. The match is a right hand
- *   match. If '*' is given as $cid, the table $table will be emptied.
+ *   If $wildcard is TRUE, cache IDs starting with $cid are deleted in
+ *   addition to the exact cache ID specified by $cid.  If $wildcard is
+ *   TRUE and $cid is '*' then the entire table $table is emptied.
  */
 function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
   global $user;
@@ -197,18 +202,18 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // will be saved into the sessions table by sess_write(). We then
       // simulate that the cache was flushed for this user by not returning
       // cached data that was cached before the timestamp.
-      $user->cache = time();
+      $user->cache = $_SERVER['REQUEST_TIME'];
 
-      $cache_flush = variable_get('cache_flush', 0);
+      $cache_flush = variable_get('cache_flush_'. $table, 0);
       if ($cache_flush == 0) {
         // This is the first request to clear the cache, start a timer.
-        variable_set('cache_flush', time());
+        variable_set('cache_flush_'. $table, $_SERVER['REQUEST_TIME']);
       }
-      else if (time() > ($cache_flush + variable_get('cache_lifetime', 0))) {
-        // Clear the cache for everyone, cache_flush_delay seconds have
+      else if ($_SERVER['REQUEST_TIME'] > ($cache_flush + variable_get('cache_lifetime', 0))) {
+        // Clear the cache for everyone, cache_lifetime seconds have
         // passed since the first request to clear the cache.
-        db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, time());
-        variable_set('cache_flush', 0);
+        db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, $_SERVER['REQUEST_TIME']);
+        variable_set('cache_flush_'. $table, 0);
         // Note there is no memcache flush here.
         // Items are cached in memcache with an expiry equal to cache_lifetime
         // and memcache will expire these automatically.
@@ -221,14 +226,14 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
       // minimum cache lifetime means that all CACHE_PERMANENT items are
       // lost here, too. To avoid that, set a minimum cache lifetime.
       dmemcache_flush($table);
-      db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, time());
+      db_query("DELETE FROM {". $table ."} WHERE expire != %d AND expire < %d", CACHE_PERMANENT, $_SERVER['REQUEST_TIME']);
     }
   }
   else {
     if ($wildcard) {
       if ($cid == '*') {
         dmemcache_flush($table);
-        db_query("DELETE FROM {". $table ."}");
+        db_query("TRUNCATE TABLE {". $table ."}");
       }
       else {
         db_query("DELETE FROM {". $table ."} WHERE cid LIKE '%s%%'", $cid);

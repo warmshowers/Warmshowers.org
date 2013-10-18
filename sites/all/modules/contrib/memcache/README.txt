@@ -1,4 +1,11 @@
-// $Id: README.txt,v 1.4.2.10.2.5 2009/01/29 18:01:47 jeremy Exp $
+
+## Requirements ##
+
+- PHP 5.1 or greater
+- Availability of a memcached daemon: http://memcached.org/
+- One of the two PECL memcache packages:
+  - http://pecl.php.net/package/memcache (older, most stable)
+  - http://pecl.php.net/package/memcached (newer, possible performance issues)
 
 ## INSTALLATION ##
 
@@ -17,38 +24,26 @@ http://www.lullabot.com/articles/how_install_memcache_debian_etch
 6. Start at least one instance of memcached on your server.
 7. Edit settings.php to configure the servers, clusters and bins that memcache
    is supposed to use.
-8. Edit settings.php to include either memcache.inc or memcache.db.inc. For
-   example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.db.inc';
+8. Edit settings.php to include either memcache.inc. For
+   example, $conf['cache_inc'] ='sites/all/modules/memcache/memcache.inc';
 9. Bring your site back online.
 
 For instructions on 1 and 2 above, please see the INSTALLATION.txt file that
 comes with the memcache module download.
 
-Either the memcache.inc or the memcache.db.inc file is intended to be used
-instead of cache.inc, utilizing Drupal's pluggable cache system. The .db.inc
-variant saves all data to the database as well, so the site will still have
-the performance benefits of cache even if you take your memcache offline. The
-site should not ever break due to memcache not being available...it is only
-a question of whether caching is still available or not. The memcache.inc file
-doesn't save any data to the database and thus has the biggest potential for
-increasing your site's performance. If you use this file it is important to
-have enough memory allocated to memcache to store everything (including the page
-cache), otherwise the cache misses will negate the benefit of the cache hits.
+The memcache.inc file is intended to be used instead of cache.inc, utilizing
+Drupal's pluggable cache system.
 
-Note that memcache.db.inc support a global minimum cache lifetime, whereas
-memcache.inc tracks the minimum cache lifetime on a per-table basis:
+memcache.db.inc IS DEPRECATED AND IS NOT RECOMMENDED. It is still distributed
+with the 6.x-1.x branch, but will not be included in any further versions and
+may be removed in future 6.x releases.
 
-http://www.lullabot.com/files/memcache-inc.png
-http://www.lullabot.com/files/memcache-db-inc.png
-
-Update $conf in settings.php to tell Drupal which cache_inc file to use:
+Update $conf in settings.php to tell Drupal where the cache_inc file is:
 
  $conf = array(
    // The path to wherever memcache.inc is. The easiest is to simply point it
    // to the copy in your module's directory.
    'cache_inc' => './sites/all/modules/memcache/memcache.inc',
-   // or
-   // 'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
  );
 
 ## SERVERS ##
@@ -62,7 +57,7 @@ than your web server, read on.
 
 The available memcached servers are specified in $conf in settings.php. If
 you do not specify any servers, memcache.inc assumes that you have a
-memcached instance running on localhost:11211. If this is true, and it is
+memcached instance running on 10.0.0.1:11211. If this is true, and it is
 the only memcached instance you wish to use, no further configuration is
 required.
 
@@ -102,21 +97,21 @@ $conf = array(
   ...
   // Important to define a default cluster in both the servers
   // and in the bins. This links them together.
-  'memcache_servers' => array('localhost:11211' => 'default',
-                              'localhost:11212' => 'pages'),
+  'memcache_servers' => array('10.0.0.1:11211' => 'default',
+                              '10.0.0.1:11212' => 'pages'),
   'memcache_bins' => array('cache' => 'default',
                            'cache_page' => 'pages'),
 );
 
 Here is an example configuration that has two clusters, 'default' and
 'cluster2'. Five memcached instances are divided up between the two
-clusters. 'cache_filter' and 'cache_menu' bins goe to 'cluster2'. All other
+clusters. 'cache_filter' and 'cache_menu' bins go to 'cluster2'. All other
 bins go to 'default'.
 
 $conf = array(
-  'cache_inc' => './includes/memcache.inc',
-  'memcache_servers' => array('localhost:11211' => 'default',
-                              'localhost:11212' => 'default',
+  'cache_inc' => './sites/all/modules/memcache/memcache.inc',
+  'memcache_servers' => array('10.0.0.1:11211' => 'default',
+                              '10.0.0.1:11212' => 'default',
                               '123.45.67.890:11211' => 'default',
                               '123.45.67.891:11211' => 'cluster2',
                               '123.45.67.892:11211' => 'cluster2'),
@@ -125,6 +120,29 @@ $conf = array(
                            'cache_filter' => 'cluster2',
                            'cache_menu' => 'cluster2'),
 );
+
+Here is an example configuration where the 'cache_form' bin is set to bypass
+memcache and use the standard table-based Drupal cache by assigning it to a
+cluster called 'database'.
+
+$conf = array(
+  ...
+  'memcache_servers' => array('10.0.0.1:11211' => 'default'),
+  'memcache_bins' => array('cache' => 'default',
+                           'cache_form' => 'database'),
+);
+
+## memcache_extra_include and database.inc ##
+
+In the above example, mapping a bin to 'database' makes a cache be stored
+in the database instead of memcache. This is actually done by the file
+database.inc, which is copy and pasted from DRUPAL/includes/cache.inc. 
+If you want to provide an alternate file instead of database.inc to handle
+the cache calls to 'database', override the variable memcache_extra_include
+in settings.php to provide the location of the file to include. This only
+applies if you are using memcache.inc (not memcache.db.inc, which is deprecated).
+
+
 ## PREFIXING ##
 
 If you want to have multiple Drupal installations share memcached instances,
@@ -142,7 +160,7 @@ Here is a sample config that uses memcache for sessions. Note you MUST have
 a session and a users server set up for memcached sessions to work.
 
 $conf = array(
-  'cache_inc' => './sites/all/modules/memcache/memcache.db.inc',
+  'cache_inc' => './sites/all/modules/memcache/memcache.inc',
   'session_inc' => './sites/all/modules/memcache/memcache-session.inc',
   'memcache_servers' => array(
     'localhost:11211' => 'default',
@@ -180,3 +198,93 @@ See http://drupal.org/node/273824
 
 A module offering a UI for memcache is included. It provides stats, a
 way to clear the cache, and an interface to organize servers/bins/clusters.
+
+
+## Memcached PECL Extension Support
+
+The Drupal memcache module supports both the memcache and the memcached PECL
+extensions.  If both extensions are installed the older memcache extension will
+be used by default.  If you'd like to use the newer memcached extension remove
+the memcache extension from your system or configure settings.php to force
+your website to use the newer extension:
+  $conf['memcache_extension'] = 'memcached';
+
+The newer memcached PECL extension uses libmemcached on the backend and allows
+you to use some of the newer advanced features in memcached 1.4.  It is highly
+recommended that you test with both PECL extensions to determine which is a
+better fit for your infrastructure.  CAUTION: There have been performance and
+functionality regressions reported when using the memcached extension.
+
+NOTE: It is important to realize that the memcache php.ini options do not impact
+the memcached extension, this new extension doesn't read in options that way.
+Instead, it takes options directly from Drupal. Because of this, you must
+configure memcached in settings.php. Please look here for possible options:
+
+http://us2.php.net/manual/en/memcached.constants.php
+
+An example configuration block is below, this block also illustrates our
+default options. These will be set unless overridden in settings.php.
+
+$conf['memcache_options'] = array(
+  Memcached::OPT_COMPRESSION => FALSE,
+  Memcached::OPT_DISTRIBUTION => Memcached::DISTRIBUTION_CONSISTENT,
+);
+
+These are as follows:
+
+ * Turn off compression, as this takes more CPU cycles than its worth for most
+   users
+ * Turn on consistent distribution, which allows you to add/remove servers
+   easily
+
+If you are using memcached 1.4 or above, you should enable the binary protocol,
+which is more advanced and faster, by adding the following to settings.php:
+
+$conf['memcache_options'] = array(
+  Memcached::OPT_BINARY_PROTOCOL => TRUE,
+);
+
+
+## Stampede protection ##
+
+Memcache now includes stampede protection for expired and invalid cache items.
+To enable stampede protection, enable it in settings.php
+$conf['memcache_stampede_protection'] = TRUE;
+
+Stampede protection relies on the locking framework. It is strongly recommended
+to use the memcache lock implementation instead of core's SQL implementation.
+This is especially true if using the stampede protection since a lock stampede
+may be as bad or worse than a cache stampede if using SQL.
+$conf['lock_inc'] = './sites/all/modules/memcache/memcache-lock.inc';
+
+Behaviour of the stampede protection can be tweaked via the following, see
+comments in memcache.inc for more.
+
+The value passed to lock_acquire. Defaults to '15'.
+$conf['memcache_stampede_semaphore'] = 15;
+
+The value to pass to lock_wait, defaults to 5.
+$conf['memcache_stampede_wait_time'] = 5;
+
+The limit of calls to lock_wait() due to stampede protection during one request.
+Defaults to 3.
+$conf['memcache_stampede_wait_limit'] = 3;
+
+When setting these variables, note that:
+ - there is unlikely to be a good use case for setting wait_time higher
+   than stampede_semaphore.
+ - wait_time * wait_limit is designed to default to a number less than
+   standard web server timeouts (i.e. 15 seconds vs. apache's default of
+   30 seconds).
+
+## Persistent connections ##
+
+If you are using the Memcache PECL extension you can specify whether or not to
+connect using persistent connections in settings.php. If you do not specify a
+value it defaults to FALSE.  For example, to enable persistent connections
+add the following to your settings.php file:
+$conf['memcache_persistent'] = TRUE;
+
+Persistent connections when using the Memcached PECL extension are currently
+not supported.  See http://drupal.org/node/822316#comment-4427676 for further
+details.

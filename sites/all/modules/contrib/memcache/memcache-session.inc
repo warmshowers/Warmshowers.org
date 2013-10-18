@@ -1,5 +1,4 @@
 <?php
-// $Id: memcache-session.inc,v 1.1.2.2.2.10 2009/07/14 22:07:11 jeremy Exp $
 
 require_once dirname(__FILE__) . '/dmemcache.inc';
 
@@ -9,6 +8,17 @@ require_once dirname(__FILE__) . '/dmemcache.inc';
  *
  * An alternative to includes/session.inc.
  */
+
+/**
+ * Implement hook_user() using a required module's namespace since memcache is 
+ * not a module and thus can't implement hooks directly.
+ */
+function filter_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'update') {
+    // Invalidate cached user object.
+    cache_clear_all($account->uid, 'users');
+  }
+}
 
 function sess_open($save_path, $session_name) {
   return TRUE;
@@ -36,12 +46,19 @@ function sess_read($key) {
   // Otherwise, if the session is still active, we have a record of the 
   // client's session in memcache.
   $session = dmemcache_get($key, 'session');
-  
+
   $user = sess_user_load($session);
 
   // Record whether this session contains data so that in sess_write() it can 
   // be determined whether to skip a write.
-  $user->session_data_present_at_load = !empty($session->session);
+  if ($user->session_data_present_at_load = !empty($session->session)) {
+    // Set a global value for the original session value to be compared against
+    // during sess_write().
+    $GLOBALS['memcache_session_last_read'] = array(
+      'sid' => $session->sid,
+      'value' => $user->session,
+    );
+  }
 
   return $user->session;
 }
@@ -76,7 +93,7 @@ function sess_write($key, $value) {
   // If the client doesn't have a session, and one isn't being created ($value),
   // do nothing. If session saving has been turned off, do nothing.
   // Cases 1a, 1c, and 2c are covered here.
-  if ((empty($_COOKIE[session_name()]) && empty($value)) || !session_save_session()) {
+  if (!session_save_session() || ($user->uid == 0 && empty($_COOKIE[session_name()]) && empty($value))) {
     return TRUE;
   }
 
@@ -87,7 +104,11 @@ function sess_write($key, $value) {
   $session->cache = isset($user->cache) ? $user->cache : '';
   $session->hostname = ip_address();
   $session->session = $value;
-  $session->timestamp = time();
+  $session->timestamp = $_SERVER['REQUEST_TIME'];
+
+  // Be sure that we have the latest user object.  If user_save() has been
+  // called, we need to refresh the object from the database.
+  $user = sess_user_load($session);
 
   // If this is an authenticated user, or there is something to save in the
   // session, or this is an anonymous user who currently has nothing in the 
@@ -96,21 +117,39 @@ function sess_write($key, $value) {
   // was created during this request and it's safest to do a write. 
   // Cases 1b, 1d, 2a, and 2b are covered here.
   if ($user->uid || !empty($value) || empty($value) && (!isset($user->session_data_present_at_load) || $user->session_data_present_at_load)) {
-    dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
-    if ($user->uid && $session->timestamp - $user->access > variable_get('session_write_interval', 360)) {
+    // Additionally, check if the session has changed since it was loaded.
+    // if not, only write with the same frequency as session_write_interval.
+    $last_read = isset($GLOBALS['memcache_session_last_read']) ? $GLOBALS['memcache_session_last_read'] : FALSE;
+    $is_changed = empty($last_read) || $last_read['sid'] != $key || $last_read['value'] != $value;
+
+    if ($is_changed || time() - $user->timestamp > variable_get('session_write_interval', 360)) {
+      dmemcache_set($key, $session, ini_get('session.gc_maxlifetime'), 'session');
+      $session_write = TRUE;
+    }
+    if ($user->uid && time() - $user->access > variable_get('session_write_interval', 360)) {
+      // Update user->access if the session_write_interval threshold has
+      // passed.
       db_query('UPDATE {users} SET access = %d WHERE uid = %d', $session->timestamp, $user->uid);
       // Update the user access time so that the dmemcache_set() call
       // caches the updated time.
       $user->access = $session->timestamp;
+      $access_update = TRUE;
     }
-    // Data stored in session is stored in session memcache; no need
-    // to duplicate it in users memcache.
-    unset($user->session);
-    unset($user->session_data_present_at_load);
-    // Store the session id so we can locate the session with the user id.
-    $user->sid = $key;
-    
-    dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
+    // If either the session $user->access has been updated, refresh the cached
+    // user object.
+    if (!empty($session_write) || !empty($access_update)) {
+      // Always update the cached user object if the session has changed.
+      $user->timestamp = $session->timestamp;
+
+      // If users.access has been updated, also refresh the cached user object.
+      // Data stored in session is stored in session memcache; no need
+      // to duplicate it in users memcache.
+      unset($user->session);
+      unset($user->session_data_present_at_load);
+      // Store the session id so we can locate the session with the user id.
+      $user->sid = $key;
+      dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
+    }
   }
 
   return TRUE;
@@ -123,7 +162,7 @@ function sess_regenerate() {
   // regardless of the Drupal configuration.
   // TODO: remove this when we require at least PHP 4.4.0
   if (isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 42000, '/');
+    setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 42000, '/');
   }
 
   // Store the current (anonymous) session id.
@@ -162,6 +201,30 @@ function sess_count($timestamp = 0, $anonymous = true) {
  */
 function sess_destroy_sid($sid) {
   dmemcache_delete($sid, 'session');
+
+  // If the session ID being destroyed is the one of the current user,
+  // clean-up his/her session data and cookie.
+  if ($sid == session_id()) {
+    global $user;
+
+    // Reset $_SESSION and $user to prevent a new session from being started
+    // in drupal_session_commit()
+    $_SESSION = array();
+    $user = drupal_anonymous_user();
+
+    // Unset the session cookie.
+    if (isset($_COOKIE[session_name()])) {
+      $params = session_get_cookie_params();
+
+      if (version_compare(PHP_VERSION, '5.2.0') === 1) {
+        setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 3600, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+      }
+      else {
+        setcookie(session_name(), '', $_SERVER['REQUEST_TIME'] - 3600, $params['path'], $params['domain'], $params['secure']);
+      }
+      unset($_COOKIE[session_name()]);
+    }
+  }
 }
 
 /**
@@ -223,25 +286,34 @@ function sess_user_load($session) {
     // In either of these cases, the user must be retrieved from the database.
     if (!$user->uid && isset($session->uid) && $session->uid != 0) {
       $user = db_fetch_object(db_query('SELECT u.* FROM {users} u WHERE u.uid = %d', $session->uid));
+      if (!$user->status) {
+        $user = drupal_anonymous_user($session->session);
+      }
+      else {
+        $user = drupal_unpack($user);
 
-      $user = drupal_unpack($user);
+        // Add roles element to $user
+        $user->roles = array();
+        $user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
+        $result = db_query("SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = %d", $user->uid);
+        while ($role = db_fetch_object($result)) {
+          $user->roles[$role->rid] = $role->name;
+        }
+      }
+
       // Normally we would join the session and user tables. But we already
       // have the session information. So add that in.
       $user->sid = $session->sid;
       $user->cache = $session->cache;
       $user->hostname = $session->hostname;
       $user->timestamp = $session->timestamp;
-      $user->session = empty($session->session) ? '' : $session->session;
 
-      // Add roles element to $user
-      $user->roles = array();
-      $user->roles[DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
-      $result = db_query("SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = %d", $user->uid);
-      while ($role = db_fetch_object($result)) {
-        $user->roles[$role->rid] = $role->name;
-      }
+      // Write back to memcache before setting $user->session since this
+      // is available separately.
+      dmemcache_set($user->uid, $user, ini_get('session.gc_maxlifetime'), 'users');
+      $user->session = empty($session->session) ? '' : $session->session;
     }
-    else if ($user->uid) {
+    else if ($user->uid && $user->status) {
       // Got a user object from 'users' memcache bin. Mark it in case modules
       // want to know that this user was created from memcache.
       $user->from_cache = TRUE;
