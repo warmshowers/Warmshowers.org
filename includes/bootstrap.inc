@@ -898,6 +898,7 @@ function check_plain($text) {
   if ($php525) {
     if (is_array($text)) {
       watchdog('php', 'array %array sent to check_plain, stacktrace=<pre>@stacktrace</pre>', array('%array' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
+      $text = $text[0];
     }
     if (!drupal_validate_utf8($text)) {
       watchdog('php', 'Invalid utf8 in check_plain() text=%text, stacktrace=<pre>@stacktrace</pre>', array('%text' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
