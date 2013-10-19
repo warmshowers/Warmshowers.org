@@ -126,10 +126,6 @@ function warmshowers_zen_preprocess_page(&$variables) {
   }
   $variables['classes_array'][] = 'spg-'.array_pop(explode("/", $_GET['q']));
 
-  // Get $section as *unaliased* section (from menu_path).
-  list($section, ) = explode('/', $variables['menu_item']['path'], 2);
-  $variables['classes_array'][] = drupal_html_class('section-' . $section);
-
   // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
   if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
     unset($variables['breadcrumb']);
