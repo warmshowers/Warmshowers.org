@@ -18,15 +18,15 @@ $baseurl = "http://download.geonames.org/export/dump";
 $indir= "infiles";
 $outdir="outfiles";
 
+# Make sure the 'infiles' directory is loaded with recent downloads
+#loadurl($baseurl,"admin1Codes.txt");
+#loadurl($baseurl,"countryInfo.txt");
 
-loadurl($baseurl,"admin1Codes.txt");
-loadurl($baseurl,"countryInfo.txt");
-
-if ( ! -f "$indir/allCountries.zip") {
-	loadurl($baseurl,"allCountries.zip");
-} else {
-	print STDERR "Using existing allCountries.zip, not downloading. If you want to download, delete the $indir/AllCountries.zip and delete $outdir/geonames.txt``\n";
-}
+#if ( ! -f "$indir/allCountries.zip") {
+#	loadurl($baseurl,"allCountries.zip");
+#} else {
+#	print STDERR "Using existing allCountries.zip, not downloading. If you want to download, delete the $indir/AllCountries.zip and delete $outdir/geonames.txt``\n";
+#}
 
 
 $result = system('egrep -v "^#|^iso" '.  "\"$indir/countryInfo.txt\"  >\"$outdir/geonames_countryinfo.txt\"");
@@ -37,7 +37,7 @@ processadm1();
 makeallcountriessmaller();
 
 
-truncate_tables("geonames", "geonames_adm1", "geonames_countryinfo", "user_location_countries", "user_location_provinces");
+truncate_tables("geonames", "geonames_adm1", "geonames_countryinfo");
 
 # Do the insertions using mysqlimport
 
@@ -49,24 +49,13 @@ print "\nLoading geonames_adm1:\n";
 system("mysqlimport -h localhost -u$user -p$pwd --default-character-set=utf8 --fields-terminated-by='\t' --lines-terminated-by='\n' --columns='country_code,adm1_code,name' --local $db $outdir/geonames_adm1.txt") ;
 
 
-
+#ISO	ISO3	ISO-Numeric	fips	Country	Capital	Area(in sq km)	Population	Continent	tld	CurrencyCode	CurrencyName	Phone	Postal Code Format	Postal Code Regex	Languages	geonameid	neighbours	EquivalentFipsCode
 print "\nLoading geonames_countryinfo:\n";
-system("mysqlimport -h localhost -u$user -p$pwd --default-character-set=utf8 --fields-terminated-by='\t' --lines-terminated-by='\n' --columns='iso_alpha2,iso_alpha3,iso_numeric,fips_code,name,capital,area,population,continent,languages,currency,geonameid' --local $db $outdir/geonames_countryinfo.txt") ;
+system("mysqlimport  --debug --default-character-set=utf8 --fields-terminated-by='\t' --lines-terminated-by='\n' --columns='iso_alpha2,iso_alpha3,iso_numeric,fips_code,name,capital,area,population,continent,\@x,currency,\@x,\@x,\@x,\@x,languages,geonameid,\@x' --local $db $outdir/geonames_countryinfo.txt") ;
 
-print "\nLoading user_location_countries:\n";
-system("mysqlimport -h localhost -u$user -p$pwd --default-character-set=utf8 --fields-terminated-by='\t' --lines-terminated-by='\n' --columns='country,description,latitude,longitude' --local $db user_location_countries.txt") ;
-
-print "\nLoading user_location_provinces:\n";
-system("mysql -h localhost -u$user -p$pwd --default-character-set=utf8 $db <user_location_provinces.sql") ;
 
 truncate_tables('cache');
 
-
-
-# Now do the insertions. The tables should already be there
-#domysql("truncate geonames_countryinfo; LOAD data infile '$outdir/countryInfo_nocomments.txt' into table geonames_countryinfo;");
-#domysql("truncate geonames_adm1; LOAD data infile '$outdir/admin1Codes.processed.txt' into table geonames_adm1;show warnings;");
-#domysql("truncate geonames; LOAD data infile '$outdir/allCountries.smaller.txt' into table geonames;");
 
 sub truncate_tables() {
 	foreach $table (@_) {
@@ -76,17 +65,11 @@ sub truncate_tables() {
 }
 sub domysql {
 	($sql) = @_;
-	$tfile="$indir/tfile.sql";
-	open(TFILE, ">$tfile" ) || croak "Failed tfile: $!";
-	print TFILE $sql;
-	close TFILE;
-
-	$mysqlcmd='mysql -u' . $user . ' -p' . $pwd . ' ' . $db . ' < ' . $tfile . ' |';
+	$mysqlcmd="mysql -u $user -p$pwd -e '$sql' $db |";
 	print "\nTrying: $mysqlcmd\n";
 	open(MYSQL, $mysqlcmd) || croak "Failed to open mysql: $1";
 	print <MYSQL>;
 	close MYSQL || croak "MYSQL failed: $!";
-	unlink $tfile;
 }
 
 
@@ -101,7 +84,7 @@ sub processadm1 {
 		print ADMOUTPUT "$country_code\t$province_code\t$name";
 	}
 }
-	
+
 sub makeallcountriessmaller {
 	if ( -f "$outdir/geonames.txt" ) {
 		print STDERR "Skipping processing of allCountries.zip because the file outfiles/geonames.txt already exists. Don't want to waste your time. Delete that file if you want to process it.";
@@ -121,7 +104,7 @@ sub makeallcountriessmaller {
 		$counter++;
 		if ($counter%10000 == 0) { print STDERR "$counter "; }
 
-		if ($feature_class eq "A" || $feature_code eq "CONT" 
+		if ($feature_class eq "A" || $feature_code eq "CONT"
 			|| (($feature_code eq "PPL" || $feature_code eq "PPLA" || $feature_code eq "PPLC") && $population > 1000)) {
 			#for ($i; $i<$#fields; $i++) {
 				#print "$i: $fields[$i] | ";
@@ -129,7 +112,6 @@ sub makeallcountriessmaller {
 			#print "\n";
 			print SMALLER;
 		}
-			
 	}
 }
 
@@ -144,7 +126,7 @@ sub loadurl {
 		croak "Failed to load $file: $!";
 	}
 	chdir($mydir);
-	
+
 }
 
 sub dir_exists {
