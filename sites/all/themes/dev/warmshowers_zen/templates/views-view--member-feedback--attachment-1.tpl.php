@@ -39,7 +39,7 @@
     $account = user_load($view->args[0]);
   ?>
 
-  <h1 id="feedback_given">Feedback given by <?php echo $account->fullname; ?></h1>
+  <h1 id="feedback_given"><?php print t("Feedback given by @fullname", array('@fullname' => $account->fullname)); ?></h1>
   <?php if ($exposed): ?>
     <div class="view-filters">
       <?php print $exposed; ?>

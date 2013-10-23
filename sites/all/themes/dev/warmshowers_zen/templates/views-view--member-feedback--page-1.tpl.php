@@ -40,11 +40,11 @@
   ?>
     <div class="view-header">
       <?php print $header; ?>
-      <a href="#feedback_given">View feedback</a> <?php echo $account->fullname; ?> has given.
+      <a href="#feedback_given"><?php print t("View feedback @fullname has given", array('@fullname' => $account->fullname)); ?></a>
     </div>
   <?php endif; ?>
 
-  <h1>Feedback received by <?php echo $account->fullname; ?></h1>
+  <h1><?php print t("Feedback received by @fullname", array('@fullname' => $account->fullname)); ?></h1>
   <?php if ($exposed): ?>
     <div class="view-filters">
       <?php print $exposed; ?>
