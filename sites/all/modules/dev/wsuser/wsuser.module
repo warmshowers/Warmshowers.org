@@ -2329,17 +2329,19 @@ function wsuser_privatemsg_responsiveness($uid) {
   // going through the site since August 10, 2013.
   $period = max(strtotime(variable_get('wsuser_privatemsg_responsiveness_start', '2013-08-15')), time() - variable_get('wsuser_privatemsg_responsiveness_period', 31536000));
 
-  $received = db_result(db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND pm.timestamp > %d', array($uid, $uid, $period)));
+  $received = db_result(db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND pi.deleted <> 1 AND pm.timestamp > %d', array($uid, $uid, $period)));
 
   if (empty($received)) {
     $result[$uid] = array(t('N/A'), 0, 0, $period);
   } else {
+    // Use magic value of pi.deleted == 1 to indicate that a message should not be counted. This lets us exclude problem
+    // messages. UPDATE pm_index pi SET deleted=1 WHERE pi.recipient=<uid> AND pi.thread_id=<thread_id>;
     $responded = db_result(db_query('
       SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi INNER JOIN {pm_message} pm ON pm.mid=pi.mid
       WHERE pm.author = %d AND pi.thread_id IN
         (SELECT DISTINCT(thread_id)
          FROM {pm_index} pi, {pm_message} pm
-         WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND pm.timestamp > %d)
+         WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND pi.deleted <> 1 AND pm.timestamp > %d)
       ', array($uid, $uid, $uid, $period)));
     $responsiveness = number_format(100 * $responded / $received);
     $result[$uid] = array($received ? $responsiveness . '%' : t('N/A'), $received, $responded, $period);
