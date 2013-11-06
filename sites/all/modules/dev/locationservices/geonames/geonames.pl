@@ -105,11 +105,7 @@ sub makeallcountriessmaller {
 		if ($counter%10000 == 0) { print STDERR "$counter "; }
 
 		if ($feature_class eq "A" || $feature_code eq "CONT"
-			|| (($feature_code eq "PPL" || $feature_code eq "PPLA" || $feature_code eq "PPLC") && $population > 1000)) {
-			#for ($i; $i<$#fields; $i++) {
-				#print "$i: $fields[$i] | ";
-			#}
-			#print "\n";
+			|| ($feature_code =~ /^PPL/ && $population > 1000)) {
 			print SMALLER;
 		}
 	}

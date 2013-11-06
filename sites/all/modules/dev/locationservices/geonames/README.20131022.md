@@ -24,5 +24,5 @@ the indexes.
 I also discovered that BE, IE, and NZ probably have newish provinces also, but
 since nobody has ever complained about these decided to leave well enough alone.
 
-Sent out emails to DK and UK members asking them to update their account.
+Sent out emails to DK and UK members asking them to update their account. Never forget to include username in subject when sending out one of these.
 
