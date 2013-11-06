@@ -27,6 +27,6 @@ $aliases['local'] = array(
   // manifest, then the value here would be swapped with the placeholder during
   // the rebuild.
   '#rebuild' => array(
-    'email' => 'kosta@embros.org',
+    'email' => 'youremailhere@localhost.com',
   ),
 );
