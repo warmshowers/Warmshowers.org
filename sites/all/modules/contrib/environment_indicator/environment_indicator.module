@@ -1,0 +1,178 @@
+<?php
+
+/**
+ * @file
+ * Adds a coloured strip to the side of the site informing the user which
+ * environment they are in (Development, Staging Production etc).
+ *
+ * @author Tom Kirkpatrick (mrfelton), www.kirkdesigns.co.uk
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function environment_indicator_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/environment_indicator':
+      return t('The Environment Indicator adds a coloured strip to the side of the site informing you which environment you\'re currently in (Development, Staging Production etc). Use the settings below to customize the appearance of the indicator. You may override these settings in your settings.php file in each of your environments.');
+
+    case 'admin/help#environment_indicator':
+      $output = '<p>' .t('The Environment Indicator adds a coloured strip to the side of the site informing you which environment you\'re currently in (Development, Staging Production etc') .'</p>';
+      
+      $output .= '<p>'. t('The Environment Indicator <a href="@settings">settings page</a> allows you to modify some elements of the indicator\'s behavior and appearance. Since the appearance of the indicator is dependent on your site theme, substantial customisations require modifications to your site\'s theme and CSS files.', array('@settings' => url('admin/settings/environment_indicator'))) . '</p>';
+      
+      $output .= '<p>'. t('The Environment Indicator\'s visibility depends upon the permissions of the viewer. The <a href="@permissions">access environment indicator</a> permission must be enabled for a user role in order for users of that role to see the indicator.', array('@permissions' => url('admin/user/permissions', array('fragment' => 'module-environment_indicator')))) .'</p>';
+      
+      $output .= '<p>'. t('The settings for the Environment Indicator, such as the text to display and the color can be overridden for each of your specific environments in the site\'s settings.php file. This allows you to customise the indicator for each environment without needing to make any changes in the database. This means that the Environment Indicator will always display correctly when moving your site from development to staging to production. For example:') .'</p>';
+      $output .= '<dl>';
+      $output .= '<dt><em>environment_indicator_text</em></dt><dd>'. t('The text that will be displayed vertically down the indicator. e.g:<br/>$conf[\'environment_indicator_text\'] = \'STAGING SERVER\';') .'</dd></dt>';
+      $output .= '<dt><em>environment_indicator_color</em></dt><dd>'. t('A valid css color. e.g:<br/>$conf[\'environment_indicator_color\'] = \'red\';') .'</dd></dt>';
+      $output .= '<dt><em>environment_indicator_enabled</em></dt><dd>'. t('A boolean value indicating whether the Environment Indicator should be enabled or not. On your production environment, you should probably set this to FALSE. e.g:<br/>$conf[\'environment_indicator_enabled\'] = FALSE;') .'</dd></dt>';
+      $output .= '</dl>';
+      return $output;
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function environment_indicator_perm() {
+  return array('access environment indicator');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function environment_indicator_menu() {
+  $items['admin/settings/environment_indicator'] = array(
+    'title' => 'Environment indicator',
+    'description' => 'Adjust settings for the Environment Indicator.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('environment_indicator_settings'),
+    'access arguments' => array('administer site configuration'),
+  );
+  return $items;
+}
+
+/**
+ * Module settings form.
+ */
+function environment_indicator_settings() {
+  drupal_add_css('misc/farbtastic/farbtastic.css', 'module', 'all', FALSE);
+  drupal_add_js('misc/farbtastic/farbtastic.js');
+  drupal_add_js(drupal_get_path('module', 'environment_indicator') .'/environment_indicator.admin.js');
+  
+  $form['environment_indicator_enabled'] = array(
+    '#type' => 'radios',
+    '#title' => t('Status'),
+    '#default_value' => variable_get('environment_indicator_enabled', 1)? '1' : '0',
+    '#options' => array(t('Disabled'), t('Enabled')),
+    '#description' => t('Should the Environment Indicator display?'),
+  );
+  $form['environment_indicator_position'] = array(
+    '#type' => 'select',
+    '#title' => t('Position'),
+    '#description' => t('Choose a position for the environment indicator.'),
+    '#options' => array(
+      'left' => t('Left'),
+      'right' => t('Right'),
+    ),
+    '#default_value' => variable_get('environment_indicator_position', 'left'),
+  );
+  $form['environment_indicator_margin'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Adjust margin'),
+    '#default_value' => variable_get('environment_indicator_margin', 1),
+    '#description' => t('If enabled, the site output is shifted to the left or right approximately 30 pixels to display the environment indicator. If disabled, some absolute- or fixed-positioned page elements may be covered by the environment indicator strip.'),
+  );
+  $form['environment_indicator_text'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Text to display'),
+    '#default_value' => variable_get('environment_indicator_text', 'ENVIRONMENT INDICATOR'),
+    '#description' => t('Text to display in the environment indicator. Override this for each environment in settings.php.'),
+  );
+  $form['environment_indicator_color'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Colour'),
+    '#default_value' => variable_get('environment_indicator_color', '#d00c0c'),
+    '#description' => t('The colour of the environment indicator. Override this for each environment in settings.php.'),
+    '#size' => 7,
+  );
+  $form['environment_indicator_color_picker'] = array(
+    '#type' => 'markup',
+    '#value' => '<div id="environment-indicator-color-picker"></div>',
+  );
+
+  $form['environment_indicator_suppress_pages'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Turn off Environment Indicator on these pages'),
+    '#default_value' => variable_get('environment_indicator_suppress_pages', "imagecrop/*\n"),
+    '#description' => t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are '<em>blog</em>' for the blog page and '<em>blog/*</em>' for every personal blog. '<em>&lt;front&gt;</em>' is the front page."),
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function environment_indicator_init() {
+  if (!user_access('access environment indicator') || !variable_get('environment_indicator_enabled', 1)) {
+    return;
+  }
+
+  // Do not show the indicator on select pages.
+  $off_pages = variable_get('environment_indicator_suppress_pages', "imagecrop/*\n");
+  $path = drupal_get_path_alias($_GET['q']);
+  // Compare with the internal and path alias (if any).
+  $page_match = drupal_match_path($path, $off_pages);
+  if ($path != $_GET['q']) {
+    $page_match = $page_match || drupal_match_path($_GET['q'], $off_pages);
+  }
+  if ($page_match) {
+    return;
+  }
+  
+  $path = drupal_get_path('module', 'environment_indicator');
+  drupal_add_css($path .'/environment_indicator.css', 'module', 'all', FALSE);
+
+  // Performance: Defer execution.
+  drupal_add_js($path .'/environment_indicator.min.js', 'module', 'header', TRUE);
+  //drupal_add_js($path .'/environment_indicator.js', 'module', 'header', TRUE);
+
+  if ($setting = variable_get('environment_indicator_margin', 1)) {
+    $settings['margin'] = check_plain($setting);
+  }
+  if ($setting = variable_get('environment_indicator_position', 'left')) {
+    $settings['position'] = check_plain($setting);
+  }
+  if ($setting = variable_get('environment_indicator_text', 'ENVIRONMENT INDICATOR')) {
+    $settings['text'] = check_plain($setting);
+  }
+  if ($setting = variable_get('environment_indicator_color', '#d00c0c')) {
+    $settings['color'] = check_plain($setting);
+  }
+
+  drupal_add_js(array('environment_indicator' => $settings), 'setting');
+}
+
+/**
+ * Suppress display of administration menu.
+ *
+ * This function should be called from within another module's page callback
+ * (preferably using module_invoke()) when the indicator should not be displayed.
+ * This is useful for modules that implement popup pages or other special
+ * pages where the menu would be distracting or break the layout.
+ *
+ * @param $set
+ *   Defaults to TRUE. If called before hook_footer, the menu will not be
+ *   displayed. If FALSE is passed, the suppression state is returned.
+ */
+function environment_indicator_suppress($set = TRUE) {
+  static $suppress = FALSE;
+  // drupal_add_js() must only be invoked once.
+  if (!empty($set) && $suppress === FALSE) {
+    $suppress = TRUE;
+    drupal_add_js(array('environment_indicator' => array('suppress' => 1)), 'setting');
+  }
+  return $suppress;
+}
