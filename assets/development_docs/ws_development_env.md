@@ -133,11 +133,14 @@ Restart apache to make it read the configuration. On most systems this would be
 ### Setup a Drush alias for the site (Optional)
 
 To facilitate development using Drush, it's useful to have a Drush alias for
-interacting with the site, so you can run `drush @warmshowers.local status`
-instead of having to `cd` into the warmshowers directory to use Drush. Copy the
-file in `/assets/rebuild/warmshowers.aliases.drushrc.php` to
-`~/.drush/warmshowers.aliases.drushrc.php`. Edit each entry in the alias array
-to match the paths and values for your local environment.
+interacting with the site, so you can run `drush @warmshowers.dev status`
+instead of having to `cd` into the warmshowers directory to use Drush.
+
+1. Copy the file in `/assets/rebuild/warmshowers.aliases.drushrc.php` to `~/
+.drush/warmshowers.aliases.drushrc.php`.
+
+2. Edit the values in `~/.drush/warmshowers.aliases.drushrc.php` to match the paths 
+and values for your local environment. Important items to change are marked 'TODO'.
 
 ### Log into the site and configure it the way you want it
 
@@ -166,11 +169,11 @@ of development tools and permissions that you need to enable (e.g. Devel, Devel
 Node Access, Reroute Email, etc) for local development.
 
 This is where [Drush Rebuild](https://drupal.org/project/rebuild) can help you.
-Since you have already configured a Drush alias for `@warmshowers.local`, you
+Since you have already configured a Drush alias for `@warmshowers.dev`, you
 can install Drush Rebuild with `drush dl rebuild`. Run `drush cc drush` then
 `drush rebuild --version` to check that the extension was installed correctly.
 
-Now type `drush @warmshowers.local st` to verify that your alias works. If
+Now type `drush @warmshowers.dev st` to verify that your alias works. If
 that's good, then type `drush rebuild @warmshowers.local` (add the `--verbose` flag
 if you'd like more output). This will use the Drush script at 
 `assets/rebuild/import-db.php` to (1) drop the existing database, (2) create a new
@@ -182,6 +185,8 @@ file in `assets/rebuild/local.rebuild.yaml` and defining config variables there.
 
 You can run `drush rebuild @warmshowers.local` any time you want to revert to
 a clean state. The process takes about 15 minutes.
+
+Windows users: use caution as the above has been tested only in Linux and Mac OS X.
 
 ### Notes
 
