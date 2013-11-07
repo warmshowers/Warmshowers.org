@@ -23,7 +23,10 @@ if (!$sql_dump || !file_exists($sql_dump)) {
   return drush_set_error('NO_SQL_DUMP_FOUND', dt('Failed to find a SQL dump in Dropbox.'));
 }
 drush_log('Starting import of DB. This might take a while!', 'ok');
-$self_record = drush_sitealias_get_record('@warmshowers.local');
+$self_record = drush_sitealias_get_record('@warmshowers.dev');
+if (!$self_record) {
+    return drush_set_error('NO_ALIAS_FOUND', dt('Failed to load your @warmshowers.dev alias.'));
+}
 $database_name = $self_record['databases']['default']['default']['database'];
 $database_username = $self_record['databases']['default']['default']['username'];
 $database_password = '';
