@@ -19,9 +19,7 @@ if (!file_exists($alias['root'] . '/' . 'assets/devsite_scripts/languages.sql'))
 else {
   $languages_sql = $alias['root'] . '/' . 'assets/devsite_scripts/languages.sql';
 }
-$sed = drush_shell_exec(sprintf('sed "s/warmshowers.org/%s/g
-s/https/http/g
-s/www./%s/g" %s', $dev_site_host, $www_prefix, $languages_sql));
+drush_shell_exec(sprintf('bash %s', $alias['root'] . '/' . 'assets/rebuild/clean-up-languages-sed.sh'));
 drush_invoke_process('@warmshowers.dev', 'cache-clear', array('all'));
 
 // This is the "Clean up Variable" code from i18n.
