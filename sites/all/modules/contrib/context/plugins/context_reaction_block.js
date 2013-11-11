@@ -242,11 +242,6 @@ DrupalContextBlockEditor.prototype.addBlock = function(event, ui, editor, contex
     // Construct query params for our AJAX block request.
     var params = Drupal.settings.contextBlockEditor.params;
     params.context_block = bid + ',' + context;
-    if (!Drupal.settings.contextBlockEditor.block_tokens || !Drupal.settings.contextBlockEditor.block_tokens[bid]) {
-      alert(Drupal.t('An error occurred trying to retrieve block content. Please contact a site administer.'));
-      return;
-    }
-    params.context_token = Drupal.settings.contextBlockEditor.block_tokens[bid];
 
     // Replace item with loading block.
     var blockLoading = $('<div class="context-block-item context-block-loading"><span class="icon"></span></div>');
