@@ -45,8 +45,6 @@ git clone https://github.com/<you>/Warmshowers.org.git warmshowers
 user-created files like profile pictures. Later you may want to actually populate
 this directory. (Note that since Warmshowers has been around since long before
 Drupal moved the files directory to sites/default/files, the files are still in /files.)
-* `cp ~/workspace/warmshowers/.htaccess.d6_standard ~/workspace/warmshowers/.htaccess` to copy
-a standard Apache .htaccess file into the root.
 * `cp settings.php ~/workspace/warmshowers/sites/default` - where settings.php comes
 from the files provided to you as described above. Just ask.
 
