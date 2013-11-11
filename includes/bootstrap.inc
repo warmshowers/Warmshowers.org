@@ -403,7 +403,7 @@ function conf_init() {
     include_once './'. conf_path() .'/settings.php';
   }
 
-  // Ignore the placeholder url from default.settings.php.
+  // Ignore the placeholder URL from default.settings.php.
   if (isset($db_url) && $db_url == 'mysql://username:password@localhost/databasename') {
     $db_url = '';
   }
@@ -442,7 +442,7 @@ function conf_init() {
   }
   else {
     // Otherwise use $base_url as session name, without the protocol
-    // to use the same session identifiers across http and https.
+    // to use the same session identifiers across HTTP and HTTPS.
     list( , $session_name) = explode('://', $base_url, 2);
     // We escape the hostname because it can be modified by a visitor.
     if (!empty($_SERVER['HTTP_HOST'])) {
@@ -548,56 +548,17 @@ function drupal_get_filename($type, $name, $filename = NULL) {
  * with variable_set() as well as those explicitly specified in the configuration
  * file.
  */
-function variable_init($conf = array(), $regenerate = FALSE, $recursion_depth = 0) {
-  // NOTE: caching the variables improves performance by 20% when serving
-  // cached pages.
-  if (!$regenerate && $cached = cache_get('variables', 'cache')) {
+function variable_init($conf = array()) {
+  // NOTE: caching the variables improves performance by 20% when serving cached pages.
+  if ($cached = cache_get('variables', 'cache')) {
     $variables = $cached->data;
   }
   else {
-    if (defined('MAINTENANCE_MODE') || lock_acquire('variable_cache_regenerate')) {
-      $result = db_query('SELECT * FROM {variable}');
-      // Exit here if the database went away. Do not want to pollute the cache
-      // with bad data. This request isn't going to end well anyway; end it
-      // eairly.
-      if ($result === FALSE) {
-        // This function calls exit.
-        _db_error_page();
-      }
-      while ($variable = db_fetch_object($result)) {
-        $variables[$variable->name] = unserialize($variable->value);
-      }
-      cache_set('variables', $variables);
-      if (!defined('MAINTENANCE_MODE')) {
-        lock_release('variable_cache_regenerate');
-      }
+    $result = db_query('SELECT * FROM {variable}');
+    while ($variable = db_fetch_object($result)) {
+      $variables[$variable->name] = unserialize($variable->value);
     }
-    else {
-      // Wait for another request that is already doing this work.
-      lock_wait('variable_cache_regenerate');
-
-      // Run the function again. Try a limited number of times to avoid
-      // infinite recursion if the database connection is invalid for
-      // some reason, e.g., mysqld restart, loss of network, etc.
-      $recursion_depth++;
-      if ($recursion_depth < 50) {
-        return variable_init($conf, $regenerate, $recursion_depth);
-      }
-
-      // If the recursion_depth hit the limit, assume we aren't going to get it
-      // from the cache or the lock will be released any time soon. Give up and
-      // get variables from the database.
-      $result = db_query('SELECT * FROM {variable}');
-      // Exit here if the database went away. Do not want to pollute the cache
-      // with bad data. This request isn't going to end well.
-      if ($result === FALSE) {
-        // This function calls exit.
-        _db_error_page();
-      }
-      while ($variable = db_fetch_object($result)) {
-        $variables[$variable->name] = unserialize($variable->value);
-      }
-    }
+    cache_set('variables', $variables);
   }
 
   foreach ($conf as $name => $value) {
@@ -896,14 +857,6 @@ function check_plain($text) {
   // @todo remove this when support for either IE6 or PHP < 5.2.5 is dropped.
 
   if ($php525) {
-    if (is_array($text)) {
-      watchdog('php', 'array %array sent to check_plain, stacktrace=<pre>@stacktrace</pre>', array('%array' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
-      $text = $text[0];
-    }
-    if (!drupal_validate_utf8($text)) {
-      watchdog('php', 'Invalid utf8 in check_plain() text=%text, stacktrace=<pre>@stacktrace</pre>', array('%text' => print_r($text, TRUE), '@stacktrace' => print_r(debug_backtrace(), TRUE)));
-    }
-
     return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
   }
   return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
