@@ -174,7 +174,7 @@ can install Drush Rebuild with `drush dl rebuild-7.x-1.7` (or higher revision). 
 `drush rebuild --version` to check that the extension was installed correctly.
 
 Now type `drush @warmshowers.dev st` to verify that your alias works. If
-that's good, then type `drush rebuild @warmshowers.local` (add the `--verbose` flag
+that's good, then type `drush rebuild @warmshowers.dev` (add the `--verbose` flag
 if you'd like more output). This will use the Drush script at
 `assets/rebuild/import-db.php` to (1) drop the existing database, (2) create a new
 database, (3) import the SQL dump from Dropbox, and then (4) enable modules, set
@@ -183,8 +183,9 @@ variables, define permissions, and finally log you in to your local environment.
 You can easily customize the rebuild config by creating a `local.rebuild.yaml`
 file in `assets/rebuild/local.rebuild.yaml` and defining config variables there.
 
-You can run `drush rebuild @warmshowers.local` any time you want to revert to
-a clean state. The process takes about 15 minutes.
+You can run `drush rebuild @warmshowers.dev` any time you want to revert to
+a clean state. The process takes anywhere from 5-15 minutes depending on your
+hardware.
 
 Windows users: use caution as the above has been tested only in Linux and Mac OS X.
 
