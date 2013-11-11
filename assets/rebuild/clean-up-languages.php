@@ -20,8 +20,6 @@ $query = "
 
 drush_invoke_process('@warmshowers.dev', 'sql-query', array($query));
 
-drush_invoke_process('@warmshowers.dev', 'cache-clear', array('all'));
-
 // This is the "Clean up Variable" code from i18n.
 $variables = i18n_variable();
 if ($variables) {
@@ -29,3 +27,6 @@ if ($variables) {
 }
 
 drush_invoke_process('@warmshowers.dev', 'vdel', array('language_default'));
+
+drush_invoke_process('@warmshowers.dev', 'cache-clear', array('all'));
+drush_invoke_process('@warmshowers.dev', 'cache-clear', array('all'));
