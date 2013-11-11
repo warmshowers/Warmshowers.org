@@ -139,7 +139,7 @@ instead of having to `cd` into the warmshowers directory to use Drush.
 1. Copy the file in `/assets/rebuild/warmshowers.aliases.drushrc.php` to `~/
 .drush/warmshowers.aliases.drushrc.php`.
 
-2. Edit the values in `~/.drush/warmshowers.aliases.drushrc.php` to match the paths 
+2. Edit the values in `~/.drush/warmshowers.aliases.drushrc.php` to match the paths
 and values for your local environment. Important items to change are marked 'TODO'.
 
 ### Log into the site and configure it the way you want it
@@ -170,14 +170,14 @@ Node Access, Reroute Email, etc) for local development.
 
 This is where [Drush Rebuild](https://drupal.org/project/rebuild) can help you.
 Since you have already configured a Drush alias for `@warmshowers.dev`, you
-can install Drush Rebuild with `drush dl rebuild`. Run `drush cc drush` then
+can install Drush Rebuild with `drush dl rebuild-7.x-1.7` (or higher revision). Run `drush cc drush` then
 `drush rebuild --version` to check that the extension was installed correctly.
 
 Now type `drush @warmshowers.dev st` to verify that your alias works. If
 that's good, then type `drush rebuild @warmshowers.local` (add the `--verbose` flag
-if you'd like more output). This will use the Drush script at 
+if you'd like more output). This will use the Drush script at
 `assets/rebuild/import-db.php` to (1) drop the existing database, (2) create a new
-database, (3) import the SQL dump from Dropbox, and then (4) enable modules, set 
+database, (3) import the SQL dump from Dropbox, and then (4) enable modules, set
 variables, define permissions, and finally log you in to your local environment.
 
 You can easily customize the rebuild config by creating a `local.rebuild.yaml`
