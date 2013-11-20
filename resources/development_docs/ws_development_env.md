@@ -41,11 +41,11 @@ mkdir workspace
 cd workspace
 git clone https://github.com/<you>/Warmshowers.org.git warmshowers
 ```
-* `mkdir -p ~/workspace/warmshowers/files` to create the directory for
+* `mkdir -p ~/workspace/warmshowers/docroot/files` to create the directory for
 user-created files like profile pictures. Later you may want to actually populate
 this directory. (Note that since Warmshowers has been around since long before
 Drupal moved the files directory to sites/default/files, the files are still in /files.)
-* `cp settings.php ~/workspace/warmshowers/sites/default` - where settings.php comes
+* `cp settings.php ~/workspace/warmshowers/docroot/sites/default` - where settings.php comes
 from the files provided to you as described above. Just ask.
 
 ### Loading the partially sanitized database
@@ -75,7 +75,7 @@ The current is also available if you really want it. It's much larger.
 If you had downloaded it into /tmp:
 
 ```
-cd ~/workspace/warmshowers
+cd ~/workspace/warmshowers/docroot
 tar -zxf /tmp/ws_files_dev.20121223.tgz
 ```
 
@@ -111,8 +111,8 @@ NameVirtualHost *
 	ServerAlias *.warmshowers.dev
 	ServerAdmin randy@randyfay.com
 
-	DocumentRoot /Users/rfay/workspace/warmshowers
-	<Directory /Users/rfay/workspace/warmshowers>
+	DocumentRoot /Users/rfay/workspace/warmshowers/docroot
+	<Directory /Users/rfay/workspace/warmshowers/docroot>
 		Options FollowSymLinks
 		AllowOverride All
 		Order allow,deny
