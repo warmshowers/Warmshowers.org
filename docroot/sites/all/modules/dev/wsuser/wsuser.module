@@ -1010,6 +1010,10 @@ function wsuser_fieldlist() {
     'type' => 'textfield',
     'title' => t("Please let us know how you heard about WarmShowers.org"),
 	),
+  'becomeavailable' => array(
+    'type' => 'date',
+    'title' => t('Will Become Available'),
+  ),
 	);
 
 	return $fields;
@@ -1023,14 +1027,20 @@ function wsuser_form_defaults($edit, $user) {
 	if ($edit['fullname']) {
 		foreach($fields as $field => $value) {
 			$defaults[$field] = $edit[$field];
-
+      if ($field == 'becomeavailable') {
+        list($x, $x, $x, $day, $month, $year) = localtime($edit['becomeavailable']);
+        $defaults['becomeavailable'] = array('year' => $year + 1900, 'month' => $month + 1, 'day' => $day);
+      }
 		}
-	} else if ($user->fullname) {
+	}
+  else if ($user->fullname) {
 		foreach($fields as $field => $value) {
 			$defaults[$field] = $user->$field;
-
-		}
-
+      if ($field == 'becomeavailable') {
+        list($x, $x, $x, $x, $day, $month, $year) = localtime($user->becomeavailable);
+        $defaults['becomeavailable'] = array('year' => $year, 'month' => $month + 1, 'day' => $day);
+      }
+    }
 	}
 	return $defaults;
 }
@@ -1085,6 +1095,13 @@ function wsuser_login_submit($form, &$form_state) {
   }
 }
 
+/**
+ * Consolidates work of hook_user()'s 'save'
+ *
+ * @param $edit
+ * @param $user
+ * @param $category
+ */
 function wsuser_save(&$edit, &$user, $category)
 {
   // URL has passed validation, but let's clean it up.
@@ -1117,7 +1134,18 @@ function wsuser_save(&$edit, &$user, $category)
     if ($value['type'] == 'fieldset' || $value['type'] == 'markup') {
       continue;
     }
-    $placeholders .= "'%s',";
+    switch ($value['type']) {
+      case 'fieldset':
+      case 'markup':
+        continue;
+        break;
+      case 'date':
+        $placeholders .= "%d,";
+        break;
+      default:
+        $placeholders .= "'%s',";
+        break;
+    }
     $valuenames .= "$item ,";
     $values[] = isset($edit[$item]) ? $edit[$item] : $user->$item;
   }
@@ -1189,7 +1217,7 @@ function wsuser_form($edit, $user, $category) {
 }
 
 
-function wsuser_validate($edit, $user)
+function wsuser_validate(&$edit, $user)
 {
   $edit['URL'] = trim($edit['URL']);
   if ($edit['URL'] && !valid_url($edit['URL'], TRUE)) {
@@ -1209,7 +1237,10 @@ function wsuser_validate($edit, $user)
       form_set_error('comments', t("Please say something descriptive about yourself in the 'About You' field! Potential hosts or guests want to know about you. You must enter at least 15 words. Your account will be deleted if this is not meaningful."));
     }
   }
-  return $edit;
+  if (!empty($edit['becomeavailable'])) {
+    $ba = $edit['becomeavailable']['year'] . '-' . $edit['becomeavailable']['month'] . '-' . $edit['becomeavailable']['day'];
+    $edit['becomeavailable'] = strtotime($ba);
+  }
 }
 
 
@@ -1231,7 +1262,8 @@ function wsuser_user($type, &$edit, &$user, $category = NULL)
       return wsuser_view($user);
 
     case 'validate':
-      return wsuser_validate($edit, $user);
+      wsuser_validate($edit);
+      return;
     case 'delete':
       wsuser_delete($edit, $user);
       return;
