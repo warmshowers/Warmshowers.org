@@ -20,4 +20,4 @@ Directories
 
 - `resources` <-- Design assets and developer tools for working with WS
 - `docroot` <-- Drupal core and contributed modules
-- `tests` <-- Automated tests for the WS website
+- `tests` <-- Automated test results for the WS website
