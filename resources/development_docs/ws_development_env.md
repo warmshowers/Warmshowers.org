@@ -187,6 +187,11 @@ hardware.
 
 Windows users: use caution as the above has been tested only in Linux and Mac OS X.
 
+### Automated tests
+
+Check out `docroot/sites/default/behat-tests` for more information on running
+tests for the Warmshowers dev environment.
+
 ### Notes
 
 * Warmshowers.org developers have access to a free copy of the excellent
