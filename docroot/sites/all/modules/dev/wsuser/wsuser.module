@@ -11,10 +11,12 @@ module_load_include('inc', 'user_location', 'earth');
 
 
 function wsuser_perm() {
-	return array("full member lists",  // Allow them to use the member listing function
-				"list all countries",  // Allow them to list all countries in member listing
-				"view email addrs",  // View raw email addrs
-				);
+  return array(
+    "full member lists", // Allow them to use the member listing function
+    "list all countries", // Allow them to list all countries in member listing
+    "view email addrs", // View raw email addrs
+    'administer wsuser config',
+  );
 }
 
 
@@ -95,6 +97,13 @@ function wsuser_menu() {
     'title' => 'Users by Continent and Country',
     'page callback' => 'wsuser_country_counts',
     'access callback' => TRUE,
+  );
+  $items['admin/user/wsuser'] = array(
+    'title' => 'Warmshowers User Configuration',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('wsuser_configuration'),
+    'access arguments' => array('administer wsuser config'),
+    'weight' => 10,
   );
 
 	return $items;
@@ -257,9 +266,12 @@ function wsuser_mail($key, &$message, $params) {
       $message['body'][] = strtr(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, _user_mail_text('register_no_approval_required_body')), $variables);
       break;
 
-    case 'not_available_reminder':
-      $message['subject'] = t(strtr(_wsuser_email_notify_text('subject', $language), $variables), array(), $langcode);
-      $message['body'][] = t(strtr(_wsuser_email_notify_text('body', $language), $variables), $langcode);
+    // Not available reminder. Assumes the variable will be properly set!
+    // That makes this inaccessible to translators, unfortunately. Yuckie.
+    // And it will require a UI to update.
+    case 'notavailable_reminder':
+      $message['subject'] .= token_replace_multiple(i18n_variable_get('wsuser_notavailable_reminder_subject', $langcode, 'Your Warmshowers account is still marked unavailable'), array('global' => NULL, 'user' => $params['account']));
+      $message['body'][] = token_replace_multiple(i18n_variable_get('wsuser_notavailable_reminder_body', $langcode, 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'), array('global' => NULL, 'user' => $params['account']));
       break;
 
     default:
@@ -2450,24 +2462,25 @@ function wsuser_privatemsg_responsiveness($uid) {
  * Implementation of hook_cron()
  */
 function wsuser_cron() {
-  _wsuer_queue_not_available_reminders();
+  _wsuser_queue_notavailable_reminders();
 }
 
 /*
  * Queue up reminders for users who are not currently available
  */
-function _wsuer_queue_not_available_reminders() {
+function _wsuser_queue_notavailable_reminders() {
 
   $now = time();
 
   // Get interval of email reminders (default to two months).
-  $period = variable_get('last_not_available_reminder_period', 60 * 60 * 24 * 61);
+  $period = variable_get('last_notavailable_reminder_period', 60 * 60 * 24 * 61);
 
   $result = db_query(
     'SELECT u.mail, u.language, u.uid
     FROM {users} u, {wsuser} ws
     WHERE u.uid = ws.uid
     AND ws.notcurrentlyavailable = 1
+    AND ws.set_unavailable_timestamp IS NOT NULL
     AND ws.set_unavailable_timestamp + %d < %d
     AND ws.last_unavailablility_pester + %d < %d
     LIMIT 5',
@@ -2494,7 +2507,7 @@ function _wsuer_queue_not_available_reminders() {
 function wsuser_cron_queue_info() {
   return array(
     'wsuser' => array(
-      'worker callback' => '_wsuer_send_not_available_reminders',
+      'worker callback' => '_wsuser_send_notavailable_reminders',
       'time' => 30, // Default is 15
     ),
   );
@@ -2505,13 +2518,13 @@ function wsuser_cron_queue_info() {
  *
  * Send the reminder mails queued up from cron run
  */
-function _wsuer_send_not_available_reminders($job) {
+function _wsuser_send_notavailable_reminders($job) {
 
   $languages = language_list();
   $row = $job['arguments'][0];
   $now = time();
 
-  drupal_mail('wsuser', 'not_available_reminder', $row->mail, $languages[$row->language], array());
+  drupal_mail('wsuser', 'notavailable_reminder', $row->mail, $languages[$row->language], array('account' => user_load($row->uid)));
 
   db_query(
     'UPDATE {wsuser}
@@ -2519,28 +2532,78 @@ function _wsuer_send_not_available_reminders($job) {
     WHERE uid = %d', $now, $row->uid
   );
 }
-/**
- * Get the default text for body and subject texts.
+
+/***
+ * Admin form for wsuser configuration items.
  *
- * @param $key
- *   Defines with string to return, either subject or body.
- *
- * @return
- *   The default text for the given key.
+ * @return mixed
  */
-function _wsuser_email_notify_text($key) {
-  $text = variable_get('wsuser_email_notify_' . $key, FALSE);
-  if (empty($text)) {
-    switch ($key) {
-      case 'subject':
-        $text = 'You are currently listed as unavailable on !site.';
-        break;
-      case 'body':
-        $text = "Hi !username,\n\nThis is an automatic reminder from !site that we send out every two months. You are currently listed as unavailable with a return date of !date.  If this information needs updating, please visit your profile here: @profile.\n!settings";
-        break;
-    }
+function wsuser_configuration() {
+  $form = array();
+  $form['wsuser_reminder_email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Not Available Reminder Email'),
+  );
+  $form['wsuser_reminder_email']['wsuser_notavailable_reminder_subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Warmshowers user Not Available Reminder Email Subject'),
+    '#default_value' => variable_get('wsuser_notavailable_reminder_subject', 'Your Warmshowers account is still marked unavailable'),
+  );
+  $form['wsuser_reminder_email']['wsuser_notavailable_reminder_body'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Warmshowers user Not Available Reminder Email Subject'),
+    '#default_value' => variable_get('wsuser_notavailable_reminder_subject', 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'),
+  );
+  $form['wsuser_reminder_email']['send_test_reminder_email'] = array(
+    '#type' => 'submit',
+    '#value' => t('Send reminder email to user 1'),
+    '#submit' => array('wsuser_configuration_send_test_email'),
+  );
+
+  if (module_exists('token')) {
+    $form['view']['token_help'] = array(
+      '#title' => t('Replacement patterns'),
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['view']['token_help']['help'] = array(
+      '#value' => theme('token_help', 'user'),
+    );
   }
-  return $text;
+
+  return system_settings_form($form);
 }
 
+function wsuser_configuration_send_test_email($form, &$form_state) {
+  wsuser_send_test_reminder_email();
+  drupal_set_message(t('Sent test reminder email to uid 1'));
+}
 
+/**
+ * Diagnostic to send test reminder emails. It's too hard otherwise.
+ *
+ * @param int $uid
+ */
+function wsuser_send_test_reminder_email($uid = 1) {
+  $now = time();
+
+  $result = db_query(
+    'SELECT u.mail, u.language, u.uid
+    FROM {users} u, {wsuser} ws
+    WHERE u.uid = ws.uid
+    AND u.uid = %d',
+    $uid);
+
+  $queue = DrupalQueue::get('wsuser');
+
+  while ($row = db_fetch_object($result)) {
+
+    $job = array(
+      'description' => t('Send marked as not available reminder email to @mail',
+        array('@mail' => $row->mail)),
+      'arguments' => array($row),
+    );
+    $queue->createItem($job);
+  }
+}
