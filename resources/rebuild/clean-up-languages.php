@@ -11,11 +11,12 @@ $alias = drush_sitealias_get_record('@warmshowers.dev');
 if (!$alias) {
   return drush_set_error('NO_ALIAS_FOUND', dt('Failed to load alias.'));
 }
+$localsite_name = 'warmshowers.dev';
 
 $query = "
-  UPDATE languages SET domain=REPLACE(domain, 'warmshowers.org', '$alias');
+  UPDATE languages SET domain=REPLACE(domain, 'warmshowers.org', '$localsite_name');
   UPDATE languages SET domain=REPLACE(domain, 'https://', 'http://');
-  UPDATE languages SET domain=REPLACE(domain, 'www.{$alias}', '$alias');
+  UPDATE languages SET domain=REPLACE(domain, 'www.{$localsite_name}', '$localsite_name');
 ";
 
 drush_invoke_process('@warmshowers.dev', 'sql-query', array($query));
