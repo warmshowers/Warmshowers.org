@@ -2475,16 +2475,32 @@ function _wsuser_queue_notavailable_reminders() {
   // Get interval of email reminders (default to two months).
   $period = variable_get('last_notavailable_reminder_period', 60 * 60 * 24 * 61);
 
+  // Only remind users if they become available past a certain threshold time from now (default to six months).
+  $threshold = variable_get('threshold_remind_if_become_available_is_past', 60 * 60 * 24 * 30 * 6);
+
+  // Limit number of users to remind per run (default to 250).
+  $limit = variable_get('num_users_to_remind_per_run', 250);
+
+  // The query code after UNION may be deleted once the newer availability fields are populated for all users.
+  // Become available and set unavailable should either both be NULL or both be set for all users.
   $result = db_query(
     'SELECT u.mail, u.language, u.uid
     FROM {users} u, {wsuser} ws
     WHERE u.uid = ws.uid
     AND ws.notcurrentlyavailable = 1
-    AND ws.set_unavailable_timestamp IS NOT NULL
+    AND ws.becomeavailable IS NOT NULL
     AND ws.set_unavailable_timestamp + %d < %d
     AND ws.last_unavailablility_pester + %d < %d
-    LIMIT 5',
-    $period, $now, $period, $now
+    AND ws.becomeavailable - %d > %d
+    UNION
+    SELECT u.mail, u.language, u.uid
+    FROM {users} u, {wsuser} ws
+    WHERE u.uid = ws.uid
+    AND ws.notcurrentlyavailable = 1
+    AND ws.becomeavailable IS NULL
+    AND (ws.last_unavailablility_pester IS NULL OR ws.last_unavailablility_pester + %d < %d)
+    LIMIT %d',
+    $period, $now, $period, $now, $threshold, $now, $period, $now, $limit
   );
 
   $queue = DrupalQueue::get('wsuser');
