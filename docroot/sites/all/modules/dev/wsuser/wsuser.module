@@ -2505,7 +2505,38 @@ function _wsuser_queue_notavailable_reminders() {
 
   $queue = DrupalQueue::get('wsuser');
 
+  $testing_flag = variable_get('wsuser_test_reminder_emails_flag', FALSE);
+
   while ($row = db_fetch_object($result)) {
+
+    // During testing, send all reminders to the specified email and print an array of user info for debugging.
+    if ($testing_flag) {
+      $row->mail = variable_get('wsuser_test_email_address', $row->mail);
+
+      // Gather debugging info for users that would receive reminder emails.
+      $row_wsuser = db_fetch_object(db_query(
+        'SELECT notcurrentlyavailable, becomeavailable, set_available_timestamp, set_unavailable_timestamp, last_unavailablility_pester
+        FROM {wsuser}
+        WHERE uid = %d',
+        $row->uid
+      ));
+
+      // Convert values to human readable formats.
+      $notcurrentlyavailable = $row_wsuser->notcurrentlyavailable ? 'not currently available' : 'currently available';
+      $becomeavailable = $row_wsuser->becomeavailable ? date("Y-m-d H:i:s",$row_wsuser->becomeavailable) : 'NULL';
+      $set_available_timestamp = $row_wsuser->set_available_timestamp ? date("Y-m-d H:i:s",$row_wsuser->set_available_timestamp) : 'NULL';
+      $set_unavailable_timestamp = $row_wsuser->set_unavailable_timestamp ? date("Y-m-d H:i:s",$row_wsuser->set_unavailable_timestamp) : 'NULL';
+      $set_availability = $row_wsuser->notcurrentlyavailable ? $set_unavailable_timestamp : $set_available_timestamp;
+      $last_unavailability_pester = $row_wsuser->last_unavailablility_pester ? date("Y-m-d H:i:s",$row_wsuser->last_unavailablility_pester) : 'NULL';
+
+      // Add a row of user info to be displayed in the message area.
+      $users_to_remind['UID ' . $row->uid] = array(
+        'Availability' => $notcurrentlyavailable,
+        'Set Availability On' => $set_availability,
+        'Becomes Available On' => $becomeavailable,
+        'Last Pestered Via Email On' => $last_unavailability_pester
+      );
+    }
 
     $job = array(
       'description' => t('Send marked as not available reminder email to @mail',
@@ -2514,14 +2545,24 @@ function _wsuser_queue_notavailable_reminders() {
     );
     $queue->createItem($job);
 
-    // Update the wsuser now to make sure we don't hit this member again.
-    db_query(
-      'UPDATE {wsuser}
-      SET last_unavailablility_pester = %d
-      WHERE uid = %d', $now, $row->uid
-    );
+    // Update the wsuser now to make sure we don't hit this member again (with an option to ignore during testing).
+    if (!variable_get('wsuser_reset_last_unavailability_pester_after_test', FALSE)) {
+      db_query(
+        'UPDATE {wsuser}
+        SET last_unavailablility_pester = %d
+        WHERE uid = %d', $now, $row->uid
+      );
+    }
   }
 
+  // After testing, print info for users that would receive reminder emails and unset all persistent testing variables.
+  if ($testing_flag ) {
+    dpm('Users that would receive reminder emails:');
+    dpm($users_to_remind);
+    variable_del('wsuser_num_users_to_remind_per_run');
+    variable_del('wsuser_test_reminder_emails_flag');
+    variable_del('wsuser_reset_last_unavailability_pester_after_test');
+  }
 }
 
 /**
@@ -2613,6 +2654,33 @@ function wsuser_configuration() {
     '#value' => t('Update test user'),
     '#submit' => array('wsuser_test_user'),
   );
+  $form['wsuser_test_reminder_emails'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Configuration for sending reminder emails during testing'),
+  );
+  $form['wsuser_test_reminder_emails']['test_email_address'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Email address to receive all reminder emails during testing'),
+    '#description' => t('This email will be overridden by the Reroute Email module if enable rerouting is on.'),
+    '#default_value' => variable_get('wsuser_test_email_address', 'youremailhere@localhost.com'),
+  );
+  $form['wsuser_test_reminder_emails']['num_users_to_test'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Limit reminders to this many users during testing'),
+    '#default_value' => '1',
+  );
+  $form['wsuser_test_reminder_emails']['reset_last_unavailability_pester_after_test'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Reset Last Unavailability Pester Timestamp After Testing to its Original Value'),
+    '#description' => t("If the following checkbox is unchecked, then the 'last unavailability pester' field will be set to the current time for the tested users, even though no reminders will be sent, resulting in actual reminders being delayed for two months for these users."),
+    '#default_value' => 1,
+  );
+  $form['wsuser_test_reminder_emails']['send_test_reminder_emails'] = array(
+    '#type' => 'submit',
+    '#value' => t('Run Test'),
+    '#submit' => array('wsuser_test_reminder_emails'),
+  );
+
 
   if (module_exists('token')) {
     $form['view']['token_help'] = array(
@@ -2699,4 +2767,32 @@ function wsuser_test_user($form, &$form_state) {
   );
 
   drupal_set_message(t('Updated availability for ') . $name);
+}
+
+/**
+ * Tool for testing the _wsuser_queue_notavailable_reminders function.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_test_reminder_emails($form, &$form_state) {
+
+  // Get values to use while testing, and provide defaults.
+  $email = $form_state['values']['test_email_address'] ?: 'youremailhere@localhost.com';
+  $num_users_to_test = $form_state['values']['num_users_to_test'] ?: 0;
+  $reset_pester_timestamp = $form_state['values']['reset_last_unavailability_pester_after_test'];
+
+  // Set persistent variables to be used in the function being tested (including a flag to indicate a test is running).
+  variable_set('wsuser_test_reminder_emails_flag', TRUE);
+  variable_set('wsuser_test_email_address', $email);
+  variable_set('wsuser_num_users_to_remind_per_run', $num_users_to_test);
+  variable_set('wsuser_reset_last_unavailability_pester_after_test', $reset_pester_timestamp);
+
+  // This function is being tested - it queues up the reminders for unavailable users.
+  _wsuser_queue_notavailable_reminders();
+
+  // Start the new test workers for all queued items immediately, without adding any additional items or running cron.
+  drupal_queue_cron_run();
+
+  drupal_set_message(t($num_users_to_test . ' test reminder email(s) sent to ') . $email);
 }
