@@ -2576,6 +2576,43 @@ function wsuser_configuration() {
     '#value' => t('Send reminder email to user 1'),
     '#submit' => array('wsuser_configuration_send_test_email'),
   );
+  $form['wsuser_test_user'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Update an existing user's availability for testing purposes"),
+  );
+  $form['wsuser_test_user']['wsuser_test_username'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Username to update availability fields for (must be an existing user)'),
+    '#default_value' => variable_get('wsuser_test_username', 'rfay'),
+  );
+  $form['wsuser_test_user']['notcurrentlyavailable'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Not Currently Available'),
+    '#default_value' => 1,
+  );
+  $form['wsuser_test_user']['becomeavailable'] = array(
+    '#type' => 'date',
+    '#title' => t('Will Become Available To Host date'),
+  );
+  $form['wsuser_test_user']['set_available_timestamp'] = array(
+    '#type' => 'date',
+    '#title' => t('Set Available Timestamp'),
+    '#description' => t('The time at which the user saved their status as Available.'),
+  );
+  $form['wsuser_test_user']['set_unavailable_timestamp'] = array(
+    '#type' => 'date',
+    '#title' => t('Set Unavailable Timestamp'),
+    '#description' => t('The time at which the user saved their status as Unavailable.'),
+  );
+  $form['wsuser_test_user']['last_unavailability_pester'] = array(
+    '#type' => 'date',
+    '#title' => t('Last Unavailability Pester Timestamp'),
+  );
+  $form['wsuser_test_user']['update_test_user'] = array(
+    '#type' => 'submit',
+    '#value' => t('Update test user'),
+    '#submit' => array('wsuser_test_user'),
+  );
 
   if (module_exists('token')) {
     $form['view']['token_help'] = array(
@@ -2626,4 +2663,40 @@ function wsuser_send_test_reminder_email($uid = 1) {
 
   // Start workers for queued items immediately, without adding any additional items or running cron.
   drupal_queue_cron_run();
+}
+
+/**
+ * Testing tool to update a user's availability fields. 'Edit profile' does not allow some values to be set manually.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function wsuser_test_user($form, &$form_state) {
+
+  $name = $form_state['values']['wsuser_test_username'];
+  $account = user_load(array('name' => check_plain($name)));
+  $uid = $account->uid;
+  $notcurrentlyavailable = $form_state['values']['notcurrentlyavailable'];
+  $becomeavailable = $form_state['values']['becomeavailable'];
+  $set_available_timestamp = $form_state['values']['set_available_timestamp'];
+  $set_unavailable_timestamp = $form_state['values']['set_unavailable_timestamp'];
+  $last_unavailability_pester = $form_state['values']['last_unavailability_pester'];
+
+  // Convert dates to unix timestamps.
+  $becomeavailable = strtotime($becomeavailable['year'] . '-' . $becomeavailable['month'] . '-' . $becomeavailable['day']);
+  $set_available_timestamp = strtotime($set_available_timestamp['year'] . '-' . $set_available_timestamp['month'] . '-' . $set_available_timestamp['day']);
+  $set_unavailable_timestamp = strtotime($set_unavailable_timestamp['year'] . '-' . $set_unavailable_timestamp['month'] . '-' . $set_unavailable_timestamp['day']);
+  $last_unavailability_pester = strtotime($last_unavailability_pester['year'] . '-' . $last_unavailability_pester['month'] . '-' . $last_unavailability_pester['day']);
+
+  db_query(
+    'UPDATE {wsuser}
+    SET notcurrentlyavailable = %d,
+        becomeavailable = %d,
+        set_available_timestamp = %d,
+        set_unavailable_timestamp = %d,
+        last_unavailablility_pester = %d
+    WHERE uid = %d', $notcurrentlyavailable, $becomeavailable, $set_available_timestamp, $set_unavailable_timestamp, $last_unavailability_pester, $uid
+  );
+
+  drupal_set_message(t('Updated availability for ') . $name);
 }
