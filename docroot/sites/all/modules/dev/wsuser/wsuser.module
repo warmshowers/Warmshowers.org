@@ -266,12 +266,17 @@ function wsuser_mail($key, &$message, $params) {
       $message['body'][] = strtr(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, _user_mail_text('register_no_approval_required_body')), $variables);
       break;
 
-    // Not available reminder. Assumes the variable will be properly set!
+    // Availability reminders and notifications. Assumes the variable will be properly set!
     // That makes this inaccessible to translators, unfortunately. Yuckie.
     // And it will require a UI to update.
     case 'notavailable_reminder':
       $message['subject'] .= token_replace_multiple(i18n_variable_get('wsuser_notavailable_reminder_subject', $langcode, 'Your Warmshowers account is still marked unavailable'), array('global' => NULL, 'user' => $params['account']));
       $message['body'][] = token_replace_multiple(i18n_variable_get('wsuser_notavailable_reminder_body', $langcode, 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'), array('global' => NULL, 'user' => $params['account']));
+      break;
+
+    case 'become_available_notification':
+      $message['subject'] .= token_replace_multiple(i18n_variable_get('wsuser_become_available_notification_subject', $langcode, 'Your Warmshowers account is now marked as available'), array('global' => NULL, 'user' => $params['account']));
+      $message['body'][] = token_replace_multiple(i18n_variable_get('wsuser_become_available_notification_body', $langcode, 'Your account has been automatically updated to available to host because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. Thanks!'), array('global' => NULL, 'user' => $params['account']));
       break;
 
     default:
@@ -2462,6 +2467,7 @@ function wsuser_privatemsg_responsiveness($uid) {
  * Implementation of hook_cron()
  */
 function wsuser_cron() {
+  _wsuser_process_users_that_become_available();
   _wsuser_queue_notavailable_reminders();
 }
 
@@ -2571,6 +2577,20 @@ function wsuser_configuration() {
     '#title' => t('Warmshowers user Not Available Reminder Email Body'),
     '#default_value' => variable_get('wsuser_notavailable_reminder_body', 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'),
   );
+  $form['wsuser_become_available_email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Notify Users They Are Now Available Email'),
+  );
+  $form['wsuser_become_available_email']['wsuser_become_available_notification_subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Warmshowers user Notify Users They Are Now Available Email Subject'),
+    '#default_value' => variable_get('wsuser_become_available_notification_subject', 'Your Warmshowers account is now marked as available'),
+  );
+  $form['wsuser_become_available_email']['wsuser_become_available_notification_body'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Warmshowers user Notify Users They Are Now Available Email Body'),
+    '#default_value' => variable_get('wsuser_become_available_notification_body', 'Your account has been automatically updated to available to host because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. Thanks!'),
+  );
   $form['wsuser_reminder_email']['send_test_reminder_email'] = array(
     '#type' => 'submit',
     '#value' => t('Send reminder email to user 1'),
@@ -2626,4 +2646,38 @@ function wsuser_send_test_reminder_email($uid = 1) {
 
   // Start workers for queued items immediately, without adding any additional items or running cron.
   drupal_queue_cron_run();
+}
+
+/*
+ * Mark as available to host all users whose 'become available' date has passed, and notify them of this change.
+ */
+function _wsuser_process_users_that_become_available() {
+  $now = time();
+
+  // Select for notification all unavailable users that set a 'become available' date that has passed.
+  $result = db_query(
+    'SELECT u.mail, u.language, u.uid
+    FROM {users} u, {wsuser} ws
+    WHERE u.uid = ws.uid
+    AND ws.notcurrentlyavailable = %d
+    AND ws.becomeavailable IS NOT NULL
+    AND ws.becomeavailable < %d',
+    1, $now
+  );
+
+  // Notify these users that they are being marked as available to host.
+  $languages = language_list();
+  while ($row = db_fetch_object($result)) {
+    drupal_mail('wsuser', 'become_available_notification', $row->mail, $languages[$row->language], array('account' => user_load($row->uid)));
+  }
+
+  // Update to available to host all unavailable users that set a 'become available' date that has passed.
+  db_query(
+    'UPDATE {wsuser}
+    SET notcurrentlyavailable = %d
+    WHERE notcurrentlyavailable = %d
+    AND becomeavailable IS NOT NULL
+    AND becomeavailable < %d',
+    0, 1, $now
+  );
 }
