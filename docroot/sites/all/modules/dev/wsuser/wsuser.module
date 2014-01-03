@@ -1050,7 +1050,7 @@ function wsuser_fieldlist() {
     'set_available_timestamp' => array(
       'type' => 'hidden',
     ),
-    'last_unavailablility_pester' => array(
+    'last_unavailability_pester' => array(
       'type' => 'hidden',
     ),
 
@@ -2466,7 +2466,8 @@ function wsuser_cron() {
 }
 
 /*
- * Queue up reminders for users who are not currently available
+ * Queue up reminders for users who are not currently available and who have
+ * not set set a becomeavailable.
  */
 function _wsuser_queue_notavailable_reminders() {
 
@@ -2475,63 +2476,61 @@ function _wsuser_queue_notavailable_reminders() {
   // Get interval of email reminders (default to two months).
   $period = variable_get('wsuser_last_notavailable_reminder_period', 60 * 60 * 24 * 61);
 
-  // Only remind users if they become available past a certain threshold time from now (default to six months).
-  $threshold = variable_get('wsuser_threshold_remind_if_become_available_is_past', 60 * 60 * 24 * 30 * 6);
+  // Limit number of users to remind per run
+  // (default lets us get out of trouble if something goes wrong).
+  // Theoretically it would only send out 25 per day.
+  $limit = variable_get('wsuser_num_users_to_remind_per_run', 25);
 
-  // Limit number of users to remind per run (default to 250).
-  $limit = variable_get('wsuser_num_users_to_remind_per_run', 250);
-
-  // The query code after UNION may be deleted once the newer availability fields are populated for all users.
-  // Become available and set unavailable should either both be NULL or both be set for all users.
+  // Query deconstruction:
+  // Select all members who are explicitly marked not available
+  //   WITH no becomeavailable date (NULL), meaning they haven't set a becomeavailable
+  // We won't bother with people who have set a becomeavailable, even if in the far future.
+  // We use a limit just so that debugging is easier and we don't flood ourself
+  // with loads of emails. However, this should not matter in practice on the live
+  // site.
+  // This is actually aimed only at existing current members who are set to notcurrentlyavailable
+  // Theoretically they will all eventually set a becomeavailable date, even
+  // far in the future.
   $result = db_query(
-    'SELECT u.mail, u.language, u.uid
-    FROM {users} u, {wsuser} ws
-    WHERE u.uid = ws.uid
-    AND ws.notcurrentlyavailable = 1
-    AND ws.becomeavailable IS NOT NULL
-    AND ws.set_unavailable_timestamp + %d < %d
-    AND ws.last_unavailablility_pester + %d < %d
-    AND ws.becomeavailable - %d > %d
-    UNION
-    SELECT u.mail, u.language, u.uid
-    FROM {users} u, {wsuser} ws
-    WHERE u.uid = ws.uid
-    AND ws.notcurrentlyavailable = 1
-    AND ws.becomeavailable IS NULL
-    AND (ws.last_unavailablility_pester IS NULL OR ws.last_unavailablility_pester + %d < %d)
-    LIMIT %d',
-    $period, $now, $period, $now, $threshold, $now, $period, $now, $limit
+    'SELECT u.mail, u.language, u.uid, ws.last_unavailability_pester
+      FROM {users} u, {wsuser} ws
+      WHERE u.uid = ws.uid
+      AND ws.notcurrentlyavailable = 1
+      AND (ws.becomeavailable = 0 OR ws.becomeavailable IS NULL)
+      AND (ws.last_unavailability_pester IS NULL OR (ws.last_unavailability_pester + %d < %d))
+      LIMIT %d',
+    $period, $now, $limit
   );
 
-  $queue = DrupalQueue::get('wsuser');
+  $queue = DrupalQueue::get('wsuser_process_notavailable_reminders');
 
   while ($row = db_fetch_object($result)) {
-
     $job = array(
-      'description' => t('Send marked as not available reminder email to @mail',
+      'description' => t('Send notavailable reminder email to @mail',
         array('@mail' => $row->mail)),
       'arguments' => array($row),
     );
     $queue->createItem($job);
+    watchdog('wsuser_pester', 'Sent unavailable_pester to %mail, last_unavailability_pester=%pester', array('%mail' => $row->mail, '%pester' => date('c', $row->last_unavailability_pester)));
 
     // Update the wsuser now to make sure we don't hit this member again.
     db_query(
       'UPDATE {wsuser}
-      SET last_unavailablility_pester = %d
+      SET last_unavailability_pester = %d
       WHERE uid = %d', $now, $row->uid
     );
   }
-
 }
 
 /**
  * Implementation of hook_cron_queue_info().
+ *
+ * Set up cron queues for wsuser.
  */
 function wsuser_cron_queue_info() {
   return array(
-    'wsuser' => array(
+    'wsuser_process_notavailable_reminders' => array(
       'worker callback' => '_wsuser_send_notavailable_reminders',
-      'time' => 90, // Default is 15, it takes ~90 seconds locally to ensure all 250 items are processed.
     ),
   );
 }
@@ -2592,6 +2591,12 @@ function wsuser_configuration() {
   return system_settings_form($form);
 }
 
+/**
+ * Submit handler for sending reminder test email to user 1.
+ *
+ * @param $form
+ * @param $form_state
+ */
 function wsuser_configuration_send_test_email($form, &$form_state) {
   wsuser_send_test_reminder_email();
   drupal_set_message(t('Sent test reminder email to uid 1'));
@@ -2612,7 +2617,7 @@ function wsuser_send_test_reminder_email($uid = 1) {
     AND u.uid = %d',
     $uid);
 
-  $queue = DrupalQueue::get('wsuser');
+  $queue = DrupalQueue::get('wsuser_process_notavailable_reminders');
 
   while ($row = db_fetch_object($result)) {
 
