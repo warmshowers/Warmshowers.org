@@ -66,7 +66,7 @@
     <div id="host-services">
       <h2><?php print t('Hosting information'); ?></h2>
       <?php if ($notcurrentlyavailable) : ?>
-        <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed'); ?>
+        <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. <br/>Expected return @return.', array('@return' => $return_date)); ?>
       <?php else: ?>
         <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
            <?php if (!empty($$item)): ?>
