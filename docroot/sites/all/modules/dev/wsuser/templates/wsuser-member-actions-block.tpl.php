@@ -25,19 +25,11 @@
 
 ?>
 
-<?php if (!$is_self):
-  print theme('linkbutton',
-    array(
-      'title' => t('Provide Feedback'),
-      'href' => url('node/add/trust-referral', array(
-          'absolute' => TRUE,
-          'query' => array(
-            'edit[field_member_i_trust][0][uid][uid]' => $username,
-          ),
-        )
-      ),
-      'classes' => 'rounded dark big',
-    )
-  );
+<?php 
+
+if (!$is_self):
+	foreach($wsuser_member_actions_block_links as $link){
+		print theme($link[0],$link[1]);
+	}
 endif;
 ?>

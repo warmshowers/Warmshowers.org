@@ -17,7 +17,7 @@ function test_flag_default_flags() {
     'unflag_short' => 'I didn\'t host this member actually',
     'unflag_long' => '',
     'unflag_message' => '',
-    'unflag_denied_text' => 'I hosted this member',
+    'unflag_denied_text' => 'You have hosted this member',
     'link_type' => 'toggle',
     'roles' => array(
       'flag' => array(
@@ -25,52 +25,39 @@ function test_flag_default_flags() {
       ),
       'unflag' => array(),
     ),
-    'show_on_profile' => 1,
+    'show_on_profile' => 0,
     'access_uid' => 'others',
-    'api_version' => 2,
     'module' => 'test',
     'locked' => array(
       '0' => 'name',
     ),
+    'api_version' => 2,
   );
   return $flags;
 }
 
-function test_block($op = 'list', $delta = 0, $edit = array()){
-	global $user;
-	if ($op == 'list') {
-		$blocks['test_flags'] = array(
-		  'info' => t('[test] Flags block'),
-		  'cache' => BLOCK_CACHE_GLOBAL,
-		);
-		return $blocks;
-		}
-	else if($op=='view'){
-		switch($delta){
-			case 'test_flags':
-				if($user->uid==arg(1)) return array();
-				$block=array(
-				'subject'=>t('Flags'),
-				'content'=>theme('test_flags'),
-				);
-				return $block;
-			}
-		}
-	}
-	
 function test_theme(){
-	$template_path = drupal_get_path('module', 'test') . '/templates';
+	$template_path = drupal_get_path('module', 'wsuser') . '/templates';
 	return array(
 	'test_flags'=>array(
 		'path'=>$template_path,
-		'template'=>'test-flags-block'),
+		'template'=>'wsuser_member_actions_block'),
+	'flag_checkbox' => array(
+      'arguments' => array('link' => NULL),
+    ),
 	);
+	}
+	
+function theme_flag_checkbox($link){
+	print flag_create_link($link[0],$link[1]);
 	}
 
 	
 function test_preprocess(&$variables, $key){
-	if($key=='test_flags'){
-		$variables['user_id']=arg(1);
+	if($key=='wsuser_member_actions'){
+		$variables['wsuser_member_actions_block_links'][]=array(
+		'flag_checkbox',
+		array('i_hosted_this_member', arg(1)));
 		}
 	}
 
