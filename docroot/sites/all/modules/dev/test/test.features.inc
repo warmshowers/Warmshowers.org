@@ -65,4 +65,10 @@ function test_theme(){
 	);
 	}
 
+	
+function test_preprocess(&$variables, $key){
+	if($key=='test_flags'){
+		$variables['user_id']=arg(1);
+		}
+	}
 
