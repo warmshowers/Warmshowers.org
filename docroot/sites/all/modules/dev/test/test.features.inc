@@ -37,6 +37,7 @@ function test_flag_default_flags() {
 }
 
 function test_block($op = 'list', $delta = 0, $edit = array()){
+	global $user;
 	if ($op == 'list') {
 		$blocks['test_flags'] = array(
 		  'info' => t('[test] Flags block'),
@@ -47,6 +48,7 @@ function test_block($op = 'list', $delta = 0, $edit = array()){
 	else if($op=='view'){
 		switch($delta){
 			case 'test_flags':
+				if($user->uid==arg(1)) return array();
 				$block=array(
 				'subject'=>t('Flags'),
 				'content'=>theme('test_flags'),
