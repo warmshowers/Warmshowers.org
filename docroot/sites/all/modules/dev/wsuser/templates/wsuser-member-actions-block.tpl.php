@@ -26,7 +26,6 @@
 ?>
 
 <?php 
-
 if (!$is_self):
 	foreach($wsuser_member_actions_block_links as $link){
 		print theme($link[0],$link[1]);
