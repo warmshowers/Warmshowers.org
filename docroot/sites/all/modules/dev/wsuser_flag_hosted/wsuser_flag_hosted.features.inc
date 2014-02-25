@@ -3,7 +3,7 @@
 /**
  * Implementation of hook_flag_default_flags().
  */
-function test_flag_default_flags() {
+function wsuser_flag_hosted_flag_default_flags() {
   $flags = array();
   // Exported flag: "Flag I hosted this member".
   $flags['i_hosted_this_member'] = array(
@@ -18,7 +18,7 @@ function test_flag_default_flags() {
     'unflag_long' => '',
     'unflag_message' => '',
     'unflag_denied_text' => 'You have hosted this member',
-    'link_type' => 'toggle',
+    'link_type' => 'normal',
     'roles' => array(
       'flag' => array(
         '0' => 2,
@@ -27,37 +27,19 @@ function test_flag_default_flags() {
     ),
     'show_on_profile' => 0,
     'access_uid' => 'others',
-    'module' => 'test',
+    'api_version' => 2,
+    'module' => 'wsuser_flag_hosted',
     'locked' => array(
       '0' => 'name',
     ),
-    'api_version' => 2,
   );
   return $flags;
 }
 
-function test_theme(){
-	$template_path = drupal_get_path('module', 'wsuser') . '/templates';
-	return array(
-	'test_flags'=>array(
-		'path'=>$template_path,
-		'template'=>'wsuser_member_actions_block'),
-	'flag_checkbox' => array(
-      'arguments' => array('link' => NULL),
-    ),
-	);
-	}
-	
-function theme_flag_checkbox($link){
-	print flag_create_link($link[0],$link[1]);
-	}
-
-	
-function test_preprocess(&$variables, $key){
+function wsuser_flag_hosted_preprocess(&$variables, $key){
 	if($key=='wsuser_member_actions'){
 		$variables['wsuser_member_actions_block_links'][]=array(
-		'flag_checkbox',
-		array('i_hosted_this_member', arg(1)));
+		'type'=>'flag_checkbox',
+		'data'=>array('flag_name'=>'i_hosted_this_member', 'user_id'=>arg(1)));
 		}
 	}
-
