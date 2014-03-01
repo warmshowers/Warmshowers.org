@@ -36,10 +36,14 @@ function wsuser_flag_hosted_flag_default_flags() {
   return $flags;
 }
 
+/**
+* Implementation of hook_preprocess()
+* provide a flag to be displayed in wsuser_member_actions_block.tpl.php
+*/
 function wsuser_flag_hosted_preprocess(&$variables, $key){
-	if($key=='wsuser_member_actions'){
-		$variables['wsuser_member_actions_block_links'][]=array(
-		'type'=>'flag_checkbox',
-		'data'=>array('flag_name'=>'i_hosted_this_member', 'user_id'=>arg(1)));
-		}
-	}
+  if($key=='wsuser_member_actions'){
+    $variables['wsuser_member_actions_block_links'][]=array(
+      'type'=>'flag_checkbox',
+      'data'=>array('flag_name'=>'i_hosted_this_member', 'user_id'=>arg(1)));
+  }
+}
