@@ -103,7 +103,6 @@ $nb_query=0;
 while($row = $result->fetch_assoc()){
 	$data=unserialize($row['data']);
 	if (!$data) {
-    print $row['uid'].'<br/>';
 		$data=$row['data'];
   }
 	else{
