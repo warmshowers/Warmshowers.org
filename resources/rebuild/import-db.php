@@ -40,15 +40,8 @@ if (!$sql_dump || !file_exists($sql_dump)) {
   return drush_set_error('NO_SQL_DUMP_FOUND', dt('Failed to find a SQL dump in Dropbox.'));
 }
 drush_log('Starting import of DB. This might take a while!', 'ok');
-
 $ret = drush_invoke_process('@warmshowers.dev', 'sql-connect');
 $mysql_connect = $ret['output'];
-// Recreate database.
-$cmd = sprintf('echo "DROP DATABASE %s" | %s', $database_name, $mysql_connect);
-drush_log(dt('Dropping database !database', array('!database' => $database_name)));
-drush_shell_exec($cmd);
-$cmd = sprintf('echo "CREATE DATABASE %s" | %s', $database_name, $mysql_connect);
-drush_shell_exec($cmd);
 // Use gzip -dc to import the DB.
 $cmd = sprintf('gzip -dc %s | %s', $sql_dump, $mysql_connect);
 drush_log(dt('Importing database with command: "!command"', array('!command' => $cmd)), 'ok');
