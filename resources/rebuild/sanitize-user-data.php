@@ -21,7 +21,9 @@ $table_location = 'user_location';
 $table_wsuser = 'wsuser';
 
 $req = "UPDATE {$table_location} SET
-street = CONCAT(oid, ' Pine Street')";
+street = CONCAT(oid, ' Pine Street'),
+latitude = NULL,
+longitude = NULL";
 
 drush_invoke_process('@warmshowers.dev', 'sql-query', array($req));
 
