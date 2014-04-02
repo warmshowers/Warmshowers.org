@@ -33,7 +33,13 @@
 <?php drupal_set_title(check_plain($account->fullname)); ?>
 <div id="profile-container">
   <div id="profile-top">
-    <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
+    <div id="profile-image"><?php 
+    if ($is_self && $account->picture == '') {
+      print t('<p>You haven\'t upload any picture yet, doing so improve your chances to find hosts or guests. You can upload a picture by <a href="/user/'.$uid.'/edit">Editing your profile</a></p>');
+    }
+    else {
+      print theme('user_picture', $account);
+    } ?></div>
     <div id="name-title">
       <h3><?php print $fullname; ?></h3>
 

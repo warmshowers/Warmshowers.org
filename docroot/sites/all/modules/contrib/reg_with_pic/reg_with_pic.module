@@ -1,0 +1,142 @@
+<?php
+// $Id: reg_with_pic.module,v 1.1.2.6 2010/05/24 01:19:20 mmilano Exp $
+
+/**
+ * @file This module allows a user picture to be uploaded at registration time.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function reg_with_pic_menu() {
+  $items = array();
+  $items['admin/settings/reg_with_pic'] = array(
+    'title' => t('Reg With Pic'),
+    'description' => t('Settings for the Reg With Pic module.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('reg_with_pic_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'reg_with_pic.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function reg_with_pic_form_alter(&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'user_profile_form') {
+
+    $form['picture']['pic_selected'] = array(
+      '#type' => 'hidden',
+      '#default_value' => 0
+    );
+    $form['picture']['picture_upload']['#attributes']['onchange'] = "$('#edit-pic-selected').val(1);";
+
+    // if pic required, don't even give option to delete
+    $required = variable_get('reg_with_pic_required', 0);
+    if ($required) {
+        unset($form['picture']['picture_delete']);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function reg_with_pic_user($op, &$edit, &$user, $category = NULL) {
+  if (variable_get('user_pictures', 0)) {
+    switch ($op) {
+      case 'register':
+
+        // setup picture upload in registration form
+        $form['#attributes']['enctype'] = 'multipart/form-data';
+        $form['picture'] = array('#type' => 'fieldset', '#title' => t('Picture'), '#weight' => 1);
+        $form['picture']['picture_upload_register'] = array('#type' => 'file', '#title' => t('Upload picture'), '#description' => t('<br>Your virtual face or picture. Maximum dimensions are %dimensions and the maximum size is %size kB.', array('%dimensions' => variable_get('user_picture_dimensions', '85x85'), '%size' => variable_get('user_picture_file_size', '30'))) .' '. variable_get('user_picture_guidelines', ''));
+        $form['picture']['pic_selected'] = array(
+          '#type' => 'hidden',
+          '#default_value' => 0
+        );
+        //
+        $form['picture']['picture_upload_register']['#attributes']['onchange'] = "$('#edit-pic-selected').val(1);";
+
+        // handle required picture
+        $required = variable_get('reg_with_pic_required', 0);
+        if ($required == 1) {
+          // make the field display as if a value is required
+          $form['picture']['picture_upload_register']['#required'] = TRUE;
+          // trick the form into thinking there is a normal value
+          $form['picture']['picture_upload_register']['#default_value'] = 0;
+        }
+
+        return $form;
+        break;
+
+      case 'validate':
+
+        if ($category != 'account') {
+          break;
+        }
+
+        // handle a required field if it was set in the admin UI
+        $required = variable_get('reg_with_pic_required', 0);
+        $errors = form_get_errors();
+
+        // dynamically set the field name based on input
+        if (isset($edit['picture_upload'])) {
+          $form_type = 'edit';
+          $pic_field = 'picture_upload';
+        }
+        else {
+          $form_type = 'register';
+          $pic_field = 'picture_upload_register';
+        }
+
+        // only attempt to validate photo if one is required, or if there are no other errors
+        if ($required == 1 || count($errors) == 0) {
+
+          // validate uploaded picture, taken from user module
+          $validators = array(
+            'file_validate_is_image' => array(),
+            'file_validate_image_resolution' => array(variable_get('user_picture_dimensions', '85x85')),
+            'file_validate_size' => array(variable_get('user_picture_file_size', '30') * 1024),
+          );
+
+          $file = file_save_upload($pic_field, $validators);
+
+          if ($required && !$file && ($form_type == 'register' || !$user->picture)) {
+            form_set_error($pic_field, t('You must select a picture.'));
+          }
+          elseif ($required && $file && count($errors) > 0) {
+            form_set_error($pic_field, t('You must reselect your picture.'));
+          }
+
+          $edit['picture_uploaded'] = $file ? TRUE : FALSE;
+
+        }
+        else {
+          // a friendly reminder to reselect your picture since the browser will clear it
+          if ($edit['pic_selected'] == 1) {
+            form_set_error($pic_field, t('You must reselect your picture.'));
+          }
+        }
+
+        break;
+
+      case 'insert':
+
+        if ($edit['picture_uploaded']) {
+          // file repopulates from uploadcache
+          $file = file_save_upload('picture_upload_register');
+          $info = image_get_info($file->filepath);
+          // save picture to correct path and update the row in the user table
+          $destination = variable_get('user_picture_path', 'pictures') .'/picture-'. $user->uid .'.'. $info['extension'];
+          if (file_copy($file, $destination, FILE_EXISTS_REPLACE)) {
+            db_query("UPDATE {users} SET picture='%s' WHERE uid=%d", $file->filepath, $user->uid);
+          }
+        }
+        break;
+    }
+  }
+}
