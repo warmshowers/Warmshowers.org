@@ -9,6 +9,43 @@
 
 module_load_include('inc', 'user_location', 'earth');
 
+/**
+ * Implementation of hook_flag_default_flags().
+ */
+function wsuser_flag_default_flags() {
+  $flags = array();
+  // Exported flag: "Add user as a friend".
+  $flags['friends'] = array(
+    'content_type' => 'user',
+    'title' => 'Add user as a friend',
+    'global' => '0',
+    'types' => array(),
+    'flag_short' => t('Add <em>[fullname]</em> to your friends list'),
+    'flag_long' => '',
+    'flag_message' => '',
+    'unflag_short' => t('Remove <em>[fullname]</em> from your friends list'),
+    'unflag_long' => '',
+    'unflag_message' => '',
+    'unflag_denied_text' => '',
+    'link_type' => 'normal',
+    'roles' => array(
+      'flag' => array(
+        '0' => 2,
+      ),
+      'unflag' => array(
+        '0' => 2,
+      ),
+    ),
+    'show_on_profile' => 0,
+    'access_uid' => 'others',
+    'api_version' => 2,
+    'module' => 'wsuser',
+    'locked' => array(
+      '0' => 'name',
+    ),
+  );
+  return $flags;
+}
 
 function wsuser_perm() {
   return array(
@@ -16,6 +53,7 @@ function wsuser_perm() {
     "list all countries", // Allow them to list all countries in member listing
     "view email addrs", // View raw email addrs
     'administer wsuser config',
+    'view member friends', // View other member's friends list
   );
 }
 
@@ -105,8 +143,67 @@ function wsuser_menu() {
     'access arguments' => array('administer wsuser config'),
     'weight' => 10,
   );
+  $items['user/%user/friends'] = array(
+    'title' => t('Friends'),
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'wsuser_view_friends',
+    'page arguments'   => array(1),
+    'access callback' => 'wsuser_flag_check_perm',
+    'access arguments' => array('view member friends'),
+    );
 
 	return $items;
+}
+
+/**
+* Check current user's permissions.
+**/
+function wsuser_flag_check_perm($perm){
+  global $user;
+  if (in_array('authenticated user' , array_values($user->roles))) {
+    //check if the current user is visiting his own friends
+    //page or if he has the right to see other user's friends
+    if ($user->uid == arg(1) || user_access($perm)) {
+      return True;
+    }
+  }
+  return False;
+}
+
+/**
+* Load every users whose flag 'friend' has been flagged by the user uid.
+* return a array of users.
+*/
+function wsuser_get_flagged_users($uid) {
+  $flag = flag_get_flag('friends');
+  $result = db_query("select content_id,timestamp from flag_content where fid=$flag->fid and uid=$uid");
+  $users = array();
+  while ($user = db_fetch_object($result)){
+    $u = user_load(array('uid' => $user->content_id));
+    $u->added_as_friend = $user->timestamp;
+    $users[] = $u;
+  }
+  return $users;
+}
+
+/**
+* Load every users who have flagged the user uid with the flag 'friends'.
+* return a array of users.
+*/
+function wsuser_get_users_who_flagged($uid) {
+  $flag = flag_get_flag('friends');
+  $result = db_query("select uid,timestamp from flag_content where fid=$flag->fid and content_id=$uid");
+  $users = array();
+  while ($user = db_fetch_object($result)){
+    $u = user_load(array('uid' => $user->uid));
+    $u->added_as_friend = $user->timestamp;
+    $users[] = $u;
+  }
+  return $users;
+}
+
+function wsuser_view_friends($uid) {
+  return theme('view_friends');
 }
 
 /**
@@ -145,6 +242,10 @@ function wsuser_theme() {
     ),
     'linkbuttons' => array(
       'arguments' => array('links' => NULL),
+    ),
+    'view_friends' => array(
+      'path' => $template_path,
+      'template' => 'wsuser-view-friends'
     ),
   );
 }
@@ -1404,7 +1505,7 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
     );
 
     return $blocks;
-	}
+  }
 	else if ($op == 'view') {
 		$block = array();
 
@@ -2160,9 +2261,18 @@ function wsuser_country_change_ahah()
  * @return mixed
  */
 function wsuser_preprocess(&$variables, $key) {
-  if (!in_array($key, array('user_profile', 'wsuser_member_contact_location', 'wsuser_member_actions'))) {
+  global $user;
+  if (!in_array($key, array('user_profile', 'wsuser_member_contact_location', 'wsuser_member_actions','view_friends','wsuser_member_welcome_block'))) {
     return;
   }
+
+  if ($key == 'wsuser_member_welcome_block') {
+    //get the 'log out' link out to put it back at the end of the list
+    $elem = array_pop($variables['wsuser_member_welcome_block_menu_links']);
+    array_push($variables['wsuser_member_welcome_block_menu_links'] , array('title' => t('My friends'), 'href' => "user/{$user->uid}/friends"));
+    array_push($variables['wsuser_member_welcome_block_menu_links'], $elem);
+  }
+
   list($arg1, $uid) = arg();
   if ($arg1 != 'user' || !is_numeric($uid)) { return; }
   $account = user_load($uid);
@@ -2262,6 +2372,31 @@ function wsuser_preprocess(&$variables, $key) {
   list($variables['pm_responsiveness'], $variables['pm_requests'], $variables['pm_responses'], $variables['pm_start_date']) = wsuser_privatemsg_responsiveness($account->uid);
   $variables['pm_start_date'] = date('Y-m-d', $variables['pm_start_date']);
 
+  if($key=='wsuser_member_actions'){
+    $variables['wsuser_member_actions_block_links'][]=array(
+      'type'=>'linkbutton',
+      'data'=>array(
+        'title' => t('Provide Feedback'),
+        'href' => url('node/add/trust-referral', array(
+          'absolute' => TRUE,
+          'query' => array(
+            'edit[field_member_i_trust][0][uid][uid]' => $account->name,
+            ),
+          )
+        ),
+        'classes' => 'rounded dark big',
+        )
+      );
+    $variables['wsuser_member_actions_block_links'][] = array(
+      'type' => 'flag_checkbox',
+      'data' => array('flag_name'=>'friends',
+      'user_id' => $account->uid,
+      ));
+  }
+  if ($key == 'view_friends') {
+    $variables['my_friends'] = wsuser_get_flagged_users($account->uid);
+    $variables['friend_of'] = wsuser_get_users_who_flagged($account->uid);
+  }
 }
 
 
