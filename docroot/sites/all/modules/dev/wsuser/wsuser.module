@@ -171,12 +171,15 @@ function wsuser_flag_check_perm($perm){
 }
 
 /**
-* Load every users whose flag 'friend' has been flagged by the user uid.
+* Load every users whose flag 'friend' has been flagged by the user uid and have been flagged back.
 * return a array of users.
 */
-function wsuser_get_flagged_users($uid) {
+function wsuser_get_friends($uid) {
   $flag = flag_get_flag('friends');
-  $result = db_query("select content_id,timestamp from flag_content where fid=$flag->fid and uid=$uid");
+  $result = db_query("select f1.content_id,f1.timestamp from flag_content f1 
+  where f1.fid=$flag->fid 
+  and f1.uid=$uid 
+  and (select count(*) from flag_content f2 where f2.fid=$flag->fid and f2.content_id=$uid and f2.uid=f1.content_id)>0");
   $users = array();
   while ($user = db_fetch_object($result)){
     $u = user_load(array('uid' => $user->content_id));
@@ -187,15 +190,37 @@ function wsuser_get_flagged_users($uid) {
 }
 
 /**
-* Load every users who have flagged the user uid with the flag 'friends'.
+* Load every users who have flagged the user uid with the flag 'friends' and are waiting to be flagged back.
 * return a array of users.
 */
-function wsuser_get_users_who_flagged($uid) {
+function wsuser_get_friends_approval_needed($uid) {
   $flag = flag_get_flag('friends');
-  $result = db_query("select uid,timestamp from flag_content where fid=$flag->fid and content_id=$uid");
+  $result = db_query("select f1.uid,f1.timestamp from flag_content f1 
+  where f1.fid=$flag->fid 
+  and f1.content_id=$uid
+  and (select count(*) from flag_content f2 where f2.fid=$flag->fid and f2.uid=$uid and f2.content_id=f1.uid)=0");
   $users = array();
   while ($user = db_fetch_object($result)){
     $u = user_load(array('uid' => $user->uid));
+    $u->added_as_friend = $user->timestamp;
+    $users[] = $u;
+  }
+  return $users;
+}
+
+/**
+* Load every users who are flagged by user uid with the flag 'friends', and have not flagged back yet
+* return a array of users.
+*/
+function wsuser_get_friends_pending_request($uid) {
+  $flag = flag_get_flag('friends');
+  $result = db_query("select f1.content_id,f1.timestamp from flag_content f1 
+  where f1.fid=$flag->fid 
+  and f1.uid=$uid 
+  and (select count(*) from flag_content f2 where f2.fid=$flag->fid and f2.content_id=$uid and f2.uid=f1.content_id)=0");
+  $users = array();
+  while ($user = db_fetch_object($result)){
+    $u = user_load(array('uid' => $user->content_id));
     $u->added_as_friend = $user->timestamp;
     $users[] = $u;
   }
@@ -1238,6 +1263,23 @@ function wsuser_login(&$edit, &$account) {
   if ($account->isunreachable) {
     $_REQUEST['destination'] = 'marked_unreachable';
     drupal_goto("marked_unreachable");
+  }
+  
+  //check if the user has been flagged with the friends flag since his last login
+  $flag = flag_get_flag('friends');
+  $result = db_query("select * from flag_content where content_id=$account->uid and timestamp>$account->access and fid=$flag->fid");
+  while ($friend = db_fetch_object($result)) {
+    $user2 = user_load(array('uid'=>$friend->uid));
+    //check if it's an approval or a new friend request
+    $result = db_query("select * from flag_content where content_id=$friend->uid and uid=$account->uid and fid=$flag->fid");
+    if ($friend = db_fetch_object($result)) {
+      //It's an approval
+      drupal_set_message(t('@name has approved your friend request.', array('@name' => $user2->name)));
+    }
+    else {
+      //It's a new request
+      drupal_set_message(t('@name has sent you a new friend request. Check your friends page.',array('@name' => $user2->name)));
+    }
   }
 }
 
@@ -2394,8 +2436,9 @@ function wsuser_preprocess(&$variables, $key) {
       ));
   }
   if ($key == 'view_friends') {
-    $variables['my_friends'] = wsuser_get_flagged_users($account->uid);
-    $variables['friend_of'] = wsuser_get_users_who_flagged($account->uid);
+    $variables['my_pending_friends'] = wsuser_get_friends_pending_request($account->uid);
+    $variables['my_waiting_friends'] = wsuser_get_friends_approval_needed($account->uid);
+    $variables['my_friends'] = wsuser_get_friends($account->uid);
   }
 }
 
