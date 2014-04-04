@@ -33,7 +33,7 @@
       </a>
     </div>
     <div class="friends_att">
-      <div class="friend_name"><?php l(t('@name (@fullname)', array('@name' => $friend->name, '@fullname' => $friend->fullname)), '/user/' . $friend->uid);?></div>
+      <div class="friend_name"><?php print l(t('@name (@fullname)', array('@name' => $friend->name, '@fullname' => $friend->fullname)), '/user/' . $friend->uid);?></div>
       <div class="friend_loc clear"><?php print t('Location: @loc', array('@loc' => $friend->city));?></div>
       <div class="friend_date clear"><?php print t('Friend since: @date', array('@date' => format_date($friend->added_as_friend, 'small')));?></div>
       <?php if ($is_self): ?>
@@ -56,7 +56,7 @@
         </a>
       </div>
       <div class="friends_att">
-        <div class="friend_name"><?php l(t('@name (@fullname)', array('@name' => $friend->name, '@fullname' => $friend->fullname)), '/user/' . $friend->uid);?></div>
+        <div class="friend_name"><?php print l(t('@name (@fullname)', array('@name' => $friend->name, '@fullname' => $friend->fullname)), '/user/' . $friend->uid);?></div>
         <div class="friend_loc clear"><?php print t('Location: @loc', array('@loc' => $friend->city));?></div>
         <div class="friend_date clear"><?php print t('Friend since: @date', array('@date' => format_date($friend->added_as_friend, 'small')));?></div>
         <?php if ($is_self): ?>
@@ -79,7 +79,7 @@
       </a>
     </div>
     <div class="friends_att">
-      <div class="friend_name"><?php l(t('@name (@fullname)', array('@name' => $friend->name, '@fullname' => $friend->fullname)), '/user/' . $friend->uid);?></div>
+      <div class="friend_name"><?php print l(t('@name (@fullname)', array('@name' => $friend->name, '@fullname' => $friend->fullname)), '/user/' . $friend->uid);?></div>
       <div class="friend_loc clear"><?php print t('Location: @loc', array('@loc' => $friend->city));?></div>
       <div class="friend_date clear"><?php print t('Friend since: @date', array('@date' => format_date($friend->added_as_friend, 'small')));?></div>
       <?php if ($is_self): ?>
