@@ -1264,21 +1264,42 @@ function wsuser_login(&$edit, &$account) {
     $_REQUEST['destination'] = 'marked_unreachable';
     drupal_goto("marked_unreachable");
   }
-  
-  //check if the user has been flagged with the friends flag since his last login
-  $flag = flag_get_flag('friends');
-  $result = db_query("select * from flag_content where content_id=$account->uid and timestamp>$account->access and fid=$flag->fid");
-  while ($friend = db_fetch_object($result)) {
-    $user2 = user_load(array('uid'=>$friend->uid));
-    //check if it's an approval or a new friend request
-    $result = db_query("select * from flag_content where content_id=$friend->uid and uid=$account->uid and fid=$flag->fid");
-    if ($friend = db_fetch_object($result)) {
-      //It's an approval
-      drupal_set_message(t('<a href="/user/@uid">@name</a> has approved your friend request.', array('@uid' => $user2->uid, '@name' => $user2->name)));
+}
+
+/*
+ * implementation of flag_flag($action, $flag, $content_id, $account)
+ * performs operations when a user flag/unflag another.
+ */
+function wsuser_flag($action, $flag, $content_id, $account) {
+  if ($flag->name == 'friends') {
+    $approval = FALSE;
+    //check if it's about an approved request or a new friend request
+    $result = db_query("select * from flag_content where uid=$content_id and fid=$flag->fid and content_id=$account->uid");
+    if (db_fetch_object($result)) {
+      $approval = TRUE;
+    }
+    
+    if ($action == "unflag") {
+      if ($approval) { 
+        //Deletion of an approved friend relationship
+        db_messages_set_message(t('<a href="/user/@uid">@name</a> has unmarked you as a friend.', array('@uid' => $account->uid, '@name' => $account-> name)), $content_id);
+        //we delete the approbation too
+        db_query("delete from flag_content where uid=$content_id and fid=$flag->fid and content_id=$account->uid");
+      }
+      else {
+        //Deletion of friend request
+        db_messages_set_message(t('<a href="/user/@uid">@name</a> has removed his friend request.', array('@uid' => $account->uid, '@name' => $account->name)), $content_id);
+      }
     }
     else {
-      //It's a new request
-      drupal_set_message(t('<a href="/user/@uid1">@name</a> has sent you a new friend request. Check your <a href="/user/@uid2/friends">friends page</a>.',array('@name' => $user2->name, '@uid1' => $user2->uid, '@uid2' => $account->uid)));
+      if ($approval) {
+        //request approbation
+        db_messages_set_message(t('<a href="/user/@uid">@name</a> has approved your friend request.', array('@uid' => $account->uid, '@name' => $account-> name)), $content_id);
+      }
+      else {
+        //new friend request
+        db_messages_set_message(t('<a href="/user/@uid1">@name</a> has sent you a new friend request. Check your <a href="/user/@uid2/friends">friends page</a>.',array('@name' => $account->name, '@uid2' => $content_id, '@uid1' => $account->uid)), $content_id);
+      }
     }
   }
 }
