@@ -308,7 +308,7 @@ function mark_as_favourite_views_default_views() {
       'style_options' => array(),
       'wildcard' => 'all',
       'wildcard_substitution' => 'All',
-      'title' => 'My favourites',
+      'title' => t('My favourites'),
       'breadcrumb' => '',
       'default_argument_type' => 'fixed',
       'default_argument' => '',
