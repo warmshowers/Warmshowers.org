@@ -33,7 +33,9 @@
 <?php drupal_set_title(check_plain($account->fullname)); ?>
 <div id="profile-container">
   <div id="profile-top">
-    <div id="profile-image"><?php print theme('user_picture', $account); ?></div>
+    <div id="profile-image"><?php 
+      print $photo;
+      ?></div>
     <div id="name-title">
       <h3><?php print $fullname; ?></h3>
 
