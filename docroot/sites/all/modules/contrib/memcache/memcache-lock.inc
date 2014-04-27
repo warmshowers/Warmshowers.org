@@ -146,7 +146,7 @@ function _lock_id() {
 /**
  * Release all locks acquired by this request.
  */
-function lock_release_all($lock_id) {
+function lock_release_all($lock_id = NULL) {
   global $locks;
   foreach ($locks as $name => $id) {
     $value = dmemcache_get($name, 'semaphore');

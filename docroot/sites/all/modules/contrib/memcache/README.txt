@@ -196,8 +196,8 @@ See http://drupal.org/node/273824
 
 ## MEMCACHE ADMIN ##
 
-A module offering a UI for memcache is included. It provides stats, a
-way to clear the cache, and an interface to organize servers/bins/clusters.
+A module offering a UI for memcache is included. It provides aggregated and
+per-page statistics for memcache.
 
 
 ## Memcached PECL Extension Support

@@ -10,7 +10,7 @@ require_once dirname(__FILE__) . '/dmemcache.inc';
  */
 
 /**
- * Implement hook_user() using a required module's namespace since memcache is 
+ * Implement hook_user() using a required module's namespace since memcache is
  * not a module and thus can't implement hooks directly.
  */
 function filter_user($op, &$edit, &$account, $category = NULL) {
@@ -36,20 +36,20 @@ function sess_read($key) {
   // So we are moving session closure before destructing objects.
   register_shutdown_function('session_write_close');
 
-  // Handle the case of first time visitors and clients that don't store 
+  // Handle the case of first time visitors and clients that don't store
   // cookies (eg. web crawlers).
   if (!isset($_COOKIE[session_name()])) {
     $user = drupal_anonymous_user();
     return '';
   }
 
-  // Otherwise, if the session is still active, we have a record of the 
+  // Otherwise, if the session is still active, we have a record of the
   // client's session in memcache.
   $session = dmemcache_get($key, 'session');
 
   $user = sess_user_load($session);
 
-  // Record whether this session contains data so that in sess_write() it can 
+  // Record whether this session contains data so that in sess_write() it can
   // be determined whether to skip a write.
   if ($user->session_data_present_at_load = !empty($session->session)) {
     // Set a global value for the original session value to be compared against
@@ -111,10 +111,10 @@ function sess_write($key, $value) {
   $user = sess_user_load($session);
 
   // If this is an authenticated user, or there is something to save in the
-  // session, or this is an anonymous user who currently has nothing in the 
+  // session, or this is an anonymous user who currently has nothing in the
   // session but did have something in session storage, write it to memcache.
   // If $user->session_data_present_at_load is not set, the current user
-  // was created during this request and it's safest to do a write. 
+  // was created during this request and it's safest to do a write.
   // Cases 1b, 1d, 2a, and 2b are covered here.
   if ($user->uid || !empty($value) || empty($value) && (!isset($user->session_data_present_at_load) || $user->session_data_present_at_load)) {
     // Additionally, check if the session has changed since it was loaded.
@@ -284,7 +284,7 @@ function sess_user_load($session) {
     // If the cached user was not found in the 'users' memcache bin, $user will
     // be FALSE.
     // In either of these cases, the user must be retrieved from the database.
-    if (!$user->uid && isset($session->uid) && $session->uid != 0) {
+    if (empty($user->uid) && isset($session->uid) && $session->uid != 0) {
       $user = db_fetch_object(db_query('SELECT u.* FROM {users} u WHERE u.uid = %d', $session->uid));
       if (!$user->status) {
         $user = drupal_anonymous_user($session->session);

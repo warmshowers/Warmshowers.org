@@ -205,11 +205,19 @@ function cache_set($cid, $data, $table = 'cache', $expire = CACHE_PERMANENT, $he
     $cache->expire = $expire;
   }
 
-  // We manually track the expire time in $cache->expire.  When the object
-  // expires, we only allow one request to rebuild it to avoid cache stampedes.
-  // Other requests for the expired object while it is still being rebuilt get
-  // the expired object.
-  dmemcache_set($cid, $cache, 0, $table);
+  // Manually track the expire time in $cache->expire.  When the object
+  // expires, if stampede protection is enabled, it may be served while one
+  // process rebuilds it. The ttl sent to memcache is set to the expire twice
+  // as long into the future, this allows old items to be expired by memcache
+  // rather than evicted along with a sufficient period for stampede protection
+  // to continue to work.
+  if ($cache->expire == CACHE_PERMANENT) {
+    $memcache_expire = $cache->expire;
+  }
+  else {
+    $memcache_expire = $cache->expire + (($cache->expire - $_SERVER['REQUEST_TIME']) * 2);
+  }
+  dmemcache_set($cid, $cache, $memcache_expire, $table);
   if (isset($GLOBALS['locks']["memcache_$cid:$table"])) {
     lock_release("memcache_$cid:$table");
   }
