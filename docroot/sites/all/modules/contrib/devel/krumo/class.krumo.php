@@ -603,7 +603,8 @@ This is a list of all the values from the <code><b><?php echo realpath($ini_file
 		  foreach($hive as $i=>$bee){
 			  if (is_object($bee)) {
 				  unset($hive[$i]->$_recursion_marker);
-				} else {
+				// DEVEL: changed 'else' to 'elseif' below
+				} elseif (is_array($bee)) {
 				  unset($hive[$i][$_recursion_marker]);
 				}
 			}

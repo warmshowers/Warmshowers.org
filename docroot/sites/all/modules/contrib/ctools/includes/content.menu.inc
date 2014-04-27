@@ -45,8 +45,7 @@ function ctools_content_autocomplete_node($string) {
 
     $matches = array();
     while ($node = db_fetch_object($result)) {
-      $name = empty($node->name) ? variable_get('anonymous', t('Anonymous')) : check_plain($node->name);
-      $matches[$node->title . " [nid: $node->nid]"] = '<span class="autocomplete_title">' . check_plain($node->title) . '</span> <span class="autocomplete_user">(' . t('by @user', array('@user' => $name)) . ')</span>';
+      $matches[$node->title . " [nid: $node->nid]"] = '<span class="autocomplete_title">' . check_plain($node->title) . '</span>';
     }
     drupal_json($matches);
   }

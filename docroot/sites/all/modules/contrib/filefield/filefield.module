@@ -174,6 +174,7 @@ function filefield_file_download($filepath) {
     // Node access checks also include checking for 'access content'.
     $nodes = array();
     $denied = TRUE;
+    $revision_access = FALSE;
     foreach ($cck_files as $field_name => $field_files) {
       foreach ($field_files as $revision_id => $content) {
         // Checking separately for each revision is probably not the best idea -
@@ -183,15 +184,32 @@ function filefield_file_download($filepath) {
           continue; // Don't check the same node twice.
         }
         if (($node = node_load($content['nid'])) && (node_access('view', $node) && filefield_view_access($field_name, $node))) {
+          // They have access to the node.
           $denied = FALSE;
+        }
+        if (!$denied && $node->vid == $revision_id) {
+          // If revision is the current revision, grant access.
+          $revision_access = TRUE;
+        }
+        elseif (!$denied && $revision_node = node_load($content['nid'], $revision_id) && _node_revision_access($revision_node, 'view')) {
+          // You have access to the node as well as that particular revision.
+          $revision_access = TRUE;
+        }
+
+        // If node access denied, skip other revisions; or if we have node
+        // access and access to at least one revision the file is present on,
+        // skip other revision checks.
+        if ($denied || $revision_access) {
+          $nodes[$content['nid']] = $node;
           break 2;
         }
-        $nodes[$content['nid']] = $node;
       }
     }
   }
 
-  if ($denied) {
+  // If they don't have access to the node or file, or if the file is only
+  // attached to revisions that they don't have access to, deny access.
+  if ($denied || !$revision_access) {
     return -1;
   }
 
@@ -315,7 +333,7 @@ function filefield_widget(&$form, &$form_state, $field, $items, $delta = 0) {
   module_load_include('inc', $field['widget']['module'], $field['widget']['module'] .'_widget');
 
   $item = array('fid' => 0, 'list' => $field['list_default'], 'data' => array('description' => ''));
-  if (isset($items[$delta])) {
+  if (!empty($items[$delta])) {
     $item = array_merge($item, $items[$delta]);
   }
   $element = array(
@@ -612,6 +630,9 @@ function filefield_js($type_name, $field_name, $delta) {
     $form_element = $form[$field_name][$delta];
   }
 
+  // Prevent duplicate wrappers
+  unset($form_element['#prefix'], $form_element['#suffix']);
+
   if (isset($form_element['_weight'])) {
     unset($form_element['_weight']);
   }
@@ -731,7 +752,7 @@ function filefield_validate_extensions($file, $extensions) {
   $errors = array();
 
   if (!empty($extensions)) {
-    $regex = '/\.('. ereg_replace(' +', '|', preg_quote($extensions)) .')$/i';
+    $regex = '/\.('. @ereg_replace(' +', '|', preg_quote($extensions)) .')$/i';
     $matches = array();
     if (preg_match($regex, $file->filename, $matches)) {
       $extension = $matches[1];
@@ -1104,7 +1125,7 @@ function filefield_delete_file_references($file, $field = NULL) {
         continue;
       }
 
-      $node = node_load(array('vid' => $vid));
+      $node = node_load($nid, $vid);
       foreach ($fields as $field_name => $field) {
         if (isset($node->$field_name)) {
           foreach ($node->$field_name as $delta => $item) {

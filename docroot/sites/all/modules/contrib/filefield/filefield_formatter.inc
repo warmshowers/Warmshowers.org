@@ -64,8 +64,14 @@ function theme_filefield_formatter_url_plain($element) {
   if (empty($item['filepath'])) {
     return '';
   }
-
-  return file_create_url(field_file_urlencode_path($item['filepath']));
+  
+  // Check for remote filepath, if so return the raw path with protocol prefix
+  if (strpos($item['filepath'], 'http://') === 0 || strpos($item['filepath'], 'https://' === 0)) {
+    return l($file['filepath'], $item['filepath']);
+  }
+  else {
+    return file_create_url(field_file_urlencode_path($item['filepath']));
+  }
 }
 
 /**
@@ -110,7 +116,18 @@ function theme_filefield_file($file) {
   }
 
   $path = $file['filepath'];
-  $url = file_create_url($path);
+  // Check for remote filepath, if so return the raw path with protocol prefix
+  if (strpos($path, 'http://') === 0 || strpos($path, 'https://' === 0)) {
+    return l($file['filename'], $path);
+  }
+  else {
+    // We need to manually URL encode links to files if using the public
+    // downloads method. file_create_url() encodes private downloads.
+    if (variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC) == FILE_DOWNLOADS_PUBLIC) {
+      $path = drupal_urlencode(str_replace('\\', '/', $path));
+    }
+    $url = file_create_url($path);
+  }
   $icon = theme('filefield_icon', $file);
 
   // Set options as per anchor format described at

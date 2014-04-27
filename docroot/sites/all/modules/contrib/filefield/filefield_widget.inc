@@ -479,7 +479,7 @@ function theme_filefield_widget($element) {
 
 function theme_filefield_widget_preview($item) {
   // Remove the current description so that we get the filename as the link.
-  if (isset($item['data']['description'])) {
+  if (isset($item['data']) && is_array($item['data']) && isset($item['data']['description'])) {
     unset($item['data']['description']);
   }
 
@@ -561,13 +561,13 @@ function filefield_node_form_validate($form, &$form_state) {
     }
 
     if (!$valid && $field['required'] && filefield_edit_access($field['type_name'], $field_name, $form['#node'])) {
-      form_set_error($field_name, t('%title field is required.', array('%title' => $field['widget']['label'])));
+      form_set_error($field_name, t('%title field is required.', array('%title' => t($field['widget']['label']))));
     }
     $max_filesize = parse_size($field['widget']['max_filesize_per_node']);
     if ($max_filesize && $total_filesize > $max_filesize) {
       form_set_error($field_name, t('Total filesize for %title, %tsize, exceeds field settings of %msize.',
                                     array(
-                                      '%title' => $field['widget']['label'],
+                                      '%title' => t($field['widget']['label']),
                                       '%tsize' => format_size($total_filesize),
                                       '%msize' => format_size($max_filesize)
                                     )

@@ -1,6 +1,5 @@
 <?php
-
-/**
+ /**
  * @file
  * Common functionality for file handling CCK field modules.
  */

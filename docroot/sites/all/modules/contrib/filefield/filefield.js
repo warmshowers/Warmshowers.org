@@ -95,7 +95,7 @@ Drupal.filefield = {
     // the filefields after the AHAH process is complete even though it only
     // has a 1 millisecond timeout.
     setTimeout(function(){
-      $disabledFields.attr('disabled', '');
+      $disabledFields.removeAttr('disabled');
     }, 1000);
   },
   progressBar: function(event) {

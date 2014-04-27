@@ -35,11 +35,12 @@ function devel_drush_command() {
       'function' => 'The name of the function or method to view.',
     ),
     'options' => array(
-      '--pipe' => 'Output just the filename of the function',
+      'pipe' => 'Output just the filename of the function',
+      'format' => 'Specify how the filename should be printed. Available placeholders are !startline, !endline and !file',
     ),
     'examples' => array(
       'fn-view drupal_set_breadcrumb' => 'View the source code for function "drupal_set_breadcrumb"',
-      'vi `drush --pipe fn-view user_access`' => 'Edit the file that contains the function "user_access"',
+      'vi `drush --pipe fn-view user_access --format=\'+!startline !file\'`' => 'Edit the file that contains the function "user_access"',
       'fn-view NodeController::load' => 'View the source code for method load in the class NodeController'
     ),
     'aliases' => array('fnv'),
@@ -152,8 +153,8 @@ function drush_devel_fn_view($function_name) {
     $reflect = new ReflectionMethod($class, $method);
   }
   $func_info = array('!file' => $reflect->getFileName(), '!startline' => $reflect->getStartLine(), '!endline' => $reflect->getEndLine());
-  //drush_print_pipe(dt("!file -line !startline", $func_info));
-  drush_print_pipe($reflect->getFileName());
+  $format = drush_get_option('format', '!file');
+  drush_print_pipe(dt($format, $func_info));
   drush_print(dt("// file: !file, lines !startline-!endline", $func_info));
 
   _drush_devel_print_function($reflect->getFileName(), $reflect->getStartLine(), $reflect->getEndLine());
