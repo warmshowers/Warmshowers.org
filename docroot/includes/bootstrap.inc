@@ -548,56 +548,17 @@ function drupal_get_filename($type, $name, $filename = NULL) {
  * with variable_set() as well as those explicitly specified in the configuration
  * file.
  */
-function variable_init($conf = array(), $regenerate = FALSE, $recursion_depth = 0) {
-  // NOTE: caching the variables improves performance by 20% when serving
-  // cached pages.
-  if (!$regenerate && $cached = cache_get('variables', 'cache')) {
+function variable_init($conf = array()) {
+  // NOTE: caching the variables improves performance by 20% when serving cached pages.
+  if ($cached = cache_get('variables', 'cache')) {
     $variables = $cached->data;
   }
   else {
-    if (defined('MAINTENANCE_MODE') || lock_acquire('variable_cache_regenerate')) {
-      $result = db_query('SELECT * FROM {variable}');
-      // Exit here if the database went away. Do not want to pollute the cache
-      // with bad data. This request isn't going to end well anyway; end it
-      // eairly.
-      if ($result === FALSE) {
-        // This function calls exit.
-        _db_error_page();
-      }
-      while ($variable = db_fetch_object($result)) {
-        $variables[$variable->name] = unserialize($variable->value);
-      }
-      cache_set('variables', $variables);
-      if (!defined('MAINTENANCE_MODE')) {
-        lock_release('variable_cache_regenerate');
-      }
+    $result = db_query('SELECT * FROM {variable}');
+    while ($variable = db_fetch_object($result)) {
+      $variables[$variable->name] = unserialize($variable->value);
     }
-    else {
-      // Wait for another request that is already doing this work.
-      lock_wait('variable_cache_regenerate');
-
-      // Run the function again. Try a limited number of times to avoid
-      // infinite recursion if the database connection is invalid for
-      // some reason, e.g., mysqld restart, loss of network, etc.
-      $recursion_depth++;
-      if ($recursion_depth < 50) {
-        return variable_init($conf, $regenerate, $recursion_depth);
-      }
-
-      // If the recursion_depth hit the limit, assume we aren't going to get it
-      // from the cache or the lock will be released any time soon. Give up and
-      // get variables from the database.
-      $result = db_query('SELECT * FROM {variable}');
-      // Exit here if the database went away. Do not want to pollute the cache
-      // with bad data. This request isn't going to end well.
-      if ($result === FALSE) {
-        // This function calls exit.
-        _db_error_page();
-      }
-      while ($variable = db_fetch_object($result)) {
-        $variables[$variable->name] = unserialize($variable->value);
-      }
-    }
+    cache_set('variables', $variables);
   }
 
   foreach ($conf as $name => $value) {
@@ -1372,4 +1333,112 @@ function ip_address() {
   }
 
   return $ip_address;
+}
+
+/**
+ * Returns a URL-safe, base64 encoded string of highly randomized bytes (over the full 8-bit range).
+ *
+ * @param $byte_count
+ *   The number of random bytes to fetch and base64 encode.
+ *
+ * @return string
+ *   The base64 encoded result will have a length of up to 4 * $byte_count.
+ */
+function drupal_random_key($byte_count = 32) {
+  return drupal_base64_encode(drupal_random_bytes($byte_count));
+}
+
+/**
+ * Returns a URL-safe, base64 encoded version of the supplied string.
+ *
+ * @param $string
+ *   The string to convert to base64.
+ *
+ * @return string
+ */
+function drupal_base64_encode($string) {
+  $data = base64_encode($string);
+  // Modify the output so it's safe to use in URLs.
+  return strtr($data, array('+' => '-', '/' => '_', '=' => ''));
+}
+
+/**
+ * Returns a string of highly randomized bytes (over the full 8-bit range).
+ *
+ * This function is better than simply calling mt_rand() or any other built-in
+ * PHP function because it can return a long string of bytes (compared to < 4
+ * bytes normally from mt_rand()) and uses the best available pseudo-random
+ * source.
+ *
+ * @param $count
+ *   The number of characters (bytes) to return in the string.
+ */
+function drupal_random_bytes($count) {
+  // $random_state does not use drupal_static as it stores random bytes.
+  static $random_state, $bytes, $has_openssl, $has_hash;
+
+  $missing_bytes = $count - strlen($bytes);
+
+  if ($missing_bytes > 0) {
+    // PHP versions prior 5.3.4 experienced openssl_random_pseudo_bytes()
+    // locking on Windows and rendered it unusable.
+    if (!isset($has_openssl)) {
+      $has_openssl = version_compare(PHP_VERSION, '5.3.4', '>=') && function_exists('openssl_random_pseudo_bytes');
+    }
+
+    // openssl_random_pseudo_bytes() will find entropy in a system-dependent
+    // way.
+    if ($has_openssl) {
+      $bytes .= openssl_random_pseudo_bytes($missing_bytes);
+    }
+
+    // Else, read directly from /dev/urandom, which is available on many *nix
+    // systems and is considered cryptographically secure.
+    elseif ($fh = @fopen('/dev/urandom', 'rb')) {
+      // PHP only performs buffered reads, so in reality it will always read
+      // at least 4096 bytes. Thus, it costs nothing extra to read and store
+      // that much so as to speed any additional invocations.
+      $bytes .= fread($fh, max(4096, $missing_bytes));
+      fclose($fh);
+    }
+
+    // If we couldn't get enough entropy, this simple hash-based PRNG will
+    // generate a good set of pseudo-random bytes on any system.
+    // Note that it may be important that our $random_state is passed
+    // through hash() prior to being rolled into $output, that the two hash()
+    // invocations are different, and that the extra input into the first one -
+    // the microtime() - is prepended rather than appended. This is to avoid
+    // directly leaking $random_state via the $output stream, which could
+    // allow for trivial prediction of further "random" numbers.
+    if (strlen($bytes) < $count) {
+      // Initialize on the first call. The contents of $_SERVER includes a mix of
+      // user-specific and system information that varies a little with each page.
+      if (!isset($random_state)) {
+        $random_state = print_r($_SERVER, TRUE);
+        if (function_exists('getmypid')) {
+          // Further initialize with the somewhat random PHP process ID.
+          $random_state .= getmypid();
+        }
+        // hash() is only available in PHP 5.1.2+ or via PECL.
+        $has_hash = function_exists('hash') && in_array('sha256', hash_algos());
+        $bytes = '';
+      }
+
+      if ($has_hash) {
+        do {
+          $random_state = hash('sha256', microtime() . mt_rand() . $random_state);
+          $bytes .= hash('sha256', mt_rand() . $random_state, TRUE);
+        } while (strlen($bytes) < $count);
+      }
+      else {
+        do {
+          $random_state = md5(microtime() . mt_rand() . $random_state);
+          $bytes .= pack("H*", md5(mt_rand() . $random_state));
+        } while (strlen($bytes) < $count);
+      }
+    }
+  }
+  $output = substr($bytes, 0, $count);
+  $bytes = substr($bytes, $count);
+  return $output;
 }
