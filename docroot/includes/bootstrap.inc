@@ -548,17 +548,56 @@ function drupal_get_filename($type, $name, $filename = NULL) {
  * with variable_set() as well as those explicitly specified in the configuration
  * file.
  */
-function variable_init($conf = array()) {
-  // NOTE: caching the variables improves performance by 20% when serving cached pages.
-  if ($cached = cache_get('variables', 'cache')) {
+function variable_init($conf = array(), $regenerate = FALSE, $recursion_depth = 0) {
+  // NOTE: caching the variables improves performance by 20% when serving
+  // cached pages.
+  if (!$regenerate && $cached = cache_get('variables', 'cache')) {
     $variables = $cached->data;
   }
   else {
-    $result = db_query('SELECT * FROM {variable}');
-    while ($variable = db_fetch_object($result)) {
-      $variables[$variable->name] = unserialize($variable->value);
+    if (defined('MAINTENANCE_MODE') || lock_acquire('variable_cache_regenerate')) {
+      $result = db_query('SELECT * FROM {variable}');
+      // Exit here if the database went away. Do not want to pollute the cache
+      // with bad data. This request isn't going to end well anyway; end it
+      // eairly.
+      if ($result === FALSE) {
+        // This function calls exit.
+        _db_error_page();
+      }
+      while ($variable = db_fetch_object($result)) {
+        $variables[$variable->name] = unserialize($variable->value);
+      }
+      cache_set('variables', $variables);
+      if (!defined('MAINTENANCE_MODE')) {
+        lock_release('variable_cache_regenerate');
+      }
     }
-    cache_set('variables', $variables);
+    else {
+      // Wait for another request that is already doing this work.
+      lock_wait('variable_cache_regenerate');
+
+      // Run the function again. Try a limited number of times to avoid
+      // infinite recursion if the database connection is invalid for
+      // some reason, e.g., mysqld restart, loss of network, etc.
+      $recursion_depth++;
+      if ($recursion_depth < 50) {
+        return variable_init($conf, $regenerate, $recursion_depth);
+      }
+
+      // If the recursion_depth hit the limit, assume we aren't going to get it
+      // from the cache or the lock will be released any time soon. Give up and
+      // get variables from the database.
+      $result = db_query('SELECT * FROM {variable}');
+      // Exit here if the database went away. Do not want to pollute the cache
+      // with bad data. This request isn't going to end well.
+      if ($result === FALSE) {
+        // This function calls exit.
+        _db_error_page();
+      }
+      while ($variable = db_fetch_object($result)) {
+        $variables[$variable->name] = unserialize($variable->value);
+      }
+    }
   }
 
   foreach ($conf as $name => $value) {
