@@ -1,0 +1,73 @@
+<?php
+
+function stage_file_proxy_init() {
+  // make sure we're asking for a file in the files dir
+  $file_dir = file_directory_path();
+  if (strpos($_GET['q'], $file_dir) !== 0) {
+    return;
+  }
+  $relative_path = substr($_GET['q'], strlen($file_dir) + 1);
+
+  // get origin server
+  $server = variable_get('stage_file_proxy_origin', NULL);
+
+  if ($server) {
+    // is this an imagecache request? if so, request only the root file and let imagecache handle resizing
+    if (variable_get('stage_file_proxy_use_imagecache_root', TRUE) && strpos($relative_path, 'imagecache') === 0) {
+      $relative_path = preg_replace('/imagecache\/.*\/(.*)/U', '$1', $relative_path);
+      // This image could be in the files directory, or elsewhere in our
+      // codebase. @see imagecache_create_path().
+      if (file_exists($file_dir . '/' . $relative_path) || file_exists($relative_path)) {
+        return; // imagecache can generate it without our help.
+      }
+    }
+
+    if (variable_get('stage_file_proxy_hotlink', FALSE)) {
+      header("Location: $server/{$_GET['q']}");
+      exit;
+    }
+    elseif (_stage_file_proxy_fetch($server, $relative_path)) {
+      // Just refresh this request and let the web server work out the mime type, etc.
+      header("Location: /{$_GET['q']}");
+      exit;
+    }
+    else {
+      die('Stage File Proxy encountered an unknown error');
+    }
+  }
+}
+
+/**
+ * Downloads a remote file and saves it to the local files directory.
+ *
+ * @param string $server
+ *   The origin server URL.
+ * @param string $relative_path
+ *   The path to the requested resource relative to the files directory.
+ *
+ * @return bool
+ */
+function _stage_file_proxy_fetch($server, $relative_path) {
+  $dirs = explode('/', $relative_path);
+  $filename = array_pop($dirs);
+  $tree = array();
+  $file_dir = file_directory_path();
+  $dir_path = $file_dir;
+  foreach ($dirs as $dir) {
+    $tree[] = $dir;
+    $dir_path = $file_dir . '/' . implode('/', $tree);
+  }
+  $url = $server . '/' . $dir_path . '/' . rawurlencode($filename);
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+  curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.15) Gecko/20080623 Firefox/2.0.0.15');
+  $res = curl_exec($ch);
+  if (curl_getinfo($ch, CURLINFO_HTTP_CODE) < 300) {
+    if (file_check_directory($file_dir, FILE_CREATE_DIRECTORY | FILE_MODIFY_PERMISSIONS)) {
+      file_put_contents($file_dir . '/' . $relative_path, $res);
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
