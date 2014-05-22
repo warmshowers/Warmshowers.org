@@ -68,6 +68,30 @@
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
     <?php print check_markup($account->comments); ?>
+    <div id="guest-info">
+      <h2><?php print t('Traveler information'); ?></h2>
+      <div class="member-info"></div>
+        <?php
+          // TODO: Needs to be refactored into the profile preprocess. Too much logic here.
+          $result_count = 0;
+          $view = warmshowers_site_embed_view('traveler_trip', 'block_1', $result_count, $account->uid);
+          if ($result_count) {
+            print '<h3>' . t('Current/Upcoming tour'). '</h3>';
+            print $view;
+          }
+        ?>
+      <div class="member-info"></div>
+      <?php
+        $result_count = 0;
+        $view = warmshowers_site_embed_view('traveler_trip', 'default', $result_count, $account->uid);
+        if ($result_count) {
+          print '<h3>' . t('All tours'). '</h3>';
+          print $view;
+        }
+
+      ?>
+
+    </div>
     <div id="host-services">
       <h2><?php print t('Hosting information'); ?></h2>
       <?php if ($notcurrentlyavailable) : ?>
