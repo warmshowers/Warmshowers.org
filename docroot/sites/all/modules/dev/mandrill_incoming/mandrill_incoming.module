@@ -157,12 +157,19 @@ function mandrill_incoming_event($events) {
     // and must return
     // - MANDRILL_INCOMING_HANDLED if it handled the message successfully
     // - MANDRILL_INCOMING_UNHANDLED if no error but not handled
-    // - MANDRILL_INCOMING_ERROR if an error occurred processing the message.
+    // - array(MANDRILL_INCOMING_ERROR => $failure_description) if an error occurred processing the message.
     $results = module_invoke_all('mandrill_incoming_event', $event);
 
     // If no module handled this event, resend the email to an admin.
     if (!in_array(MANDRILL_INCOMING_HANDLED, $results)) {
       watchdog('mandrill_incoming', 'Failed to handle incoming email (to=%to, subject=%subject)', array('%to' => print_r($event->msg->to, TRUE), '%subject' => $event->msg->subject), WATCHDOG_WARNING);
+
+      $failure_description = "";
+      foreach ($results as $item) {
+        if (is_array($item) && !empty($item[MANDRILL_INCOMING_ERROR])) {
+          $failure_description .= $item[MANDRILL_INCOMING_ERROR] . ", ";
+        }
+      }
 
       // If a forwarding email is configured for this failure, send it on.
       $failure_forward_email = variable_get('mandrill_incoming_failure_forward_email', '');
@@ -171,8 +178,8 @@ function mandrill_incoming_event($events) {
           'id' => 'mandrill_incoming_failure',
           'from' => $event->msg->from_email,
           'to' => $failure_forward_email,
-          'subject' => $event->msg->subject . ' [MANDRILL FAILED]',
-          'body' => t('MANDRILL FAILED TO HANDLE') . "\r\n\r\n" . $event->msg->text . "\r\n\r\n------\r\n" . $event->msg->raw_msg,
+          'subject' => "[MANDRILL FAILED: $failure_description]" . $event->msg->subject,
+          'body' => t('MANDRILL FAILED TO HANDLE: @failure_description', array('@failure_description' => $failure_description)) . "\r\n\r\n" . $event->msg->text . "\r\n\r\n------\r\n" . $event->msg->raw_msg,
           headers => array(
             'from' => $event->msg->from_email,
           )

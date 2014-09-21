@@ -489,15 +489,28 @@ function ws_pm_email_notify_routing_from_msg($msg) {
  * @param $mid
  * @param $sender_uid
  * @param $their_mhash
+ * @param $description
+ *   Text description of failure
  * @return boolean
  *   FALSE = failed validation
  */
-function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash) {
+function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash, &$description) {
+  $sender_account = user_load($sender_uid);
+  if (empty($sender_account)) {
+    $description = t("Sending user @uid has been deleted", array('@uid' => $sender_uid));
+    return FALSE;
+  }
+  if ($sender_account->status == 0) {
+    $description = t("Sending user @uid is blocked", array('@uid' => $sender_uid));
+    return FALSE;
+  }
+
   $pm = privatemsg_message_load($mid);
 
   // Validate that we can find the pm
   if (empty($pm)) {
-    watchdog('mandrill_incoming', 'Failed to load message id for incoming mid=%mid', array('%mid' => $mid));
+    watchdog('mandrill_incoming', 'Failed to load message id for incoming mid=@mid', array('@mid' => $mid));
+    $description = t("Failed to load message id @mid - message does not exist", array('@mid' => $mid));
     return FALSE;
   }
 
@@ -506,13 +519,15 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
   $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
   if (strcasecmp($our_mhash, $their_mhash)) {
     watchdog('mandrill_incoming', 'Message hash in incoming message (%their_mhash) did not match hash (%our_mhash)', array('%their_mhash' => $their_mhash, '%our_mhash' => $our_mhash), WATCHDOG_ERROR);
+    $description = t('Message hash in incoming message (@their_mhash) did not match hash (@our_mhash)', array('@their_mhash' => $their_mhash, '@our_mhash' => $our_mhash));
     return FALSE;
   }
 
   // Validate sender uid
   $sender_account = user_load($sender_uid);
   if (!$sender_account || user_is_blocked($sender_account->name) || !privatemsg_user_access('write privatemsg', $sender_account)) {
-    watchdog('mandrill_incoming', 'Sender %sender_uid does not have privilege to write privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
+    watchdog('mandrill_incoming', 'Sender %sender_uid does not have privilege to send privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
+    $description = t('Sender @sender_uid does not have privilege to send privatemsg, so not sending message.', array('@sender_uid' => $sender_uid));
     return FALSE;
   }
 
@@ -531,9 +546,10 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
   $msg = $event->msg;
 
   list($mid, $sender_uid, $their_mhash) = ws_pm_email_notify_routing_from_msg($msg);
-  $valid = ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash);
+  $failure_description = "";
+  $valid = ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash, $failure_description);
   if (!$valid) {
-    return MANDRILL_INCOMING_ERROR;
+    return array(array(MANDRILL_INCOMING_ERROR => $failure_description));
   }
 
   $pm = privatemsg_message_load($mid);
@@ -555,7 +571,7 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
 
   if (!$result['success']) {
     watchdog('privatemsg', 'Failed to privatemsg_reply (<pre>@result</pre>)', array('@result' => print_r($result, TRUE)), WATCHDOG_ERROR);
-    return MANDRILL_INCOMING_ERROR;
+    return array(MANDRILL_INCOMING_ERROR => t('Failed to privatemsg_reply, see log', array('@result' => print_r($result, TRUE))));
   }
 
   // If this sender replied by email, it's just as if they just logged in, so update account.
