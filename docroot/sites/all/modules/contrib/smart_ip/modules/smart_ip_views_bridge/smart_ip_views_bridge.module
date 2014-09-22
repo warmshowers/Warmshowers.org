@@ -1,0 +1,193 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Smart IP Views Bridge exposes Smart IP visitor's location details to 
+ * Views field (coordinates, country, ISO 3166 2-character country code, 
+ * region, region code (FIPS), city and zip) and filter (country, ISO 3166 
+ * 2-character country code, region, region code, city and zip).
+ */
+
+/******************************************************************************
+ * Drupal Hooks                                                               *
+ ******************************************************************************/
+
+ /**
+ * Implements hook_help().
+ */
+function smart_ip_views_bridge_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#smart_ip_views_bridge':
+      return
+      '<p>' .
+      t("Smart IP Views Bridge exposes Smart IP visitor's location details to 
+      Views field (coordinates, country, ISO 3166 2-character country code, 
+      region, region code (FIPS), city and zip) and filter (country, ISO 3166 
+      2-character country code, region, region code (FIPS), city and zip).") . '</p><p>' .
+      '<p>' .
+      t('Guide/example of using Smart IP views fields and filters with Location module:') . '</p><p>' .
+      '<ol><li>' . 
+      t('Download/install Location module.') . '</li>' .
+      '<li>' . 
+      t("Add location CCK field to <q>Page</q> content type (be sure to select 
+      <q>Allow</q> at the <q>City</q> from <q>Collection settings</q>).") . '</li>' .
+      '<li>' . 
+      t("Create a <q>Page</q> content. Populate the <q>Title</q>, <q>City</q> and select a country.") . '</li>' .
+      '<li>' . 
+      t("Create your views at http://www.example.com/?q=admin/build/views") . '</li>' .
+      '<li>' . 
+      t("Inside your Edit view, add a filter then select <q>Location: Country</q> and 
+      <q>Location: City</q> from the list (click <q>Add</q> button).") . '</li>' .
+      '<li>' . 
+      t("In <q>Defaults: Configure filter Location: Country</q>, scroll down at the 
+      bottom of the <q>Country</q> list and select <q>Smart IP: visitor's country code</q>. 
+      And select <q>Is</q> from <q>Operator:</q> radio selection.") . '</li>' .
+      '<li>' . 
+      t("In <q>Defaults: Configure filter Location: City</q>, populate the <q>Value:</q> textfield 
+      with <q>smart_ip][location][city</q> Smart IP Views token and leave the <q>Is equal to</q> 
+      selected in <q>Operator:</q> dropdown menu.") . 
+      '<blockquote><p>' . 
+      t("This will filter contents with the country defined in Location CCK field (Country 
+      and City) in ralation to your visitor's country and city.") . '</p></blockquote></li>' .
+      '<li>' . 
+      t("Add a field then select <q>Smart IP: Country</q> from the list (click <q>Add</q> button).") . '</li>' .
+      '<li>' . 
+      t("In <q>Defaults: Configure field Smart IP: Country</q>, select <q>Country name</q> from the 
+      <q>Display style:</q> dropdown menu (click <q>Update</q> button). This will display the 
+      country of your visitor along with other CCK fields you've included in your views.") . '</li></ol>';
+      break;
+  }
+} 
+ 
+/**
+ * Implements hook_views_pre_execute().
+ * Override the query SQL in a view
+ */ 
+function smart_ip_views_bridge_views_pre_execute(&$view) {
+  // Openlayers proximity filter
+  foreach ($view->filter as $proximity_type => $proximity) {
+    if (strpos($proximity_type, 'flat') === 0 || strpos($proximity_type, 'circle') === 0) {
+      $smart_ip = smart_ip_views_bridge_substitute_token_value($view->filter[$proximity_type]->value['location'], $proximity->options['value']['location']);
+      // Replace the tokens with the Smart IP values found in widget forms
+      $view->filter[$proximity_type]->view->exposed_widgets = str_replace($proximity->options['value']['location'], $smart_ip, $view->filter[$proximity_type]->view->exposed_widgets);
+    }
+  }
+  // Openlayers filter
+  foreach ($view->filter as $openlayers_key => $openlayers) {
+    if (strpos($openlayers_key, 'openlayers_wkt') !== FALSE) {
+      if (is_array($proximity->value)) {
+        $token = $proximity->value['location'];
+      }
+      else {
+        $token = $proximity->value;
+      }
+      $smart_ip = smart_ip_views_bridge_substitute_token_value($view->filter[$openlayers_key]->value, $token);
+      // Replace the tokens with the Smart IP values found in widget forms
+      $view->filter[$openlayers_key]->view->exposed_widgets = str_replace($token, $smart_ip, $view->filter[$openlayers_key]->view->exposed_widgets);
+      smart_ip_views_bridge_substitute_token_value($view->filter[$openlayers_key]->options['value'], $token);
+      smart_ip_views_bridge_substitute_token_value($view->filter[$openlayers_key]->view->exposed_data[$openlayers_key], $token);
+      smart_ip_views_bridge_substitute_token_value($view->filter[$openlayers_key]->view->exposed_raw_input[$openlayers_key], $token);
+    }
+  }
+  // Other fields
+  foreach ($view->build_info['query_args'] as $arg_index => $query_args) {
+    $condition_value = $query_args;
+    if (is_array($condition_value)) {
+      foreach ($condition_value as $value) {
+        $smart_ip_index = explode('][', $value);
+        $smart_ip_index_count = count($smart_ip_index);
+        if ($smart_ip_index_count == 1) {
+          $smart_ip_index = explode('.', $value);
+          $smart_ip_index_count = count($smart_ip_index);
+        }
+        $smart_ip_session = smart_ip_session_get($smart_ip_index[0]);
+        if ($smart_ip_index_count == 3 && isset($smart_ip_session[$smart_ip_index[1]][$smart_ip_index[2]])) {
+          $values[] = $smart_ip_session[$smart_ip_index[1]][$smart_ip_index[2]];
+        }
+      }
+      if (isset($values)) {
+        $view->build_info['query_args'][$arg_index] = $values;
+      }
+    }
+    else {
+      smart_ip_views_bridge_substitute_token_value($view->build_info['query_args'][$arg_index], $condition_value);
+    }
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function smart_ip_views_bridge_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'views_ui_config_item_form' && $form_state['section'] == 'filters') {
+    $description = smart_ip_views_bridge_form_fields_description();
+    /* // Openlayers location field
+    if (isset($form['options']['value']['location'])) {
+      $form['options']['value']['location']['#description'] .= $description;
+    } */
+    if (is_array($form['options']['operator']['#options']) && (array_key_exists('=', $form['options']['operator']['#options']) || array_key_exists('is', $form['options']['operator']['#options']) || array_key_exists('in', $form['options']['operator']['#options']) || array_key_exists('or', $form['options']['operator']['#options']))) {
+      if ($form['options']['value']['#type'] == 'textfield') {
+        $form['options']['value']['#description'] = $description;
+      }
+      if ($form['options']['value']['#type'] == 'select' || $form['options']['value']['#type'] == 'checkboxes') {
+        $form['options']['value']['#options']['smart_ip.location.country'] = t("Smart IP: visitor's country");
+        $form['options']['value']['#options']['smart_ip.location.country_code'] = t("Smart IP: visitor's country code");
+        $form['options']['value']['#options']['smart_ip.location.region'] = t("Smart IP: visitor's region");
+        $form['options']['value']['#options']['smart_ip.location.region_code'] = t("Smart IP: visitor's region code");
+        $form['options']['value']['#options']['smart_ip.location.city'] = t("Smart IP: visitor's city");
+        $form['options']['value']['#options']['smart_ip.location.zip'] = t("Smart IP: visitor's zip");
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ * Views Integration Hook
+ */
+function smart_ip_views_bridge_views_api() {
+  return array(
+    'api' => 2.0,
+    'path' => drupal_get_path('module', 'smart_ip_views_bridge') . '/views',
+  );
+}
+
+/**
+ * Form field description showing Smart IP tokens
+ */
+function smart_ip_views_bridge_form_fields_description() {
+  return '<p><strong>' . t('Smart IP tokens:') . '</strong><br />' .
+    'smart_ip][location][country<br />' .
+    'smart_ip][location][country_code<br />' .
+    'smart_ip][location][region<br />' .
+    'smart_ip][location][region_code<br />' .
+    'smart_ip][location][city<br />' .
+    'smart_ip][location][zip</p><p>' .
+    t('Multiple Smart IP tokens should be separated with comma then space ", ". Example:'). '<br />
+    smart_ip][location][country, smart_ip][location][region, smart_ip][location][city</p>';
+}
+
+/**
+ * Substitute token to Smart IP value
+ */
+function smart_ip_views_bridge_substitute_token_value(&$view_filter_item, $token) {
+  $output = array();
+  $mutlti_smart_ip_tokens = explode(', ', $token);
+  foreach ($mutlti_smart_ip_tokens as $token) {
+    $smart_ip_index = explode('][', $token);
+    $smart_ip_index_count = count($smart_ip_index);
+    if ($smart_ip_index_count == 1) {
+      $smart_ip_index = explode('.', $token);
+      $smart_ip_index_count = count($smart_ip_index);
+    }
+    $smart_ip_session = smart_ip_session_get($smart_ip_index[0]);
+    if ($smart_ip_index_count == 3 && isset($smart_ip_session[$smart_ip_index[1]][$smart_ip_index[2]])) {
+      $output[] = $smart_ip_session[$smart_ip_index[1]][$smart_ip_index[2]];
+    }
+  }
+  if (!empty($output)) {
+    $view_filter_item = implode(', ', $output);
+  }
+  return $view_filter_item;
+}

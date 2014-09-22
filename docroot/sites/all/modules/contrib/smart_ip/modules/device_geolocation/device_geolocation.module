@@ -1,0 +1,319 @@
+<?php
+
+/**
+ * @file
+ * Provides visitor's geographical location using client device location source 
+ * that implements W3C Geolocation API and  Google Geocoding service.
+ */
+
+define('DEVICE_GEOLOCATION_MAXMIND', 1);
+define('DEVICE_GEOLOCATION_W3C', 2);
+
+/**
+ * Implements hook_init().
+ */
+function device_geolocation_init() {
+  $user_allowed = !is_null(smart_ip_session_get('device_geolocation')); // If true, the user has allowed to share his/her location
+  $ajax_check   = !$user_allowed && variable_get('device_geolocation_ajax_check', FALSE);
+  if ($ajax_check || device_geolocation_check_geolocation_attempt()) {
+    device_geolocation_get_coordinates();
+    if (!$ajax_check) {
+      drupal_add_js(array('device_geolocation' => array('ask_geolocate' => TRUE)), 'setting');
+    }
+    drupal_set_html_head('<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=true"></script>');
+    drupal_add_js(drupal_get_path('module', 'device_geolocation') . '/js/device_geolocation.js', 'module', 'footer');
+  }
+  if ($ajax_check) {
+    drupal_add_js(array('device_geolocation' => array('ask_geolocate' => FALSE)), 'setting');
+    drupal_add_js(drupal_get_path('module', 'device_geolocation') . '/js/device_geolocation_check.js', 'module', 'footer');
+  }
+}
+
+/**
+ * Implements hook_block()
+ */
+function device_geolocation_block($op = 'list' , $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info']  = t("Visitor's geolocation");
+      $blocks[0]['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+      return $blocks;
+    case 'view':
+      $blocks['subject'] = t('Your Geolocation Details');
+      $blocks['content'] = device_geolocation_contents();
+      return $blocks;
+  }
+}
+
+/**
+ * Device geolocation block content function.
+ */
+function device_geolocation_contents() {
+  $location = array();
+  $smart_ip_session = smart_ip_session_get('smart_ip');
+  // Smart IP user $_SESSION
+  if (!is_null($smart_ip_session)) {
+    $location = $smart_ip_session['location'];
+  }
+  // Smart IP user object data
+  else {
+    global $user;
+    $user_data = unserialize($user->data);
+    if (isset($user_data['geoip_location'])) {
+      $smart_ip_session['location'] = $user_data['geoip_location'];
+      smart_ip_session_set('smart_ip', $smart_ip_session);
+      $location = $smart_ip_session['location'];
+    }
+  }
+  return theme('device_geolocation_visitor_info', $location);
+}
+
+/**
+ * Implements hook_theme()
+ */
+function device_geolocation_theme() {
+  return array(
+    'device_geolocation_visitor_info' => array(
+      'arguments' => array('location' => array()),
+      'template'  => 'device-geolocation-visitor-info',
+      'path'      => drupal_get_path('module', 'device_geolocation') . '/theme',
+    ),
+  );
+}
+
+ /**
+ * Implements hook_help().
+ */
+function device_geolocation_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#device_geolocation':
+      return '<p>' . 
+      t("Provides visitor's geographical location using client device location source 
+      that implements W3C Geolocation API whereas the coordinates are geocoded using 
+      Google Geocoding service. Google Geocoding returns a more detailed location 
+      information such as: street number, postal code, route, neighborhood, locality, 
+      sublocality, establishment, administrative area level 1, administrative area level 2, 
+      etc.") . '</p><p>' . 
+      t("Smart IP is the last fallback if W3C Geolocation API failed. Even if the visitors 
+      refuses to share their location, the geographical information provided by Smart IP will 
+      be used to know your visitors' geolocation details. A themeable Block content is 
+      available to show your visitor's geolocation information. Device Geolocation merges its 
+      location data (collected at Google Geocoding service) with Smart IP visitor's location 
+      data storage which is in session variable (@session) with array key 'smart_ip' and 
+      Drupal @user->data object with array key 'geoip_location'.", array(
+        '@session' => '$_SESSION',
+        '@user'    => '$user',
+      )) . '</p>';
+      break;
+  }
+}
+
+/**
+ * Implements hook_form_alter()
+ */
+function device_geolocation_form_alter(&$form, &$form_state, $form_id) {
+  // Add additional textarea form field for "Geolocate on specific pages"
+  if ($form_id == 'smart_ip_admin_settings') {
+    $form['smart_ip_preferences']['device_geolocation_allowed_pages'] = array(
+      '#title'         => t("Ask user's geolocation on specific Drupal native pages"),
+      '#type'          => 'textarea',
+      '#rows'          => 5,
+      '#description'   => t("Specify pages by using their paths (not the aliased path). Enter one path per line. The '*' character is a wildcard. Example paths are blog for the blog page and blog/* for every personal blog. &lt;front&gt; is the front page. Leave blank if all pages."),
+      '#default_value' => implode("\n", variable_get('device_geolocation_allowed_pages', array())),
+    );
+    $form['smart_ip_preferences']['device_geolocation_ajax_check'] = array(
+      '#type'          => 'checkbox',
+      '#title'         => t("Use AJAX in user's geolocation checking (useful if the site or pages listed above are cached)"),
+      '#default_value' => variable_get('device_geolocation_ajax_check', FALSE),
+    );
+    $form['smart_ip_preferences']['device_geolocation_check_frequency'] = array(
+      '#title'         => t("Frequency of user's geolocation checking"),
+      '#type'          => 'textfield',
+      '#size'          => 10,
+      '#description'   => t('Specify number of hours will prompt the user for geolocation.'),
+      '#default_value' => variable_get('device_geolocation_check_frequency', 0) / 3600,
+      '#field_suffix'  => t('hours'),
+    );
+    //variable_get('device_geolocation_check_frequency', 0)
+    $form['#validate'][] = '_device_geolocation_allowed_pages_validate';
+  }
+}
+
+/**
+ * Validation handler to update the "Geolocate on specific pages".
+ */
+function _device_geolocation_allowed_pages_validate($form, &$form_state) {
+  $list = check_plain($form_state['values']['device_geolocation_allowed_pages']);
+  // Remove carriage return (in Windows)
+  $list = str_replace("\r", '', $list);
+  $list = str_replace('&lt;front&gt;', '<front>', $list);
+  if (!empty($list)) {
+    $list = explode("\n", $list); }
+  else {
+    $list = array();
+  }
+  $form_state['values']['device_geolocation_allowed_pages'] = $list;
+  $value = $form_state['values']['device_geolocation_check_frequency'];
+  if ($value !== '' && (!is_numeric($value) || $value < 0)) {
+    form_set_error('device_geolocation_check_frequency', t("Frequency of user's geolocation checking must be a positive number."));
+  }
+  else {
+    // Convert from hours to seconds
+    $form_state['values']['device_geolocation_check_frequency'] = $value * 3600;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function device_geolocation_menu() {
+  $items['geolocate-user'] = array(
+    'page callback'    => 'device_geolocation_detector_ajax',
+    'access callback'  => 'user_access',
+    'access arguments' => array('access content'),
+    'type'             => MENU_CALLBACK,
+  );
+  $items['check-geolocation-attempt'] = array(
+    'page callback'    => 'device_geolocation_check_geolocation_attempt_ajax',
+    'access callback'  => 'user_access',
+    'access arguments' => array('access content'),
+    'type'             => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Google Geocoding ajax callback function data recipient.
+ */
+function device_geolocation_detector_ajax() {
+  if (isset($_POST['latitude']) && isset($_POST['longitude'])) {
+    global $user;
+    $smart_ip_session = smart_ip_session_get('smart_ip');
+    $ip_address = $smart_ip_session['location']['ip_address'];
+    $smart_ip_session['maxmind_location'] = $smart_ip_session['location'];
+    smart_ip_session_set('device_geolocation', NULL);
+    unset($smart_ip_session['location']);    
+    $smart_ip_session['location']['ip_address']   = $ip_address;
+    $smart_ip_session['location']['country']      = '';
+    $smart_ip_session['location']['country_code'] = '';
+    $smart_ip_session['location']['region']       = '';
+    $smart_ip_session['location']['region_code']  = '';
+    $smart_ip_session['location']['city']         = '';
+    $smart_ip_session['location']['zip']          = '';
+    $smart_ip_session['location']['latitude']     = '';
+    $smart_ip_session['location']['longitude']    = '';
+    $smart_ip_session['location']['time_zone']    = '';
+    foreach ($_POST as $label => $address) {
+      if (!empty($address)) {
+        $label = check_plain($label);
+        $smart_ip_session['location'][$label] = check_plain($address);
+        smart_ip_session_set('device_geolocation', TRUE);
+        smart_ip_session_set('device_geolocation_attempt', NULL);
+      }
+    }
+    if (empty($smart_ip_session['location']['zip']) && isset($smart_ip_session['location']['postal_code'])) {
+      $smart_ip_session['location']['zip'] = $smart_ip_session['location']['postal_code'];
+    }
+    if (empty($smart_ip_session['location']['city']) && isset($smart_ip_session['location']['locality'])) {
+      $smart_ip_session['location']['city'] = $smart_ip_session['location']['locality'];
+    }
+    $smart_ip_session['location']['timestamp'] = time();
+    // Allow other modules to modify result via hook_device_geolocation_detector_ajax_alter()
+    drupal_alter('device_geolocation_detector_ajax', $smart_ip_session['location']);
+
+    if (isset($smart_ip_session['location']) && $user->uid) {
+      $user_obj = user_load($user->uid);
+      user_save($user_obj, array('geoip_location' => $smart_ip_session['location']));
+    }
+    smart_ip_session_set('smart_ip', $smart_ip_session);
+  }
+}
+
+/**
+ * Get Visitor's coordinates.
+ */
+function device_geolocation_get_coordinates() {
+  global $user;
+  $latitude  = 0;
+  $longitude = 0;
+  $user_data = unserialize($user->data);
+  $smart_ip_session = smart_ip_session_get('smart_ip');
+  // Smart IP user $_SESSION
+  if (!is_null($smart_ip_session) && !empty($smart_ip_session['location']['latitude'])) {
+    $latitude  = $smart_ip_session['location']['latitude'];
+    $longitude = $smart_ip_session['location']['longitude'];
+  }
+  // Smart IP user object data
+  elseif (isset($user_data['geoip_location']) && !empty($user_data['geoip_location']['latitude'])) {
+    $smart_ip_session['location'] = $user_data['geoip_location'];
+    $latitude  = $smart_ip_session['location']['latitude'];
+    $longitude = $smart_ip_session['location']['longitude'];
+    smart_ip_session_set('smart_ip', $smart_ip_session);
+  }
+  // None, then determine user's geo location via smart_ip_get_current_visitor_location_data()
+  else {
+    $smart_ip_session['location'] = smart_ip_get_current_visitor_location_data();
+    smart_ip_session_set('smart_ip', $smart_ip_session);
+    if ($user->uid) {
+      $user_obj = user_load($user->uid);
+      user_save($user_obj, array('geoip_location' => $smart_ip_session['location']));
+    }
+    if (!empty($smart_ip_session['location']['latitude'])) {
+      $latitude  = $smart_ip_session['location']['latitude'];
+      $longitude = $smart_ip_session['location']['longitude'];
+    }
+    else {
+      smart_ip_session_set('smart_ip', NULL);
+    }
+  }
+  $coordinates = array(
+    'latitude'   => $latitude,
+    'longitude'  => $longitude,
+    'debug_mode' => isset($smart_ip_session['debug_mode']) ? TRUE : FALSE,
+  );
+  // Send also to javascript
+  drupal_add_js(array('device_geolocation' => $coordinates), 'setting');
+  return $coordinates;
+}
+/**
+ * Check page URL in allowed geolocate list.
+ */
+function _device_geolocation_check_allowed_page($url) {
+  $urls = variable_get('device_geolocation_allowed_pages', array());
+  if (empty($urls)) {
+    // No pages specified then all pages are allowed
+    return TRUE;
+  }
+  elseif (drupal_is_front_page()) {
+    $url = '<front>';
+    return in_array($url, $urls);
+  }
+  else {
+    $url_wildcard = preg_replace('#/[0-9]+#', '/*', $url);
+    return in_array($url, $urls) | in_array($url_wildcard, $urls);
+  }
+}
+
+/**
+ * Check Geolocation attempt ajax callback.
+ */
+function device_geolocation_check_geolocation_attempt_ajax() {
+  if (device_geolocation_check_geolocation_attempt()) {
+    drupal_json(array('ask_geolocate' => TRUE));
+    return;
+  }
+  drupal_json(array('ask_geolocate' => FALSE));
+}
+
+/**
+ * Check Geolocation attempt.
+ */
+function device_geolocation_check_geolocation_attempt() {
+  if ((_device_geolocation_check_allowed_page($_GET['q']) && is_null(smart_ip_session_get('device_geolocation'))) || !is_null(smart_ip_session_get('device_geolocation'))) {
+    if (is_null(smart_ip_session_get('device_geolocation_attempt')) || variable_get('device_geolocation_check_frequency', 0) < (time() - smart_ip_session_get('device_geolocation_attempt'))) {
+      smart_ip_session_set('device_geolocation_attempt', time());
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
