@@ -833,16 +833,8 @@ function _user_location_get_country_center($location = array()) {
  *    (a valid 'street' AND valid 'postal_code') OR (valid 'street' AND valid 'city' AND valid 'province')
  */
 function location_google_geocoder($location = array()) {
-  $location_string = '?';
   $province_codes = _user_location_get_provincecode_to_province_map($location['country']);
-
-  $map_google_returns = array(
-    "APPROXIMATE" => 3,  // 5 is postal code, same as our 3
-    "RANGE_INTERPOLATED" => 3,  // ; we'll say it's as good as postal code
-    "GEOMETRIC_CENTER" => 3,  // 7 is intersection level, well call it postal code
-    "ROOFTOP" => 2, // ROOFTOP is full address-level accuracy. Same as our 2
-  );
-
+  $key = variable_get("user_location_google_server_key", "AIzaSyBYKjW2BxXDonq2M5F6sCyrArRXRt-BrLk");
 
   $baseurl = "https://maps.googleapis.com/maps/api/geocode/json?";
   if (!empty($location['street']) ) {
@@ -854,32 +846,56 @@ function location_google_geocoder($location = array()) {
     $addr .= urlencode($province_name) . "," ;
   }
   if (strlen($location['postal_code'])) {
-    $addr .= urlencode($location['postal_code']). ",";
+    $addr .= urlencode($location['postal_code']);
   }
-  // Since we use components to filter by country don't add it here. Seems to give google fits.
-  // $addr .= $location['country'];
 
   $fullurl = "${baseurl}address=${addr}&components=country:${location['country']}";
-  $fullurl .= "&sensor=false";
+  // We seem to need the google server api, and it seems not to be working quite right
+  // However, key is not required
+   $fullurl .= "&key=${key}";
 
   $results = drupal_http_request($fullurl);
 
   if ($results->code != 200) {
-    watchdog('geocode', "Google geocoder failed with code=" . $results->code . " " . $fullurl, WATCHDOG_WARNING);
+    watchdog('geocode', "Google geocoder failed with code=@code, fullurl=%fullurl", array('@code' => $results->code, '%fullurl' => $fullurl), WATCHDOG_ERROR);
     return NULL;
   }
   $geocoded = json_decode($results->data);
 
+  if ($geocoded->status != "OK") {
+    watchdog('geocode', "Google geocoder failed with status=@status, fullurl=%fullurl", array('@status' => $geocoded->status, '%fullurl' => $fullurl), WATCHDOG_ERROR);
+    return NULL;
+  }
+
   if (count($geocoded->results)) {
     $geo1 = $geocoded->results[0];
-    $accuracy = $geo1->geometry->location_type;
+    // Location type, as in "INTERPOLATED" or "ROOFTOP" doesn't seem to tell us as much
+    // as the geocoded_type, below, so not used
+//    $location_type = $geo1->geometry->location_type;
+    $geocoded_type = $geo1->types[0];
     $lat = $geo1->geometry->location->lat;
     $long  = $geo1->geometry->location->lng;
   }
   if (isset($lat) && isset($long)) {
     $source = 99;
-    if (array_key_exists($accuracy,$map_google_returns)) {
-      $source = $map_google_returns[$accuracy];
+    switch($geocoded_type) {
+      case 'locality':
+      case 'sublocality':
+      case 'neighborhood':
+        $source = 5;
+        break;
+      case 'street_address':
+      case 'premise':
+      case 'subpremise':
+        $source = 2;
+        break;
+      case 'postal_code':
+        $source = 3;
+        break;
+      // Other things like 'country' are mostly useless, so give a 7.
+      default:
+        $source = 7;
+        break;
     }
     return array('latitude' => $lat, 'longitude' => $long, 'source'=>$source, 'geocoding_source' =>'google_geocoder', 'google_accuracy'=>$accuracy, 'google_query' => $fullquery, 'google_results' => $results);
   }
@@ -1068,7 +1084,7 @@ function _user_location_map_set_lat_long($account) {
   $key = variable_get("user_location_google_key", "");
   $path = drupal_get_path('module','user_location');
 
-  $google_map_location = "https://maps.googleapis.com/maps/api/js?sensor=false&key=" . variable_get('user_location_google_key', '0');
+  $google_map_location = "https://maps.googleapis.com/maps/api/js?sensor=false&key=" . $key;
   drupal_set_html_head("<script src='$google_map_location'  type='text/javascript'></script>");
   drupal_add_js("$path/user_location_setlocation.js");
   drupal_add_css($path . '/user_location.css');
