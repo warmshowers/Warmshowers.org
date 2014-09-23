@@ -16,20 +16,16 @@ function browscap_settings_form(&$form_state) {
     $version = t('Never fetched');
   }
 
-  $form['data'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('User agent detection settings'),
-  );
-  $form['data']['browscap_data_version'] = array(
+  $form['browscap_data_version'] = array(
     '#value' => '<p>' . t('Current browscap data version: %fileversion.', array('%fileversion' => $version)) . '</p>',
   );
-  $form['data']['browscap_enable_automatic_updates'] = array(
+  $form['browscap_enable_automatic_updates'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable automatic updates'),
     '#default_value' => variable_get('browscap_enable_automatic_updates', TRUE),
     '#description' => t('Automatically update the user agent detection information.'),
   );
-  $form['data']['browscap_automatic_updates_timer'] = array(
+  $form['browscap_automatic_updates_timer'] = array(
     '#type' => 'select',
     '#title' => t('Check for new user agent detection information every'),
     '#default_value' => variable_get('browscap_automatic_updates_timer', 604800),

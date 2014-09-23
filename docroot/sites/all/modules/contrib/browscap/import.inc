@@ -15,7 +15,7 @@ function _browscap_import($cron = TRUE) {
   $local_version = variable_get('browscap_version', 0);
 
   // Retrieve the current browscap data version number using HTTP
-  $current_version = drupal_http_request('http://tempdownloads.browserscap.com/versions/version-number.php');
+  $current_version = drupal_http_request('http://www.browscap.org/version-number');
 
   // Log an error if the browscap version number could not be retrieved
   if (isset($current_version->error)) {
@@ -47,8 +47,20 @@ function _browscap_import($cron = TRUE) {
     return;
   }
 
+  // Set options for downloading data with or without compression
+  if (function_exists('gzdecode')) {
+    $headers = array('Accept-Encoding' => 'gzip');
+    $timeout = 30;
+  }
+  else {
+    // The download takes over ten times longer without gzip, and may exceed
+    // the default timeout of 30 seconds, so we increase the timeout
+    $headers = array();
+    $timeout = 600;
+  }
+
   // Retrieve the browscap data using HTTP
-  $browscap_data = drupal_http_request('http://tempdownloads.browserscap.com/stream.php?BrowsCapINI');
+  $browscap_data = drupal_http_request('http://www.browscap.org/stream?q=PHP_BrowsCapINI', $headers, 'GET', NULL, 3, $timeout);
 
   // Log an error if the browscap data could not be retrieved
   if (isset($browscap_data->error) || empty($browscap_data)) {
@@ -61,6 +73,11 @@ function _browscap_import($cron = TRUE) {
     }
 
     return;
+  }
+
+  // Decompress the downloaded data if it is compressed
+  if (function_exists('gzdecode')) {
+    $browscap_data->data = gzdecode($browscap_data->data);
   }
 
   // Parse the returned browscap data
