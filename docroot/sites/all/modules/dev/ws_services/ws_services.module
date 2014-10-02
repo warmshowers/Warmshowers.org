@@ -62,8 +62,35 @@ function ws_services_services_resources() {
           'help' => t('Returns array of members within the specified coordinates.'),
           'access arguments' => array('access user profiles'),
         ),
+        'by_keyword' => array(
+          'callback' => '_ws_services_hosts_by_keyword',
+          'args' => array(
+            array(
+              'name' => 'keyword',
+              'type' => 'string',
+              'description' => t('Keyword'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'offset',
+              'type' => 'int',
+              'description' => t("Starting offset within results"),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'limit',
+              'type' => 'int',
+              'description' => t('Max number of results to return.'),
+              'source' => 'data',
+            ),
+          ),
+          'return' => 'array',
+          'help' => t('Returns array of members matching keyword.'),
+          'access arguments' => array('access user profiles'),
+        ),
       ),
     ),
+
     'user_contact' => array(
       'actions' => array(
         'contact' => array(
@@ -152,8 +179,73 @@ function _ws_services_contact_resource($data) {
 }
 
 
-
+/**
+ * Utility function to provide search by location service
+ *
+ * @param $data
+ *   - Array with minlat, maxlat, minlon, maxlon bounding area
+ *
+ * @return array
+ *   - Array of hosts within the bounding area
+ */
 function _ws_services_hosts_by_location($data) {
   $hosts = wsmap_get_hosts_by_location($data['minlat'], $data['maxlat'], $data['minlon'], $data['maxlon'], $data['centerlat'], $data['centerlon'], $data['limit']);
   return $hosts;
+}
+
+/**
+ * Search hosts by keyword, which can be town, fullname, email, username
+ *
+ * @param $data
+ *   Array of args including:
+ *    - keyword
+ *    - offset within search results
+ *    - limit (max number to return)
+ *
+ * @return
+ *   Array of user accounts
+ */
+function _ws_services_hosts_by_keyword($data) {
+  $keyword = $data['keyword'];
+  $offset = !empty($data['offset']) ? $data['offset'] : 0;
+  $limit = !empty($data['limit']) ? $data['limit'] : variable_get('ws_services_keyword_results_limit', 50);
+
+  $base_query =
+    "FROM {users} u, {wsuser} w, {user_location} l
+            WHERE u.uid = w.uid
+            AND u.uid=l.oid
+            AND status > 0
+            AND !w.isstale AND !w.isunreachable
+            AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
+            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name LIKE '%%%s%%'
+            OR l.city LIKE '%%%s%%'
+            OR u.mail = '%s%%')";
+
+  $query = "SELECT * " . $base_query;
+  $count_query = "SELECT COUNT(*) " . $base_query;
+  $avail_results_count = db_result(db_query($count_query, $keyword, $keyword, $keyword, $keyword));
+
+  $result = db_query_range($query, $keyword, $keyword, $keyword, $keyword, $offset, $limit);
+
+  $accounts = array();
+  while ($row = db_fetch_array($result)) {
+    unset($row['pass'], $row['mail'], $row['data'], $row['init']);
+    $accounts[$row['uid']] = $row;
+  }
+  return array(
+    'status' => array(
+      'delivered' => count($accounts),
+      'totalresults' => $avail_results_count,
+      'status' => 'complete',
+    ),
+    'query_data' => array(
+      'sql' => $query,
+      'keyword' => $keyword,
+      'offset' => $offset,
+      'limit' => $limit,
+    ),
+    'accounts' => $accounts
+  );
+
+  return $accounts;
 }
