@@ -1,5 +1,6 @@
 <?php
 
+require "earth.inc";
 
 global $source_desc;
 $source_desc = array(
@@ -877,19 +878,50 @@ function location_google_geocoder($location = array()) {
     $long  = $geo1->geometry->location->lng;
   }
   if (isset($lat) && isset($long)) {
-    $source = 99;
+    // Accept any level of sublocality
+    $geocoded_type = preg_replace('/sublocality_.*/', 'sublocality', $geocoded_type);
+    $geocoded_type = preg_replace('/administrative_area_level_[345]/', 'administrative_area_level_3', $geocoded_type);
+
+    // The bounding box diagonal (more or less in meters):
+    // 0 = really, really exact
+    // up to 2000 = within a small town like Palisade
+    // up to 15,000 = within a medium town like Grand Junction
+    // 33,000 = Denver
+    // 65,000 = Houston
+    // 179,000 = Beijing
+    $bounding_box_diagonal = 0;
+    if (!empty($geo1->geometry->bounds)) {
+      $bounds = $geo1->geometry->bounds;
+      $lat1 = $bounds->northeast->lat;
+      $lon1 = $bounds->northeast->lon;
+      $lat2 = $bounds->southwest->lat;
+      $lon2 = $bounds->southwest->lon;
+
+      $bounding_box_diagonal = intval(earth_distance($lon1, $lat1, $lon2, $lat2));
+//    drupal_set_message("Bounding box size=$bounding_box_diagonal");
+    }
+
     switch($geocoded_type) {
       case 'locality':
       case 'sublocality':
       case 'neighborhood':
+      case 'intersection':
+      case 'administrative_area_level_3':
+      case 'ward':
+      case 'route':
         $source = 5;
         break;
       case 'street_address':
+      case 'street_number':
       case 'premise':
       case 'subpremise':
+      case 'floor':
+      case 'establishment':
+      case 'room':
         $source = 2;
         break;
       case 'postal_code':
+      case 'postal_town':
         $source = 3;
         break;
       // Other things like 'country' are mostly useless, so give a 7.
@@ -897,7 +929,8 @@ function location_google_geocoder($location = array()) {
         $source = 7;
         break;
     }
-    return array('latitude' => $lat, 'longitude' => $long, 'source'=>$source, 'geocoding_source' =>'google_geocoder', 'google_accuracy'=>$accuracy, 'google_query' => $fullquery, 'google_results' => $results);
+
+    return array('latitude' => $lat, 'longitude' => $long, 'bounding_box_diagonal' => $bounding_box_diagonal, 'source'=>$source, 'geocoding_source' =>'google_geocoder', 'google_accuracy'=>$accuracy, 'google_query' => $fullquery, 'google_results' => $results);
   }
 
   return NULL;
