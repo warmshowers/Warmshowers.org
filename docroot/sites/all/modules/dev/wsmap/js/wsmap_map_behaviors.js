@@ -75,4 +75,18 @@ Drupal.behaviors.mapBehaviors = function(context) {
         unloadAdvCycling();
       }
     });
+
+    // Toggle opacity of markers
+    $('#hide_markers_checkbox').click(function() {
+        if ($(this).is(':checked')) {
+            marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity * Drupal.settings.wsmap.marker_dimming_factor;
+            marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity * Drupal.settings.wsmap.marker_dimming_factor;;
+        } else {
+            marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity;
+            marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity;
+        }
+        // Force redraw
+        marker_refresh_required = true;
+        google.maps.event.trigger(map,'idle');
+    })
 }

@@ -23,6 +23,10 @@ var userInfo; // If map is to center on a user, set here.
 var map;
 var base_path; // Base path for icons, etc.
 
+var marker_base_opacity;
+var marker_combined_opacity;
+var marker_refresh_required = false;
+
 // This is used to determine a one-off zoom setting for large countries.
 // Most countries work with the area calculation done in the code.
 var specificZoomSettings = {  // Handle countries that don't quite fit the calculation
@@ -45,6 +49,8 @@ function wsmap_initialize() {
   userInfo = Drupal.settings.wsmap.userInfo;
   chunkSize = Drupal.settings.wsmap.maxresults;
   defaultLocation = Drupal.settings.wsmap.defaultLocation;
+  marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity;
+  marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity;
 
   // If we have a map-submit (go) button with some information configured,
   // Go to that location, but do not submit.
@@ -81,6 +87,7 @@ function wsmap_initialize() {
   };
 
   map = new google.maps.Map(document.getElementById("wsmap_map"), mapOptions);
+
   markerCluster = new MarkerClusterer(map, [],
     {
       maxZoom: Drupal.settings.wsmap.clusterer.maxZoom,
@@ -127,6 +134,10 @@ function addMarkersToMap(map, json) {
 
   for (var i = 0; i < parsed.accounts.length; i++) {
     var host = parsed.accounts[i];
+    if (markers[host.uid] && marker_refresh_required) {
+      markers[host.uid].setOpacity(marker_base_opacity);
+      continue;
+    }
     if (markers[host.uid]) {
       continue;
     }
@@ -138,7 +149,8 @@ function addMarkersToMap(map, json) {
       title: host.name + "\n" + host.city + ', ' + host.province,
       host: host,
       hostcount: 1,
-      zIndex:1
+      zIndex:1,
+      opacity: marker_base_opacity
     });
 
     if (!markerPositions[host.position]) {
@@ -149,6 +161,7 @@ function addMarkersToMap(map, json) {
     else {
       // This one will hide under the first one (diff color, etc.)
       marker.setZIndex(0);
+      marker.setOpacity(marker_combined_opacity);
       markerPositions[host.position].push(host.uid);
       markerCount = markerPositions[host.position].length;
       if (!markerImages[markerCount]) {
@@ -165,13 +178,16 @@ function addMarkersToMap(map, json) {
     });
     markers[host.uid] = marker;
     markerCluster.addMarker(marker);
-
   }
+
   var status = Drupal.t('All %total hosts in this map area are shown.', {'%total': parsed.status.totalresults});
   if (i < parsed.status.totalresults) {
     status = Drupal.t('Only %done of %total hosts in this map area were loaded.', {'%done': i, '%total': parsed.status.totalresults}) +'<br/>' + Drupal.t('Zoom in or move the map to see more detail.');
   }
   $('#wsmap-load-status').html(status);
+
+  // If we were doing an opacity refresh, reset the variable.
+  marker_refresh_required = false;
 }
 
 function setMapLocationToCountry(countryCode) {
@@ -238,7 +254,6 @@ function toggleMap() { //expand and contract map
     $('#nearby-hosts').css("display", "none");
     $('#mapholder').animate({width:"100%"}, {duration:1000});
   }
-  setTimeout("map.checkResize();loadMarkers();", 1000); //this is necessary due to animate function
 }
 
 /**
