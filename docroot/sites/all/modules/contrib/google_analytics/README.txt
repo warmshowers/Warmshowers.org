@@ -15,7 +15,7 @@ Requirements
 
 Installation
 ============
-* Copy the 'googleanalytics' module directory in to your Drupal
+Copy the 'googleanalytics' module directory in to your Drupal
 sites/all/modules directory as usual.
 
 
@@ -51,19 +51,22 @@ choice for "Add if the following PHP code returns TRUE." Sample PHP snippets
 that can be used in this textarea can be found on the handbook page
 "Overview-approach to block visibility" at http://drupal.org/node/64135.
 
-Custom variables
-=================
-One example for custom variables tracking is the "User roles" tracking. Enter
-the below configuration data into the custom variables settings form under
-admin/settings/googleanalytics.
+Custom dimensions and metrics
+=============================
+One example for custom dimensions tracking is the "User roles" tracking.
 
-Slot: 1
-Name: User roles
-Value: [user-role-names]
-Scope: Visitor
+1. In the Google Analytics Management Interface you need to setup Dimension #1
+   with name e.g. "User roles". This step is required. Do not miss it, please.
 
-More details about Custom variables can be found in the Google API documentation at
-http://code.google.com/intl/en/apis/analytics/docs/tracking/gaTrackingCustomVariables.html
+2. Enter the below configuration data into the custom dimensions settings form
+   under admin/settings/googleanalytics. You can also choose another index,
+   but keep it always in sync with the index used in step #1.
+
+   Index: 1
+   Value: [user-role-names]
+
+More details about custom dimensions and metrics can be found in the Google API
+documentation at https://developers.google.com/analytics/devguides/collection/analyticsjs/custom-dims-mets
 
 Advanced Settings
 =================
@@ -72,6 +75,15 @@ code textarea. These can be found on the official Google Analytics pages
 and a few examples at http://drupal.org/node/248699. Support is not
 provided for any customisations you include.
 
-To speed up page loading you may also cache the Analytics ga.js
+To speed up page loading you may also cache the Google Analytics "analytics.js"
 file locally. You need to make sure the site file system is in public
 download mode.
+
+Known issues
+============
+
+- Token: The minimum required Drupal 6 version is 6.x-1.14, but for some
+  technical reasons 6.x-6.16 or later is highly recommended. Token module is
+  optional for GA, but if installed you need at minimum this versions or you may
+  experience the issues documented in #1035030.
+- Ubercart: The minimum required Drupal 6 version is 6.x-2.6.
