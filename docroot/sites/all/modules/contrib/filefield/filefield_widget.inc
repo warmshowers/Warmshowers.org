@@ -381,10 +381,18 @@ function filefield_widget_process($element, $edit, &$form_state, $form) {
   );
 
   if ($item['fid'] != 0) {
-    $element['preview'] = array(
-      '#type' => 'markup',
-      '#value' => theme('filefield_widget_preview', $item),
-    );
+    if (function_exists('file_download_access') && $item['status'] && !file_download_access($item['filepath'])) {
+      $element['preview'] = array(
+        '#type' => 'markup',
+        '#value' => t('Access denied'),
+      );
+    }
+    else {
+      $element['preview'] = array(
+        '#type' => 'markup',
+        '#value' => theme('filefield_widget_preview', $item),
+      );
+    }
   }
 
   // Grant access to temporary files.
@@ -458,7 +466,7 @@ function filefield_widget_validate(&$element, &$form_state) {
     if ($file = field_file_load($element['fid']['#value'])) {
       $file = (object) $file;
       if ($file->status == FILE_STATUS_PERMANENT) {
-        if (field_file_references($file) == 0) {
+        if (field_file_references($file) == 0 || (function_exists('file_download_access') && !file_download_access($file->filepath))) {
           form_error($element, t('Referencing to the file used in the %field field is not allowed.', array('%field' => $element['#title'])));
         }
       }
