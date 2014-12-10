@@ -94,7 +94,7 @@ function wsuser_menu() {
     'access arguments' => array('administer users'),
   );
   $items['country_count'] = array(
-    'title' => 'Users by Continent and Country',
+    'title' => 'Member Statistics',
     'page callback' => 'wsuser_country_counts',
     'access callback' => TRUE,
   );
@@ -2359,16 +2359,19 @@ function wsuser_country_counts() {
   if (!empty($cached->data)) {
     return $cached->data;
   }
+  $output = "";
 
+  // Total user counts
   $totalusers = db_result(db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
     WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale"));
   $totalhosts = db_result(db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
     WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale AND !notcurrentlyavailable"));
 
-  $output = '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array('%totalusers' => $totalusers, '%totalhosts' => $totalhosts)) . '</h3>';
+  $output .= '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array('%totalusers' => number_format($totalusers), '%totalhosts' => number_format($totalhosts))) . '</h3>';
   $output .= '<p>' . t('Click the headers to change sort order.') . '</p>';
 
-  $output .= '<h3>' . t('Members by Continent') . '</h3>';
+  // Members by continent
+  $output .= '<h3 id="continent">' . t('Members by Continent') . '</h3>';
 
   db_query("SET @total=(SELECT  COUNT(*) from {users} u JOIN {wsuser} w ON u.uid=w.uid WHERE u.status)");
 
@@ -2395,9 +2398,10 @@ function wsuser_country_counts() {
   }
   $output .= theme('table', $header, $data);
 
-
   $output .= "<br/><br/>";
-  $output .= "<h3>" . t('Members by country') . '</h3>';
+
+  // Members by country
+  $output .= '<h3 id="country">' . t('Members by country') . '</h3>';
 
   $header = array(
     array('data' => t('Country Name'), 'field' => 'name', 'sort' => 'asc'),
@@ -2418,7 +2422,9 @@ function wsuser_country_counts() {
   $output .= theme('table', $header, $data);
 
   $output .= "<br/><br/>";
-  $output .= "<h3>" . t('Growth by year joined') . '</h3>' . '<p>' . t('This actually only shows those who joined who are still members') . '</p>';
+
+  // Growth by Year Joined
+  $output .= "<h3 id='growth'>" . t('Growth by year joined') . '</h3>' . '<p>' . t('This actually only shows those who joined who are still members.') . '</p>';
 
   $header = array(
     array('data' => t('Year'), 'field' => 'year', 'sort' => 'asc'),
@@ -2434,6 +2440,92 @@ function wsuser_country_counts() {
   }
   $output .= theme('table', $header, $data);
 
+
+  $output .= "<br/><br/>";
+
+  // Membership by primary language
+  $output .= "<h3 id='language'>" . t('Primary languages of members') . '</h3>';
+  $header = array(
+    array('data' => t('Language'), 'field' => 'name'),
+    array('data' => t('Member Count'), 'field' => 'count', sort => 'desc'),
+  );
+  $data = array();
+
+
+  $res = db_query("SELECT l.name, COUNT(*) count FROM {users} u, {languages} l WHERE u.language=l.language GROUP BY u.language " . tablesort_sql($header));
+  while ($row = db_fetch_array($res)) {
+    $data[] = array_values($row);
+  }
+  $output .= theme('table', $header, $data);
+
+
+  $output .= "<br/><br/>";
+
+
+  // Global responsiveness stats (by year)? With explanation why starting in Sept 2013
+  $output .= "<h3 id='responsiveness'>" . t('Responsiveness to private messages/hosting requests') . '</h3>'  . '<p>' . t('This could not be calculated before September 2013, when private messages started going through the site.') . '</p>';
+  $header = array(
+    array('data' => t('Year'), 'field' => 'year'),
+    array('data' => t('Message Threads (Hosting Requests)'), 'field' => 'count'),
+    array('data' => t('Percent answered'), 'field' => 'responsive'),
+  );
+  $data = array();
+
+  $res = db_query("
+    SELECT YEAR(FROM_UNIXTIME(pm.timestamp)) year, COUNT(*) count, 100 - 100*SUM(pi.is_new)/COUNT(*) AS responsive
+      FROM {pm_index} pi, {pm_message} pm
+      WHERE pm.mid=pi.mid AND pi.mid=pi.thread_id AND pi.recipient <> pm.author
+      AND pm.timestamp > UNIX_TIMESTAMP('2013-09-01')
+      GROUP BY year
+" . tablesort_sql($header));
+
+  while ($row = db_fetch_array($res)) {
+    $row['responsive'] = number_format($row['responsive'], 1);
+    $row['count'] = number_format($row['count']);
+    $data[] = array_values($row);
+  }
+  $output .= theme('table', $header, $data);
+
+
+  // Positive and negative feedback numbers by year
+  $output .= "<h3 id='feedback'>" . t('Positive and Negative Feedback') . '</h3>';
+  $header = array(
+    array('data' => t('Year'), 'field' => 'year'),
+    array('data' => t('Positive'), 'field' => 'positive_feedback_count'),
+    array('data' => t('Pct Positive'), 'field' => 'positive_percent'),
+    array('data' => t('Neutral'), 'field' => 'neutral_feedback_count'),
+    array('data' => t('Pct Neutral'), 'field' => 'neutral_percent'),
+    array('data' => t('Negative'), 'field' => 'negative_feedback_count'),
+    array('data' => t('Pct Negative'), 'field' => 'negative_percent'),
+    array('data' => t('Feedback for hosts'), 'field' => 'host_feedback_count'),
+    array('data' => t('Feedback for guests'), 'field' => 'guest_feedback_count'),
+  );
+  $data = array();
+
+  $res = db_query("
+  SELECT YEAR(field_hosting_date_value) year,
+    COUNT(IF(tr.field_rating_value = 'Positive', 1, NULL)) AS positive_feedback_count,
+    COUNT(IF(tr.field_rating_value = 'Positive', 1, NULL))/COUNT(*)*100 AS positive_percent,
+    COUNT(IF(tr.field_rating_value = 'Neutral', 1, NULL)) AS neutral_feedback_count,
+    COUNT(IF(tr.field_rating_value = 'Neutral', 1, NULL))/COUNT(*)*100 AS neutral_percent,
+    COUNT(IF(tr.field_rating_value = 'Negative', 1, NULL)) AS negative_feedback_count,
+    COUNT(IF(tr.field_rating_value = 'Negative', 1, NULL))/COUNT(*)*100 AS negative_percent,
+    COUNT(IF(tr.field_guest_or_host_value = 'host', 1, NULL)) as host_feedback_count,
+    COUNT(IF(tr.field_guest_or_host_value = 'guest', 1, NULL)) as guest_feedback_count
+
+    FROM node n, users u, content_type_trust_referral tr, user_location l
+    WHERE n.nid=tr.nid AND n.vid=tr.vid AND u.uid=field_member_i_trust_uid AND u.uid=l.oid AND field_hosting_date_value IS NOT NULL
+    GROUP BY year
+  ". tablesort_sql($header));
+
+  while ($row = db_fetch_array($res)) {
+    $row['positive_percent'] = number_format($row['positive_percent'], 2);
+    $row['neutral_percent'] = number_format($row['neutral_percent'], 2);
+    $row['negative_percent'] = number_format($row['negative_percent'], 2);
+
+    $data[] = array_values($row);
+  }
+  $output .= theme('table', $header, $data);
 
   cache_set($cache_key, $output, 'cache', time() + 86400); // Expire after 1 day
   return $output;
