@@ -112,7 +112,12 @@ function warmshowers_zen_preprocess_page(&$variables) {
 
   // On front page, let users know about the iOS app
   if(drupal_is_front_page()) {
-    drupal_set_html_head('<meta name="apple-itunes-app" content="app-id=359056872" />');
+    // Suggest iOS app to iOS users
+    // Suggest a reasonable image for shares to facebook
+    drupal_set_html_head('
+        <meta name="apple-itunes-app" content="app-id=359056872" />
+        <meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />
+');
     $variables['head'] = drupal_get_html_head();
   }
 
