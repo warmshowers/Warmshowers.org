@@ -110,16 +110,14 @@ function warmshowers_zen_colorbox_imagefield_no_gallery($presetname, $path, $alt
  */
 function warmshowers_zen_preprocess_page(&$variables) {
 
+  // Suggest a reasonable image for shares to facebook
+  drupal_set_html_head('<meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />');
+
   // On front page, let users know about the iOS app
   if(drupal_is_front_page()) {
-    // Suggest iOS app to iOS users
-    // Suggest a reasonable image for shares to facebook
-    drupal_set_html_head('
-        <meta name="apple-itunes-app" content="app-id=359056872" />
-        <meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />
-');
-    $variables['head'] = drupal_get_html_head();
+    drupal_set_html_head('<meta name="apple-itunes-app" content="app-id=359056872" />');
   }
+  $variables['head'] = drupal_get_html_head();
 
   if (!empty($variables['highlight'])) {
     $variables['classes_array'][] = 'with-highlight';
