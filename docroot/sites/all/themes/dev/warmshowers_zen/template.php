@@ -111,7 +111,8 @@ function warmshowers_zen_colorbox_imagefield_no_gallery($presetname, $path, $alt
 function warmshowers_zen_preprocess_page(&$variables) {
 
   // Suggest a reasonable image for shares to facebook
-  drupal_set_html_head('<meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />');
+  drupal_set_html_head('<meta property="og:image" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />
+<meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />');
 
   // On front page, let users know about the iOS app
   if(drupal_is_front_page()) {
