@@ -87,7 +87,13 @@ else {
     <div class="responsive-count">
       <?php print t('Message responsiveness: @responsiveness', array('@responsiveness' => $pm_responsiveness)); ?>
     </div>
-    (<?php print t('@responses responses to @requests requests since @start', array('@responses' => $pm_responses, '@requests' => $pm_requests, '@start' => $pm_start_date)); ?>)
+		<?php if ($pm_responsiveness_over_full_period) {
+			$stmt = '@responses responses to @requests requests over the past year';
+		} else {
+			$stmt = '@responses responses to @requests requests since @start';
+		}
+
+    print "(" . t($stmt, array('@responses' => $pm_responses, '@requests' => $pm_requests, '@start' => $pm_start_date)) . ')'; ?>)
   </div>
 
 </div>
