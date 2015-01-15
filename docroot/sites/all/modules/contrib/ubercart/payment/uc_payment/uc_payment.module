@@ -1,0 +1,850 @@
+<?php
+
+/**
+ * @file
+ * Defines the payment API that lets payment modules interact with Ubercart.
+ *
+ * The payment system in Ubercart relies on hooks to let the main program know
+ * what payment modules are installed and what their current settings are. The
+ * customer can choose a payment type at checkout, and the proper information
+ * will be collected to complete the purchase.
+ */
+
+require_once('uc_payment_checkout_pane.inc');
+require_once('uc_payment_order_pane.inc');
+require_once('uc_payment.ca.inc');
+
+/*******************************************************************************
+ * Hook Functions (Drupal)
+ ******************************************************************************/
+
+/**
+ * Implements hook_menu().
+ */
+function uc_payment_menu() {
+  $items['admin/store/settings/payment'] = array(
+    'title' => 'Payment settings',
+    'description' => 'Configure the payment settings.',
+    'page callback' => 'uc_payment_settings_overview',
+    'access arguments' => array('administer store'),
+    'file' => 'uc_payment.admin.inc',
+  );
+  $items['admin/store/settings/payment/overview'] = array(
+    'title' => 'Overview',
+    'description' => 'View the payment settings.',
+    'access arguments' => array('administer store'),
+    'weight' => -10,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/store/settings/payment/edit'] = array(
+    'title' => 'Edit',
+    'description' => 'Edit the payment settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_settings_form'),
+    'access arguments' => array('administer store'),
+    'weight' => -5,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_payment.admin.inc',
+  );
+  $items['admin/store/settings/payment/edit/basic'] = array(
+    'title' => 'Payment settings',
+    'description' => 'Edit the basic payment settings.',
+    'access arguments' => array('administer store'),
+    'weight' => -10,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/store/settings/payment/edit/methods'] = array(
+    'title' => 'Payment methods',
+    'description' => 'Edit the payment method settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_methods_form'),
+    'access arguments' => array('administer store'),
+    'weight' => -5,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_payment.admin.inc',
+  );
+  $items['admin/store/settings/payment/edit/gateways'] = array(
+    'title' => 'Payment gateways',
+    'description' => 'Edit the payment gateway settings.',
+    'access arguments' => array('administer store'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_gateways_form'),
+    'weight' => 0,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_payment.admin.inc',
+  );
+
+  $items['cart/checkout/line_items'] = array(
+    'title' => 'Return order totals',
+    'page callback' => 'uc_payment_get_totals',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['cart/checkout/payment_details/%'] = array(
+    'title' => 'Payment details',
+    'description' => 'Add the payment details to the checkout pane.',
+    'page callback' => 'uc_payment_get_details',
+    'page arguments' => array(3),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/store/orders/%uc_order/payment_details/%'] = array(
+    'title' => 'Payment details',
+    'description' => 'Add the payment details to the order pane.',
+    'page callback' => 'uc_payment_get_details',
+    'page arguments' => array(5, 'order', 3),
+    'access arguments' => array('edit orders'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/store/orders/%uc_order/payments/select/%'] = array(
+    'title' => 'Select payment gateway',
+    'page callback' => 'uc_payment_gateway_select',
+    'access arguments' => array('view all orders'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_payment.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/payments'] = array(
+    'title' => 'Payments',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_by_order_form', 3),
+    'access callback' => 'uc_payment_tracking_access',
+    'weight' => 5,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_payment.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/payments/%uc_payment/delete'] = array(
+    'title' => 'Delete payment?',
+    'description' => 'Delete payment?',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_payment_delete_confirm_form', 3, 5),
+    'access callback' => 'uc_payment_delete_access',
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_payment.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_token_values().
+ */
+function uc_payment_token_values($type, $object = NULL) {
+  $values = array();
+
+  switch ($type) {
+    case 'order':
+      $order = $object;
+      $values['order-payment-method'] = _payment_method_data($order->payment_method, 'review');
+      if (empty($values['order-payment-method'])) {
+        $values['order-payment-method'] = _payment_method_data($order->payment_method, 'name');
+      }
+
+      $context = array(
+        'revision' => 'formatted',
+        'type' => 'amount',
+      );
+      $values['order-payment-balance'] = uc_price(uc_payment_balance($order), $context);
+      break;
+  }
+
+  return $values;
+}
+
+/**
+ * Implements hook_token_list(). (token.module)
+ */
+function uc_payment_token_list($type = 'all') {
+  $tokens = array();
+
+  if ($type == 'order' || $type == 'ubercart' || $type == 'all') {
+    $tokens['order']['order-payment-method'] = t('The payment method of the order.');
+    $tokens['order']['order-payment-balance'] = t('The payment balance of the order');
+  }
+
+  return $tokens;
+}
+
+/**
+ * Implements hook_perm().
+ */
+function uc_payment_perm() {
+  return array('view payments', 'manual payments', 'delete payments');
+}
+
+/**
+ * Access callback to view list of payments.
+ */
+function uc_payment_tracking_access() {
+  return user_access('view payments') && variable_get('uc_payment_tracking', TRUE);
+}
+
+/**
+ * Access callback to delete a payment.
+ */
+function uc_payment_delete_access() {
+  return user_access('delete payments') && variable_get('uc_payment_deleting', TRUE);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_payment_theme() {
+  return array(
+    'uc_payment_totals' => array(
+      'arguments' => array('order' => NULL),
+    ),
+    'uc_payment_method_table' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_payment.admin.inc',
+    ),
+    'uc_payment_by_order_form' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_payment.admin.inc',
+    ),
+    'uc_payment_method_select' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function uc_payment_init() {
+  global $conf;
+  $conf['i18n_variables'][] = 'uc_default_payment_msg';
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function uc_payment_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'uc_cart_checkout_form') {
+    drupal_add_js('misc/progress.js');
+    drupal_add_js(drupal_get_path('module', 'uc_payment') .'/uc_payment.js');
+  }
+}
+
+
+/*******************************************************************************
+ * Hook Functions (Ubercart)
+ ******************************************************************************/
+
+/**
+ * Implements hook_order().
+ */
+function uc_payment_order($op, $order) {
+  switch ($op) {
+    case 'submit':
+      $func = _payment_method_data($order->payment_method, 'callback');
+      if (function_exists($func)) {
+        return $func('order-submit', $order);
+      }
+      break;
+
+    case 'load':
+      $func = _payment_method_data($order->payment_method, 'callback');
+      if (function_exists($func)) {
+        $func('order-load', $order);
+      }
+      break;
+
+    case 'save':
+      $func = _payment_method_data($order->payment_method, 'callback');
+      if (function_exists($func)) {
+        $func('order-save', $order);
+      }
+      break;
+
+    case 'can_delete':
+      if (uc_payment_load_payments($order->order_id) !== FALSE) {
+        return FALSE;
+      }
+      break;
+
+    case 'delete':
+      db_query("DELETE FROM {uc_payment_receipts} WHERE order_id = %d", $order->order_id);
+      // Call each payment method to delete method specific data from the database.
+      $methods = _payment_method_list();
+      foreach ($methods as $method) {
+        $func = $method['callback'];
+        if (function_exists($func)) {
+          $func('order-delete', $order);
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implements hook_checkout_pane().
+ */
+function uc_payment_checkout_pane() {
+  $panes[] = array(
+    'id' => 'payment',
+    'title' => t('Payment method'),
+    'desc' => t('Select a payment method from the enabled payment modules.'),
+    'callback' => 'uc_checkout_pane_payment',
+    'weight' => 6,
+  );
+
+  return $panes;
+}
+
+/**
+ * Implements hook_order_pane().
+ */
+function uc_payment_order_pane() {
+  $panes[] = array(
+    'id' => 'payment',
+    'callback' => 'uc_order_pane_payment',
+    'title' => t('Payment'),
+    'desc' => t('Specify and collect payment for an order.'),
+    'class' => 'pos-left',
+    'weight' => 4,
+    'show' => array('view', 'edit', 'customer'), //, 'invoice', 'customer'),
+  );
+
+  return $panes;
+}
+
+/**
+ * Implements hook_order_state().
+ */
+function uc_payment_order_state() {
+  $states[] = array(
+    'id' => 'payment_received',
+    'title' => t('Payment received'),
+    'weight' => 10,
+    'scope' => 'general',
+  );
+
+  return $states;
+}
+
+
+/*******************************************************************************
+ * Callback Functions, Forms, and Tables
+ ******************************************************************************/
+
+/**
+ * Returns a formatted list of line items for an order total preview.
+ *
+ * @param $return
+ *   TRUE or FALSE to specify whether or not to return the results instead of
+ *   printing them and exiting.
+ * @param $order
+ *   Optionally pass in a full order object to use instead of finding it in the
+ *   $_POST data.
+ *
+ * @return
+ *   The formatted HTML of the order total preview if $return is set to TRUE.
+ */
+function uc_payment_get_totals($return = FALSE, $order = NULL) {
+  $output = '';
+
+  if (empty($order) && is_array($_POST) && isset($_POST['order'])) {
+    $order = unserialize($_POST['order']);
+  }
+
+  if ($order) {
+    usort($order->line_items, 'uc_weight_sort');
+    $output = theme('uc_payment_totals', $order);
+  }
+
+  if ($return) {
+    return $output;
+  }
+
+  print $output;
+  exit();
+}
+
+/**
+ * Generates markup for payment totals.
+ *
+ * @ingroup themeable
+ */
+function theme_uc_payment_totals($order) {
+  $output = t('Order total preview:')
+           .' <span id="order-total-throbber"></span><table id="uc-order-total-preview">';
+  $grand_total = 0;
+
+  $context = array(
+    'type' => 'line_item',
+    'subject' => array(
+      'order' => $order,
+    ),
+  );
+
+  foreach ($order->line_items as $line) {
+    if (!empty($line['title'])) {
+      $context['revision'] = 'themed';
+      $context['subject']['line_item'] = $line;
+
+      $attributes = drupal_attributes(array('class' => 'line-item-' . $line['type']));
+      $output .= '<tr' . $attributes . '><td align="right"><b>'. filter_xss($line['title']) .':</b></td>'
+                .'<td align="right">'. uc_price($line['amount'], $context) .'</td></tr>';
+
+      if ($line['summed']) {
+        $context['revision'] = 'altered';
+      }
+    }
+  }
+
+  $context['revision'] = 'themed';
+  $context['type'] = 'amount';
+  unset($context['subject']);
+  $output .= '<tr class="line-item-total"><td align="right"><b>'. t('Order total:') .'</b></td>'
+            .'<td align="right">'. uc_price(uc_order_get_total($order), $context)
+            .'</td></tr></table>';
+
+  return $output;
+}
+
+function uc_payment_get_details($method_id, $view = 'cart', $order = NULL) {
+  global $user;
+
+  if ($view == 'cart') {
+    if (!isset($_SESSION['cart_order']) || !($order = uc_order_load($_SESSION['cart_order']))) {
+      $_SESSION['cart_order'] = NULL;
+      $order = NULL;
+    }
+
+    if (!empty($order) && ($order->order_status != 0 || (!empty($user->uid) && $user->uid != $order->uid))) {
+      $order = NULL;
+    }
+  }
+
+  $func = _payment_method_data($method_id, 'callback');
+  if (function_exists($func)) {
+    $output = $func($view .'-details', $order);
+  }
+
+  print $output;
+  exit();
+}
+
+function _total_sort($a, $b) {
+  if ($a[0] == $b[0]) {
+    return 0;
+  }
+
+  return ($a[0] < $b[0]) ? -1 : 1;
+}
+
+/**
+ * TAPIr table definition for uc_payments_table.
+ */
+function uc_payments_table() {
+  $table = array(
+    '#type' => 'tapir_table',
+    '#tree' => TRUE,
+    '#columns' => array(
+      'received' => array(
+        'cell' => t('Received'),
+        'weight' => 0,
+      ),
+      'user' => array(
+        'cell' => t('User'),
+        'weight' => 1,
+      ),
+      'method' => array(
+        'cell' => t('Method'),
+        'weight' => 2,
+      ),
+      'amount' => array(
+        'cell' => t('Amount'),
+        'weight' => 3,
+      ),
+      'balance' => array(
+        'cell' => t('Balance'),
+        'weight' => 4,
+      ),
+      'comment' => array(
+        'cell' => t('Comment'),
+        'weight' => 5,
+      ),
+      'action' => array(
+        'cell' => t('Action'),
+        'weight' => 6,
+      ),
+    ),
+    '#rows' => array(),
+  );
+
+  return $table;
+}
+
+/*******************************************************************************
+ * Module and Helper Functions
+ ******************************************************************************/
+
+/**
+ * Processes a payment through an enabled payment gateway.
+ *
+ * @param $method
+ *   The ID of the payment method to use to process the payment.
+ * @param $order_id
+ *   The ID of the order associated with this payment.
+ * @param $amount
+ *   The amount of the payment we're attempting to collect.
+ * @param $data
+ *   An array of data passed on to the payment gateway module used to process
+ *   the payment for the specified payment method.
+ * @param $default
+ *   TRUE or FALSE to indicate we're forcing the use of the default gateway for
+ *   the specified payment method. When TRUE, admin messages related to the
+ *   payment will be hidden from display so customers don't see them.
+ * @param $selected
+ *   The ID of a payment gateway to use to process the payment; normally comes
+ *   from the payment gateway select form.
+ * @param $redirect
+ *   TRUE or FALSE to indicate whether or not to redirect back to the admin
+ *   order view page for the order referenced in $order_id.
+ *
+ * @return
+ *   TRUE or FALSE indicating whether or not the payment was processed.
+ */
+function uc_payment_process($method, $order_id, $amount, $data = NULL, $default = FALSE, $selected = NULL, $redirect = TRUE) {
+  $result = array();
+
+  // Get an array of enabled payment gateways available for the payment method.
+  $gateways = _payment_gateway_list($method, TRUE);
+
+  // Fail if no gateways were found for the specified method.
+  if (empty($gateways)) {
+    // Display an error message if messages weren't silenced.
+    if (!$default) {
+      drupal_set_message(t('You are not able to process %type payments.', array('%type' => _payment_method_data($method, 'name'))));
+    }
+
+    return FALSE;
+  }
+
+  // If we only found one gateway for this payment method...
+  if (count($gateways) == 1) {
+    // Get the right key for the payment gateway in the array.
+    $key = array_shift(array_keys($gateways));
+
+    // If we can find a callback in the gateway for the payment method...
+    if (function_exists($gateways[$key][$method])) {
+      // Pass the payment data onto the callback and store the result.
+      $result = $gateways[$key][$method]($order_id, $amount, $data);
+    }
+    else {
+      // Otherwise display a failure message to administrators.
+      if (user_access('administer store')) {
+        drupal_set_message(t("Attempted to process a %type payment but the gateway's function was not found.", array('%type' => _payment_method_data($method, 'name'))));
+      }
+
+      $result['success'] = FALSE;
+    }
+  }
+  else {
+    // Otherwise attempt to find the appropriate gateway function in the array.
+    $callback = FALSE;
+
+    foreach ($gateways as $gateway) {
+      // If we want the default gateway and this is it, store the callback
+      // and continue.
+      if ($default && $gateway['id'] == variable_get('uc_payment_'. $method .'_gateway', '')) {
+        $callback = $gateway[$method];
+        continue;
+      }
+
+      // If we want to use a specific gateway and this is it, store the callback.
+      if (!empty($selected) && $gateway['id'] == $selected) {
+        $callback = $gateway[$method];
+      }
+    }
+
+    // If we found a callback...
+    if ($callback !== FALSE) {
+      // Check to see if the function exists and process the payment.
+      if (function_exists($callback)) {
+        $result = $callback($order_id, $amount, $data);
+      }
+      else {
+        // Otherwise display an error message to administrators.
+        if (user_access('administer store')) {
+          drupal_set_message(t('An error has occurred with your payment gateway. The charge function could not be found.'));
+        }
+
+        $result['success'] = FALSE;
+      }
+    }
+    else {
+      // Otherwise store the info that was passed to us in the session and
+      // redirect to a form where we can choose a payment gateway.
+      $_SESSION['uc_payment_method'] = $method;
+      $_SESSION['uc_payment_order_id'] = $order_id;
+      $_SESSION['uc_payment_amount'] = $amount;
+      $_SESSION['uc_payment_data'] = serialize($data);
+
+      drupal_goto('admin/store/orders/'. $order_id .'/payments/select/'. $method);
+    }
+  }
+
+  // If the payment processed successfully...
+  if ($result['success'] === TRUE) {
+    // Log the payment to the order if not disabled.
+    if (!isset($result['log_payment']) || $result['log_payment'] !== FALSE) {
+      uc_payment_enter($order_id, $method, $amount, empty($result['uid']) ? 0 : $result['uid'], empty($result['data']) ? '' : $result['data'], empty($result['comment']) ? '' : $result['comment']);
+    }
+  }
+  else {
+    // Otherwise display the failure message in the logs.
+    watchdog('uc_payment', 'Payment failed for order @order_id: @message', array('@order_id' => $order_id, '@message' => $result['message']), WATCHDOG_WARNING, l(t('view order'), 'admin/store/orders/'. $order_id));
+  }
+
+  // If we have a message for display and aren't simply charging with the
+  // default gateway for a customer...
+  if (!empty($result['message']) && !$default) {
+    drupal_set_message($result['message']);
+  }
+
+  // Head back to the order if a redirect was specified.
+  if ($redirect) {
+    drupal_goto('admin/store/orders/'. $order_id);
+  }
+
+  return $result['success'];
+}
+
+/**
+ * Enters a payment for an order.
+ *
+ * @param $order_id
+ *   The order ID to apply the payment to.
+ * @param $method
+ *   The payment method ID.
+ * @param $amount
+ *   The amount of the payment.
+ * @param $uid
+ *   (optional) The user ID of the person logging the payment, or 0 if the
+ *   payment was processed automatically.
+ * @param $data
+ *   (optional) Any data that should be serialized and stored with the
+ *   payment.
+ * @param $comment
+ *   (optional) The comment to enter in the payment log.
+ * @param $received
+ *   (optional) The timestamp at which the payment was received.
+ *
+ * @return
+ *   A unique ID identifying the payment.
+ */
+function uc_payment_enter($order_id, $method, $amount, $uid = 0, $data = NULL, $comment = '', $received = NULL) {
+  if ($received == NULL) {
+    $received = time();
+  }
+  $method_name = _payment_method_data($method, 'review');
+  if (empty($method_name)) {
+    $method_name = _payment_method_data($method, 'name');
+  }
+  if (is_null($method_name)) {
+    $method_name = t('Other');
+  }
+  if (is_array($data)) {
+    $data = serialize($data);
+  }
+
+  if (variable_get('uc_payment_logging', TRUE)) {
+    global $user;
+    $context = array(
+      'revision' => 'formatted',
+      'type' => 'amount',
+    );
+    $log_message = t('@method payment for @amount entered by @user.', array('@method' => $method_name, '@amount' => uc_price($amount, $context), '@user' => uc_get_initials($user->uid)));
+    uc_order_log_changes($order_id, array($log_message));
+  }
+
+  db_query("INSERT INTO {uc_payment_receipts} (order_id, method, amount, uid, data, comment, received) VALUES (%d, '%s', %f, %d, '%s', '%s', %d)",
+    $order_id, $method_name, $amount, $uid, $data, $comment, $received);
+  $receipt_id = db_last_insert_id('uc_payment_receipts', 'receipt_id');
+
+  $order = uc_order_load($order_id);
+  $account = user_load($uid);
+
+  // Ensure user has an account before payment is made.
+  uc_cart_complete_sale($order);
+
+  module_invoke_all('uc_payment_entered', $order, $method, $amount, $account, $data, $comment);
+  ca_pull_trigger('uc_payment_entered', $order, $account);
+
+  return $receipt_id;
+}
+
+/**
+ * Deletes a payment from the database.
+ */
+function uc_payment_delete($receipt_id) {
+  if (!is_numeric($receipt_id)) {
+    return FALSE;
+  }
+
+  if (variable_get('uc_payment_logging', TRUE)) {
+    global $user;
+    $payment = uc_payment_load($receipt_id);
+    $context = array(
+      'revision' => 'formatted',
+      'type' => 'payment',
+      'subject' => array(
+        'payment' => $payment,
+      ),
+    );
+    $log_message = t('@method payment for @amount deleted by @user.', array('@method' => $payment->method, '@amount' => uc_price($payment->amount, $context), '@user' => uc_get_initials($user->uid)));
+    uc_order_log_changes($payment->order_id, array($log_message));
+  }
+
+  db_query("DELETE FROM {uc_payment_receipts} WHERE receipt_id = %d", $receipt_id);
+}
+
+/**
+ * Returns the balance of payments on an order.
+ */
+function uc_payment_balance($order) {
+  $total = $order->order_total;
+  $payments = uc_payment_load_payments($order->order_id);
+
+  if ($payments === FALSE) {
+    return $total;
+  }
+
+  foreach ($payments as $payment) {
+    $total -= $payment->amount;
+  }
+
+  return $total;
+}
+
+/**
+ * Loads a single payment from the database by receipt_id.
+ */
+function uc_payment_load($receipt_id) {
+  if (!is_numeric($receipt_id)) {
+    return FALSE;
+  }
+
+  $result = db_query("SELECT * FROM {uc_payment_receipts} WHERE receipt_id = %d ", $receipt_id);
+  $payment = db_fetch_object($result);
+
+  return $payment;
+}
+
+/**
+ * Loads an array of all the payments for an order.
+ *
+ * @param $order_id
+ *   The order's id.
+ * @param $action
+ *   Unused...
+ *
+ * @return
+ *   Array of payment objects or FALSE if there are none.
+ */
+function uc_payment_load_payments($order_id, $action = NULL) {
+  $payments = array();
+
+  $result = db_query("SELECT * FROM {uc_payment_receipts} WHERE order_id = %d "
+                    ."ORDER BY received ASC", $order_id);
+  while ($payment = db_fetch_object($result)) {
+    $payments[] = $payment;
+  }
+
+  if (count($payments) == 0) {
+    $payments = FALSE;
+  }
+
+  return $payments;
+}
+
+/**
+ * Builds a list of payment methods defined in the enabled modules.
+ */
+function _payment_method_list($action = NULL) {
+  static $methods;
+
+  if (count($methods) > 0 && $action !== 'rebuild') {
+    return $methods;
+  }
+
+  $methods = module_invoke_all('payment_method');
+
+  // Allow other modules to alter the payment methods.
+  drupal_alter('payment_method', $methods);
+
+  foreach ($methods as $i => $value) {
+    $methods[$i]['checkout'] = variable_get('uc_payment_method_'. $methods[$i]['id'] .'_checkout', $methods[$i]['checkout']);
+    $methods[$i]['weight'] = variable_get('uc_payment_method_'. $methods[$i]['id'] .'_weight', $methods[$i]['weight']);
+  }
+  usort($methods, 'uc_weight_sort');
+
+  return $methods;
+}
+
+/**
+ * Returns data from a payment method by method ID and the array key.
+ */
+function _payment_method_data($method_id, $key) {
+  $methods = _payment_method_list();
+  foreach ($methods as $method) {
+    if ($method['id'] == $method_id) {
+      return isset($method[$key]) ? $method[$key] : NULL;
+    }
+  }
+}
+
+/**
+ * Builds a list of payment gateways defined in the enabled modules.
+ */
+function _payment_gateway_list($filter = NULL, $enabled_only = FALSE) {
+  $gateways = module_invoke_all('payment_gateway');
+
+  // Allow other modules to alter the payment gateways.
+  drupal_alter('payment_gateway', $gateways);
+
+  foreach ($gateways as $i => $value) {
+    $gateways[$i]['enabled'] = variable_get('uc_pg_'. $gateways[$i]['id'] .'_enabled', TRUE);
+    if ($filter != NULL) {
+      if (!isset($gateways[$i][$filter]) || !function_exists($gateways[$i][$filter])) {
+        unset($gateways[$i]);
+        continue;
+      }
+    }
+    if ($enabled_only) {
+      if (!variable_get('uc_pg_'. $gateways[$i]['id'] .'_enabled', TRUE)) {
+        unset($gateways[$i]);
+      }
+    }
+  }
+
+  return $gateways;
+}
+
+/**
+ * Returns data from a payment gateway by gateway ID and the array key.
+ *
+ * @param $gateway_id
+ *   The ID of the payment gateway to query.
+ * @param $key
+ *   The key of the data being requested.
+ *
+ * @return
+ *   The requested data.
+ */
+function _payment_gateway_data($gateway_id, $key) {
+  // Load all the payment gateways.
+  $gateways = _payment_gateway_list();
+
+  // Loop through the array to find the matching gateway.
+  foreach ($gateways as $gateway) {
+    // If this is it, return the requested data.
+    if ($gateway['id'] == $gateway_id) {
+      return isset($gateway[$key]) ? $gateway[$key] : NULL;
+    }
+  }
+}

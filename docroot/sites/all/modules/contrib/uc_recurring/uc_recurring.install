@@ -1,0 +1,543 @@
+<?php
+
+/**
+ * @file
+ * Installs the Recurring Fee module.
+ */
+
+/**
+ * Implementation hook_schema().
+ */
+function uc_recurring_schema() {
+  $schema = array();
+
+  $schema['uc_recurring_users'] = array(
+    'description' => t('Data for recurring fees attached to users/orders scheduled to be charged.'),
+    'fields' => array(
+      'rfid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'fee_handler' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'fee_title' => array(
+        'description' => t('The text shown on invoices for this recurring fee.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'next_charge' => array(
+        'description' => t('The timestamp when the next charge should be performed.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'fee_amount' => array(
+        'description' => t('The amount of the recurring fee.'),
+        'type' => 'numeric',
+        'precision' => 15,
+        'scale' => 3,
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'regular_interval' => array(
+        'description' => t('The amount of time between charges.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'remaining_intervals' => array(
+        'description' => t('The remaining number of times the fee should be charged.'),
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => -1,
+      ),
+      'charged_intervals' => array(
+        'description' => t('Counter for how many times the fee has been charged.'),
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'order_id' => array(
+        'description' => t('The order ID.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'data' => array(
+        'description' => t('Serialized array of extra data.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'created' => array(
+        'description' => t('Timestamp for when the fee was first attached to the user.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'attempts' => array(
+        'description' => t('How many times have we attempted to process this payment.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'pfid' => array(
+        'description' => t('The product fee this recurring fee was created from.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+      ),
+      'order_product_id' => array(
+        'description' => 'The product ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+      ),
+      'own_handler' => array(
+        'description' => t('Indicate if recurring fee is done by own handler, such as Paypal.'),
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => 0,
+      ),
+      'status' => array(
+        'description' => 'The status of the recurring fee, e.g. "active" or "expired"',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'module' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('rfid'),
+  );
+  $schema['uc_recurring_orders'] = array(
+    'description' => t('Data for handling recurring relationships between orders.'),
+    'fields' => array(
+      'original_order_id' => array(
+        'description' => t('The original order ID.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'renewal_order_id' => array(
+        'description' => t('The recurring order ID.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+  );
+  $schema['uc_recurring_schedule'] = array(
+    'description' => t('Data for handling more complex recurring schedules.'),
+    'fields' => array(
+      'pfid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'interval_num' => array(
+        'description' => t('The number in the recurring schedule to.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'fee_amount' => array(
+        'description' => t('The amount of the schedule fee to charge.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'next_interval' => array(
+        'description' => t('The amount of time before next charge.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'rfid' => array(
+        'description' => t('The specific id of the recurring fee to effect, NULL to effect all recurring fees.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('pfid', 'interval_num'),
+  );
+
+  $schema['uc_recurring_extensions'] = array(
+    'description' => t('Data for handling extensions to recurring fees.'),
+    'fields' => array(
+      'pfid' => array(
+        'description' => t('The schedule ID that this extension relates to.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+      'rebill_attempt' => array(
+        'description' => t('The rebill attempt number.'),
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'time_to_extend' => array(
+        'description' => t('Time in seconds to extend a recurring fee before next charge.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation hook_install().
+ */
+function uc_recurring_install() {
+  drupal_install_schema('uc_recurring');
+
+  // Add default extensions periods.
+  $three_days = strtotime("+3 days", 0);
+  $five_days = strtotime("+5 days", 0);
+  db_query("INSERT INTO {uc_recurring_extensions} (pfid, rebill_attempt, time_to_extend) VALUES (NULL, 0, %d), (NULL, 1, %d), (NULL, 2, 0)", $three_days, $five_days);
+}
+
+/**
+ * Implementation hook_uninstall().
+ */
+function uc_recurring_uninstall() {
+  drupal_uninstall_schema('uc_recurring');
+
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_recurring_%%'");
+  cache_clear_all('variables', 'cache');
+}
+
+function uc_recurring_update_1() {
+  $ret = array();
+
+  $fee_schema = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  );
+
+  // Add a column to store the recurring fee handler with the user subscription.
+  db_add_field($ret, 'uc_recurring_users', 'fee_handler', $fee_schema);
+
+  // Update existing rows if uc_recurring is the current handler.
+  if (variable_get('uc_recurring_handler', 'uc_recurring') == 'uc_recurring') {
+    $ret[] = update_sql("UPDATE {uc_recurring_users} SET fee_handler = 'uc_recurring'");
+  }
+
+  return $ret;
+}
+
+function uc_recurring_update_6000() {
+  $ret = array();
+
+  db_drop_primary_key($ret, 'uc_recurring_products');
+  db_change_field($ret, 'uc_recurring_products', 'pfid', 'pfid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0), array('primary key' => array('pfid')));
+  db_change_field($ret, 'uc_recurring_products', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 10, 'scale' => 2, 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_products', 'number_intervals', 'number_intervals', array('type' => 'int', 'unsigned' => TRUE, 'size' => 'small', 'not null' => TRUE, 'default' => 1));
+
+  db_drop_primary_key($ret, 'uc_recurring_users');
+  db_change_field($ret, 'uc_recurring_users', 'rfid', 'rfid', array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE), array('primary key' => array('rfid')));
+  db_change_field($ret, 'uc_recurring_users', 'uid', 'uid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'next_charge', 'next_charge', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 10, 'scale' => 2, 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'remaining_intervals', 'remaining_intervals', array('type' => 'int', 'unsigned' => TRUE, 'size' => 'small', 'not null' => TRUE, 'default' => 1));
+  db_change_field($ret, 'uc_recurring_users', 'charged_intervals', 'charged_intervals', array('type' => 'int', 'unsigned' => TRUE, 'size' => 'small', 'not null' => TRUE, 'default' => 1));
+  db_change_field($ret, 'uc_recurring_users', 'order_id', 'order_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'created', 'created', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+function uc_recurring_update_6001() {
+  $ret = array();
+
+  // Make sure that those who had the faulty 6000 update have the right
+  // precision and scale.
+  db_change_field($ret, 'uc_recurring_products', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 10, 'scale' => 2, 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 10, 'scale' => 2, 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+function uc_recurring_update_6002() {
+  $ret = array();
+
+  // Make the numeric fields signed for Postgres compatibility.
+  db_change_field($ret, 'uc_recurring_products', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 10, 'scale' => 2, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 10, 'scale' => 2, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+function uc_recurring_update_6003() {
+  $ret = array();
+
+  db_change_field($ret, 'uc_recurring_products', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 15, 'scale' => 3, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_users', 'fee_amount', 'fee_amount', array('type' => 'numeric', 'precision' => 15, 'scale' => 3, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+function uc_recurring_update_6004() {
+  $ret = array();
+
+  db_add_field($ret, 'uc_recurring_users', 'attempts', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_add_field($ret, 'uc_recurring_users', 'pfid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE, 'default' => 0));
+  db_change_field($ret, 'uc_recurring_products', 'number_intervals', 'number_intervals', array('type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => FALSE, 'default' => 1));
+  db_change_field($ret, 'uc_recurring_users', 'remaining_intervals', 'remaining_intervals', array('type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => FALSE, 'default' => 1));
+  $schema = array();
+  $schema['uc_recurring_schedule'] = array(
+    'description' => t('Data for handling more complex recurring schedules.'),
+    'fields' => array(
+      'pfid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'interval_num' => array(
+        'description' => t('The number in the recurring schedule to.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'fee_amount' => array(
+        'description' => t('The amount of the schedule fee to charge.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'next_interval' => array(
+        'description' => t('The amount of time before next charge.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'rfid' => array(
+        'description' => t('The specific id of the recurring fee to effect, NULL to effect all recurring fees.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('pfid', 'interval_num'),
+  );
+
+  $schema['uc_recurring_extensions'] = array(
+    'description' => t('Data for handling extensions to recurring fees.'),
+    'fields' => array(
+      'pfid' => array(
+        'description' => t('The schedule ID that this extension relates to.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'rebill_attempt' => array(
+        'description' => t('The rebill attempt number.'),
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'time_to_extend' => array(
+        'description' => t('Time in seconds to extend a recurring fee before next charge.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+  );
+  foreach ($schema as $name => $table) {
+    db_create_table($ret, $name, $table);
+  }
+
+  return $ret;
+}
+
+function uc_recurring_update_6005() {
+  $ret = array();
+
+  db_add_field($ret, 'uc_recurring_users', 'fee_title', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''));
+  db_change_field($ret, 'uc_recurring_extensions', 'pfid', 'pfid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE, 'default' => NULL));
+  // setup default extensions
+  db_query("INSERT INTO {uc_recurring_extensions} (pfid, rebill_attempt, time_to_extend) VALUES (NULL, 1, 259200), (NULL, 2, 432000), (NULL, 3, 0)");
+
+  return $ret;
+}
+
+/**
+ * Add product and product node ID to recurring users table.
+ */
+function uc_recurring_update_6006() {
+  $ret = array();
+
+  // Make remaining interval fields signable, so we can set it as -1, to
+  // indicate unlimited recurring fees.
+  $intervals = array(
+    'type' => 'int',
+    'size' => 'small',
+    'unsigned' => FALSE,
+    'not null' => TRUE,
+    'default' => -1,
+  );
+
+  // make sure that the default value is already correct
+  $sql = "UPDATE {uc_recurring_users} SET remaining_intervals = -1 WHERE remaining_intervals IS NULL";
+  $ret[] = update_sql($sql);
+  $sql = "UPDATE {uc_recurring_products} SET number_intervals = -1 WHERE number_intervals IS NULL";
+  $ret[] = update_sql($sql);
+
+  db_change_field($ret, 'uc_recurring_users', 'remaining_intervals', 'remaining_intervals', array('description' => t('The remaining number of times the fee should be charged.')) + $intervals);
+  db_change_field($ret, 'uc_recurring_products', 'number_intervals', 'number_intervals', array('description' => t('The number of times the fee should be charged.')) + $intervals);
+
+
+  db_add_field($ret, 'uc_recurring_users', 'order_product_id', array('description' => 'The product ID.', 'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_add_field($ret, 'uc_recurring_users', 'own_handler', array('description' => t('Indicate if recurring fee is done by own handler, such as Paypal.'), 'type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_add_field($ret, 'uc_recurring_products', 'nid', array('description' => 'The ID of the node this role feature is attached to.', 'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+/**
+ * Add status field to recurring users table.
+ */
+function uc_recurring_update_6007() {
+  $ret = array();
+
+  db_add_field($ret, 'uc_recurring_users', 'status', array('description' => 'The status of the recurring fee, e.g. "active" or "expired"', 'type' => 'int', 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+/**
+ * Update the extension table, decrement the rebill_attempt value to start from 0 instead of 1.
+ */
+function uc_recurring_update_6008() {
+  $ret = array();
+
+  $ret[] = update_sql("UPDATE {uc_recurring_extensions} set rebill_attempt=rebill_attempt-1");
+
+  return $ret;
+}
+
+/**
+ * ** Removed this update as we incorrectly changed the field size which could
+ * break your site if applied. **
+ *
+ * Allow product ID to be NULL if this recurring fee is not for a specific product.
+ */
+/*
+function uc_recurring_update_6009() {
+  $ret = array();
+  //db_change_field($ret, 'uc_recurring_users', 'order_product_id', 'order_product_id', array('type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => FALSE, 'default' => 0));
+  return $ret;
+}
+*/
+
+/**
+ * Mistake in last update to set size of order_product_field.
+ */
+function uc_recurring_update_6010() {
+  $ret = array();
+  db_change_field($ret, 'uc_recurring_users', 'order_product_id', 'order_product_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE, 'default' => 0));
+  return $ret;
+}
+
+/**
+ * Move product recurring feature to its own module.
+ * Add field to indicate which module handles the recurring fee.
+ */
+function uc_recurring_update_6011() {
+  $ret = array();
+  drupal_install_modules(array('uc_recurring_product'));
+  db_drop_field($ret, 'uc_recurring_products', 'nid');
+  $ret[] = update_sql("INSERT INTO {uc_recurring_product} SELECT * FROM {uc_recurring_products}");
+  db_drop_table($ret, 'uc_recurring_products');
+
+  db_add_field($ret, 'uc_recurring_users', 'module', array('type' => 'varchar', 'length' => '255', 'not null' => TRUE, 'default' => ''));
+  $ret[] = update_sql("UPDATE {uc_recurring_users} SET module = 'uc_recurring_order' WHERE data LIKE '%uc_recurring_order%'");
+  $ret[] = update_sql("UPDATE {uc_recurring_users} SET module = 'uc_recurring_product' WHERE module = ''");
+  return $ret;
+}
+
+/**
+ * Add another table to track order relationships.
+ */
+function uc_recurring_update_6012() {
+  $ret = array();
+  $recurring_order_table = array(
+    'fields' => array(
+      'original_order_id' => array(
+        'description' => t('The original order ID.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'renewal_order_id' => array(
+        'description' => t('The recurring order ID.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+  );
+  db_create_table($ret, 'uc_recurring_orders', $recurring_order_table);
+
+  // Load all the recurring fees and build the uc_recurring_orders table from data found.
+  $result = db_query("SELECT * from {uc_recurring_users}");
+  while ($row = db_fetch_object($result)) {
+    $row->data = unserialize($row->data);
+    if (!empty($row->data['recurring orders'])) {
+      foreach ($row->data['recurring orders'] as $order_id => $order) {
+        db_query("INSERT INTO {uc_recurring_orders} (original_order_id, renewal_order_id) VALUES (%d, %d)", $row->order_id, $order_id);
+      }
+    }
+  }
+  return $ret;
+}

@@ -1,0 +1,738 @@
+<?php
+
+/**
+ * @file
+ * A module used for Stripe.
+ * Developed by Victor Quinn
+ *  for Health for Hackers (http://www.healthforhackers.com)
+ */
+
+/***********************************************************
+ * Hook Functions (Ubercart)
+ * *********************************************************/
+
+/**
+ * Implements hook_payment_gateway().
+ */
+function uc_stripe_payment_gateway() {
+  $gateways = array();
+  $gateways[] = array(
+    'id' => 'uc_stripe',
+    'title' => t('Stripe Gateway'),
+    'description' => t('Process credit card payments using Stripe.'),
+    'settings' => 'uc_stripe_settings_form',
+    'credit' => 'uc_stripe_charge',
+  );
+  return $gateways;
+}
+
+/**
+ * Implements hook_recurring_info().
+ */
+function uc_stripe_recurring_info() {
+  $items['uc_stripe'] = array(
+    'name' => t('Stripe'),
+    'payment method' => 'credit',
+    'module' => 'uc_recurring',
+    'fee handler' => 'uc_stripe',
+    'process callback' => 'uc_stripe_process',
+    'renew callback' => 'uc_stripe_renew',
+    'cancel callback' => 'uc_stripe_cancel',
+    'own handler' => FALSE,
+    'menu' => array(
+      'charge' => UC_RECURRING_MENU_DEFAULT,
+      'edit' => UC_RECURRING_MENU_DEFAULT,
+      'cancel' => UC_RECURRING_MENU_DEFAULT,
+    ),
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function uc_stripe_form_uc_cart_checkout_form_alter(&$form, &$form_state) {
+  // If testmode is enabled, display a message on checkout.
+  if (uc_credit_default_gateway() == 'uc_stripe') {
+    if (variable_get('uc_stripe_testmode', TRUE)) {
+      $form['panes']['testmode'] = array(
+        '#prefix' => "<div class='messages' style='background-color:#BEEBBF'>",
+        '#type' => 'markup',
+        '#value' => t("Test mode is <strong>ON</strong> for the Stripe Payment Gateway. Your credit card will not be charged. To change this setting, edit the !link", array('!link' => l("Stripe settings", "admin/store/settings/payment/edit/gateways"))),
+        '#suffix' => "</div>",
+      );
+    }
+    if (variable_get('uc_stripe_poweredby', FALSE)) {
+      drupal_add_css(drupal_get_path('module', 'uc_stripe') . '/css/uc_stripe.css');
+      $form['panes']['payment']['poweredbystripe'] = array(
+        '#prefix' => "<a href='https://stripe.com' target='_blank' class='poweredbylink'><div class='poweredbystripe'>",
+        '#type' => 'markup',
+        '#value' => t("powered by"),
+        '#suffix' => " " . theme('image', drupal_get_path('module', 'uc_stripe') . '/images/logo_bare.png', 'powered by Stripe', 'powered by Stripe') . "</div></a>",
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function uc_stripe_form_uc_recurring_product_feature_form_alter(&$form, &$form_state) {
+  // Disable days and weeks as Stripe has no notion of them.
+  unset($form['interval']['regular']['regular_interval_unit']['#options']['days']);
+  unset($form['interval']['regular']['regular_interval_unit']['#options']['weeks']);
+
+  $form['num_interval']['unlimited_intervals']['#disabled'] = TRUE;
+  $form['num_interval']['unlimited_intervals']['#description'] = t('Note: The Stripe payment module only allows unlimited billings on products.');
+  unset($form['num_interval']['number_intervals']);
+
+  $form['fee']['fee_same_product']['#description'] = t("The product price is currently %price", array('%price' => $form['fee']['product_price']['#value']));
+
+  $form['interval']['regular']['regular_interval_value']['#options'] = array(1);
+
+  // Call our validation function.
+  $form['#validate'][] = "uc_stripe_product_feature_validate";
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function uc_stripe_form_uc_cart_view_form_alter(&$form, &$form_state) {
+  if (module_exists('uc_recurring')) {
+    if (uc_credit_default_gateway() == 'uc_stripe') {
+      if (variable_get('uc_stripe_cartinfo', TRUE)) {
+        foreach ($form['items'] as $key => $item) {
+          if (isset($item['nid']['#value'])) {
+            if (db_result(db_query("SELECT * FROM {uc_recurring_stripe} WHERE nid = %d", $item['nid']['#value']))) {
+              $title = _uc_stripe_fancy_name($item['nid']['#value']);
+              if (isset($title)) {
+                $form['items'][$key]['desc']['#value'] = l($title, 'node/' . $nid);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function uc_stripe_form_uc_recurring_payment_form_alter(&$form, &$form_state) {
+  if (module_exists('uc_recurring')) {
+    if (uc_credit_default_gateway() == 'uc_stripe') {
+      $form['uc_recurring_trigger_renewals']['#disabled'] = TRUE;
+      $form['uc_recurring_trigger_renewals']['#description'] = t("This is disabled when using Stripe as the Payment Gateway because the renewals happen on their end, not on our end.");
+    }
+  }
+}
+
+/**
+ * Implements hook_cart_item().
+ */
+function uc_stripe_cart_item($op, &$item) {
+  if (module_exists('uc_recurring')) {
+    if (uc_credit_default_gateway() == 'uc_stripe') {
+      if (variable_get('uc_stripe_cartinfo', TRUE)) {
+        if (db_result(db_query("SELECT * FROM {uc_recurring_stripe} WHERE nid = %d", $item->nid))) {
+          $item->title = _uc_stripe_fancy_name($item->nid);
+        }
+      }
+    }
+  }
+}
+
+
+/***********************************************************
+ * Callback Functions, Forms, and Tables
+ * *********************************************************/
+
+/**
+ * Validate the product feature save. Basically, ensure
+ *  everything is Stripe compatible. Some options are
+ *  not Stripe compatible and we have stripped out the UI
+ *  but we double check to ensure the user has not attempted
+ *  to circumvent those measures.
+ */
+function uc_stripe_product_feature_validate($form, &$form_state) {
+
+  // First, ensure the user has selected a SKU.
+  if ($form_state['values']['model'] == '') {
+    form_set_error('model', t("You must select an Applicable SKU for payments to work with Stripe."));
+    return FALSE;
+  }
+
+  if ($form_state['values']['regular_interval_unit'] == 'days' || $form_state['values']['regular_interval_unit'] == 'weeks') {
+    form_set_error('regular_interval_unit', t("Stripe only allows intervals of months or years. Invalid value given."));
+    return FALSE;
+  }
+
+  if ($form_state['values']['regular_interval_value'] > 1) {
+    form_set_error('regular_interval_value', t("Stripe only allows intervals of 1 month or 1 year."));
+    return FALSE;
+  }
+
+  $form_state['values']['regular_interval_value'] = 1;
+  $form_state['values']['number_intervals'] = -1;
+
+  $fee = $form_state['values']['fee_same_product'] ?
+    intval(100 * floatval($form_state['values']['product_price'])) :
+    intval(100 * floatval($form_state['values']['fee_amount']));
+
+  if ($form_state['values']['fee_same_product']) {
+    $form['fee']['fee_amount']['#value'] = $form_state['values']['product_price'];
+  }
+
+  // We want to programmatically create a Stripe subscription plan
+  // for this item.
+  if (!_uc_stripe_load_api()) {
+    form_set_error('', t("There was a problem loading the Stripe API. Recurring feature could not be created. Please ensure the API is in sites/all/libraries/stripe."));
+    return FALSE;
+  }
+
+  $node = node_load($form_state['values']['nid']);
+  $product = uc_product_load($node);
+
+  // We have to convert forward slashes to underscores because stripe
+  // has a bug as confirmed by the stripe staff. Basically, no plans
+  // with forward slashes in their plan id can be retrieved.
+  // Once Stripe fixes things on their end, this can be removed.
+  $plan_id = str_replace('/', '_', $product->model);
+
+  // See if a plan like this already exists.
+  $plan_exists = TRUE;
+  try {
+    $plan = Stripe_Plan::retrieve($plan_id);
+  }
+  catch (Exception $e) {
+    $plan_exists = FALSE;
+  }
+
+  if ($plan_exists) {
+    /*
+     * Delete that plan (Note: Deleting a plan doesn't truly delete it.
+     *  It does not affect current subscribers of that plan, it just means
+     *  no new subscribers can be added to that plan. But that's fine because
+     *  we will have a new plan created a few lines down to which new
+     *  subscribers will be added. For more info, see the Stripe api:
+     *    https://stripe.com/docs/api#delete_plan)
+     *
+     * For a high overview, think about it like this. You don't have
+     *  authorization from users on a current plan to change the billing
+     *  amount. So we cannot just "change" the amount of the plan. We are
+     *  authorized to bill them $9.99/month cannot just edit it
+     *  programmatically to say, "You are now charged $15.99/month".
+     *  So Stripe requires you to "delete" then "create" which deletes
+     *  that version of the plan so no new users get access, then create
+     *  a new one, here with the same name.
+     */
+    try {
+      $plan->delete();
+    }
+    catch (Exception $e) {
+      form_set_error('', t("There was a problem updating your plan with Stripe: %error", array("%error" => $e->getMessage())));
+    }
+  }
+
+  // Convert trial period to days.
+  $trial = _uc_stripe_convert_trial_period($form_state['values']['initial_charge_value'], $form_state['values']['initial_charge_unit']);
+
+  // Create a new plan.
+  try {
+    $data = array(
+      'amount' => $fee,
+      'interval' => drupal_substr($form_state['values']['regular_interval_unit'], 0, -1),
+      'name' => $node->title,
+      'currency' => 'usd',
+      'id' => $plan_id,
+    );
+    if ($trial > 0) {
+      $data['trial_period_days'] = $trial;
+    }
+    Stripe_Plan::create($data);
+  }
+  catch (Exception $e) {
+    form_set_error('', t("There was an error creating the plan in Stripe: %error", array('%error' => $e->getMessage())));
+  }
+}
+
+/**
+ * Callback for payment gateway settings.
+ */
+function uc_stripe_settings_form() {
+  $form['uc_stripe_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Stripe settings'),
+  );
+
+  $form['uc_stripe_settings']['uc_stripe_api_key_dev'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Stripe API Key (Development)'),
+    '#default_value' => variable_get('uc_stripe_api_key_dev', ''),
+    '#description' => t('Your Development Stripe API Key. Must be the "secret" key, not the "publishable" one.'),
+  );
+
+  $form['uc_stripe_settings']['uc_stripe_api_key_prod'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Stripe API Key (Production)'),
+    '#default_value' => variable_get('uc_stripe_api_key_prod', ''),
+    '#description' => t('Your Production Stripe API Key. Must be the "secret" key, not the "publishable" one.'),
+  );
+
+  $form['uc_stripe_settings']['uc_stripe_testmode'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Test mode'),
+    '#description' => 'Testing Mode: Stripe will use the development API key to process the transaction so the card will not actually be charged.',
+    '#default_value' => variable_get('uc_stripe_testmode', TRUE),
+  );
+
+  $form['uc_stripe_settings']['uc_stripe_poweredby'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Powered by Stripe'),
+    '#description' => 'Show "powered by Stripe" in shopping cart.',
+    '#default_value' => variable_get('uc_stripe_poweredby', FALSE),
+  );
+
+  if (module_exists('uc_recurring')) {
+    $form['uc_stripe_settings']['uc_stripe_cartinfo'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Show additional info about recurring item in shopping cart'),
+      '#default_value' => variable_get('uc_stripe_cartinfo', TRUE),
+    );
+  }
+  return $form;
+}
+
+/**
+ * uc_credit callback for creating an actual credit card charge
+ */
+function uc_stripe_charge($order_id, $amount, $data) {
+  global $user;
+  $order = uc_order_load($order_id);
+
+  // Pad the expiration date with a 0 for single digit months.
+  if (drupal_strlen($order->payment_details['cc_exp_month']) == 1) {
+    $order->payment_details['cc_exp_month'] = '0' . $order->payment_details['cc_exp_month'];
+  }
+
+  $context = array(
+    'revision' => 'formatted-original',
+    'type' => 'amount',
+  );
+
+  $options = array(
+    'sign' => FALSE,
+    'thou' => FALSE,
+    'dec'  => FALSE,
+    'prec' => 2,
+  );
+
+  // Set up minimum fields.
+  $data = array(
+    'amount' => uc_price($amount, $context, $options),
+    'currency' => 'usd',
+    'card' => array(
+      'number' => $order->payment_details['cc_number'],
+      'exp_month' => $order->payment_details['cc_exp_month'],
+      'exp_year' => $order->payment_details['cc_exp_year'],
+      'name' => $order->billing_first_name . ' ' . $order->billing_last_name,
+      'address_line1' => $order->billing_street1,
+      'address_zip' => $order->billing_postal_code,
+      'address_state' => uc_get_zone_code($order->billing_zone),
+    ),
+    'description' => "{$order->primary_email}; OrderID: {$order_id}",
+  );
+
+  // Load the Stripe API and set the API key.
+  if (!_uc_stripe_load_api()) {
+    $result = array(
+      'success' => FALSE,
+      'comment' => t('Stripe API not found.'),
+      'message' => t('Stripe API not found. Contact the site administrator.'),
+      'uid' => $user->uid,
+      'order_id' => $order_id,
+    );
+    return $result;
+  }
+
+  // CVV Number (if enabled).
+  if (variable_get('uc_credit_cvv_enabled', TRUE)) {
+    $data['card']['cvc'] = $order->payment_details['cc_cvv'];
+  }
+
+  // Stripe can't handle transactions < $0.50, but $0 is a common value
+  // so we will just return a positive result when the amount is $0.
+  if ($amount == 0) {
+    $result = array(
+      'success' => TRUE,
+      'message' => t('Credit card payment processed successfully via Stripe.'),
+      'uid' => $user->uid,
+      'trans_id' => md5(uniqid(rand())),
+    );
+  }
+  else {
+    $result = _uc_stripe_post_transaction($order_id, $data);
+  }
+
+  return $result;
+}
+
+/* uc_recurring callbacks */
+
+/**
+ * Process the recurring fee transaction.
+ */
+function uc_stripe_process($order, &$fee) {
+  global $user;
+  $plan_id = str_replace('/', '_', $fee->data['model']);
+  $customer_name = $order->billing_first_name . ' ' . $order->billing_last_name;
+
+  // Load the Stripe API and set the API key.
+  if (!_uc_stripe_load_api()) {
+    return FALSE;
+  }
+
+  // First, check to see that a sku is tied to this recurring fee item.
+  if (!isset($fee->data['model'])) {
+    watchdog('uc_stripe', "You must set the applicable sku in the Recurring Fee setup. This must be the same as the Plan name in Stripe.");
+    return FALSE;
+  }
+
+  try {
+    // Then ensure it matches one of the plans in Stripe.
+    $plans = Stripe_Plan::all();
+  }
+  catch (Exception $e) {
+    watchdog('uc_stripe', "There was a problem loading the plans from Stripe: %error", array('%error' => $e->getMessage()), WATCHDOG_ERROR);
+    return FALSE;
+  }
+
+  $match = FALSE;
+  foreach ($plans['data'] as $plan) {
+    if ($plan->__get('id') == $plan_id) {
+      $match = TRUE;
+    }
+  }
+
+  // If no match, this recurring item doesn't correlate to any
+  // Stripe subscription plan.
+  if (!$match) {
+    watchdog('uc_stripe', "The sku for the Recurring Fee object doesn't match any Stripe plans.");
+    return FALSE;
+  }
+
+  // Tricky to find the nid of the recurring product from a cart of
+  // other things. Note, this will only work with a single
+  // subscription item in the cart. If more, it throws an error.
+  foreach ($order->products as $product) {
+    if (db_result(db_query("SELECT nid FROM {uc_product_features} WHERE fid = 'recurring' AND nid = %d", $product->nid))) {
+      $nid[] = $product->nid;
+    }
+  }
+
+  if (count($nid) > 1) {
+    watchdog('uc_stripe', "Multiple subscriptions in cart. User %user warned.", array('%user' => $user->name));
+    drupal_set_message(t("Currently, only one subscription may be purchased at one time. Please purchase one subscription, then purchase another as a separate order. We apologize for the inconvenience."), 'error');
+    return FALSE;
+  }
+  $nid = $nid[0];
+
+  // Pad the expiration date with a 0 for single digit months.
+  if (drupal_strlen($order->payment_details['cc_exp_month']) == 1) {
+    $order->payment_details['cc_exp_month'] = '0' . $order->payment_details['cc_exp_month'];
+  }
+
+  // Pad the expiration date with a 0 for single digit months.
+  if (drupal_strlen($order->payment_details['cc_exp_month']) == 1) {
+    $order->payment_details['cc_exp_month'] = '0' . $order->payment_details['cc_exp_month'];
+  }
+  // Set up minimum fields.
+  $data = array(
+    'plan' => $plan_id,
+    'card' => array(
+      'number' => $order->payment_details['cc_number'],
+      'exp_month' => $order->payment_details['cc_exp_month'],
+      'exp_year' => $order->payment_details['cc_exp_year'],
+      'name' => $order->billing_first_name . ' ' . $order->billing_last_name,
+      'address_line1' => $order->billing_street1,
+      'address_zip' => $order->billing_postal_code,
+      'address_state' => uc_get_zone_code($order->billing_zone),
+    ),
+  );
+
+  // CVV Number (if enabled).
+  if (variable_get('uc_credit_cvv_enabled', TRUE)) {
+    $data['card']['cvc'] = $order->payment_details['cc_cvv'];
+  }
+
+  // This user is not logged in, so create new subscription.
+  $create_new = FALSE;
+  if ($user->uid == 0) {
+    $create_new = TRUE;
+  }
+  else {
+    // Retrieve existing subscriptions.
+    if (db_result(db_query("SELECT * FROM {uc_recurring_stripe} WHERE uid = %d", $user->uid))) {
+      $result = db_query("SELECT * FROM {uc_recurring_stripe} WHERE uid = %d", $user->uid);
+      while ($sub = db_fetch_object($result)) {
+        if ($sub->plan_id == $plan_id) {
+          $customer_id = $sub->customer_id;
+        }
+      }
+      if ($customer_id) {
+        try {
+          $customer = Stripe_Customer::retrieve($customer_id);
+        }
+        catch (Exception $e) {
+          drupal_set_message(t("Unable to retrieve customer subscription"), 'error');
+          watchdog('uc_stripe', "Unable to retrieve customer subscription for %customer_id", array('%customer_id' => $customer_id));
+          return FALSE;
+        }
+      }
+      else {
+        $create_new = TRUE;
+      }
+    }
+    else {
+      $create_new = TRUE;
+    }
+  }
+
+  // Create a new customer object if necessary.
+  if ($create_new) {
+    $data['email'] = $order->primary_email;
+    $data['description'] = $customer_name;
+    try {
+      $customer = Stripe_Customer::create($data);
+      // Write this customer record to our database.
+      $cust_record->uid = $user->uid;
+      $cust_record->order_id = $order->order_id;
+      $cust_record->customer_id = $customer->__get('id');
+      $cust_record->plan_id = $plan_id;
+      $cust_record->nid = $nid;
+      $cust_record->active = 1;
+      drupal_write_record('uc_recurring_stripe', $cust_record);
+    }
+    catch (Exception $e) {
+      drupal_set_message(t("Unable to create new customer object: @message", array("@message", $e->getMessage())), 'error');
+      watchdog('uc_stripe', "Unable to create new customer object for %customer_name", array('%customer_name' => $customer_name));
+      return FALSE;
+    }
+  }
+
+  try {
+    unset($data['email']);
+    unset($data['description']);
+    $customer->updateSubscription($data);
+    $customer->description = $customer_name;
+    $customer->save();
+
+    $rfid = db_result(db_query("SELECT rfid FROM {uc_recurring_stripe} WHERE customer_id = '%s'", $customer->__get('id')));
+    $cust_record->uid = $user->uid;
+    $cust_record->order_id = $order->order_id;
+    $cust_record->customer_id = $customer->__get('id');
+    $cust_record->plan_id = $plan_id;
+    $cust_record->nid = $nid;
+    $cust_record->active = 1;
+    drupal_write_record('uc_recurring_stripe', $cust_record);
+
+    $result = array(
+      'success' => TRUE,
+      'message' => t('Recurring Payment set up for this transaction.'),
+      'uid' => $user->uid,
+    );
+    watchdog('uc_stripe', "Recurring payment created for %customer_name for %plan.", array('%customer_name' => $customer_name, '%plan' => $plan_id));
+  }
+  catch (Exception $e) {
+    watchdog('uc_stripe', "There was a problem creating the subscription for %customer_name. \n\n%error", array('%customer_name' => $customer_name, '%error' => $e->getMessage()));
+
+    $result = array(
+      'success' => FALSE,
+      'comment' => $e->getCode(),
+      'message' => t("Recurring payment failed. !message", array("!message" => $e->getMessage())),
+      'uid' => $user->uid,
+      'order_id' => $order_id,
+    );
+    uc_order_comment_save($order_id, $user->uid, $result['message'], 'admin');
+
+    return FALSE;
+  }
+
+  uc_order_comment_save($order_id, $user->uid, $result['message'], 'admin');
+  return TRUE;
+}
+
+
+/**
+ * Actual function that initiates a recurring fee. Uses the TransID stored in
+ *  uc_stripe_process, which was returned by Stripe as a handle/identifier for
+ *  the customer's stored credit card info
+ */
+function uc_stripe_renew($order, &$fee) {
+  drupal_set_message(t("The renewing payments are managed at @url. No renewal charge initiated.", array('@url' => l(t('manage.stripe.com'), 'http://manage.stripe.com'))), 'error');
+  return FALSE;
+}
+
+/**
+ * Cancel the recurring fee using the Stripe API.
+ *
+ * @param $order
+ *   The order object.
+ * @param $op
+ *   The operation.
+ * @return
+ *   TRUE if recurring fee was cancelled.
+ */
+function uc_stripe_cancel($order, $op) {
+  global $user;
+  $plan_id = str_replace('/', '_', $order->data['model']);
+
+  // Must be logged in to cancel.
+  if ($user->uid == 0) {
+    return FALSE;
+  }
+
+  $result = db_query("SELECT * FROM {uc_recurring_stripe} WHERE uid = %d", $user->uid);
+  while ($sub = db_fetch_object($result)) {
+    if ($sub->plan_id == $plan_id) {
+      $customer_id = $sub->customer_id;
+      $rfid = $sub->rfid;
+    }
+  }
+
+  // Load the Stripe API and set the API key.
+  if (!_uc_stripe_load_api()) {
+    return FALSE;
+  }
+
+  try {
+    $customer = Stripe_Customer::retrieve($customer_id);
+    $customer->cancelSubscription();
+    $cust_record->rfid = $rfid;
+    $cust_record->active = 0;
+    drupal_write_record('uc_recurring_stripe', $cust_record, array('rfid'));
+  }
+  catch (Exception $e) {
+    drupal_set_message(t("Unable to retrieve customer subscription: @message", array("@message" => $e->getMessage())), 'error');
+    watchdog('uc_stripe', "Unable to retrieve customer subscription for %customer_id", array('%customer_id' => $customer_id));
+    return FALSE;
+  }
+
+  uc_order_comment_save($order->order_id, 0, t('Stripe: Subscription @customer_id cancelled.', array('@subscription_id' => $customer_id)), 'admin');
+
+  return FALSE;
+}
+
+/***********************************************************
+ * Private Functions
+ * *********************************************************/
+
+/**
+ * Convert trial period from any unit to days which Stripe expects.
+ */
+function _uc_stripe_convert_trial_period($value, $unit) {
+  switch ($unit) {
+    case 'days':
+      return $value;
+      break;
+    case 'weeks':
+      return $value * 7;
+      break;
+    case 'months':
+      return $value * 30;
+      break;
+    case 'years':
+      return $value * 365;
+      break;
+    default:
+      return $value;
+      break;
+  }
+}
+
+/**
+ * Given the nid of the item, return its fancy name
+ *
+ * (meaning, for a subscription, show in the shopping cart as:
+ * "Item Name ($29.00/month starting in 10 days)" instead of:
+ * "Item Name" which could be misleading because it could have
+ *  no immediate price.
+ */
+function _uc_stripe_fancy_name($nid) {
+  $pfid = db_result(db_query("SELECT pfid FROM {uc_product_features} WHERE nid = %d", $nid));
+  if ($pfid) {
+    $recurring = db_result(db_query("SELECT * FROM {uc_recurring_product} WHERE pfid = %d", $pfid));
+    if ($recurring) {
+      $result = db_query("SELECT * FROM {uc_recurring_product} WHERE pfid = %d", $pfid);
+      $recurring = db_fetch_object($result);
+      // If this product is recurring, we want to add the info to
+      // its title display.
+      $node = node_load($nid);
+      $product = uc_product_load($node);
+      $interval = drupal_substr($recurring->regular_interval, 2, -1);
+      $fee = number_format($recurring->fee_amount, 2);
+      $title = t("{$node->title} (\${$fee}/{$interval} starting in {$recurring->initial_charge})");
+      return $title;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Load the Stripe API, assign the key
+ */
+function _uc_stripe_load_api() {
+  if ($path = libraries_get_path('stripe')) {
+    // Load Stripe Library.
+    include_once $path . '/lib/Stripe.php';
+  }
+  else {
+    watchdog('uc_stripe', 'Stripe Library not found. Please download into sites/all/libraries/stripe', array(), WATCHDOG_WARNING);
+    return FALSE;
+  }
+
+  $apikey = variable_get('uc_stripe_testmode', TRUE) ? variable_get('uc_stripe_api_key_dev', '') : variable_get('uc_stripe_api_key_prod', '');
+
+  if ($apikey == '') {
+    watchdog('uc_stripe', 'No Stripe API key is set. Payment cannot go through until set.', array(), WATCHDOG_WARNING);
+    return FALSE;
+  }
+
+  try {
+    Stripe::setApiKey($apikey);
+  }
+  catch (Exception $e) {
+    watchdog('uc_stripe', 'Error setting the Stripe API Key. Payments will not be processed: %error', array('%error' => $e->getMessage()));
+  }
+  return TRUE;
+}
+
+/**
+ * Post transactions to Stripe using this function.
+ */
+function _uc_stripe_post_transaction($order_id, $data) {
+  global $user;
+  try {
+    $charge_object = Stripe_Charge::create($data);
+    $result = array(
+      'success' => TRUE,
+      'message' => t('Credit card payment processed successfully.'),
+      'uid' => $user->uid,
+      'trans_id' => $charge_object->__get('id'),
+    );
+  }
+  catch (Exception $e) {
+    $result = array(
+      'success' => FALSE,
+      'comment' => $e->getCode(),
+      'message' => t("Credit card declined. !message", array("!message" => $e->getMessage())),
+      'uid' => $user->uid,
+      'order_id' => $order_id,
+    );
+  }
+
+  uc_order_comment_save($order_id, $user->uid, $result['message'], 'admin');
+
+  return $result;
+}

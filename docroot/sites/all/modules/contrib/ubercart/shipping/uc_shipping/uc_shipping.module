@@ -1,0 +1,702 @@
+<?php
+
+/**
+ * @file
+ * Organizes ordered products into packages and sets them up for shipment.
+ * Shipping method modules may add functionality to generate shipping labels
+ * and tracking numbers.
+ */
+
+require_once('uc_shipping.ca.inc');
+
+/******************************************************************************
+ * Drupal hooks                                                               *
+ ******************************************************************************/
+
+/**
+ * Implements hook_shipping_menu().
+ */
+function uc_shipping_menu() {
+  $items = array();
+
+  $items['admin/store/orders/%uc_order/packages'] = array(
+    'title' => 'Packages',
+    'page callback' => 'uc_shipping_order_packages',
+    'page arguments' => array(3),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'weight' => 6,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/packages/new'] = array(
+    'title' => 'New packages',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_new_package', 3),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/packages/%uc_shipping_package/edit'] = array(
+    'title' => 'Edit package',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_package_edit', 3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/packages/%uc_shipping_package/cancel'] = array(
+    'title' => 'Cancel package shipment',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_package_cancel_confirm', 3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/packages/%uc_shipping_package/delete'] = array(
+    'title' => 'Delete package',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_package_delete_confirm', 3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments'] = array(
+    'title' => 'Shipments',
+    'page callback' => 'uc_shipping_order_shipments',
+    'page arguments' => array(3),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'weight' => 7,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments/new'] = array(
+    'title' => 'New shipment',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_new_shipment', 3),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments/%uc_shipping_shipment'] = array(
+    'title callback' => 'uc_shipping_shipment_page_title',
+    'title arguments' => array(5),
+    'page callback' => 'uc_shipping_shipment_view',
+    'page arguments' => array(3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments/%uc_shipping_shipment/view'] = array(
+    'title' => 'View',
+    'weight' => -5,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/store/orders/%uc_order/shipments/%uc_shipping_shipment/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_shipment_edit', 3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'weight' => -1,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments/%uc_shipping_shipment/print'] = array(
+    'title' => 'Print',
+    'page callback' => 'theme',
+    'page arguments' => array('uc_shipping_shipment_print', 3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments/%uc_shipping_shipment/packing_slip'] = array(
+    'title' => 'Packing slip',
+    'page callback' => 'theme',
+    'page arguments' => array('uc_shipping_shipment_print', 3, 5, FALSE),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/shipments/%uc_shipping_shipment/delete'] = array(
+    'title' => 'Delete shipment',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_shipping_shipment_delete_confirm', 3, 5),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+  $items['admin/store/orders/%uc_order/ship'] = array(
+    'title' => 'Ship packages',
+    'page callback' => 'uc_shipping_make_shipment',
+    'page arguments' => array(3),
+    'access callback' => 'uc_shipping_order_access',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_shipping.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Title callback for admin/store/orders/%uc_order/shipments/%uc_shipping_shipment.
+ */
+function uc_shipping_shipment_page_title($shipment) {
+  return t('Shipment !id', array('!id' => $shipment->sid));
+}
+
+/**
+ * Ensure access to the Shipments tab.
+ */
+function uc_shipping_order_access($order) {
+  return user_access('fulfill orders') && uc_order_is_shippable($order);
+}
+
+/**
+ * Implements hook_perm().
+ */
+function uc_shipping_perm() {
+  return array('fulfill orders');
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_shipping_theme() {
+  return array(
+    'uc_shipping_new_package_fieldset' => array(
+      'arguments' => array('fieldset' => NULL),
+      'file' => 'uc_shipping.admin.inc',
+    ),
+    'uc_shipping_edit_package_fieldset' => array(
+      'arguments' => array('fieldset' => NULL),
+      'file' => 'uc_shipping.admin.inc',
+    ),
+    'uc_shipping_new_shipment' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_shipping.admin.inc',
+    ),
+    'uc_shipping_package_dimensions' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'uc_shipping_address' => array(
+      'arguments' => array('address' => NULL),
+    ),
+    'uc_shipping_shipment_print' => array(
+      'arguments' => array('order' => NULL, 'shipment' => NULL),
+    ),
+    'uc_packing_slip' => array(
+      'arguments' => array('order' => NULL, 'shipment' => NULL),
+      'template' => 'uc-packing-slip',
+    ),
+  );
+}
+
+function template_preprocess_uc_packing_slip(&$variables) {
+  $tokens = uc_store_token_values('global');
+  $variables['site_logo'] = $tokens['site-logo'];
+  $variables['store_name'] = $tokens['store-name'];
+  $variables['store_address'] = $tokens['store-address'];
+  $variables['store_phone'] = $tokens['store-phone'];
+
+  $order = $variables['order'];
+  $variables['order_link'] = l($order->order_id, url('user/'. $order->uid .'/order/'. $order->order_id, array('absolute' => TRUE)));
+  $variables['order_email'] = check_plain($order->primary_email);
+  $variables['billing_address'] = uc_order_address($order, 'billing');
+  $variables['billing_phone'] = check_plain($order->billing_phone);
+  $variables['shipping_address'] = uc_order_address($order, 'delivery');
+  $variables['shipping_phone'] = check_plain($order->delivery_phone);
+
+  if (module_exists('uc_payment')) {
+    $tokens = uc_payment_token_values('order', $order);
+    $variables['payment_method'] = $tokens['order-payment-method'];
+  }
+  else {
+    $variables['payment_method'] = '';
+  }
+
+  $shipment = $variables['shipment'];
+  $variables['carrier'] = check_plain($shipment->carrier);
+  $variables['tracking_number'] = check_plain($shipment->tracking_number);
+  $variables['packages'] = $shipment->packages;
+}
+
+/******************************************************************************
+ * Ubercart hooks                                                             *
+ ******************************************************************************/
+
+/**
+ * Implements hook_order_pane().
+ */
+function uc_shipping_order_pane() {
+  $panes[] = array(
+    'id' => 'packages',
+    'callback' => 'uc_shipping_order_pane_packages',
+    'title' => t('Tracking numbers'),
+    'desc' => t('Display tracking numbers of shipped packages.'),
+    'class' => 'pos-left',
+    'weight' => 7,
+    'show' => array('view', 'invoice', 'customer'),
+  );
+
+  return $panes;
+}
+
+/**
+ * Implements hook_order_actions().
+ */
+function uc_shipping_order_actions($order) {
+  $actions = array();
+  $module_path = base_path() . drupal_get_path('module', 'uc_shipping');
+  if (user_access('fulfill orders')) {
+    $result = db_query("SELECT COUNT(nid) FROM {uc_order_products} WHERE order_id = %d AND data LIKE '%%s:9:\"shippable\";s:1:\"1\";%%'", $order->order_id);
+    if (db_result($result)) {
+      $title = t('Package order !order_id products.', array('!order_id' => $order->order_id));
+      $actions[] = array(
+        'name' => t('Package'),
+        'url' => 'admin/store/orders/'. $order->order_id .'/packages',
+        'icon' => '<img src="'. $module_path .'/images/package.gif" alt="'. $title .'" />',
+        'title' => $title,
+      );
+      $result = db_query("SELECT COUNT(package_id) FROM {uc_packages} WHERE order_id = %d", $order->order_id);
+      if (db_result($result)) {
+        $title = t('Ship order !order_id packages.', array('!order_id' => $order->order_id));
+        $actions[] = array(
+          'name' => t('Ship'),
+          'url' => 'admin/store/orders/'. $order->order_id .'/shipments',
+          'icon' => '<img src="'. $module_path .'/images/ship.gif" alt="'. $title .'" />',
+          'title' => $title,
+        );
+      }
+    }
+  }
+  return $actions;
+}
+
+/******************************************************************************
+ * Menu callbacks                                                             *
+ ******************************************************************************/
+
+/**
+ * Display the details of a package.
+ */
+function uc_shipping_package_view($package) {
+  $shipment = uc_shipping_shipment_load($package->sid);
+  $output = '';
+  $rows = array();
+
+  $output .= '<div class="order-pane pos-left"><div class="order-pane-title">'. t('Package %id:', array('%id' => $package->package_id)) .'</div>';
+  $rows[] = array(t('Contents:'), filter_xss_admin($package->description));
+  if ($shipment) {
+    $methods = module_invoke_all('shipping_method');
+    if (isset($methods[$shipment->shipping_method])) {
+      $pkg_type = $methods[$shipment->shipping_method]['ship']['pkg_types'][$package->pkg_type];
+    }
+  }
+  $rows[] = array(t('Package type:'), isset($pkg_type) ? $pkg_type : check_plain($package->pkg_type));
+  if ($package->length && $package->width && $package->height) {
+    $rows[] = array(t('Dimensions:'), t('!l x !w x !h', array('!l' => uc_length_format($package->length), '!w' => uc_length_format($package->width), '!h' => uc_length_format($package->height))));
+  }
+  $context = array(
+    'revision' => 'themed',
+    'type' => 'amount',
+  );
+  $rows[] = array(t('Insured value:'), uc_price($package->value, $context));
+  if ($package->tracking_number) {
+    $rows[] = array(t('Tracking number:'), check_plain($package->tracking_number));
+  }
+  if ($shipment && $package->label_image && file_exists(file_create_path($package->label_image))) {
+    $rows[] = array(t('Label:'), l(t('Click to view.'), 'admin/store/orders/'. $package->order_id .'/shipments/labels/'. $shipment->shipping_method .'/'. $package->label_image));
+  }
+  else {
+    $rows[] = array(t('Label:'), t('n/a'));
+  }
+  $output .= theme('table', array(), $rows, array('style' => 'width:auto;'));
+  $output .= '</div>';
+
+  return $output;
+}
+
+/**
+ * Display length, width, and height fields on one line.
+ *
+ * @ingroup themeable
+ */
+function theme_uc_shipping_package_dimensions($form) {
+  $output = '';
+  $row = array();
+  foreach (element_children($form) as $dimension) {
+    $row[] = drupal_render($form[$dimension]);
+  }
+  $output .= theme('table', array(), array($row));
+  return $output;
+}
+
+/**
+ * Compact the address into a table.
+ *
+ * @ingroup themeable
+ */
+function theme_uc_shipping_address($address) {
+  drupal_add_css(drupal_get_path('module', 'uc_cart') .'/uc_cart.css');
+  if ($address['#collapsed']) {
+    $collapsed = ' collapsed';
+  }
+  $output = '<table class="pane-table" cellpadding="2">';
+  $req = '<span class="form-required">*</span>';
+
+  foreach (element_children($address) as $field) {
+    list($type, $name) = explode('_', $field, 2);
+    if ($address !== NULL) {
+      $title = $address[$field]['#title'] .':';
+      unset($address[$field]['#title']);
+      if ($name == 'street1') {
+        $title = uc_get_field_name('street') .':';
+      }
+      elseif ($name == 'street2') {
+        $title = ' ';
+      }
+      $output .= '<tr><td class="field-label">';
+      if ($address[$field]['#required']) {
+        $output .= $req;
+      }
+      $output .= $title .'</td><td>'
+        . drupal_render($address[$field])
+        .'</td></tr>';
+    }
+  }
+  $output .= '</table>';
+
+  foreach (element_children($address) as $element) {
+    $output .= drupal_render($address[$element]);
+  }
+  return $output;
+}
+
+/******************************************************************************
+ * Module and helper functions                                                *
+ ******************************************************************************/
+
+/**
+ * Load a package and its products.
+ */
+function uc_shipping_package_load($package_id) {
+  static $packages = array();
+
+  if (!isset($packages[$package_id])) {
+    $result = db_query("SELECT * FROM {uc_packages} WHERE package_id = %d", $package_id);
+    if ($package = db_fetch_object($result)) {
+      $products = array();
+      $description = '';
+      $weight = 0;
+      $units = variable_get('uc_weight_unit', 'lb');
+      $addresses = array();
+      $result = db_query("SELECT op.order_product_id, pp.qty, pp.qty * op.weight AS weight, p.weight_units, op.nid, op.title, op.model, op.price, op.data FROM {uc_packaged_products} AS pp LEFT JOIN {uc_order_products} AS op ON op.order_product_id = pp.order_product_id LEFT JOIN {uc_products} AS p ON op.nid = p.nid WHERE pp.package_id = %d ORDER BY op.order_product_id", $package_id);
+      while ($product = db_fetch_object($result)) {
+        $address = uc_quote_get_default_shipping_address($product->nid);
+        // TODO: Lodge complaint that array_unique() compares as strings.
+        if (!in_array($address, $addresses)) {
+          $addresses[] = $address;
+        }
+        $description .= ', '. $product->qty .' x '. $product->model;
+        // Normalize all weights to default units.
+        $weight += $product->weight * uc_weight_conversion($product->weight_units, $units);
+        $product->data = unserialize($product->data);
+        $products[$product->order_product_id] = $product;
+      }
+      $package->addresses = $addresses;
+      $package->description = substr($description, 2);
+      $package->weight = $weight;
+      $package->weight_units = $units;
+      $package->products = $products;
+      $packages[$package_id] = $package;
+    }
+    else {
+      return FALSE;
+    }
+  }
+
+  return $packages[$package_id];
+}
+
+/**
+ * Save a package.
+ */
+function uc_shipping_package_save($package) {
+  $package = (object)$package;
+  if (!isset($package->package_id)) {
+    db_query("INSERT INTO {uc_packages} (order_id) VALUES (%d)", $package->order_id);
+    $package->package_id = db_last_insert_id('uc_packages', 'package_id');
+  }
+  if (isset($package->products) && count($package->products)) {
+    $types = array();
+    $values = array();
+    foreach ($package->products as $id => $product) {
+      $types[] = '(%d, %d, %d)';
+      $values[] = $package->package_id;
+      $values[] = $id;
+      $values[] = $product->qty;
+      $result = db_query("SELECT data FROM {uc_order_products} WHERE order_product_id = %d", $id);
+      if ($order_product = db_fetch_object($result)) {
+        $order_product->data = unserialize($order_product->data);
+        $order_product->data['package_id'] = intval($package->package_id);
+        db_query("UPDATE {uc_order_products} SET data = '%s' WHERE order_product_id = %d", serialize($order_product->data), $id);
+      }
+    }
+    db_query("DELETE FROM {uc_packaged_products} WHERE package_id = %d", $package->package_id);
+    db_query("INSERT INTO {uc_packaged_products} (package_id, order_product_id, qty) VALUES ". implode(',', $types), $values);
+  }
+  $types = array("shipping_type = '%s'");
+  $values = array($package->shipping_type);
+  if (isset($package->pkg_type)) {
+    $types[] = "pkg_type = '%s'";
+    $values[] = $package->pkg_type;
+  }
+  if (isset($package->length) && isset($package->width) && isset($package->height) && isset($package->length_units)) {
+    array_push($types, 'length = %f', 'width = %f', 'height = %f', "length_units = '%s'");
+    array_push($values, $package->length, $package->width, $package->height, $package->length_units);
+  }
+  if (isset($package->value)) {
+    $types[] = 'value = %f';
+    $values[] = $package->value;
+  }
+  if (isset($package->sid)) {
+    $types[] = 'sid = %d';
+    $values[] = $package->sid;
+  }
+  if (isset($package->tracking_number)) {
+    $types[] = "tracking_number = '%s'";
+    $values[] = $package->tracking_number;
+  }
+  if (isset($package->label_image)) {
+    $types[] = "label_image = '%s'";
+    $values[] = $package->label_image;
+  }
+  $values[] = $package->package_id;
+  if (count($types)) {
+    // Let it be known that I think it's ridiculous that Drupal doesn't put NULL into its database. --Lyle
+    db_query("UPDATE {uc_packages} SET ". implode(',', $types) ." WHERE package_id = %d", $values);
+  }
+}
+
+/**
+ * Delete a package.
+ */
+function uc_shipping_package_delete($package_id) {
+  db_query("DELETE FROM {uc_packages} WHERE package_id = %d", $package_id);
+  db_query("DELETE FROM {uc_packaged_products} WHERE package_id = %d", $package_id);
+  drupal_set_message(t('Package @id has been deleted.', array('@id' => $package_id)));
+}
+
+/**
+ * Load a shipment and its packages.
+ */
+function uc_shipping_shipment_load($shipment_id) {
+  $shipment = db_fetch_object(db_query("SELECT * FROM {uc_shipments} WHERE sid = %d", $shipment_id));
+  if ($shipment) {
+    $result = db_query("SELECT package_id FROM {uc_packages} WHERE sid = %d", $shipment_id);
+    $packages = array();
+    while ($package = db_fetch_object($result)) {
+      $packages[$package->package_id] = uc_shipping_package_load($package->package_id);
+    }
+    $shipment->packages = $packages;
+
+    $extra = module_invoke_all('shipment', 'load', $shipment);
+    if (is_array($extra)) {
+      foreach ($extra as $key => $value) {
+        $shipment->$key = $value;
+      }
+    }
+  }
+  return $shipment;
+}
+
+/**
+ * Save a shipment.
+ */
+function uc_shipping_shipment_save($shipment) {
+  if (!isset($shipment->sid)) {
+    db_query("INSERT INTO {uc_shipments} (order_id) VALUES (%d)", $shipment->order_id);
+    $shipment->sid = db_last_insert_id('uc_shipments', 'sid');
+    $shipment->is_new = TRUE;
+  }
+  else {
+    $shipment->is_new = FALSE;
+  }
+  if (is_array($shipment->packages)) {
+    foreach ($shipment->packages as $package) {
+      $package->sid = $shipment->sid;
+      // Since the products haven't changed, we take them out of the object so that they are not deleted and re-inserted.
+      $products = $package->products;
+      unset($package->products);
+      uc_shipping_package_save($package);
+      // But they're still necessary for hook_shipment(), so they're added back in.
+      $package->products = $products;
+    }
+  }
+  if (isset($shipment->origin)) {
+    foreach ($shipment->origin as $field => $value) {
+      $field = 'o_'. $field;
+      $shipment->$field = $value;
+    }
+  }
+  if (isset($shipment->destination)) {
+    foreach ($shipment->destination as $field => $value) {
+      $field = 'd_'. $field;
+      $shipment->$field = $value;
+    }
+  }
+  db_query("UPDATE {uc_shipments} SET order_id = %d, o_first_name = '%s', o_last_name = '%s', o_company = '%s', o_street1 = '%s', o_street2 = '%s', o_city = '%s', o_zone = %d, o_postal_code = '%s', o_country = %d, d_first_name = '%s', d_last_name = '%s', d_company = '%s', d_street1 = '%s', d_street2 = '%s', d_city = '%s', d_zone = %d, d_postal_code = '%s', d_country = %d, shipping_method = '%s', accessorials = '%s', carrier = '%s', transaction_id = '%s', tracking_number = '%s', ship_date = %d, expected_delivery = %d, cost = %f, changed = %d WHERE sid = %d",
+    $shipment->order_id, $shipment->o_first_name, $shipment->o_last_name, $shipment->o_company, $shipment->o_street1, $shipment->o_street2, $shipment->o_city, $shipment->o_zone, $shipment->o_postal_code, $shipment->o_country, $shipment->d_first_name, $shipment->d_last_name, $shipment->d_company, $shipment->d_street1, $shipment->d_street2, $shipment->d_city, $shipment->d_zone, $shipment->d_postal_code, $shipment->d_country, $shipment->shipping_method, $shipment->accessorials, $shipment->carrier, $shipment->transaction_id, $shipment->tracking_number, $shipment->ship_date, $shipment->expected_delivery, $shipment->cost, time(), $shipment->sid
+  );
+
+  module_invoke_all('shipment', 'save', $shipment);
+  $order = uc_order_load($shipment->order_id);
+  ca_pull_trigger('uc_shipment_save', $order, $shipment);
+}
+
+/**
+ * Delete a shipment.
+ */
+function uc_shipping_shipment_delete($shipment_id) {
+  $shipment = uc_shipping_shipment_load($shipment_id);
+  foreach ($shipment->packages as $package) {
+    if (file_exists($package->label_image)) {
+      file_delete($package->label_image);
+    }
+  }
+  db_query("UPDATE {uc_packages} SET sid = NULL, tracking_number = NULL, label_image = NULL WHERE sid = %d", $shipment_id);
+  db_query("DELETE FROM {uc_shipments} WHERE sid = %d", $shipment_id);
+  module_invoke_all('shipment', 'delete', $shipment);
+}
+
+/**
+ * Shipping order pane callback.
+ *
+ * @see uc_shipping_order_pane()
+ */
+function uc_shipping_order_pane_packages($op, $arg1) {
+  switch ($op) {
+    case 'view':
+    case 'customer':
+      $tracking = array();
+      $result = db_query("SELECT sid FROM {uc_shipments} WHERE order_id = %d", $arg1->order_id);
+      while ($shipment = db_fetch_object($result)) {
+        $shipment = uc_shipping_shipment_load($shipment->sid);
+        if ($shipment->tracking_number) {
+          $tracking[$shipment->carrier]['data'] = $shipment->carrier;
+          $tracking[$shipment->carrier]['children'][] = check_plain($shipment->tracking_number);
+        }
+        else {
+          foreach ($shipment->packages as $package) {
+            if ($package->tracking_number) {
+              $tracking[$shipment->carrier]['data'] = $shipment->carrier;
+              $tracking[$shipment->carrier]['children'][] = check_plain($package->tracking_number);
+            }
+          }
+        }
+      }
+      return theme('item_list', $tracking);
+    break;
+  }
+}
+
+/**
+ * Choose an address to fill out a form.
+ */
+function uc_shipping_select_address($addresses, $onchange = '', $title = NULL, $icon_suffix = FALSE) {
+  if (!is_array($addresses) || count($addresses) == 0) {
+    $addresses = array();
+  }
+  $store_address = variable_get('uc_quote_store_default_address', new stdClass());
+  if (!in_array($store_address, $addresses)) {
+    $addresses[] = $store_address;
+  }
+
+  $blank = array('first_name' => '',
+    'last_name' => '',
+    'phone' => '',
+    'company' => '',
+    'street1' => '',
+    'street2' => '',
+    'city' => '',
+    'postal_code' => '',
+    'country' => 0,
+    'zone' => 0,
+  );
+  $options = array(drupal_to_js($blank) => t('- Reset fields -'));
+  foreach ($addresses as $address) {
+    $options[drupal_to_js($address)] = $address->company .' '. $address->street1 .' '. $address->city;
+  }
+
+  $select = array(
+    '#type' => 'select',
+    '#title' => is_null($title) ? t('Address book') : $title,
+    '#options' => $options,
+    '#default_value' => drupal_to_js($addresses[0]),
+    '#attributes' => array('onchange' => $onchange),
+    '#suffix' => $icon_suffix ? uc_store_get_icon('file:address_book', FALSE, 'address-book-icon') : NULL,
+  );
+
+  return $select;
+}
+
+/**
+ * Helper function for addresses in forms.
+ *
+ * @ingroup forms
+ */
+function uc_shipping_address_form($form_state, $addresses, $order) {
+  drupal_add_js(drupal_get_path('module', 'uc_shipping') .'/uc_shipping.js');
+  $form = array();
+  $form['origin'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Origin address'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#weight' => -2,
+    '#theme' => 'uc_shipping_address',
+  );
+  $address = reset($addresses);
+  $form['origin']['pickup_address_select'] = uc_shipping_select_address($addresses, 'apply_address(\'pickup\', this.value);', t('Saved Addresses'), TRUE);
+  $form['origin']['pickup_address_select']['#weight'] = -2;
+  $form['origin']['pickup_email'] = uc_textfield(uc_get_field_name('email'), uc_store_email(), FALSE, NULL, 255);
+  $form['origin']['pickup_email']['#weight'] = -1;
+  $form['origin']['pickup_first_name'] = uc_textfield(uc_get_field_name('first_name'), $address->first_name, FALSE);
+  $form['origin']['pickup_last_name'] = uc_textfield(uc_get_field_name('last_name'), $address->last_name, FALSE);
+  $form['origin']['pickup_phone'] = uc_textfield(uc_get_field_name('phone'), variable_get('uc_store_phone', NULL), FALSE, NULL, 32, 16);
+  $form['origin']['pickup_company'] = uc_textfield(uc_get_field_name('company'), $address->company, FALSE);
+  $form['origin']['pickup_street1'] = uc_textfield(uc_get_field_name('street1'), $address->street1, FALSE, NULL, 64);
+  $form['origin']['pickup_street2'] = uc_textfield(uc_get_field_name('street2'), $address->street2, FALSE, NULL, 64);
+  $form['origin']['pickup_city'] = uc_textfield(uc_get_field_name('city'), $address->city, FALSE);
+  $form['origin']['pickup_country'] = uc_country_select(uc_get_field_name('country'), $address->country);
+  if (isset($_POST['pickup_country'])) {
+    $country = $_POST['pickup_country'];
+  }
+  else {
+    $country = $address->country;
+  }
+  $form['origin']['pickup_zone'] = uc_zone_select(uc_get_field_name('zone'), $address->zone, NULL, $country);
+  $form['origin']['pickup_postal_code'] = uc_textfield(uc_get_field_name('postal_code'), $address->postal_code, FALSE, NULL, 10, 10);
+
+  $order_form = uc_order_pane_ship_to('edit-form', $order);
+  $form['destination'] = $order_form['ship_to'];
+  $form['destination']['delivery_email'] = uc_textfield(uc_get_field_name('email'), $order->primary_email, FALSE, NULL, 255);
+  $form['destination']['delivery_email']['#weight'] = -1;
+  $form['destination']['#title'] = t('Destination address');
+  $form['destination']['#collapsible'] = TRUE;
+  $form['destination']['#weight'] = -1;
+  $form['destination']['#theme'] = 'uc_shipping_address';
+  return $form;
+}

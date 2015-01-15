@@ -1,0 +1,146 @@
+<?php
+
+/**
+ * @file
+ * Installation file for PayPal, primarily for the logging of IPNs.
+
+/**
+ * Implements hook_requirements().
+ */
+function uc_paypal_requirements($phase) {
+  $t = get_t();
+
+  $has_curl = function_exists('curl_init');
+
+  // PayPal WPP requires cURL.
+  if (variable_get('uc_pg_paypal_wpp_enabled', TRUE)) {
+    $requirements['uc_paypal_curl'] = array(
+      'title' => $t('cURL'),
+      'value' => $has_curl ? $t('Enabled') : $t('Not found'),
+    );
+    if (!$has_curl) {
+      $requirements['uc_paypal_curl']['severity'] = REQUIREMENT_ERROR;
+      $requirements['uc_paypal_curl']['description'] = $t("PayPal WPP requires the PHP <a href='!curl_url'>cURL</a> library.", array('!curl_url' => 'http://php.net/manual/en/curl.setup.php'));
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_schema().
+ */
+function uc_paypal_schema() {
+  $schema = array();
+
+  $schema['uc_payment_paypal_ipn'] = array(
+    'description' => 'Logs PayPal Instant Payment Notifications.',
+    'fields' => array(
+      'order_id' => array(
+        'description' => 'The order ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'txn_id' => array(
+        'description' => 'The transaction ID from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'txn_type' => array(
+        'description' => 'The transaction type from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'mc_gross' => array(
+        'description' => 'The payment amount from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'status' => array(
+        'description' => 'The IPN status from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'receiver_email' => array(
+        'description' => 'The e-mail address of the PayPal account.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'payer_email' => array(
+        'description' => 'The e-mail address of the buyer.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'received' => array(
+        'description' => 'The IPN receipt timestamp.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'order_id' => array('order_id'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_paypal_install() {
+  drupal_install_schema('uc_paypal');
+
+  $t = get_t();
+  db_query("INSERT INTO {uc_order_statuses} (order_status_id, title, state, weight, locked) VALUES ('paypal_pending', '%s', 'post_checkout', 7, 1);", $t('PayPal pending'));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_paypal_uninstall() {
+  drupal_uninstall_schema('uc_paypal');
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_paypal_%%'");
+  db_query("UPDATE {uc_order_statuses} SET locked = 0 WHERE order_status_id = 'paypal_pending'");
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_paypal_update_last_removed() {
+  return 2;
+}
+
+function uc_paypal_update_6000() {
+  $ret = array();
+
+  db_drop_index($ret, 'uc_payment_paypal_ipn', 'order_id');
+  db_change_field($ret, 'uc_payment_paypal_ipn', 'order_id', 'order_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0), array('indexes' => array('order_id' => array('order_id'))));
+  db_change_field($ret, 'uc_payment_paypal_ipn', 'received', 'received', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+function uc_paypal_update_6200() {
+  $ret = array();
+
+  $ret[] = update_sql("UPDATE {uc_order_statuses} SET state = 'post_checkout' WHERE order_status_id = 'paypal_pending'");
+
+  return $ret;
+}

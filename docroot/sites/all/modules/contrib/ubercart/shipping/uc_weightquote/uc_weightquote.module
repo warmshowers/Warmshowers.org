@@ -1,0 +1,247 @@
+<?php
+
+/**
+ * @file
+ * Shipping quote module that defines a weight-based shipping rate for each product.
+ */
+
+/******************************************************************************
+ * Drupal Hooks                                                               *
+ ******************************************************************************/
+
+/**
+ * Implements hook_menu().
+ */
+function uc_weightquote_menu() {
+  $items = array();
+
+  $items['admin/store/settings/quotes/methods/weightquote'] = array(
+    'title' => 'Weight quote',
+    'page callback' => 'uc_weightquote_admin_methods',
+    'access arguments' => array('configure quotes'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_weightquote.admin.inc',
+  );
+  $items['admin/store/settings/quotes/methods/weightquote/%'] = array(
+    'title' => 'Edit weight quote method',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_weightquote_admin_method_edit_form', 6),
+    'access arguments' => array('configure quotes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_weightquote.admin.inc',
+  );
+  $items['admin/store/settings/quotes/weightquote/%/delete'] = array(
+    'title' => 'Delete weight quote method',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_weightquote_admin_method_confirm_delete', 5),
+    'access arguments' => array('configure quotes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_weightquote.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form_alter().
+ *
+ * Add a form element for the shipping rate of a product.
+ */
+function uc_weightquote_form_alter(&$form, $form_state, $form_id) {
+  if (uc_product_is_product_form($form)) {
+    $sign_flag = variable_get('uc_sign_after_amount', FALSE);
+    $currency_sign = variable_get('uc_currency_sign', '$');
+    $enabled = variable_get('uc_quote_enabled', array());
+    $weight = variable_get('uc_quote_method_weight', array());
+    $result = db_query("SELECT mid, title, product_rate FROM {uc_weightquote_methods}");
+    $context = array(
+      'revision' => 'formatted',
+      'location' => 'shipping-weightquote-method-node-form',
+      'subject' => array(),
+    );
+    while ($method = db_fetch_object($result)) {
+      $context['subject']['weightquote_method'] = $method;
+      if (!isset($form['shipping']['weightquote'])) {
+        $form['shipping']['weightquote'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Shipping rates by weight'),
+          '#description' => t("Overrides the default shipping rate per product for each flat rate shipping method. Leave field empty to use the method's default value."),
+          '#tree' => TRUE,
+          '#collapsible' => TRUE,
+          '#collapsed' => FALSE,
+          '#weight' => 0,
+        );
+      }
+      $form['shipping']['weightquote'][$method->mid] = array(
+        '#type' => 'textfield',
+        '#title' => $method->title,
+        '#default_value' => isset($form['#node']->weightquote[$method->mid]) ? $form['#node']->weightquote[$method->mid] : '',
+        '#description' => t('Default rate: %price/%unit', array('%price' => uc_price($method->product_rate, $context), '%unit' => variable_get('uc_weight_unit', 'lb'))),
+        '#size' => 16,
+        '#field_prefix' => $sign_flag ? '' : $currency_sign,
+        '#field_suffix' => t('@sign/@unit', array('@sign' => $sign_flag ? $currency_sign : '', '@unit' => variable_get('uc_weight_unit', 'lb'))),
+        '#weight' => $weight['weightquote_'. $method->mid],
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_nodeapi().
+ */
+function uc_weightquote_nodeapi(&$node, $op) {
+  if (uc_product_is_product($node->type)) {
+    switch ($op) {
+      case 'insert':
+      case 'update':
+        if (isset($node->weightquote) && is_array($node->weightquote)) {
+          if (!$node->revision) {
+            db_query("DELETE FROM {uc_weightquote_products} WHERE vid = %d", $node->vid);
+          }
+          foreach ($node->weightquote as $mid => $rate) {
+            if (is_numeric($rate) && $rate >= 0) {
+              db_query("INSERT INTO {uc_weightquote_products} (vid, nid, mid, rate) VALUES (%d, %d, %d, %f)",
+                $node->vid, $node->nid, $mid, $rate);
+            }
+          }
+        }
+      break;
+      case 'load':
+        $return = array('weightquote' => array());
+        $result = db_query("SELECT mid, rate FROM {uc_weightquote_products} WHERE vid = %d", $node->vid);
+        while ($rate = db_fetch_object($result)) {
+          $return['weightquote'][$rate->mid] = $rate->rate;
+        }
+        return $return;
+      break;
+      case 'delete':
+        db_query("DELETE FROM {uc_weightquote_products} WHERE nid = %d", $node->nid);
+      break;
+      case 'delete revision':
+        db_query("DELETE FROM {uc_weightquote_products} WHERE vid = %d", $node->vid);
+      break;
+    }
+  }
+}
+
+/******************************************************************************
+ * Ubercart Hooks                                                             *
+ ******************************************************************************/
+
+/**
+ * Implements hook_ca_predicate().
+ *
+ * Connect the quote action with the quote event.
+ */
+function uc_weightquote_ca_predicate() {
+  $enabled = variable_get('uc_quote_enabled', array());
+  $predicates = array();
+
+  $result = db_query("SELECT mid, title FROM {uc_weightquote_methods}");
+  while ($method = db_fetch_object($result)) {
+    $predicates['uc_weightquote_get_quote_'. $method->mid] = array(
+      '#title' => t('Shipping quote via @method', array('@method' => $method->title)),
+      '#trigger' => 'get_quote_from_weightquote_'. $method->mid,
+      '#class' => 'uc_weightquote',
+      '#status' => $enabled['weightquote_'. $method->mid],
+      '#actions' => array(
+        array(
+          '#name' => 'uc_quote_action_get_quote',
+          '#title' => t('Fetch a weightquote shipping quote.'),
+          '#argument_map' => array(
+            'order' => 'order',
+            'method' => 'method',
+          ),
+        ),
+      ),
+    );
+  }
+
+  return $predicates;
+}
+
+/**
+ * Implements hook_shipping_method().
+ */
+function uc_weightquote_shipping_method() {
+  $methods = array();
+
+  $enabled = variable_get('uc_quote_enabled', array());
+  $weight = variable_get('uc_quote_method_weight', array());
+  $result = db_query("SELECT mid, title, label FROM {uc_weightquote_methods}");
+  while ($method = db_fetch_object($result)) {
+    $methods['weightquote_'. $method->mid] = array(
+      'id' => 'weightquote_'. $method->mid,
+      'module' => 'uc_weightquote',
+      'title' => $method->title,
+      'enabled' => $enabled['weightquote_'. $method->mid],
+      'quote' => array(
+        'type' => 'order',
+        'callback' => 'uc_weightquote_quote',
+        'accessorials' => array(
+          $method->label,
+        ),
+      ),
+      'weight' => $weight['weightquote_'. $method->mid],
+    );
+  }
+
+  return $methods;
+}
+
+/******************************************************************************
+ * Module Functions                                                           *
+ ******************************************************************************/
+
+/**
+ * Standard callback to return a shipping rate via the weight quote method.
+ *
+ * @param $products
+ *   The order's products.
+ * @param $details
+ *   Other order details including a shipping address.
+ * @return
+ *   A JSON object containing the shipping quote for the order.
+ */
+function uc_weightquote_quote($products, $details, $method) {
+  $method = explode('_', $method['id']);
+  $mid = $method[1];
+  $context = array(
+    'revision' => 'altered',
+    'type' => 'amount',
+  );
+
+  if ($method = db_fetch_object(db_query("SELECT * FROM {uc_weightquote_methods} WHERE mid = %d", $mid))) {
+    $context['extras']['weightquote_method'] = $method;
+    // Start at the base rate.
+    $rate = uc_price($method->base_rate, $context);
+
+    foreach ($products as $product) {
+      $context['subject']['order_product'] = $product;
+      if (empty($product->weightquote) || is_null($product->weightquote[$mid])) {
+        $price_info = array(
+          'price' => $method->product_rate,
+          'qty' => $product->qty,
+        );
+        // Add the method's default product rate.
+        $product_rate = uc_price($price_info, $context);
+      }
+      else {
+        $price_info = array(
+          'price' => $product->weightquote[$mid],
+          'qty' => $product->qty,
+        );
+        // Add the product-specific rate.
+        $product_rate = uc_price($price_info, $context);
+      }
+      $rate += $product_rate  * $product->weight * uc_weight_conversion($product->weight_units, variable_get('uc_weight_unit', 'lb'));
+    }
+
+    unset($context['subject']['order_product']);
+    $context['revision'] = 'formatted';
+    $formatted = uc_price($rate, $context);
+    $quotes[] = array('rate' => $rate, 'format' => $formatted, 'option_label' => check_plain($method->label));
+  }
+
+  return $quotes;
+}

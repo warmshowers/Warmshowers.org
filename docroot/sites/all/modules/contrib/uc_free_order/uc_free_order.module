@@ -1,0 +1,78 @@
+<?php
+// $Id: uc_free_order.module,v 1.1.4.4 2009/07/24 22:42:29 rszrama Exp $
+
+/**
+ * @file
+ * Adds a payment method to handle free orders.
+ */
+
+
+/**
+ * Implementation of hook_perm().
+ */
+function uc_free_order_perm() {
+  return array('test free order');
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function uc_free_order_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  // Alter the checkout form to prepare it for our special JS.
+  if ($form_id == 'uc_cart_checkout_form' && isset($form['panes']['payment'])) {
+    if (user_access('test free order')) {
+      drupal_set_message('Test free order: <span style="cursor: pointer;" onclick="alert(\'Discount added.\'); set_line_item(\'fo_discount\', \'Test Discount\', -2000, 0);">Add discount</span> | <span style="cursor: pointer;" onclick="alert(\'Discount removed.\'); remove_line_item(\'fo_discount\');">Remove discount</span>');
+    }
+
+    drupal_add_js(drupal_get_path('module', 'uc_free_order') .'/uc_free_order.js');
+  }
+  elseif ($form_id == 'uc_cart_checkout_review_form') {
+    $order = uc_order_load($_SESSION['cart_order']);
+
+    if ($order->payment_method == 'free_order') {
+      if ($order->order_total >= .01) {
+        drupal_set_message(t('We cannot process your order without payment.'), 'error');
+        drupal_goto('cart/checkout');
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_payment_method().
+ */
+function uc_free_order_payment_method() {
+  $methods[] = array(
+    'id' => 'free_order',
+    'name' => t('Free order'),
+    'title' => t('Free order - payment not necessary.'),
+    'desc' => t('Allow customers with $0 order totals to checkout without paying.'),
+    'callback' => 'uc_payment_method_free_order',
+    'checkout' => TRUE,
+    'no_gateway' => TRUE,
+    'weight' => 10,
+  );
+
+  return $methods;
+}
+
+// Handles the free order payment method.
+function uc_payment_method_free_order($op, &$arg1, $silent = FALSE) {
+  if ($op == 'cart-details') {
+    return t('Continue with checkout to complete your free order.');
+  }
+}
+
+/**
+ * Implementation of hook_order().
+ */
+function uc_free_order_order($op, &$arg1, $arg2) {
+  // During checkout, if the free order payment method is used, log a $0.00
+  // payment for the order to trigger any necessary predicates.
+  if ($op == 'submit' && $arg1->payment_method == 'free_order') {
+    uc_payment_enter($arg1->order_id, 'free_order', 0, 0, NULL, t('Checkout completed for a free order.'));
+  }
+}
+

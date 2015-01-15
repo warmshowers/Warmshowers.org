@@ -1,0 +1,219 @@
+<?php
+
+/**
+ * @file
+ * Adds the required Javascript to the checkout completion page to allow
+ * e-commerce statistics tracking through Google Analytics.
+ *
+ * Refer to http://code.google.com/apis/analytics/docs/gaTrackingEcommerce.html
+ * for documentation on the functions used to submit e-commerce statistics to
+ * Google Analytics.
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function uc_googleanalytics_enable() {
+  // Get the weight of the Google Analytics module.
+  $weight = db_result(db_query("SELECT weight FROM {system} WHERE name = '%s'", 'googleanalytics'));
+
+  // Update the weight of the UC Google Analytics module so its hooks get called
+  // after the actual Google Analytics module.
+  db_query("UPDATE {system} SET weight = %d WHERE name = '%s'", max(1000, $weight + 1), 'uc_googleanalytics');
+}
+
+/**
+ * Implements hook_footer().
+ */
+function uc_googleanalytics_footer($main = 0) {
+  // Check to see if we are at the order completion page.
+  if (uc_googleanalytics_display()) {
+    // If so, then if we can load the order...
+    if (!empty($_SESSION['ucga_order_id']) && $order = uc_order_load($_SESSION['ucga_order_id'])) {
+      // Build the GA tracking code.
+      $script = uc_googleanalytics_ecommerce_js($order);
+
+      // Add the code to the footer.
+      drupal_add_js($script, 'inline', 'footer');
+    }
+
+    // Clean out the session variable.
+    unset($_SESSION['ucga_order_id']);
+  }
+}
+
+/**
+ * Implements hook_order().
+ */
+function uc_googleanalytics_order($op, $arg1, $arg2) {
+  // If a new order is created during the checkout process...
+  if ($op == 'new' && arg(0) == 'cart') {
+    // Store the order ID for later use.
+    $_SESSION['ucga_order_id'] = $arg1->order_id;
+  }
+}
+
+/**
+ * Determine whether or not to display the e-commerce related JS through GA.
+ *
+ * @return
+ *   TRUE or FALSE indicating whether or not to display the GA e-commerce JS.
+ */
+function uc_googleanalytics_display() {
+  // Display the GA e-commerce JS if the URL is cart/checkout/complete...
+  if (arg(0) == 'cart' && arg(1) == 'checkout' && arg(2) == 'complete') {
+    return TRUE;
+  }
+
+  // Or if the URL is the custom completion page.
+  $completion_page = variable_get('uc_cart_checkout_complete_page', '');
+
+  if (!empty($completion_page) && $completion_page == drupal_get_path_alias($_GET['q'])) {
+    return TRUE;
+  }
+
+  // Or if another module says this is the page through hook_ucga_display().
+  foreach (module_invoke_all('ucga_display') as $result) {
+    if ($result === TRUE) {
+      return TRUE;
+    }
+  }
+
+  // Otherwise return FALSE.
+  return FALSE;
+}
+
+/**
+ * Build the e-commerce JS passed to Google Analytics for order tracking.
+ *
+ * @param $order
+ *   The fully loaded order object to convert into GA JS.
+ * @return
+ *   The JS that should be added to the page footer.
+ */
+function uc_googleanalytics_ecommerce_js($order) {
+  // Support both Google Analytics versions 2.x and 3.x.
+  $script2 = '';
+  $script3 = '';
+
+  // Lookup the name of the country or default to the ID if it can't be found
+  // for some reason.
+  if ($country_data = uc_get_country_data(array('country_id' => $order->billing_country))) {
+    $order->billing_country_name = $country_data[0]['country_name'];
+  }
+  else {
+    $order->billing_country_name = $order->billing_country;
+  }
+
+  // Lookup the name of the zone.
+  $order->billing_zone_name = uc_zone_get_by_id($order->billing_zone);
+
+  // Calculate order tax and shipping totals.
+  $order->tax_total = 0;
+  $order->shipping_total = 0;
+
+  foreach ($order->line_items as $line_item) {
+    if ($line_item['type'] == 'tax') {
+      $order->tax_total += $line_item['amount'];
+    }
+    elseif ($line_item['type'] == 'shipping') {
+      $order->shipping_total += $line_item['amount'];
+    }
+  }
+
+  // Build the transaction arguments.
+  $trans = array(
+    'order_id' => $order->order_id,
+    'store' => variable_get('uc_store_name', variable_get('site_name', 'Ubercart')),
+    'total' => $order->order_total,
+    'tax' => $order->tax_total,
+    'shipping' => $order->shipping_total,
+    'city' => $order->billing_city,
+    'state' => $order->billing_zone_name,
+    'country' => $order->billing_country_name,
+  );
+
+  // Allow modules to alter the transaction arguments.
+  drupal_alter('ucga_trans', $trans, $order);
+
+  // Put the arguments into an array that is safe to implode directly.
+  $args = array(
+    '"'. $trans['order_id'] .'"',
+    drupal_to_js($trans['store']),
+    '"'. $trans['total'] .'"',
+    '"'. $trans['tax'] .'"',
+    '"'. $trans['shipping'] .'"',
+    drupal_to_js($trans['city']),
+    drupal_to_js($trans['state']),
+    drupal_to_js($trans['country']),
+  );
+
+  // Add the transaction line to the JS.
+  $script2 .= 'pageTracker._addTrans('. implode(', ', $args) .');';
+  $script3 .= '_gaq.push(["_addTrans", '. implode(', ', $args) .']);';
+
+  // Loop through the products on the order.
+  foreach ($order->products as $product) {
+    $product->category = '';
+
+    // Try to find a category (term) for the product. Since products most often
+    // only have one category, the first one returned (based on tid) is chosen.
+    if (module_exists('taxonomy')) {
+      $terms = taxonomy_node_get_terms(node_load($product->nid));
+      if (count($terms)) {
+        $term = array_shift($terms);
+        $product->category = $term->name;
+      }
+    }
+    if (empty($product->category)) {
+      $product->category = t('No category');
+    }
+
+    // Build the item arguments.
+    $item = array(
+      'order_id' => $order->order_id,
+      'sku' => $product->model,
+      'name' => $product->title,
+      'category' => $product->category,
+      'price' => $product->price,
+      'qty' => $product->qty,
+    );
+
+    // Allow modules to alter the item arguments.
+    drupal_alter('ucga_item', $item, $product, $trans, $order);
+
+      // Create a context for uc_price
+      $context = array(
+      'revision' => 'altered',
+      'type' => 'order_product',
+      'caller' => 'uc_googleanalytics',
+      'subject' => array(
+         'order_product' => $product,
+         'order' => $order,
+         'node' => node_load($product->nid),
+      ),
+    );
+
+    // Put the arguments into an array that is safe to implode directly.
+    $args = array(
+      '"'. $item['order_id'] .'"',
+      drupal_to_js($item['sku']),
+      drupal_to_js($item['name']),
+      drupal_to_js((string) $item['category']),
+      '"'. uc_price($item['price'], $context) .'"',
+      '"'. $item['qty'] .'"',
+    );
+
+    // Add the item line to the JS.
+    $script2 .= 'pageTracker._addItem('. implode(', ', $args) .');';
+    $script3 .= '_gaq.push(["_addItem", '. implode(', ', $args) .']);';
+  }
+
+  // Add the function to submit the transaction to GA.
+  $script2 .= 'pageTracker._trackTrans();';
+  $script3 .= '_gaq.push(["_trackTrans"]);';
+
+  // Google Analytics 3.x starts with schema version 6300.
+  $version = db_result(db_query("SELECT schema_version FROM {system} WHERE type = 'module' AND name = 'googleanalytics'"));
+  return $version >= 6300 ? $script3 : $script2;
+}

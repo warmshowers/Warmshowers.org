@@ -1,0 +1,191 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_product_kit module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_product_kit_schema() {
+  $schema['uc_product_kits'] = array(
+    'description' => 'Stores product kit information.',
+    'fields' => array(
+      'vid' => array(
+        'description' => 'The {node}.vid of the product kit.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid of the product kit.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'product_id' => array(
+        'description' => 'The {uc_products}.nid of a product contained in the kit.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'mutable' => array(
+        'description' => 'A flag indicating whether the contents of the kit can be changed by the customer. 1 => Mutable. 0 => Immutable.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'qty' => array(
+        'description' => 'The number of this product contained in the kit.',
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'discount' => array(
+        'description' => 'The adjustment to the {uc_products}.sell_price of the product.',
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'ordering' => array(
+        'description' => 'The weight of this product in relation to other products in the kit.',
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'synchronized' => array(
+        'description' => 'A flag indicating that changes to the sell price of this product will change the total price of the kit. 1 => Yes. 0 => No.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('vid', 'product_id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_product_kit_install() {
+  drupal_install_schema('uc_product_kit');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_product_kit_uninstall() {
+  drupal_uninstall_schema('uc_product_kit');
+  variable_del('uc_product_kit_mutable');
+}
+
+/**
+ * Implements hook_enable().
+ */
+function uc_product_kit_enable() {
+  // For some time in Drupal 5, CCK would delete its field data if a node
+  // type was unavailable because its module was disabled. This function
+  // worked around that by giving the product classes to node.module when
+  // uc_product_kit was disabled. This is no longer necessary as of CCK
+  // 5.x-1.9, but the workaround was left in to prevent accidents. This block
+  // of code is here to reclaim the product kit nodes after an upgrade to
+  // Drupal 6, and then should not be used again as the corresponding code in
+  // uc_product_kit_disable() was removed.
+  if (variable_get('uc_product_kit_enable_nodes', TRUE)) {
+    $node_type = node_get_types('type', 'product_kit');
+    if (is_object($node_type) && $node_type->module == 'node') {
+      $node_type->module = 'uc_product_kit';
+      $node_type->custom = 0;
+      node_type_save($node_type);
+    }
+    variable_set('uc_product_kit_enable_nodes', FALSE);
+  }
+
+  // Hack the product kit node type into the catalog if this module is enabled
+  // some time after uc_catalog.
+  if (module_exists('uc_catalog') && $vid = variable_get('uc_catalog_vid', 0)) {
+    $vocab = taxonomy_vocabulary_load($vid);
+    if (!isset($vocab->nodes['product_kit'])) {
+      db_query("INSERT INTO {vocabulary_node_types} (vid, type) VALUES (%d, '%s')", $vid, 'product_kit');
+    }
+  }
+
+  // Add field_image_cache to product kits.
+  if (module_exists('imagefield')) {
+    uc_product_add_default_image_field('product_kit');
+  }
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_product_kit_update_last_removed() {
+  return 5;
+}
+
+function uc_product_kit_update_6000() {
+  $ret = array();
+
+  db_drop_primary_key($ret, 'uc_product_kits');
+  db_change_field($ret, 'uc_product_kits', 'vid', 'vid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_product_kits', 'nid', 'nid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_product_kits', 'product_id', 'product_id', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_product_kits', 'qty', 'qty', array('type' => 'int', 'unsigned' => TRUE, 'size' => 'small', 'not null' => TRUE, 'default' => 0));
+  db_add_primary_key($ret, 'uc_product_kits', array('vid', 'product_id'));
+
+  return $ret;
+}
+
+function uc_product_kit_update_6001() {
+  $ret = array();
+
+  variable_set('uc_image_product_kit', 'field_image_cache');
+
+  $t = get_t();
+  $ret[] = array('success' => TRUE, $t('field_image_cache set as the Ubercart image for product kits.'));
+
+  return $ret;
+}
+
+/**
+ * Update moved to 6003 to fix flawed beta5 installations.
+ * See http://drupal.org/node/400720.
+ */
+function uc_product_kit_update_6002() {
+  $ret = array();
+
+  return $ret;
+}
+
+function uc_product_kit_update_6003() {
+  $ret = array();
+
+  if (!db_column_exists('uc_product_kits', 'synchronized')) {
+    db_add_field($ret, 'uc_product_kits', 'synchronized', array('type' => 'int', 'size', 'tiny', 'not null' => TRUE, 'default' => 0));
+    $ret[] = update_sql("UPDATE {uc_product_kits} SET synchronized = 1 WHERE discount < 0");
+
+    switch ($GLOBALS['db_type']) {
+      case 'mysql':
+      case 'mysqli':
+        $ret[] = update_sql("UPDATE {uc_product_kits} AS pk JOIN {uc_products} AS p ON pk.product_id = p.nid SET pk.discount = pk.discount - p.sell_price WHERE pk.discount >= 0;");
+      break;
+      case 'pgsql':
+        $ret[] = update_sql("UPDATE {uc_product_kits} SET discount = discount - (SELECT p.sell_price FROM {uc_products} p JOIN {uc_product_kits} pk ON pk.product_id = p.nid WHERE pk.discount >= 0);");
+      break;
+    }
+  }
+
+  return $ret;
+}
+
