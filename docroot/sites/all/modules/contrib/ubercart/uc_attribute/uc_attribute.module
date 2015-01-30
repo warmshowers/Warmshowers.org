@@ -1,0 +1,1476 @@
+<?php
+
+/**
+ * @file
+ * Ubercart Attribute module.
+ *
+ * Allows customers to buy slightly different products from the same listing.
+ *
+ * Many manufacturers provide options to their products. This module provides
+ * a way for store administrators to consolidate these options into one product
+ * instead of listing each combination separately. This is accomplished through
+ * the use of Drupal's hook system.
+ */
+
+require_once('uc_attribute.ca.inc');
+
+/******************************************************************************
+ * Drupal Hooks                                                               *
+ ******************************************************************************/
+
+/**
+ * Implements hook_help().
+ */
+function uc_attribute_help($path, $arg) {
+  switch ($path) {
+    // Help messages for the attributes overview on products and classes.
+    case 'node/%/edit/attributes':
+      return t('Add attributes to this product using the <a href="!url">add attributes form</a>. You may then adjust the settings for these attributes on this page and go on to configure their options in the <em>Options</em> tab.', array('!url' => url('node/'. $arg[1] .'/edit/attributes/add')));
+    case 'admin/store/products/classes/%/attributes':
+      return t('Add attributes to the product class using the <a href="!url">add attributes form</a>. You may then adjust the settings for these attributes on this page and go on to configure their options in the <em>Options</em> tab.', array('!url' => url('admin/store/products/classes/'. $arg[4] .'/attributes/add')));
+
+    // Help message for adding an attribute to a product or class.
+    case 'node/%/edit/attributes/add':
+    case 'admin/store/products/classes/%/attributes/add':
+      return t('Select the attributes you want to add and submit the form.');
+
+    // Help message for adjusting the options on a product or class.
+    case 'node/%/edit/options':
+    case 'admin/store/products/classes/%/options':
+      return '<p>' . t('Use the checkboxes to enable options for attributes and the radio buttons to specify the default option. Attributes with no enabled options will be displayed as text fields. Drag and drop the options to reorder them.') . '</p><p>' . t('The cost, price and weight fields will make adjustments against the original product, so you may enter positive or negative amounts here, or enter 0 if the option should make no adjustment.') . '</p>';
+
+    // Help message for the product Adjustments tab.
+    case 'node/%/edit/adjustments':
+      return t('Enter an alternate SKU to be used when the specified set of options are chosen and the product is added to the cart. <b>Warning:</b> Adding or removing attributes from this product will reset all the SKUs on this page to the default product SKU.');
+
+    // Help message for bulk updates tab.
+    case 'admin/store/products/classes/%/attributes_bulk':
+      return t('Bulk updates performed here will reset all attributes and options on the selected products to the current defaults for this product class.<p><em><strong>Warning:</strong> any product level customizations will be lost!</em></p>To perform bulk updates on specific option values without resetting attributes to the class defaults, go to <a href="!url">Store administration->Attributes</a> and edit the option, selecting the checkbox to update existing products.', array('!url' => url('admin/store/attributes')));
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_attribute_menu() {
+  $items['admin/store/attributes'] = array(
+    'title' => 'Attributes',
+    'description' => 'Create and edit attributes and options.',
+    'page callback' => 'uc_attribute_admin',
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -1,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/overview'] = array(
+    'title' => 'Overview',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['admin/store/attributes/add'] = array(
+    'title' => 'Add an attribute',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_form'),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/settings/attributes'] = array(
+    'title' => 'Attribute settings',
+    'description' => 'Configure the attribute settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_admin_settings'),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/edit'] = array(
+    'title' => 'Edit attribute',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_form', 3),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/delete'] = array(
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_delete_confirm', 3),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/options'] = array(
+    'title' => 'Options',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_options_form', 3),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/options/overview'] = array(
+    'title' => 'Overview',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/options/add'] = array(
+    'title' => 'Add an option',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_option_form', 3, NULL),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/options/%uc_attribute_option/edit'] = array(
+    'title' => 'Edit option',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_option_form', 3, 5),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/attributes/%uc_attribute/options/%uc_attribute_option/delete'] = array(
+    'title' => 'Delete option',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_option_delete_confirm', 3, 5),
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_attribute.admin.inc',
+  );
+
+  // Menu items for default product class attributes and options.
+  $items['admin/store/products/classes/%uc_product_class/attributes'] = array(
+    'title' => 'Attributes',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_object_attributes_form', 4, 'class'),
+    'access callback' => 'uc_attribute_product_class_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/products/classes/%uc_product_class/options'] = array(
+    'title' => 'Options',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_object_options_form', 4, 'class'),
+    'access callback' => 'uc_attribute_product_class_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['admin/store/products/classes/%uc_product_class/attributes_bulk'] = array(
+    'title' => 'Bulk',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_bulk_update_form', 4, 'class'),
+    'access callback' => 'uc_attribute_product_class_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+    'file' => 'uc_attribute.admin.inc',
+  );
+
+  // Insert subitems into the edit node page for product types.
+  $items['node/%node/edit/attributes'] = array(
+    'title' => 'Attributes',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_object_attributes_form', 1, 'product', 'overview'),
+    'access callback' => 'uc_attribute_product_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['node/%node/edit/attributes/add'] = array(
+    'title' => 'Attributes',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_object_attributes_form', 1, 'product', 'add'),
+    'access callback' => 'uc_attribute_product_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['node/%node/edit/attributes/reset'] = array(
+    'title' => 'Reset to defaults',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_attribute_node_reset_confirm', 1),
+    'access callback' => 'uc_attribute_product_access',
+    'access arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['node/%node/edit/options'] = array(
+    'title' => 'Options',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_object_options_form', 1, 'product'),
+    'access callback' => 'uc_attribute_product_option_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+    'file' => 'uc_attribute.admin.inc',
+  );
+  $items['node/%node/edit/adjustments'] = array(
+    'title' => 'Adjustments',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_product_adjustments_form', 1),
+    'access callback' => 'uc_attribute_product_option_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+    'file' => 'uc_attribute.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback for editing a product class's attributes and options.
+ */
+function uc_attribute_product_class_access() {
+  return user_access('administer product classes') && user_access('administer attributes');
+}
+
+/**
+ * Access callback for editing a product's attributes.
+ */
+function uc_attribute_product_access($node) {
+  if ($node->type == 'product_kit') {
+    return FALSE;
+  }
+
+  return uc_product_is_product($node) && node_access('update', $node) && (user_access('administer attributes') || user_access('administer product attributes'));
+}
+
+/**
+ * Access callback for editing a product's options.
+ */
+function uc_attribute_product_option_access($node) {
+  if ($node->type == 'product_kit') {
+    return FALSE;
+  }
+
+  return uc_product_is_product($node) && node_access('update', $node) && (user_access('administer attributes') || user_access('administer product attributes') || user_access('administer product options'));
+}
+
+/**
+ * Implements hook_perm().
+ */
+function uc_attribute_perm() {
+  return array('administer attributes', 'administer product attributes', 'administer product options');
+}
+
+/**
+ * Implements hook_init().
+ */
+function uc_attribute_init() {
+  drupal_add_css(drupal_get_path('module', 'uc_attribute') .'/uc_attribute.css');
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_attribute_theme() {
+  return array(
+    'uc_attribute_option' => array(
+      'arguments' => array('option' => '', 'price' => ''),
+    ),
+    'uc_attribute_add_to_cart' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'uc_object_attributes_form' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_attribute.admin.inc',
+    ),
+    'uc_object_options_form' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_attribute.admin.inc',
+    ),
+    'uc_attribute_options_form' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_attribute.admin.inc',
+    ),
+    'uc_product_attributes' => array(
+      'arguments' => array('product' => NULL),
+      'file' => 'uc_attribute.admin.inc',
+    ),
+    'uc_attribute_bulk_update_form' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'uc_attribute.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function uc_attribute_form_alter(&$form, $form_state, $form_id) {
+  if (strpos($form_id, 'add_product_form')) {
+    $node =& $form['node']['#value'];
+    // If the node has a product list, add attributes to them
+    if (isset($form['sub_products']) && count(element_children($form['sub_products']))) {
+      foreach (element_children($form['sub_products']) as $key) {
+        $form['sub_products'][$key]['attributes'] = _uc_attribute_alter_form(node_load($key));
+        if (is_array($form['sub_products'][$key]['attributes'])) {
+          $form['sub_products'][$key]['attributes']['#tree'] = TRUE;
+          $form['sub_products'][$key]['#type'] = 'fieldset';
+        }
+      }
+    }
+    // If not, add attributes to the node.
+    else {
+      $form['attributes'] = _uc_attribute_alter_form($node);
+
+      if (is_array($form['attributes'])) {
+        $form['attributes']['#tree'] = TRUE;
+        $form['attributes']['#weight'] = -1;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_uc_form_alter().
+ *
+ * Attaches option selectors to the form with the "Add to Cart" button.
+ *
+ * This function also handles selecting attributes for products added to orders
+ * manually.
+ */
+function uc_attribute_uc_form_alter(&$form, &$form_state, $form_id) {
+  if (strpos($form_id, 'add_to_cart_form') || strpos($form_id, 'add_product_form')) {
+    $node =& $form['node']['#value'];
+    // If the node has a product list, add attributes to them
+    if (isset($form['products']) && count(element_children($form['products']))) {
+      foreach (element_children($form['products']) as $key) {
+        $form['products'][$key]['attributes'] = _uc_attribute_alter_form(node_load($key));
+        if (is_array($form['products'][$key]['attributes'])) {
+          $form['products'][$key]['attributes']['#tree'] = TRUE;
+          $form['products'][$key]['#type'] = 'fieldset';
+        }
+      }
+    }
+    // If not, add attributes to the node.
+    else {
+      $form['attributes'] = _uc_attribute_alter_form($node);
+
+      if (is_array($form['attributes'])) {
+        $form['attributes']['#tree'] = TRUE;
+        $form['attributes']['#weight'] = -1;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_nodeapi().
+ */
+function uc_attribute_nodeapi(&$node, $op, $arg3 = NULL, $arg4 = NULL) {
+  if (uc_product_is_product($node->type)) {
+    switch ($op) {
+      case 'load':
+        $attributes = uc_product_get_attributes($node->nid);
+        if (is_array($attributes) && !empty($attributes)) {
+          $node->attributes = $attributes;
+          return array('attributes' => $attributes);
+        }
+        break;
+      case 'insert':
+        uc_attribute_node_insert($node);
+        break;
+      case 'delete':
+        uc_attribute_node_delete($node);
+        break;
+      case 'update index':
+        $output = '';
+        $attributes = uc_product_get_attributes($node->nid);
+        foreach ($attributes as $attribute) {
+          $output .= '<h3>'. _uc_attribute_get_name($attribute) .'</h3>';
+          foreach ($attribute->options as $option) {
+            $output .= $option->name .' ';
+          }
+          $output .= "\n";
+        }
+        $result = db_query("SELECT model FROM {uc_product_adjustments} WHERE nid = %d", $node->nid);
+        while ($adjustment = db_fetch_object($result)) {
+          $output .= '<h2>'. $adjustment->model ."</h2>\n";
+        }
+        return $output;
+    }
+  }
+}
+
+/**
+ * Add default attributes to a product node.
+ */
+function uc_attribute_node_insert($node) {
+  switch ($GLOBALS['db_type']) {
+    case 'mysqli':
+    case 'mysql':
+      db_query("INSERT IGNORE INTO {uc_product_attributes} (nid, aid, label, ordering, required, display, default_option) SELECT %d, aid, label, ordering, required, display, default_option FROM {uc_class_attributes} WHERE pcid = '%s'", $node->nid, $node->type);
+      db_query("INSERT IGNORE INTO {uc_product_options} (nid, oid, cost, price, weight, ordering) SELECT %d, oid, cost, price, weight, ordering FROM {uc_class_attribute_options} WHERE pcid = '%s'", $node->nid, $node->type);
+      break;
+    case 'pgsql':
+      db_query("INSERT INTO {uc_product_attributes} (nid, aid, label, ordering, required, display, default_option) SELECT %d, aid, label, ordering, required, display, default_option FROM {uc_class_attributes} WHERE pcid = '%s'", $node->nid, $node->type);
+      db_query("INSERT INTO {uc_product_options} (nid, oid, cost, price, weight, ordering) SELECT %d, oid, cost, price, weight, ordering FROM {uc_class_attribute_options} WHERE pcid = '%s'", $node->nid, $node->type);
+      break;
+  }
+}
+
+/**
+ * Remove all attributes from a product node.
+ */
+function uc_attribute_node_delete($node) {
+  db_query("DELETE FROM {uc_product_options} WHERE nid = %d", $node->nid);
+  db_query("DELETE FROM {uc_product_adjustments} WHERE nid = %d", $node->nid);
+  db_query("DELETE FROM {uc_product_attributes} WHERE nid = %d", $node->nid);
+}
+
+/**
+ * Reset attributes to class defaults for a product node.
+ */
+function uc_attribute_node_reset($node) {
+  uc_attribute_node_delete($node);
+  uc_attribute_node_insert($node);
+}
+
+/**
+ * Implements hook_locale().
+ */
+function uc_attribute_locale($op = 'groups') {
+  switch ($op) {
+    case 'groups':
+      return array('uc_attribute' => t('Ubercart attributes'));
+    case 'info':
+      $info['uc_attribute']['refresh callback'] = 'uc_attribute_locale_refresh';
+      $info['uc_attribute']['format'] = FALSE;
+      return $info;
+  }
+}
+
+/**
+ * Refreshes translated attribute and option strings.
+ */
+function uc_attribute_locale_refresh() {
+  $attributes = db_query("SELECT aid, name, label, description FROM {uc_attributes}");
+  while ($attribute = db_fetch_object($attributes)) {
+    i18nstrings_update('uc_attribute:attribute:' . $attribute->aid . ':name', $attribute->name);
+    i18nstrings_update('uc_attribute:attribute:' . $attribute->aid . ':label', $attribute->label);
+    i18nstrings_update('uc_attribute:attribute:' . $attribute->aid . ':description', $attribute->description);
+
+    $options = db_query("SELECT oid, name FROM {uc_attribute_options} WHERE aid = %d", array($attribute->aid));
+    while ($option = db_fetch_object($options)) {
+      i18nstrings_update('uc_attribute:option:' . $option->oid . ':name', $option->name);
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Translates an attribute.
+ *
+ * @param &$attribute
+ *   The attribute object to translate.
+ */
+function uc_attribute_translate(&$attribute) {
+  if (function_exists('i18nstrings')) {
+    $attribute->name        = i18nstrings('uc_attribute:attribute:' . $attribute->aid . ':name', $attribute->name);
+    $attribute->label       = i18nstrings('uc_attribute:attribute:' . $attribute->aid . ':label', $attribute->label);
+    $attribute->description = i18nstrings('uc_attribute:attribute:' . $attribute->aid . ':description', $attribute->description);
+
+    foreach ($attribute->options as &$option) {
+      $option->name = i18nstrings('uc_attribute:option:' . $option->oid . ':name', $option->name);
+    }
+  }
+}
+
+
+/******************************************************************************
+ * Ubercart Hooks                                                             *
+ ******************************************************************************/
+
+/**
+ * Implements hook_uc_product_models().
+ */
+function uc_attribute_uc_product_models($nid) {
+  $models = array();
+
+  // Get all the SKUs for all the attributes on this node.
+  $adjustments = db_query("SELECT DISTINCT model FROM {uc_product_adjustments} WHERE nid = %d", $nid);
+  while ($adjustment = db_result($adjustments)) {
+    $models[] = $adjustment;
+  }
+
+  return $models;
+}
+
+/**
+ * Stores the customer's choices in the cart.
+ */
+function uc_attribute_add_to_cart_data($form_values) {
+  if (isset($form_values['attributes'])) {
+    return array('attributes' => $form_values['attributes']);
+  }
+  else {
+    return array('attributes' => array());
+  }
+}
+
+/**
+ * Implements hook_order_product_alter().
+ */
+function uc_attribute_order_product_alter(&$product, $order) {
+  // Convert the attribute and option ids to their current names. This
+  // preserves the important data in case the attributes or options are
+  // changed later.
+  if (!empty($product->data['attributes'])) {
+    $attributes_keys = array_keys($product->data['attributes']);
+    if (is_numeric(array_shift($attributes_keys))) {
+      $attributes = array();
+      $options = _uc_cart_product_get_options($product);
+      foreach ($options as $aid => $option) {
+        $attributes[$option['attribute']][$option['oid']] = $option['name'];
+      }
+      $product->data['attributes'] = $attributes;
+    }
+  }
+}
+
+/**
+ * Implements hook_product_class().
+ */
+function uc_attribute_product_class($type, $op) {
+  switch ($op) {
+    case 'delete':
+      db_query("DELETE FROM {uc_class_attributes} WHERE pcid = '%s'", $type);
+      db_query("DELETE FROM {uc_class_attribute_options} WHERE pcid = '%s'", $type);
+    break;
+  }
+}
+
+/**
+ * Implements hook_cart_item().
+ */
+function uc_attribute_cart_item($op, &$item) {
+  switch ($op) {
+    case 'load':
+      $options = _uc_cart_product_get_options($item);
+
+      $op_costs = 0;
+      $op_prices = 0;
+      $op_weight = 0;
+
+      foreach ($options as $option) {
+        $op_costs += $option['cost'];
+        $op_prices += $option['price'];
+        $op_weight += $option['weight'];
+      }
+      $item->cost += $op_costs;
+      $item->price += $op_prices;
+      $item->weight += $op_weight;
+
+      $combination = array();
+      foreach ((array)$item->data['attributes'] as $aid => $value) {
+        if (is_numeric($value)) {
+          $attribute = uc_attribute_load($aid, $item->nid, 'product');
+          if ($attribute && ($attribute->display == 1 || $attribute->display == 2)) {
+            $combination[$aid] = $value;
+          }
+        }
+      }
+      ksort($combination);
+
+      $result = db_query("SELECT model FROM {uc_product_adjustments} WHERE nid = %d AND combination LIKE '%s'", $item->nid, serialize($combination));
+      $model = db_result($result);
+
+      if (!empty($model)) {
+        $item->model = $model;
+      }
+      break;
+  }
+}
+
+/**
+ * Implements hook_product_description().
+ */
+function uc_attribute_product_description($product) {
+  $description = array(
+    'attributes' => array(
+      '#product' => array(
+        '#type' => 'value',
+        '#value' => $product,
+      ),
+      '#theme' => 'uc_product_attributes',
+      '#weight' => 1,
+    ),
+  );
+
+  $desc =& $description['attributes'];
+
+  // Cart version of the product has numeric attribute => option values so we
+  // need to retrieve the right ones
+  $weight = 0;
+  if (empty($product->order_id)) {
+    foreach (_uc_cart_product_get_options($product) as $option) {
+      if (!isset($desc[$option['aid']])) {
+        $desc[$option['aid']]['#attribute_name'] = $option['attribute'];
+        $desc[$option['aid']]['#options'] = array($option['name']);
+      }
+      else {
+        $desc[$option['aid']]['#options'][] = $option['name'];
+      }
+      $desc[$option['aid']]['#weight'] = $weight++;
+    }
+  }
+  else {
+    foreach ((array)$product->data['attributes'] as $attribute => $option) {
+      $desc[] = array(
+        '#attribute_name' => $attribute,
+        '#options' => $option,
+        '#weight' => $weight++,
+      );
+    }
+  }
+
+  return $description;
+}
+
+/******************************************************************************
+ * Module Functions                                                           *
+ ******************************************************************************/
+
+/**
+ * Loads attribute objects from the database.
+ *
+ * @todo If we feel it necessary, we could optimize this, by inverting the
+ * logic; that is, we could make uc_attribute load call this function and allow
+ * this function to minimize the number of queries necessary. -cha0s
+ *
+ * @param $aids
+ *   Attribute IDs to load.
+ * @param $type
+ *   The type of attribute. 'product', or 'class'. Any other type will fetch
+ *   a base attribute.
+ * @param $id
+ *   The ID of the product/class this attribute belongs to.
+ *
+ * @return
+ *   An array of loaded attributes.
+ */
+function uc_attribute_load_multiple($aids = array(), $type = '', $id = NULL) {
+  $sql = uc_attribute_type_info($type);
+  $conditions = array();
+
+  // Filter by the attribute IDs requested.
+  if (!empty($aids)) {
+    // Sanity check - filter out non-numeric attribute IDs.
+    $conditions[] = "ua.aid IN (". implode(", ", array_filter($aids, 'is_numeric')) .")";
+  }
+
+  // Product/class attributes.
+  if (!empty($type)) {
+    $conditions[] = "uca.{$sql['id']} = {$sql['placeholder']}";
+    $conditions = implode(" AND", $conditions);
+    // Seems like a big query to get attribute IDs, but it's all about the sort.
+    // (I'm not sure if the default ordering is propagating down correctly here.
+    // It appears that product/class attributes with no ordering won't let the
+    // attribute's propagate down, as it does when loading. -cha0s)
+    $result = db_query("
+      SELECT    uca.aid
+      FROM      {$sql['attr_table']} AS uca
+      LEFT JOIN {uc_attributes} AS ua ON uca.aid = ua.aid
+      WHERE     $conditions
+      ORDER BY  uca.ordering, ua.name", $id);
+  }
+
+  // Base attributes.
+  else {
+    // Padding just to make sure that everything's fine if we don't get an aid
+    // condition. Keeps it elegant.
+    $conditions[] = "1";
+    $conditions = implode(" AND ", $conditions);
+
+    $result = db_query("SELECT aid FROM {uc_attributes} ua WHERE $conditions ORDER BY ordering, name");
+  }
+
+  // Load the attributes.
+  $attributes = array();
+  while ($aid = db_result($result)) {
+    $attributes[$aid] = uc_attribute_load($aid, $id, $type);
+  }
+
+  return $attributes;
+}
+
+/**
+ * Loads an attribute from the database.
+ *
+ * @param $aid
+ *   The ID of the attribute.
+ * @param $type
+ *   The type of attribute. 'product', or 'class'. Any other type will fetch
+ *   a base attribute.
+ * @param $id
+ *   The ID of the product/class this attribute belongs to.
+ *
+ * @return
+ *   The attribute object, or FALSE if it doesn't exist.
+ */
+function uc_attribute_load($aid, $id = NULL, $type = '') {
+  $sql = uc_attribute_type_info($type);
+
+  switch ($type) {
+    case 'product':
+    case 'class':
+
+      // Read attribute data.
+      $attribute = db_fetch_object(db_query("
+        SELECT    a.aid, a.name, a.label AS default_label, a.ordering AS default_ordering,
+                  a.required AS default_required, a.display AS default_display,
+                  a.description, pa.label, pa.default_option, pa.required, pa.ordering,
+                  pa.display, pa.{$sql['id']}
+        FROM      {uc_attributes} AS a
+        LEFT JOIN {$sql['attr_table']} AS pa ON a.aid = pa.aid AND
+                  pa.{$sql['id']} = {$sql['placeholder']}
+        WHERE a.aid = %d", $id, $aid));
+
+      // Don't try to build it further if it failed already.
+      if (!$attribute) return FALSE;
+
+      // Set any missing defaults.
+      foreach (array('ordering', 'required', 'display', 'label') as $field) {
+        if (isset($attribute->{"default_$field"}) && is_null($attribute->$field)) {
+          $attribute->$field = $attribute->{"default_$field"};
+        }
+      }
+      if (empty($attribute->label)) {
+        $attribute->label = $attribute->name;
+      }
+
+      // Read option data.
+      $result = db_query("
+        SELECT    po.{$sql['id']}, po.oid, po.cost, po.price, po.weight, po.ordering, ao.name,
+                  ao.aid
+        FROM      {$sql['opt_table']} AS po
+        LEFT JOIN {uc_attribute_options} AS ao ON po.oid = ao.oid AND
+                  po.{$sql['id']} = {$sql['placeholder']}
+        WHERE     aid = %d ORDER BY po.ordering, ao.name", $id, $aid);
+
+    break;
+
+    default:
+
+      // Read attribute and option data.
+      $attribute = db_fetch_object(db_query("SELECT * FROM {uc_attributes} WHERE aid = %d", $aid));
+      $result = db_query("SELECT * FROM {uc_attribute_options} WHERE aid = %d ORDER BY ordering, name", $aid);
+
+      // Don't try to build it further if it failed already.
+      if (!$attribute) return FALSE;
+
+    break;
+  }
+
+  // Got an attribute?
+  if ($attribute) {
+    // Get its options, too.
+    $attribute->options = array();
+    while ($option = db_fetch_object($result)) {
+      $attribute->options[$option->oid] = $option;
+    }
+
+    uc_attribute_translate($attribute);
+  }
+
+  return $attribute;
+}
+
+/**
+ * Fetches an array of attribute objects that belong to a product.
+ *
+ * @param $nid
+ *   Product whose attributes to load.
+ *
+ * @return
+ *   The array of attribute objects.
+ */
+function uc_attribute_load_product_attributes($nid) {
+  return uc_attribute_load_multiple(array(), 'product', $nid);
+}
+
+/**
+ * Saves an attribute object to the database.
+ *
+ * @param $attribute
+ *   The attribute object to save.
+ *
+ * @return
+ *   The integer result from drupal_write_record().
+ */
+function uc_attribute_save(&$attribute) {
+  // Insert or update?
+  $key = empty($attribute->aid) ? NULL : 'aid';
+  return drupal_write_record('uc_attributes', $attribute, $key);
+}
+
+/**
+ * Deletes an attribute from the database.
+ *
+ * @param $aid
+ *   Attribute ID to delete.
+ *
+ * @return
+ *   The Drupal SAVED_DELETED flag.
+ */
+function uc_attribute_delete($aid) {
+  // Delete the class attributes and their options.
+  uc_attribute_subject_delete($aid, 'class');
+
+  // Delete the product attributes and their options.
+  uc_attribute_subject_delete($aid, 'product');
+
+  // Delete base attributes and their options.
+  db_query("DELETE FROM {uc_attribute_options} WHERE aid = %d", $aid);
+  db_query("DELETE FROM {uc_attributes} WHERE aid = %d", $aid);
+
+  return SAVED_DELETED;
+}
+
+/**
+ * Loads an attribute option from the database.
+ *
+ * @param $oid
+ *   Option ID to load.
+ *
+ * @return
+ *   The attribute option object.
+ */
+function uc_attribute_option_load($oid) {
+  return db_fetch_object(db_query("SELECT * FROM {uc_attribute_options} WHERE oid = %d", $oid));
+}
+
+/**
+ * Saves an attribute object to the database.
+ *
+ * @param $option
+ *   The attribute option object to save.
+ *
+ * @return
+ *   The integer result from drupal_write_record().
+ */
+function uc_attribute_option_save(&$option) {
+  // Insert or update?
+  $key = empty($option->oid) ? NULL : 'oid';
+  return drupal_write_record('uc_attribute_options', $option, $key);
+}
+
+/**
+ * Deletes an attribute option from the database.
+ *
+ * @param $oid
+ *   Option ID to delete.
+ *
+ * @return
+ *   The Drupal SAVED_DELETED flag.
+ */
+function uc_attribute_option_delete($oid) {
+  // Delete the class attribute options.
+  uc_attribute_subject_option_delete($oid, 'class');
+
+  // Delete the product attribute options. (and the adjustments!)
+  uc_attribute_subject_option_delete($oid, 'product');
+
+  // Delete base attributes and their options.
+  db_query("DELETE FROM {uc_attribute_options} WHERE oid = %d", $oid);
+
+  return SAVED_DELETED;
+}
+
+/**
+ * Saves a product/class attribute.
+ *
+ * @param &$attribute
+ *   The product/class attribute.
+ * @param $type
+ *   Is this a product or a class?
+ * @param $id
+ *   The product/class ID.
+ * @param $save_options
+ *   Save the product/class attribute's options, too?
+ *
+ * @return
+ *   The integer result from drupal_write_record().
+ */
+function uc_attribute_subject_save(&$attribute, $type, $id, $save_options = FALSE) {
+  $sql = uc_attribute_type_info($type);
+
+  // Insert or update?
+  $key = uc_attribute_subject_exists($attribute->aid, $type, $id) ? array('aid', $sql['id']) : NULL;
+
+  // First, save the options. First because if this is an insert, we'll set
+  // a default option for the product/class attribute.
+  if ($save_options && is_array($attribute->options)) {
+    foreach ($attribute->options as $option) {
+      // Sanity check!
+      $option = (object) $option;
+      uc_attribute_subject_option_save($option, $type, $id);
+    }
+
+    // Is this an insert? If so, we'll set the default option.
+    if (empty($key)) {
+      $default_option = 0;
+      // Make the first option (if any) the default.
+      if (is_array($attribute->options)) {
+        $option = (object) reset($attribute->options);
+        $default_option = $option->oid;
+      }
+      $attribute->default_option = $default_option;
+    }
+  }
+
+  // Merge in the product/class attribute's ID and save.
+  $attribute->{$type == 'product' ? 'nid' : 'pcid'} = $id;
+  $result = drupal_write_record(trim($sql['attr_table'], '{}'), $attribute, $key);
+
+  return $result;
+}
+
+/**
+ * Deletes an attribute and all options associated with it.
+ *
+ * @param $aid
+ *   The base attribute ID.
+ * @param $type
+ *   Is this a product or a class?
+ * @param $id
+ *   The product/class ID.
+ *
+ * @return
+ *   The Drupal SAVED_DELETED flag.
+ */
+function uc_attribute_subject_delete($aid, $type, $id = NULL) {
+  $sql = uc_attribute_type_info($type);
+
+  // Base conditions, and an ID check if necessary.
+  $conditions[] = "aid = %d";
+  if ($id) {
+    $conditions[] = "{$sql['id']} = {$sql['placeholder']}";
+  }
+  $conditions = implode(" AND ", $conditions);
+
+  $result = db_query("SELECT a.oid FROM {uc_attribute_options} AS a JOIN {$sql['opt_table']} AS subject ON a.oid = subject.oid WHERE $conditions", $aid, $id);
+  while ($oid = db_result($result)) {
+    // Don't delete the adjustments one at a time. We'll do it in bulk soon for
+    // efficiency.
+    uc_attribute_subject_option_delete($oid, $type, $id, FALSE);
+  }
+  db_query("DELETE FROM {$sql['attr_table']} WHERE $conditions", $aid, $id);
+
+  // If this is a product attribute, wipe any associated adjustments.
+  if ($type == 'product') {
+    uc_attribute_adjustments_delete(array(
+      'aid' => $aid,
+      'nid' => $id,
+    ));
+  }
+
+  return SAVED_DELETED;
+}
+
+/**
+ * Loads a product/class attribute option.
+ *
+ * @param $oid
+ *   The product/class attribute option ID.
+ * @param $type
+ *   Is this a product or a class?
+ * @param $id
+ *   The product/class ID.
+ *
+ * @return
+ *   An object containing the product/class attribute option.
+ */
+function uc_attribute_subject_option_load($oid, $type, $id) {
+  $sql = uc_attribute_type_info($type);
+
+  $result = db_query("
+    SELECT    po.{$sql['id']}, po.oid, po.cost, po.price, po.weight, po.ordering, ao.name,
+              ao.aid
+    FROM      {$sql['opt_table']} AS po
+    LEFT JOIN {uc_attribute_options} AS ao ON po.oid = ao.oid
+    WHERE     po.oid = %d AND
+              po.{$sql['id']} = {$sql['placeholder']}
+    ORDER BY  po.ordering, ao.name", $oid, $id);
+
+  return db_fetch_object($result);
+}
+
+/**
+ * Saves a product/class attribute option.
+ *
+ * @param &$option
+ *   The product/class attribute option.
+ * @param $type
+ *   Is this a product or a class?
+ * @param $id
+ *   The product/class ID.
+ *
+ * @return
+ *   The integer result from drupal_write_record().
+ */
+function uc_attribute_subject_option_save(&$option, $type, $id) {
+  $sql = uc_attribute_type_info($type);
+
+  // Insert or update?
+  $key = uc_attribute_subject_option_exists($option->oid, $type, $id) ? array('oid', $sql['id']) : NULL;
+
+  // Merge in the product/class attribute option's ID, and save.
+  $option->{$type == 'product' ? 'nid' : 'pcid'} = $id;
+  $result = drupal_write_record(trim($sql['opt_table'], '{}'), $option, $key);
+
+  return $result;
+}
+
+/**
+ * Deletes a product/class attribute option.
+ *
+ * @param $oid
+ *   The base attribute's option ID.
+ * @param $type
+ *   Is this a product or a class?
+ * @param $id
+ *   The product/class ID.
+ *
+ * @return
+ *   The Drupal SAVED_DELETED flag.
+ */
+function uc_attribute_subject_option_delete($oid, $type, $id = NULL, $adjustments = TRUE) {
+  $sql = uc_attribute_type_info($type);
+
+  // Base conditions, and an ID check if necessary.
+  $conditions[] = "oid = %d";
+  if ($id) {
+    $conditions[] = "{$sql['id']} = {$sql['placeholder']}";
+  }
+  $conditions = implode(" AND ", $conditions);
+
+  // Delete the option.
+  db_query("DELETE FROM {$sql['opt_table']} WHERE $conditions", $oid, $id);
+
+  // If this is a product, clean up the associated adjustments.
+  if ($adjustments && $type == 'product') {
+    uc_attribute_adjustments_delete(array(
+      'aid' => uc_attribute_option_load($oid)->aid,
+      'oid' => $oid,
+      'nid' => $id,
+    ));
+  }
+
+  return SAVED_DELETED;
+}
+
+/**
+ * Deletes an attribute adjustment.
+ *
+ * @param $fields
+ *   Fields used to build a condition to delete adjustments against. Fields
+ *   currently handled are 'aid', 'oid', and 'nid'.
+ *
+ * @return
+ *   The Drupal SAVED_DELETED flag.
+ */
+function uc_attribute_adjustments_delete($fields) {
+
+  // Build the serialized string to match against adjustments.
+  $match = '';
+  if (!empty($fields['aid'])) {
+    $match .= serialize((integer) $fields['aid']);
+  }
+  if (!empty($fields['oid'])) {
+    $match .= serialize((string) $fields['oid']);
+  }
+
+  // Assemble the conditions and args for the SQL.
+  $args = $conditions = array();
+
+  // If we have to match aid or oid...
+  if ($match) {
+    $conditions[] = "combination LIKE '%%%s%%'";
+    $args[] = $match;
+  }
+
+  // If we've got a node ID to match.
+  if (!empty($fields['nid'])) {
+    $conditions[] = "nid = %d";
+    $args[] = $fields['nid'];
+  }
+  $conditions = implode(" AND ", $conditions);
+
+  // Delete what's necessary,
+  if ($conditions) {
+    db_query("DELETE FROM {uc_product_adjustments} WHERE $conditions", $args);
+  }
+
+  return SAVED_DELETED;
+}
+
+/**
+ * Checks if a product/class attribute exists.
+ *
+ * @param $aid
+ *   The base attribute ID.
+ * @param $id
+ *   The product/class attribute's ID.
+ * @param $type
+ *   Is this a product or a class?
+ *
+ * @return
+ *   TRUE if the attribute exists.
+ */
+function uc_attribute_subject_exists($aid, $type, $id) {
+  $sql = uc_attribute_type_info($type);
+  return FALSE !== db_result(db_query("SELECT aid FROM {$sql['attr_table']} WHERE aid = %d AND {$sql['id']} = {$sql['placeholder']}", $aid, $id));
+}
+
+/**
+ * Checks if a product/class attribute option exists.
+ *
+ * @param $oid
+ *   The base attribute option ID.
+ * @param $id
+ *   The product/class attribute option's ID.
+ * @param $type
+ *   Is this a product or a class?
+ *
+ * @return
+ *   TRUE if the attribute option exists.
+ */
+function uc_attribute_subject_option_exists($oid, $type, $id) {
+  $sql = uc_attribute_type_info($type);
+  return FALSE !== db_result(db_query("SELECT oid FROM {$sql['opt_table']} WHERE oid = %d AND {$sql['id']} = {$sql['placeholder']}", $oid, $id));
+}
+
+/**
+ * Returns a list of names to abstract queries between products and classes.
+ *
+ * @param $type
+ *   Is this a product or a class?
+ *
+ * @return
+ *   Array of information helpful for creating SQL queries dealing
+ *   with attributes.
+ */
+function uc_attribute_type_info($type) {
+  switch ($type) {
+    case 'product':
+      return array(
+        'attr_table' => '{uc_product_attributes}',
+        'opt_table' => '{uc_product_options}',
+        'id' => 'nid',
+        'placeholder' => '%d',
+      );
+    break;
+
+    case 'class':
+      return array(
+        'attr_table' => '{uc_class_attributes}',
+        'opt_table' => '{uc_class_attribute_options}',
+        'id' => 'pcid',
+        'placeholder' => "'%s'",
+      );
+    break;
+  }
+}
+
+/**
+ * Loads all attributes associated with a product node.
+ */
+function uc_product_get_attributes($nid) {
+  $attributes = array();
+
+  $result = db_query("SELECT upa.aid FROM {uc_product_attributes} AS upa LEFT JOIN {uc_attributes} AS ua ON upa.aid = ua.aid WHERE upa.nid = %d ORDER BY upa.ordering, ua.name", $nid);
+  while ($attribute = db_fetch_object($result)) {
+    $attributes[$attribute->aid] = uc_attribute_load($attribute->aid, $nid, 'product');
+  }
+
+  return $attributes;
+}
+
+/**
+ * Loads all attributes associated with a product class.
+ */
+function uc_class_get_attributes($pcid) {
+  $attributes = array();
+
+  $result = db_query("SELECT uca.aid FROM {uc_class_attributes} AS uca LEFT JOIN {uc_attributes} AS ua ON uca.aid = ua.aid WHERE uca.pcid = '%s' ORDER BY uca.ordering, ua.name", $pcid);
+  while ($attribute = db_fetch_object($result)) {
+    $attributes[$attribute->aid] = uc_attribute_load($attribute->aid, $pcid, 'class');
+  }
+
+  return $attributes;
+}
+
+/**
+ * Gets the options chosen for a product that is in the cart.
+ *
+ * @param $item
+ *   An element of the array returned by uc_cart_get_contents.
+ *
+ * @return
+ *   Array of options chosen by a customer, indexed by attribute ids. Each
+ *   element stores the attribute name and the option object chosen.
+ */
+function _uc_cart_product_get_options($item) {
+  $options = array();
+  $data = $item->data;
+  $node = node_load($item->nid);
+
+  $index = 0;
+  if (!empty($data['attributes']) && is_array($data['attributes'])) {
+    foreach ($data['attributes'] as $aid => $selected) {
+      if (isset($node->attributes[$aid])) {
+        $attribute = $node->attributes[$aid];
+        $name = _uc_attribute_get_name($attribute);
+        // Only discrete options can affect the price of an item.
+        if ($attribute->display && count($attribute->options)) {
+          // There may be many selected options, or just one.
+          foreach ((array)$selected as $oid) {
+            if ($oid > 0) {
+              $options[$index] = (array)$attribute->options[$oid];
+              $options[$index]['attribute'] = $name;
+              $index++;
+            }
+          }
+        }
+        else {
+          // Handle textfield attributes.
+          $options[$index] = array(
+            'attribute' => $name,
+            'aid' => $aid,
+            'oid' => 0,
+            'name' => $selected,
+            'cost' => 0,
+            'price' => 0,
+            'weight' => 0,
+          );
+        }
+        $index++;
+      }
+    }
+  }
+  else {
+    $options = array();
+  }
+  return $options;
+}
+
+/**
+ * Helper function for uc_attribute_form_alter().
+ *
+ * @see theme_uc_attribute_add_to_cart()
+ */
+function _uc_attribute_alter_form($product) {
+  // If the product doesn't have attributes, return the form as it is.
+  if (!isset($product->attributes)) {
+    $product->attributes = uc_product_get_attributes($product->nid);
+  }
+  if (!is_array($product->attributes) || empty($product->attributes)) {
+    return NULL;
+  }
+
+  $nid = $product->nid;
+
+  // Load all product attributes for the given nid.
+  $priced_attributes = uc_attribute_priced_attributes($nid);
+  $attributes = $product->attributes;
+
+  $form_attributes = array();
+
+  $context = array(
+    'revision' => 'formatted',
+  );
+
+  // Loop through each product attribute and generate its form element.
+  foreach ($attributes as $attribute) {
+    $context['subject']['attribute'] = $attribute;
+    // Build the attribute's options array.
+    $options = array();
+    foreach ($attribute->options as $option) {
+      $context['subject']['option'] = $option;
+      $display_price = '';
+      if (in_array($attribute->aid, $priced_attributes)) {
+        switch (variable_get('uc_attribute_option_price_format', 'adjustment')) {
+          case 'total':
+            $context['type'] = 'product';
+            $context['subject']['node'] = $product;
+            if (count($priced_attributes) == 1 && $attribute->display != 3) {
+              $display_price = uc_price($product->sell_price + $option->price, $context);
+              break;
+            }
+          case 'adjustment':
+            $context['type'] = 'attribute_option';
+            if ($option->price != 0) {
+              $display_price = $option->price > 0 ? '+' : '-';
+              $display_price .= uc_price(abs($option->price), $context);
+            }
+            break;
+        }
+      }
+
+      // Select options are check_plain()ed, but radio button labels are not.
+      $options[$option->oid] = theme('uc_attribute_option',
+        $attribute->display == 2 ? check_plain($option->name) : $option->name,
+        $display_price
+      );
+    }
+
+    if (count($attribute->options) && $attribute->display > 0) {
+      if ($attribute->required) {
+        if ($attribute->display == 1) {
+          $options = array('' => t('Please select')) + $options;
+        }
+        $attribute->default_option = '';
+      }
+      $attr_type = '';
+      switch ($attribute->display) {
+        case 1:
+          $attr_type = 'select';
+          break;
+        case 2:
+          $attr_type = 'radios';
+          break;
+        case 3:
+          $attr_type = 'checkboxes';
+          break;
+      }
+      $form_attributes[$attribute->aid] = array(
+        '#type' => $attr_type,
+        '#description' => check_markup($attribute->description),
+        '#default_value' => ($attr_type == "checkboxes" ? array() : $attribute->default_option),
+        '#options' => $options,
+        '#required' => $attribute->required,
+      );
+    }
+    else {
+      $form_attributes[$attribute->aid] = array(
+        '#type' => 'textfield',
+        '#description' => check_markup($attribute->description),
+        '#default_value' => '',
+        '#required' => $attribute->required,
+      );
+      if (!$attribute->required && isset($attribute->options[$attribute->default_option])) {
+        $form_attributes[$attribute->aid]['#default_value'] = $attribute->options[$attribute->default_option]->name;
+      }
+    }
+
+    $name = _uc_attribute_get_name($attribute, FALSE);
+    if (!is_null($name)) {
+      $form_attributes[$attribute->aid]['#title'] = check_plain($name);
+    }
+
+    $form_attributes['#theme'] = 'uc_attribute_add_to_cart';
+  }
+  return $form_attributes;
+}
+
+/**
+ * Returns an array of display types used as options when creating attributes.
+ */
+function _uc_attribute_display_types() {
+  return array(
+    0 => t('Text field'),
+    1 => t('Select box'),
+    2 => t('Radio buttons'),
+    3 => t('Checkboxes'),
+  );
+}
+
+/**
+ * Gets the price affecting attributes for a product.
+ *
+ * @param $nid
+ *   The nid of a product.
+ *
+ * @return
+ *   Array of attribute ids that have price affecting options.
+ */
+function uc_attribute_priced_attributes($nid) {
+  $attributes = db_query("SELECT DISTINCT (pa.aid) FROM {uc_product_attributes} AS pa INNER JOIN {uc_attribute_options} AS ao ON ao.aid = pa.aid INNER JOIN {uc_product_options} AS po ON (po.oid = ao.oid AND po.nid = pa.nid) WHERE pa.nid = %d AND po.price <> 0 AND pa.display <> 0", $nid);
+  $aids = array();
+  while ($attribute = db_fetch_array($attributes)) {
+    $aids[] = $attribute['aid'];
+  }
+  return $aids;
+}
+
+/**
+ * Displays an attribute option with an optional total or adjustment price.
+ *
+ * @param $option
+ *   The option name.
+ * @param $price
+ *   The price total or adjustment, if any.
+ *
+ * @see _uc_attribute_alter_form()
+ * @ingroup themeable
+ */
+function theme_uc_attribute_option($option, $price) {
+  $output = $option;
+  if ($price) {
+    $output .= ', ' . $price;
+  }
+  return $output;
+}
+
+/**
+ * Displays the attribute selection form elements.
+ *
+ * @see _uc_attribute_alter_form()
+ * @ingroup themeable
+ */
+function theme_uc_attribute_add_to_cart($form) {
+  $output = '<div class="attributes">';
+  $stripes = array('even' => 'odd', 'odd' => 'even');
+  $parity = 'even';
+  foreach (element_children($form) as $aid) {
+    $parity = $stripes[$parity];
+    $classes = array('attribute', 'attribute-'. $aid, $parity);
+    $output .= '<div class="'. implode(' ', $classes) .'">';
+    $output .= drupal_render($form[$aid]);
+    $output .= '</div>';
+  }
+
+  $output .= drupal_render($form) .'</div>';
+
+  return $output;
+}
+
+/**
+ * Returns the attribute name to display.
+ *
+ * An attribute with a label set returns that label except when set to
+ * '<none>'. In this case, a NULL is returned. The $title argument forces the
+ * function to return the name property instead of label when label is set to
+ * '<none>'.
+ *
+ * The NULL return value is typically used by forms so they know to hide the
+ * #title property of the element.
+ *
+ * @param $attribute
+ *   Attribute object.
+ * @param $title
+ *   TRUE indicates the function is to return the attribute name when its label
+ *   is set to '<none>'.
+ *
+ * @return
+ *   When the attribute label is set and not '<none>', it is returned.
+ *   Otherwise, the attribute name is returned when $title is TRUE and NULL is
+ *   returned when $title is FALSE.
+ */
+function _uc_attribute_get_name($attribute, $title = TRUE) {
+  if (!$title && $attribute->label == '<none>') {
+    return NULL;
+  }
+  else {
+    return (empty($attribute->label) || ($attribute->label == '<none>' && $title) ? $attribute->name : $attribute->label);
+  }
+}

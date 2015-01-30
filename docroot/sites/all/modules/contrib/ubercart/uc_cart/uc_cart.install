@@ -1,0 +1,209 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for uc_cart.module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_cart_schema() {
+  $schema = array();
+
+  $schema['uc_cart_products'] = array(
+    'description' => 'Stores products placed in shopping carts.',
+    'fields' => array(
+      'cart_item_id' => array(
+        'description' => 'Unique identifier for cart item.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+
+      'cart_id' => array(
+        'description' => 'A user-specific cart ID. For authenticated users, their {users}.uid. For anonymous users, a token.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '0',
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid of the product.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'qty' => array(
+        'description' => 'The number of this product in the cart.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp indicating the time the product in the cart was changed.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'data' => array(
+        'description' => 'A serialized array of extra cart data for the product.',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'cart_id' => array('cart_id'),
+    ),
+    'primary key' => array('cart_item_id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_cart_install() {
+  drupal_install_schema('uc_cart');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_cart_uninstall() {
+  drupal_uninstall_schema('uc_cart');
+
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_cart_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_pane_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_cap_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_checkout_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_msg_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_new_customer_%%'");
+
+  variable_del('uc_minimum_subtotal');
+  variable_del('uc_add_item_redirect');
+  variable_del('uc_continue_shopping_url');
+  variable_del('uc_continue_shopping_text');
+  variable_del('uc_continue_shopping_type');
+  variable_del('uc_use_next_buttons');
+  variable_del('uc_collapse_current_pane');
+
+  variable_del('uc_ce_no_cancel');
+  variable_del('uc_ce_submit_disable');
+}
+
+/**
+ * Standardize database definitions during upgrade to Drupal 6.
+ *
+ * ID fields are unsigned, regular-sized ints. "Boolean" flags are unsigned
+ * tiny ints. Postgres tables will have the necessary default values, and MySQL
+ * doesn't need them, so the schema can just be mismatched for that.
+ */
+function uc_cart_update_6000() {
+  $ret = array();
+
+  db_change_field($ret, 'uc_cart_products', 'nid', 'nid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_change_field($ret, 'uc_cart_products', 'qty', 'qty', array('type' => 'int', 'unsigned' => TRUE, 'size' => 'small', 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+/**
+ * Remove unused variables.
+ */
+function uc_cart_update_6001() {
+  variable_del('uc_checkout_review_button');
+  variable_del('uc_checkout_submit_button');
+  variable_del('uc_checkout_next_button');
+
+  return array();
+}
+
+/**
+ * Increase width of cart id to 255.
+ */
+function uc_cart_update_6002() {
+  $ret = array();
+
+  db_change_field($ret, 'uc_cart_products', 'cart_id', 'cart_id', array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+/**
+ * Add an autoincrement primary key to the uc_cart_products table
+ */
+function uc_cart_update_6200() {
+  $ret = array();
+
+  db_add_field($ret, 'uc_cart_products', 'cart_item_id', array(
+        'description' => 'Unique identifier for cart item.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+    array('primary key' => array('cart_item_id'),)
+  );
+
+  return $ret;
+}
+
+/**
+ * Add index to uc_cart_products.cart_id.
+ */
+function uc_cart_update_6201() {
+  $ret = array();
+
+  db_add_index($ret, 'uc_cart_products', 'cart_id', array('cart_id'));
+
+  // Remove unnecessary error message that would occur for new installs.
+  $mysql_error = check_plain("Duplicate key name 'cart_id'");
+  $pg_error = check_plain('relation "uc_cart_products_cart_id_idx" already exists');
+  $pg_error2 = check_plain('query: CREATE INDEX uc_cart_products_cart_id_idx ON uc_cart_products (cart_id)');
+  $errors = $_SESSION['messages']['error'];
+  $total = count($errors);
+  for ($i = 0; $i < $total; $i++) {
+    if (strpos($errors[$i], $mysql_error) || strpos($errors[$i], $pg_error) || strpos($errors[$i], $pg_error2)) {
+      unset($_SESSION['messages']['error'][$i]);
+      $ret[0]['success'] = TRUE;
+    }
+  }
+  if (empty($_SESSION['messages']['error'])) {
+    unset($_SESSION['messages']['error']);
+  }
+
+  return $ret;
+}
+
+/**
+ * Unify cart block title setting.
+ */
+function uc_cart_update_6202() {
+  $ret = array();
+
+  if ($title = variable_get('uc_cart_block_title', '')) {
+    $ret[] = update_sql("UPDATE {blocks} SET title = '" . db_escape_string($title) . "' WHERE module = 'uc_cart' AND delta = '0'");
+  }
+
+  variable_del('uc_cart_block_title');
+
+  return $ret;
+}
+
+/**
+ * Increase maximum cart item quantity.
+ */
+function uc_cart_update_6203() {
+  $ret = array();
+
+  db_change_field($ret, 'uc_cart_products', 'qty', 'qty', array(
+    'description' => 'The number of this product in the cart.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+   ));
+
+  return $ret;
+}

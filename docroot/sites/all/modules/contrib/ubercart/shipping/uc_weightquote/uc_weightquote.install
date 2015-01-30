@@ -1,0 +1,245 @@
+<?php
+
+/**
+ * @file
+ * Install modules for uc_weightquote.module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_weightquote_schema() {
+  $schema = array();
+
+  $schema['uc_weightquote_products'] = array(
+    'description' => 'Stores product information about weight-based shipping quotes.',
+    'fields' => array(
+      'vid' => array(
+        'description' => 'The {uc_products}.vid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'nid' => array(
+        'description' => 'The {uc_products}.nid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'mid' => array(
+        'description' => 'The {uc_weightquote_methods}.mid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'rate' => array(
+        'description' => 'The rate multiplier, in the store default currency per the store default weight unit.',
+        'type' => 'numeric',
+        'precision' => 16,
+        'scale' => 5,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('vid', 'mid'),
+  );
+
+  $schema['uc_weightquote_methods'] = array(
+    'description' => 'Stores weight-based shipping quote methods information.',
+    'fields' => array(
+      'mid' => array(
+        'description' => 'The shipping quote method ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => 'The method title, displayed on administration pages.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'label' => array(
+        'description' => 'The user-facing label of the shipping method.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'base_rate' => array(
+        'description' => 'The amount of shipping cost before product weight is applied.',
+        'type' => 'numeric',
+        'precision' => 16,
+        'scale' => 5,
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'product_rate' => array(
+        'description' => 'The default rate multiplier in the store default currency per store default weight unit.',
+        'type' => 'numeric',
+        'precision' => 16,
+        'scale' => 5,
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+    ),
+    'primary key' => array('mid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_weightquote_install() {
+  drupal_install_schema('uc_weightquote');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_weightquote_uninstall() {
+  drupal_uninstall_schema('uc_weightquote');
+
+  variable_del('uc_weightquote_base_rate');
+  variable_del('uc_weightquote_product_default');
+}
+
+function uc_weightquote_update_1() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} ADD COLUMN vid mediumint(9) unsigned NOT NULL default 0 FIRST");
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} DROP INDEX nid");
+      $result = db_query("SELECT nid, vid FROM {node}");
+      while ($product = db_fetch_object($result)) {
+        db_query("UPDATE {uc_weightquote_products} SET vid = %d WHERE nid = %d", $product->vid, $product->nid);
+      }
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} ADD PRIMARY KEY (vid)");
+    break;
+    case 'pgsql':
+      db_add_column($ret, 'uc_weightquote_products', 'vid', 'integer unsigned', array('not null' => TRUE, 'default' => 0));
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} DROP CONSTRAINT {uc_weightquote_products}_nid_key");
+      $result = db_query("SELECT nid, vid FROM {node}");
+      while ($product = db_fetch_object($result)) {
+        db_query("UPDATE {uc_weightquote_products} SET vid = %d WHERE nid = %d", $product->vid, $product->nid);
+      }
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} ADD PRIMARY KEY (vid)");
+    break;
+  }
+  return $ret;
+}
+
+function uc_weightquote_update_2() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_change_column($ret, 'uc_weightquote_products', 'vid', 'vid', 'int_unsigned', array('not null' => TRUE, 'default' => 0));
+      db_change_column($ret, 'uc_weightquote_products', 'nid', 'nid', 'int_unsigned', array('not null' => TRUE, 'default' => 0));
+    break;
+  }
+  return $ret;
+}
+
+function uc_weightquote_update_6000() {
+  $ret = array();
+
+  db_drop_primary_key($ret, 'uc_weightquote_products');
+  db_change_field($ret, 'uc_weightquote_products', 'vid', 'vid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0), array('primary key' => array('vid')));
+  db_change_field($ret, 'uc_weightquote_products', 'nid', 'nid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+
+  return $ret;
+}
+
+function uc_weightquote_update_6001() {
+  $ret = array();
+
+  db_change_field($ret, 'uc_weightquote_products', 'rate', 'rate', array('type' => 'numeric', 'precision' => 15, 'scale' => 3, 'not null' => FALSE));
+  db_drop_primary_key($ret, 'uc_weightquote_products');
+  db_add_field($ret, 'uc_weightquote_products', 'mid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0), array('primary key' => array('vid', 'mid')));
+  db_create_table($ret, 'uc_weightquote_methods', array(
+    'fields' => array(
+      'mid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'label' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'base_rate' => array(
+        'type' => 'numeric',
+        'precision' => 15,
+        'scale' => 3,
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'product_rate' => array(
+        'type' => 'numeric',
+        'precision' => 15,
+        'scale' => 3,
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+    ),
+    'primary key' => array('mid'),
+  ));
+
+  $enabled = variable_get('uc_quote_enabled', array());
+  $weight = variable_get('uc_quote_method_weight', array());
+  $base_rate = variable_get('uc_weightquote_base_rate', 0);
+  $product_rate = variable_get('uc_weightquote_product_default', 0);
+  $ret[] = update_sql("INSERT INTO {uc_weightquote_methods} (title, label, base_rate, product_rate) VALUES ('". t('Weight rate per product') ."', '". t('Shipping') ."', ". $base_rate .", ". $product_rate .")");
+  $mid = db_last_insert_id('uc_weightquote_methods', 'mid');
+  $ret[] = update_sql("UPDATE {uc_weightquote_products} SET mid = ". $mid);
+  if (isset($enabled['weightquote'])) {
+    $enabled['weightquote_'. $mid] = $enabled['weightquote'];
+  }
+  if (isset($weight['weightquote'])) {
+    $weight['weightquote_'. $mid] = $weight['weightquote'];
+  }
+  unset($enabled['weightquote'], $weight['weightquote']);
+
+  variable_set('uc_quote_enabled', $enabled);
+  variable_set('uc_quote_method_weight', $weight);
+
+  variable_del('uc_weightquote_base_rate');
+  variable_del('uc_weightquote_product_default');
+
+  if (db_table_exists('ca_predicates') && $predicate = db_fetch_object(db_query("SELECT ca_trigger, actions FROM {ca_predicates} WHERE pid = '%s'", 'uc_weightquote_get_quote'))) {
+    $predicate->pid = 'uc_weightquote_get_quote_'. $mid;
+    $predicate->actions = unserialize($predicate->actions);
+    $predicate->ca_trigger = 'get_quote_from_weightquote_'. $mid;
+    $result = db_query("UPDATE {ca_predicates} SET pid = '%s', ca_trigger = '%s', actions = '%s' WHERE pid = 'uc_weightquote_get_quote'", $predicate->pid, $predicate->ca_trigger, serialize($predicate->actions));
+    $ret[] = array('success' => TRUE, 'query' => check_plain("UPDATE {ca_predicates} SET pid = '". $predicate->pid ."', ca_trigger = '". $predicate->ca_trigger ."', actions = '". serialize($predicate->actions) ."' WHERE pid = 'uc_weightquote_get_quote'"));
+  }
+
+  return $ret;
+}
+
+/**
+ * Change currency fields to numeric(16, 5).
+ */
+function uc_weightquote_update_6002() {
+  $ret = array();
+
+  db_change_field($ret, 'uc_weightquote_products', 'rate', 'rate', array('type' => 'numeric', 'precision' => 16, 'scale' => 5, 'not null' => FALSE));
+  db_change_field($ret, 'uc_weightquote_methods', 'base_rate', 'base_rate', array('type' => 'numeric', 'precision' => 16, 'scale' => 5, 'not null' => FALSE));
+  db_change_field($ret, 'uc_weightquote_methods', 'product_rate', 'product_rate', array('type' => 'numeric', 'precision' => 16, 'scale' => 5, 'not null' => FALSE));
+
+  return $ret;
+}

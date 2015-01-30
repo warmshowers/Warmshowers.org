@@ -1,0 +1,393 @@
+<?php
+
+/**
+ * @file
+ * Displays reports on sales, customers, and products to store admin
+ *
+ * The reports module creates a few table-based reports for an Ubercart store.
+ * Store admins can view reports for sales between different dates, customers
+ * by the products purchased and money spent, and products by their views,
+ * number sold, and revenue produced.
+ */
+
+/**
+ * The maximum number of records.
+ */
+define('UC_REPORTS_MAX_RECORDS', PHP_INT_MAX);
+
+/*******************************************************************************
+ *  Hook Functions (Drupal)                                                    *
+ ******************************************************************************/
+
+/**
+ * Implements hook_help().
+ */
+function uc_reports_help($path, $arg) {
+  $output =  '';
+
+  if (strncmp($path, 'admin/store/reports/', 20) === 0) {
+    $include_statuses = $include_offset = FALSE;
+
+    // Include order status info?
+    if (strpos($path, 'admin/store/reports/sales/year') === 0) {
+      $include_statuses = TRUE;
+    }
+    else {
+      switch ($path) {
+        case 'admin/store/reports/customers':
+        case 'admin/store/reports/products':
+        case 'admin/store/reports/sales':
+          $include_statuses = TRUE;
+          break;
+      }
+    }
+
+    // Include timezone offset info?
+    if (!strncmp($path, 'admin/store/reports/sales', 25)) {
+      $include_offset = TRUE;
+    }
+
+    // Generate message for the path we're at.
+    $output .= '<p>';
+    switch ($path) {
+      case 'admin/store/reports/customers':
+        $output .= t("The following are total orders, products, sales, and average order totals for each store customer. Clicking on the header links will toggle a descending or ascending order for that column. Clicking on a customer's name will take you to a detailed list of orders that customer has made. Clicking on a customers username will take you to their account page.");
+        break;
+      case 'admin/store/reports/products':
+        $output .= t('The table lists each product listed in the store, its amount sold, how many times it has been viewed, revenue it has produced, and gross profit it has generated. If you do not see the number of views you must enable the Statistics module on the <a href="!url">module administration page</a>.', array('!url' => url('admin/build/modules')));
+        break;
+      case 'admin/store/reports/sales':
+        $output .= t('These are the sales for the last two days, average sales for the month, and the projected sales for the rest of the month. Further down the list you will see other sales statistics.');
+        break;
+      case 'admin/store/reports/sales/custom':
+        $output .= t('Expand the fieldset below to customize the date range of this report, the statuses of orders displayed, and product display options.');
+        break;
+    }
+    if (strpos($path, 'admin/store/reports/sales/year') === 0) {
+      $year = $arg[5] ? $arg[5] : format_date(time(), 'custom', "Y");
+      $output .= t('This is the monthly break down of sales for the year @year. Clicking on each link will take you to a list of orders during that month.', array('@year' => $year));
+    }
+    $output .= '</p>';
+
+    // Include the statuses/offset as needed.
+    if ($include_offset) {
+      $output .= "<p>". t('All sales reports are <b>GMT !offset</b> (Default site timezone)', array('!offset' => sprintf('%+05d', variable_get('date_default_timezone', 0) / 36))) ."</p>";
+    }
+    if ($include_statuses) {
+      $statuses = array();
+      foreach (variable_get('uc_reports_reported_statuses', array('completed')) as $status) {
+        $statuses[] = db_result(db_query("SELECT title FROM {uc_order_statuses} WHERE order_status_id = '%s'", $status));
+      }
+      $order_statuses = t('<b>Order statuses used:</b> @statuses', array('@statuses' => implode(', ', $statuses)));
+
+      $output .= "<p>$order_statuses</p>";
+    }
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_reports_menu() {
+  global $user;
+  $items = array();
+
+  $items['admin/store/settings/reports'] = array(
+    'title' => 'Report settings',
+    'description' => 'View the report settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_reports_settings_form'),
+    'access arguments' => array('administer store'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/customers'] = array(
+    'title' => 'Customer reports',
+    'description' => 'View reports for store customers.',
+    'page callback' => 'uc_reports_customers',
+    'access arguments' => array('view reports'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/products'] = array(
+    'title' => 'Product reports',
+    'description' => 'View reports for store products.',
+    'page callback' => 'uc_reports_products',
+    'access arguments' => array('view reports'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/products/summary'] = array(
+    'title' => 'Product report',
+    'access arguments' => array('view reports'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/products/custom'] = array(
+    'title' => 'Custom product report',
+    'description' => 'View a customized product report',
+    'page callback' => 'uc_reports_products_custom',
+    'access arguments' => array('view reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -5,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales'] = array(
+    'title' => 'Sales reports',
+    'description' => 'View reports for store sales.',
+    'page callback' => 'uc_reports_sales_summary',
+    'access arguments' => array('view reports'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales/summary'] = array(
+    'title' => 'Sales summary',
+    'description' => 'View summary of all store sales',
+    'access arguments' => array('view reports'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/store/reports/sales/year'] = array(
+    'title' => 'Sales per year',
+    'description' => 'View store sales for a particular year',
+    'page callback' => 'uc_reports_sales_year',
+    'access arguments' => array('view reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -7,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales/custom'] = array(
+    'title' => 'Custom sales summary',
+    'description' => 'View a customized sales summary',
+    'page callback' => 'uc_reports_sales_custom',
+    'access arguments' => array('view reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -1,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/getcsv/%/%'] = array(
+    'page callback' => '_uc_reports_get_csv',
+    'page arguments' => array(4, 5),
+    'access arguments' => array('view reports'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_reports_theme() {
+  return array(
+    'uc_reports_product_table' => array(
+      'arguments' => array('header' => NULL, 'rows' => NULL, 'attributes' => array(), 'caption' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function uc_reports_init() {
+  if (arg(0) == 'admin' && arg(1) == 'store' && arg(2) == 'reports') {
+    drupal_add_css(drupal_get_path('module', 'uc_reports') .'/uc_reports.css');
+  }
+}
+
+/**
+ * Implements hook_perm().
+ */
+function uc_reports_perm() {
+  return array('view reports');
+}
+
+/******************************************************************************
+ * Module and Helper Functions                                                *
+ ******************************************************************************/
+
+/**
+ * Stores a CSV file for a report in Drupal's cache to be retrieved later.
+ *
+ * @param $report_id
+ *   A unique string that identifies the report of the CSV file
+ * @param $rows
+ *   The rows (table header included) that make CSV file
+ *
+ * @return
+ *   An array containing the values need to build URL that return the CSV file
+ *   of the report and the CSV data itself
+ */
+function uc_reports_store_csv($report_id, $rows) {
+  global $user;
+  $csv_output = '';
+  $user_id = (empty($user->uid)) ? session_id() : $user->uid;
+  foreach ($rows as $row) {
+    foreach ($row as $index => $column) {
+      $row[$index] = '"'. str_replace('"', '""', $column) .'"';
+    }
+    $csv_output .= implode(',', $row) ."\n";
+  }
+  cache_set('uc_reports_'. $report_id .'_'. $user_id, $csv_output, 'cache', time() + 86400);
+  return array('user' => $user_id, 'report' => $report_id, 'csv' => $csv_output);
+}
+
+/**
+ * Retrieves a cached CSV report & send its data.
+ *
+ * @param $report_id
+ *   A unique string that identifies the specific report CSV to retrieve
+ * @param $user_id
+ *   The user id to who's retrieving the report
+ *   - (Equals uid for authenticated users)
+ *   - (Equals session_id for anonymous users)
+ */
+function _uc_reports_get_csv($report_id, $user_id) {
+  global $user;
+  $user_check = (empty($user->uid)) ? session_id() : $user->uid;
+  $csv_data = cache_get('uc_reports_'. $report_id .'_'. $user_id, 'cache');
+
+  if (!$csv_data || $user_id != $user_check) {
+    drupal_set_message(t("The CSV data could not be retrieved. It's possible the data might have expired. Refresh the report page and try to retrieve the CSV file again."), 'error');
+    drupal_not_found();
+    exit();
+  }
+  else {
+    ob_end_clean();
+    $http_headers = array(
+      'Pragma: private',
+      'Expires: 0',
+      'Cache-Control: private, must-revalidate',
+      'Content-Transfer-Encoding: binary',
+      'Content-Length:'. strlen($csv_data->data),
+      'Content-Disposition: attachment; filename="'. $report_id .'.csv"',
+      'Content-Type: text/csv'
+    );
+    foreach ($http_headers as $header) {
+      $header = preg_replace('/\r?\n(?!\t| )/', '', $header);
+      drupal_set_header($header);
+    }
+
+    print $csv_data->data;
+    exit();
+  }
+}
+
+/**
+ * Returns sales that occurred in a given time period.
+ *
+ * @param $time
+ *   A UNIX time stamp representing the time in which to get sales data
+ * @param $period
+ *   The amount of time over which to count sales (e.g. [1] day, month, year)
+ *
+ * @return
+ *   An associative array containing information about sales:
+ *   - "date" => A string representing the day counting was started
+ *   - "income" => The total revenue that occurred during the time period
+ *   - "total" => The total number of orders completed during the time period
+ *   - "average" => The average revenue produced for each order
+ */
+function _uc_reports_get_sales($time, $period = 'day') {
+  $timezone = _uc_reports_timezone_offset();
+
+  // Get the current date markers.
+  $date = array(
+    'day' => format_date($time, 'custom', 'j', $timezone),
+    'month' => format_date($time, 'custom', 'n', $timezone),
+    'year' => format_date($time, 'custom', 'Y', $timezone),
+  );
+
+  // Add one to the granularity chosen, and use it to calc the new time.
+  $date[$period] += 1;
+  $new_time = gmmktime(0, 0, 0, $date['month'], $date['day'], $date['year']) - $timezone;
+
+  // Set up the default SQL for getting orders with the proper status
+  // within this period.
+  $order_statuses = _uc_reports_order_statuses();
+  $sql_frag = " FROM {uc_orders} as o WHERE o.order_status IN $order_statuses AND created >= $time and created < $new_time";
+
+  // Get the total value of the orders.
+  $output = array('income' => 0);
+  $orders = db_query("SELECT o.order_total ". $sql_frag);
+  while ($order = db_fetch_object($orders)) {
+    $output['income'] += $order->order_total;
+  }
+
+  // Get the total amount of orders.
+  $count = db_result(db_query("SELECT COUNT(o.order_total) ". $sql_frag));
+  $output['total'] = $count;
+
+  // Average for this period.
+  $output['average'] = ($count != 0) ? round($output['income'] / $count, 2) : 0;
+
+  return $output;
+}
+
+/**
+ * Returns a SQL friendly array of order statuses for orders used in reports.
+ */
+function _uc_reports_order_statuses() {
+  $statuses = variable_get('uc_reports_reported_statuses', array('completed'));
+
+  return "('". implode("', '", $statuses) ."')";
+}
+
+/**
+ * Returns the sitewide timezone offset for use in reports.
+ */
+function _uc_reports_timezone_offset() {
+  return variable_get('date_default_timezone', 0);
+}
+
+/**
+ * Returns a list of timespans for subreports over that report's time span.
+ *
+ * To be used with a given time span for a report and specified interval for
+ * subreports.
+ *
+ * @param $start
+ *   A UNIX time stamp representing the time to start the report.
+ * @param $end
+ *   A UNIX time stamp representing the time to end the report.
+ * @param $granularity
+ *   Text representing the amount of time for the subreport (e.g. 'day', 'week')
+ *
+ * @return
+ *   An array of keyed arrays with the following values:
+ *   - "start": The starting point of the sub report
+ *   - "end": The ending point of the sub report
+ */
+function _uc_reports_subreport_intervals($report_start, $report_end, $interval) {
+  $subreports = array();
+
+  for ($start = $report_start, $end = _uc_reports_end_interval($report_start, $interval); $start < $report_end; $start = $end + 1, $end = _uc_reports_end_interval($start, $interval)) {
+    $subreports[] = array(
+      'start' => $start,
+      'end' => $end > $report_end ? $report_end : $end,
+    );
+  }
+
+  return $subreports;
+}
+
+/**
+ * Given a timestamp and a length of time, returns the offset timestamp.
+ *
+ * @param $time
+ *   A UNIX timestamp.
+ * @param $interval
+ *   The text representing the amount of time (e.g. 'day', 'week').
+ *
+ * @return
+ *   The offset UNIX timestamp.
+ */
+function _uc_reports_end_interval($time, $interval = 'month') {
+  if (empty($time)) {
+    $time = time();
+  }
+
+  return strtotime('+1 '. $interval, $time) - 1;
+}

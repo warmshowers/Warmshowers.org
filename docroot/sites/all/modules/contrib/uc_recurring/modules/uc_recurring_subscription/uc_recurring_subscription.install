@@ -1,0 +1,126 @@
+<?php
+
+/**
+ * @file
+ * Installs the Recurring Subscription module.
+ */
+
+/**
+ * Implementation of hook_requirements().
+ */
+function uc_recurring_subscription_requirements($phase) {
+  $requirements = array();
+  // Ensure translations don't break at install time.
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    if (!function_exists('uc_attribute_load_multiple')) {
+      $requirements['uc_recurring_subscription'] = array(
+        'title' => $t('Subscription Manager'),
+        'value' => $t('Need a newer version of Ubercart.'),
+        'severity' => REQUIREMENT_ERROR,
+        'description' => $t('This module requires a newer version of ubercart, read the <a href="@readme">README.txt</a>', array('@readme' => url(drupal_get_path('module', 'uc_recurring_subscription') .'/README.txt'))),
+      );
+    }
+  }
+  return $requirements;
+}
+
+/**
+ * Implementation hook_schema().
+ */
+function uc_recurring_subscription_schema() {
+  $schema = array();
+
+  $schema['uc_recurring_subscription'] = array(
+    'description' => t('Data for recurring fees attached to products.'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('The product ID.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'access' => array(
+        'description' => t('Serialized list of drupal roles that should be applied on this subscription.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'ca' => array(
+        'description' => t('Serialized list of drupal CA events to tie to this subscription.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'weight' => array(
+        'description' => t('The order the product is listed.'),
+        'type' => 'int',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'parent' => array(
+        'description' => t('Allows subscription to inherit roles and notifications.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation hook_install().
+ */
+function uc_recurring_subscription_install() {
+  drupal_install_schema('uc_recurring_subscription');
+}
+
+/**
+ * Implementation hook_uninstall().
+ */
+function uc_recurring_subscription_uninstall() {
+  drupal_uninstall_schema('uc_recurring_subscription');
+
+  variable_del('uc_recurring_subscription_product_class');
+  variable_del('uc_recurring_subscription_attribute');
+}
+
+/**
+ * Implementation hook_enable().
+ */
+function uc_recurring_subscription_enable() {
+  $pcid = 'uc_recurring_subscription';
+
+  if (db_result(db_query("SELECT count(*) FROM {uc_product_classes} WHERE pcid = '%s'", $pcid)) < 1) {
+    db_query("INSERT INTO {uc_product_classes} (pcid, name, description) VALUES ('%s', 'Recurring Subscription', 'A recurring subscription product used by the recurring subscription ui module to manage your subscription products')", $pcid);
+    uc_product_node_info(TRUE);
+    node_types_rebuild();
+    menu_rebuild();
+  }
+  variable_set('node_options_'. $pcid, variable_get('node_options_product', array('status', 'promote')));
+  variable_set('uc_recurring_subscription_product_class', $pcid);
+
+  $attribute = new stdClass();
+  $attribute->name = 'uc_recurring_subscription_payment_options';
+  $attribute->label = 'Payment Option';
+  $attribute->ordering = 0;
+  $attribute->required = 1;
+  $attribute->display = 1;
+  $attribute->description = 'The subscription payment options';
+  uc_attribute_save($attribute);
+  uc_attribute_subject_save($attribute, 'class', 'uc_recurring_subscription');
+  variable_set('uc_recurring_subscription_attribute', $attribute->aid);
+}
+
+/**
+ *
+ */
+function uc_recurring_subscription_update_6000() {
+  $ret = array();
+  db_change_field($ret, 'uc_recurring_subscription', 'roles', 'access', array('type' => 'text', 'serialize' => TRUE));
+  return $ret;
+}
