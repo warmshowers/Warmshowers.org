@@ -14,7 +14,7 @@
             <table width="100%" style="font-family: verdana, arial, helvetica; font-size: small;">
               <tr>
                 <td>
-                  <?php echo $site_logo; ?>
+                  <img src="https://www.warmshowers.org/files/warmshowers_app_logo_smaller.png" alt="" title="" />
                 </td>
                 <td width="98%">
                   <div style="padding-left: 1em;">
