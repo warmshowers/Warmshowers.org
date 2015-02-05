@@ -14,7 +14,7 @@
             <table width="100%" style="font-family: verdana, arial, helvetica; font-size: small;">
               <tr>
                 <td>
-                  <img src="https://www.warmshowers.org/files/warmshowers_app_logo_smaller.png" alt="" title="" />
+                  <img src="<?php print variable_get("warmshowers_zen_logo_link", "https://www.warmshowers.org/files/ws_app_icon_300px.png") ?>" alt="" title="" />
                 </td>
                 <td width="98%">
                   <div style="padding-left: 1em;">
