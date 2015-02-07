@@ -140,6 +140,11 @@ function wsuser_theme() {
       'path' => $template_path,
       'template' => 'wsuser-member-actions-block',
     ),
+    'wsuser_member_donate' => array(
+      'path' => $template_path,
+      'template' => 'wsuser-member-donate-block',
+    ),
+
     'linkbutton' => array(
       'arguments' => array('link' => NULL),
     ),
@@ -1435,6 +1440,10 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
       'info' => t('[wsuser] Member actions block'),
       'cache' => BLOCK_CACHE_PER_USER | BLOCK_CACHE_PER_PAGE,
     );
+    $blocks['wsuser_member_donate'] = array(
+      'info' => t('[wsuser] Member donate block'),
+      'cache' => BLOCK_CACHE_PER_USER | BLOCK_CACHE_PER_PAGE,
+    );
 
     return $blocks;
 	}
@@ -1532,6 +1541,11 @@ function wsuser_block($op = 'list', $delta = 0, $edit = array()) {
         $block['subject'] = t('Actions');
         $block['content'] = theme('wsuser_member_actions');
         return $block;
+      case 'wsuser_member_donate':
+        $block['subject'] = t('Donation Status');
+        $block['content'] = theme('wsuser_member_donate');
+        return $block;
+
     }
 	}
 }
@@ -2193,7 +2207,7 @@ function wsuser_country_change_ahah()
  * @return mixed
  */
 function wsuser_preprocess(&$variables, $key) {
-  if (!in_array($key, array('user_profile', 'wsuser_member_contact_location', 'wsuser_member_actions'))) {
+  if (!in_array($key, array('user_profile', 'wsuser_member_contact_location', 'wsuser_member_actions', 'wsuser_member_donate'))) {
     return;
   }
   list($arg1, $uid) = arg();
@@ -2918,4 +2932,59 @@ function wsuser_user_pass_reset(&$form_state, $uid, $timestamp, $hashed_pass, $a
       drupal_access_denied();
     }
   }
+}
+
+/**
+ * Returns the roles that indicate paid membership
+ *
+ */
+function wsuser_paid_roles() {
+  $paid_roles = variable_get('wsuser_paid_roles_array', array(
+    19 => t('Maintainer'),
+    20 => t('Supporter'),
+    22 => t('Founder'),
+    23 => t('Amazing'),
+  ));
+  return $paid_roles;
+}
+
+/**
+ * Return TRUE if current paid-up member
+ *
+ * @param $account
+ * @return bool
+ */
+function wsuser_is_current_donor_member($account) {
+  $paid_roles = array_intersect(array_keys($account->roles), array_keys(wsuser_paid_roles()));
+  if (!empty($paid_roles)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Return localized name of highest membership role
+ *
+ * @param $account
+ * @return array of role => name
+ */
+function wsuser_highest_donation_level($account) {
+  if (wsuser_is_current_donor_member($account)) {
+    $highest = max(array_intersect(array_keys($account->roles), array_keys(wsuser_paid_roles())));
+    $roles = wsuser_paid_roles();
+    return array($highest => $roles[$highest]);
+  }
+  return FALSE;
+}
+
+/**
+ * Return expiration of stated role
+ *
+ * @param $account
+ * @param $rid
+ * @return bool
+ */
+function wsuser_uc_role_expiration($account, $rid) {
+  $expires = db_result(db_query("SELECT expiration FROM {uc_roles_expirations} WHERE uid=%d AND rid=%d AND expiration > %d", array($account->uid, $rid, time())));
+  return $expires;
 }
