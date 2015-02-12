@@ -2989,3 +2989,60 @@ function wsuser_uc_role_expiration($account, $rid) {
   $expires = db_result(db_query("SELECT expiration FROM {uc_roles_expirations} WHERE uid=%d AND rid=%d AND expiration > %d", array($account->uid, $rid, time())));
   return $expires;
 }
+
+/**
+ * Implements hook_order to catch the payment receipt and update donortools.
+ *
+ * @param $op
+ * @param $order
+ * @param $new_status
+ */
+function wsuser_order($op, $order, $new_status) {
+  if ($op == 'update' && $new_status == 'payment_received' && $order->order_total > 0) {
+    $fund_id = "45650";
+    $donation_type_id = "3838";
+    $source_id = "32597";
+    $account = user_load($order->uid);
+    $order_comment_list = uc_order_comments_load($order->order_id);
+    $amount_in_cents = $order->order_total * 100;
+    $amount_in_cents = "$amount_in_cents";
+    $comments = "";
+    foreach ($order_comment_list as $comment) {
+      $comments .= $comment->message . " ";
+    }
+
+    $comments .= "
+      Additional info:
+      <a href='https://www.warmshowers.org/user/{$order->uid}'>WS user {$account->fullname}</a>
+      <a href='https://www.warmshowers.org/admin/store/orders/{$order->order_id}'>Order {$order->order_id}</a>
+    ";
+    $donortools_info = array('donation' => array(
+      'amount_in_cents' => $amount_in_cents,
+      'memo' => $comments,
+      'received_on' => date('Y-m-d'),
+      'source_id' => $source_id,    // Our only allowed source id
+      'donation_type_id' => $donation_type_id,  // Custom Site Donate Page
+      'find_or_create_person' => array(
+        'full_name' => $account->fullname,
+        'email_address' => $account->mail,
+        'city' => $account->city,
+        'state' => $account->province,
+        'country' => $account->country,
+        'postal_code' => $account->postal_code,
+      ),
+      'splits' => array(
+        array(
+          'amount_in_cents' => $amount_in_cents,
+          'fund_id' => $fund_id,
+          'memo' => "",
+        ),
+      ),
+    ));
+    $json = json_encode($donortools_info);
+    $url = variable_get('wsuser_donortools_url', 'https://randy@randyfay.com:ddt4qXiOA31f@warmshowers.donortools.com/donations.json');
+    $result = drupal_http_request($url, array('Content-type' => 'application/json'), 'POST', $json, 3, 12);
+    if ($result->code != "201") {
+      watchdog('wsuser', "Donortools update failure, !result", array('!result' => print_r($result, TRUE)), WATCHDOG_ERROR);
+    }
+  }
+}
