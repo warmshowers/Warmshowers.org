@@ -7,10 +7,14 @@
 ?>
 
 <p>
+<p>
+  <?php echo t('Order comments:'); ?><br />
+  <?php echo $order_comments; ?>
+</p>
+
 <?php echo t('Order number:'); ?> <?php echo $order_admin_link; ?><br />
 <?php echo t('Customer:'); ?> <?php echo $order_first_name; ?> <?php echo $order_last_name; ?> - <?php echo $order_email; ?><br />
 <?php echo t('Order total:'); ?> <?php echo $order_total; ?><br />
-<?php echo t('Shipping method:'); ?> <?php echo $order_shipping_method; ?>
 </p>
 
 <p>
@@ -41,7 +45,3 @@ foreach ($products as $product) {
 <?php } ?>
 </p>
 
-<p>
-<?php echo t('Order comments:'); ?><br />
-<?php echo $order_comments; ?>
-</p>
