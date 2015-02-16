@@ -385,8 +385,10 @@ function warmshowers_zen_donations_thermometer($amount, $target, $currency, $siz
   drupal_add_js(drupal_get_path('module', 'donations_thermometer') .'/donations_thermometer.js');
   drupal_add_css(drupal_get_path('module', 'donations_thermometer') .'/donations_thermometer.css');
 
+  $account = user_load($GLOBALS['user']->uid);
+
   $percent = ($amount/$target)*100;
-  return '<div class="donations_thermometer">
+  $text = '<div class="donations_thermometer">
 
 
     <div class="gauge-' . $size . '">
@@ -394,5 +396,22 @@ function warmshowers_zen_donations_thermometer($amount, $target, $currency, $siz
     <p>'. $percent .'% </p>
     </div>
     </div>
-    <p class="donations-text-status"><span class="donations_thermometer-label"> ' . t('Raised so far') . ':</span><br/><span class="donations_thermometer-amount"> '. $currency . number_format($amount) .'</span><br/><span class="donations_thermometer-label">' . t('Target') . ':</span><br/><span class="donations_thermometer-amount"> '. $currency . number_format($target) .'</span></p></div>';
+    <p class="donations-text-status">
+    <span class="donations_header">' . t('Membership Donations') . '</span>
+    <span class="donations_thermometer-label"> ' . t('Raised so far') . ':</span><span class="donations_thermometer-amount"> '. $currency . number_format($amount) .'</span><br/><span class="donations_thermometer-label">' . t('Goal') . ':</span><span class="donations_thermometer-amount"> '. $currency . number_format($target) .'</span><br/>';
+
+  // Sorry to do logic here... but it keeps from forking donations_thermometer :-)
+  if (wsuser_is_current_donor_member($GLOBALS['user'])) {
+    $text .= t('Thanks for your generous contribution, @fullname', array('@fullname' => $account->fullname));
+  }
+  else if (wsuser_is_nondonor_member($account)){
+    $text .= t('Thanks for choosing a membership level, @fullname!', array('@fullname' => $account->fullname));
+  } else {
+    $text .= l(t('Choose Membership Level and Donate'), 'donate', array('attributes' => array('class' => 'linkbutton rounded light')));
+    $text .= '<br/>' . l(t('Membership FAQs'), 'faq/donations-and-membership-levels');
+  }
+
+   $text .=' </p></div>';
+
+  return $text;
 }
