@@ -370,3 +370,29 @@ function warmshowers_zen_preprocess_flag(&$variables) {
     default: break;
   }
 }
+
+
+/**
+ * Override theming of donations thermometer
+ *
+ * @param $amount
+ * @param $target
+ * @param $currency
+ * @param string $size
+ * @return string
+ */
+function warmshowers_zen_donations_thermometer($amount, $target, $currency, $size = 'large') {
+  drupal_add_js(drupal_get_path('module', 'donations_thermometer') .'/donations_thermometer.js');
+  drupal_add_css(drupal_get_path('module', 'donations_thermometer') .'/donations_thermometer.css');
+
+  $percent = ($amount/$target)*100;
+  return '<div class="donations_thermometer">
+
+
+    <div class="gauge-' . $size . '">
+    <div class="current-value" id="campaign-progress-current" style="height:'. $percent .'%;">
+    <p>'. $percent .'% </p>
+    </div>
+    </div>
+    <p class="donations-text-status"><span class="donations_thermometer-label"> ' . t('Raised so far') . ':</span><br/><span class="donations_thermometer-amount"> '. $currency . number_format($amount) .'</span><br/><span class="donations_thermometer-label">' . t('Target') . ':</span><br/><span class="donations_thermometer-amount"> '. $currency . number_format($target) .'</span></p></div>';
+}
