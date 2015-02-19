@@ -54,14 +54,24 @@ if ($is_self) {
       )
     );
   }
+  print t('You can choose to show or hide donation status by editing your profile.') . " ";
+  if ($account->hide_donation_status) {
+    print t('Your donation status is currently hidden from other members.');
+  } else {
+    print t('Your donation status is currently shown to other members.');
+  }
 }
 // If looking at someone else's account
 else {
-  if (wsuser_is_current_donor_member($account)) {
-    print t('%fullname is currently a donor member of Warmshowers.org.', array('%fullname' => $account->fullname));
-  }
-  else {
-    print t('%fullname is not yet a donor member of Warmshowers.org.', array('%fullname' => $account->fullname));
+  if (!$account->hide_donation_status) {
+    if (wsuser_is_current_donor_member($account)) {
+      print t('%fullname is currently a donor member of Warmshowers.org.', array('%fullname' => $account->fullname));
+    }
+    else {
+      print t('%fullname is not yet a donor member of Warmshowers.org.', array('%fullname' => $account->fullname));
+    }
+  } else {
+    print t('Donation status is kept private for this member.');
   }
 }
 
