@@ -2,18 +2,25 @@
 
 /**
  * @file
- * This file is the default admin notification template for Ubercart.
+ * Customized admin order notification template.
  */
 ?>
 
+<?php $account = user_load($order->uid); ?>
+
 <p>
 <p>
-  <?php echo t('Order comments:'); ?><br />
+  Comments:
   <?php echo $order_comments; ?>
 </p>
 
-<?php echo t('Order number:'); ?> <?php echo $order_admin_link; ?><br />
-<?php echo t('Customer:'); ?> <?php echo $order_first_name; ?> <?php echo $order_last_name; ?> - <?php echo $order_email; ?><br />
+
+
+Order Number: <?php echo $order_admin_link; ?><br />
+Member: <?php print theme('username', $account); ?><br/>
+Member Join Date: <?php print date('Y-m-d', $account->created); ?><br/>
+Member Language: <?php print $account->language . '(' . $account->languagesspoken . ')'; ?><br/>
+<?php echo t('Email:'); ?> <?php echo $order_email; ?><br />
 <?php echo t('Order total:'); ?> <?php echo $order_total; ?><br />
 </p>
 
