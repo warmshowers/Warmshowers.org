@@ -25,6 +25,18 @@ function warmshowers_site_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  // Provide access to unanswered messages
+  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
+  $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
+  $items[$url_prefix . '/unanswered'] = array(
+    'title'            => 'Unanswered Messages',
+    'page callback'    => 'warmshowers_site_unanswered_messages',
+    'page arguments'   => array($url_prefix_user_arg_position),
+    'access callback'  => 'privatemsg_menu_access',
+    'type'             => MENU_LOCAL_TASK,
+    'weight'           => 30,
+  );
+
   return $items;
 }
 
@@ -370,6 +382,12 @@ function warmshowers_site_menu_alter(&$items) {
     'access callback' => '_contact_user_tab_access',
     'access arguments' => array(1),
   );
+
+  // Remove the "write new message" pm submenu
+  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
+  $items[$url_prefix . '/new']['type'] = MENU_CALLBACK;
+//  $items[$url_prefix . '/unanswered']['title'] = 'Unanswered Messages';
+
 }
 
 
@@ -553,4 +571,46 @@ function warmshowers_site_mandrill_incoming_status_page() {
   }
   print $output;
   exit(0);
+}
+
+/**
+ * Provide a list of messages which haven't been answered
+ *
+ * @param $account
+ * @return mixed
+ */
+function warmshowers_site_unanswered_messages($account) {
+  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
+  $period = time() - variable_get('wsuser_privatemsg_responsiveness_period', 31536000);
+  $uid = $account->uid;
+
+  $query = '
+  SELECT DISTINCT(thread_id), pm.subject, pm.author, pi.deleted, DATE(FROM_UNIXTIME(pm.timestamp)) AS timestamp
+    FROM pm_index pi, pm_message pm
+    WHERE pi.recipient = %d AND pi.thread_id = pi.mid
+    AND pi.mid=pm.mid
+    AND pm.timestamp > %d
+    AND pi.thread_id NOT IN
+      (SELECT thread_id FROM pm_index pmsi INNER JOIN pm_message pm ON pm.mid = pmsi.mid WHERE pmsi.thread_id=pi.thread_id AND pm.author = %d)
+    ORDER by pi.thread_id
+  ';
+  $result = db_query($query, array($uid, $period, $uid));
+
+  $data = array();
+
+  $header = array(t('Subject'), t('From'), t('Date'));
+  while ($row = db_fetch_array($result)) {
+    if (empty($row['deleted'])) {
+      $row['subject'] = l($row['subject'], $url_prefix . '/view/' . $row['thread_id']);
+    } else {
+      $row['subject'] .= ' (' . t('Message was deleted') . ')';
+    }
+    $sender = user_load($row['author']);
+    $row['author'] = theme('username', $sender);
+    unset($row['thread_id'], $row['deleted']);
+    $data[] = $row;
+  }
+  $output = theme('table', $header, $data);
+  return $output;
+
 }
