@@ -17,7 +17,7 @@
 
 
 Order Number: <?php echo $order_admin_link; ?><br />
-Member: <?php print theme('username', $account); ?>  (<?php print "{$account->city}, {$account->province}, {$account->country}"; ?>)<br/>
+Member: <?php print $account->fullname ?>  (<?php print "{$account->city}, {$account->province}, {$account->country}"; ?>)<br/>
 Member Join Date: <?php print date('Y-m-d', $account->created); ?><br/>
 Member Language: <?php print $account->language . '(' . $account->languagesspoken . ')'; ?><br/>
 <?php echo t('Email:'); ?> <?php echo $order_email; ?><br />
