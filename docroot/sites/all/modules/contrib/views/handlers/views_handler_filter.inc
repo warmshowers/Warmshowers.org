@@ -101,7 +101,7 @@ class views_handler_filter extends views_handler {
   /**
    * Simple validate handler
    */
-  function options_validate(&$form, &$form_state) {
+  function options_validate($form, &$form_state) {
     $this->operator_validate($form, $form_state);
     $this->value_validate($form, $form_state);
     if (!empty($this->options['exposed'])) {
@@ -113,7 +113,7 @@ class views_handler_filter extends views_handler {
   /**
    * Simple submit handler
    */
-  function options_submit(&$form, &$form_state) {
+  function options_submit($form, &$form_state) {
     unset($form_state['values']['expose_button']); // don't store this.
     $this->operator_submit($form, $form_state);
     $this->value_submit($form, $form_state);

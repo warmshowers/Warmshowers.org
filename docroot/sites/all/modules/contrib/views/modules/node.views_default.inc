@@ -61,9 +61,9 @@ function node_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('header_format', '1');
   $handler->override_option('footer_format', '1');
@@ -182,9 +182,9 @@ function node_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('use_ajax', '1');
   $handler->override_option('items_per_page', 36);
@@ -326,9 +326,9 @@ function node_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('use_pager', '1');
   $handler->override_option('row_plugin', 'node');

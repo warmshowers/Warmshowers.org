@@ -69,9 +69,9 @@ function search_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('empty', 'No backlinks found.');
   $handler->override_option('empty_format', '1');

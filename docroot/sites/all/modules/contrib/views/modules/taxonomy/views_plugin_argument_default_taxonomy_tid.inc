@@ -9,10 +9,10 @@ class views_plugin_argument_default_taxonomy_tid extends views_plugin_argument_d
   function option_definition() {
     $options = parent::option_definition();
 
-    $options[$this->options_name . '_term_page'] = array('default' => TRUE);
-    $options[$this->options_name . '_node'] = array('default' => FALSE);
-    $options[$this->options_name . '_limit'] = array('default' => FALSE);
-    $options[$this->options_name . '_vids'] = array('default' => array());
+    $options[$this->option_name . '_term_page'] = array('default' => TRUE);
+    $options[$this->option_name . '_node'] = array('default' => FALSE);
+    $options[$this->option_name . '_limit'] = array('default' => FALSE);
+    $options[$this->option_name . '_vids'] = array('default' => array());
 
     return $options;
   }

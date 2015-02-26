@@ -71,9 +71,9 @@ function comment_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access comments',
   ));
   $handler->override_option('title', 'Recent comments');
   $handler->override_option('items_per_page', 5);
@@ -288,9 +288,9 @@ function comment_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('title', 'Recent posts');
   $handler->override_option('items_per_page', '25');

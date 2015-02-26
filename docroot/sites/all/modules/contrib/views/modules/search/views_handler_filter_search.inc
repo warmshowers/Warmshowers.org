@@ -46,7 +46,7 @@ class views_handler_filter_search extends views_handler_filter {
   /**
    * Validate the options form.
    */
-  function exposed_validate($form, &$form_state) {
+  function exposed_validate(&$form, &$form_state) {
     if (!isset($this->options['expose']['identifier'])) {
       return;
     }

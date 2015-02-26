@@ -49,19 +49,11 @@ function views_ajax() {
         // Reuse the same DOM id so it matches that in Drupal.settings.
         $view->dom_id = $dom_id;
 
-        $errors = $view->validate();
-        if ($errors === TRUE) {
-          $object->status = TRUE;
-          $object->display .= $view->preview($display_id, $args);
-          // Get the title after the preview call, to let it set
-          // up both the view's current display and arguments
-          $object->title = $view->get_title();
-        }
-        else {
-          foreach ($errors as $error) {
-            drupal_set_message($error, 'error');
-          }
-        }
+        $object->status = TRUE;
+        $object->display .= $view->preview($display_id, $args);
+        // Get the title after the preview call, to let it set
+        // up both the view's current display and arguments
+        $object->title = $view->get_title();
         // Register the standard JavaScript callback.
         $object->__callbacks = array('Drupal.Views.Ajax.ajaxViewResponse');
         // Allow other modules to extend the data returned.

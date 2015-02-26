@@ -112,9 +112,9 @@ function taxonomy_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('use_pager', '1');
   $handler->override_option('row_plugin', 'node');

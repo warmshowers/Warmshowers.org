@@ -6,7 +6,7 @@ class views_handler_field_comment_username extends views_handler_field {
   /**
    * Override init function to add uid and homepage fields.
    */
-  function init(&$view, &$data) {
+  function init(&$view, $data) {
     parent::init($view, $data);
     $this->additional_fields['uid'] = 'uid';
     $this->additional_fields['homepage'] = 'homepage';

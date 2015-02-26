@@ -31,7 +31,7 @@ class views_handler_filter_date extends views_handler_filter_numeric {
     parent::value_form($form, $form_state);
   }
 
-  function options_validate(&$form, &$form_state) {
+  function options_validate($form, &$form_state) {
     parent::options_validate($form, $form_state);
 
     if (!empty($form_state['values']['options']['expose']['optional'])) {
@@ -42,7 +42,7 @@ class views_handler_filter_date extends views_handler_filter_numeric {
     $this->validate_valid_time($form['value'], $form_state['values']['options']['operator'], $form_state['values']['options']['value']);
   }
 
-  function exposed_validate(&$form, &$form_state) {
+  function exposed_validate($form, &$form_state) {
     if (empty($this->options['exposed'])) {
       return;
     }

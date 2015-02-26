@@ -45,7 +45,7 @@ class views_handler_argument extends views_handler {
     }
   }
 
-  function init(&$view, &$options) {
+  function init(&$view, $options) {
     parent::init($view, $options);
   }
 

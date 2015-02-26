@@ -514,7 +514,7 @@ class views_many_to_one_helper {
     $this->handler = &$handler;
   }
 
-  function option_definition(&$options) {
+  public static function option_definition(&$options) {
     $options['reduce_duplicates'] = array('default' => FALSE);
   }
 
@@ -1240,6 +1240,7 @@ function views_views_handlers() {
  *   - - operator: defaults to =
  *   - - value: Must be set. If an array, operator will be defaulted to IN.
  *   - - numeric: If true, the value will not be surrounded in quotes.
+ *   - - raw: If you specify raw the value will be used as it is, so you can have field to field conditions.
  *   - extra type: How all the extras will be combined. Either AND or OR. Defaults to AND.
  */
 class views_join {
@@ -1328,8 +1329,14 @@ class views_join {
           // And now deal with the value and the operator.  Set $q to
           // a single-quote for non-numeric values and the
           // empty-string for numeric values, then wrap all values in $q.
-          $raw_value = $this->db_safe($info['value'], $info);
-          $q = (empty($info['numeric']) ? "'" : '');
+          if (empty($info['raw'])) {
+            $raw_value = $this->db_safe($info['value'], $info);
+            $q = (empty($info['numeric']) ? "'" : '');
+          }
+          else {
+            $raw_value = $info['value'];
+            $q = '';
+          }
 
           if (is_array($raw_value)) {
             $operator = !empty($info['operator']) ? $info['operator'] : 'IN';

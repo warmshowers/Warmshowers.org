@@ -87,11 +87,8 @@ class view extends views_db_object {
   /**
    * Returns the complete list of dependent objects in a view, for the purpose
    * of initialization and loading/saving to/from the database.
-   *
-   * Note: In PHP5 this should be static, but PHP4 doesn't support static
-   * methods.
    */
-  function db_objects() {
+  public static function db_objects() {
     return array('display');
   }
 
@@ -1339,7 +1336,7 @@ class view extends views_db_object {
    *  If TRUE, reset this entry in the load cache.
    * @return A view object or NULL if it was not available.
    */
-  function &load($arg, $reset = FALSE) {
+  public static function &load($arg, $reset = FALSE) {
     static $cache = array();
 
     // We want a NULL value to return TRUE here, so we can't use isset() or empty().
@@ -1392,7 +1389,7 @@ class view extends views_db_object {
    * that would be very slow.  Buiding the views externally from unified queries is
    * much faster.
    */
-  function load_views() {
+  public static function load_views() {
     $result = db_query("SELECT DISTINCT v.* FROM {views_view} v");
     $views = array();
     $vids = array();

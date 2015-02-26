@@ -91,9 +91,9 @@ function statistics_views_default_views() {
     ),
   ));
   $handler->override_option('access', array(
-    'type' => 'none',
+    'type' => 'perm',
     'role' => array(),
-    'perm' => '',
+    'perm' => 'access content',
   ));
   $handler->override_option('title', 'Popular content');
   $handler->override_option('items_per_page', '25');
