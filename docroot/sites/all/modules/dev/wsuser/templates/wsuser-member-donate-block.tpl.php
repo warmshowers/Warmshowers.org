@@ -35,12 +35,22 @@ if ($is_self) {
     print "<ul><li>";
     print t("You are a current donor member, Thanks!") . "</li>";
     print "<li>" . t("Your membership is at the %role level and it expires on %expire", array('%role' => $role_desc[$rid], '%expire' => date( 'Y-m-d', $expire_date))) . "</li>";
-    print "<li>" . t("View your !history or adjust !recurring",
-        array(
-          '!history' => l(t('donation history'), "user/{$account->uid}/orders"),
-          '!recurring' => l(t('recurring donations'), "user/{$account->uid}/recurring-fees")
-        )
-      ) . "</li></ul>";
+
+    if (menu_valid_path(array('link_path' => "user/{$account->uid}/orders"))) {
+      print "<li>" . t("View your !history",
+          array(
+            '!history' => l(t('donation history'), "user/{$account->uid}/orders"),
+          )
+        ) . "</li>";
+      if (menu_valid_path(array('link_path' => "user/{$account->uid}/recurring-fees"))) {
+        print "<li>" . t("View and adjust !recurring",
+            array(
+              '!recurring' => l(t('recurring donations'), "user/{$account->uid}/recurring-fees")
+            )
+          ) . "</li>";
+      }
+      print '</ul>';
+    }
   }
   else {
     print theme('linkbutton',
