@@ -498,7 +498,7 @@ function uc_recurring_create_renewal_order($fee) {
   $old_id = $order->order_id;
 
   // Create a new order by cloning the current order and replacing order ID.
-  $new_order = uc_order_new($order->uid, 'processing');
+  $new_order = uc_order_new($order->uid, 'post_checkout');
   $new_id = $new_order->order_id;
 
   // Add a comment in the new and original order history.
@@ -628,6 +628,7 @@ function uc_recurring_get_extension_list($fee_id = NULL) {
     $result = db_query("SELECT * FROM {uc_recurring_extensions} WHERE (pfid = %d OR pfid IS NULL) ORDER BY pfid DESC, rebill_attempt ASC", $fee_id);
   }
 
+  $extensions = array();
   while ($extension = db_fetch_object($result)) {
     if (!isset($extensions[$extension->rebill_attempt])) {
       $extensions[$extension->rebill_attempt] = $extension;
@@ -756,12 +757,13 @@ function uc_recurring_includes() {
  */
 function uc_recurring_invoke($handler, $op, $params = array()) {
   $info = uc_recurring_get_recurring_info($handler);
-  $function = $info[$op];
-  if (function_exists($function)) {
+
+  // Check if there's a custom function for this $op.
+  if (!empty($info[$op]) && function_exists($info[$op])) {
     // Add the op argument to the params, in case the handler will need to use
     // it to identify the operation it is in.
     $params[] = $op;
-    return call_user_func_array($function, $params);
+    return call_user_func_array($info[$op], $params);
   }
 }
 
@@ -982,6 +984,14 @@ function uc_recurring_user_access($account = NULL, $rfid = NULL, $op = '') {
     }
     elseif (in_array(UC_RECURRING_ACCESS_ALLOW, $access, TRUE)) {
       return TRUE;
+    }
+    $fees = uc_recurring_get_user_fees($account->uid);
+    if (user_access('view own recurring fees') && $user->uid == $account->uid && $fees) {
+      // Make sure that the currently logged-in user actually owns the recurring
+      // fee they are attempting to access or has administrative privileges.
+      if ($fee->uid != $user->uid) {
+        return user_access('administer recurring fees');
+      }
     }
   }
   return (user_access('administer recurring fees') || (user_access('view own recurring fees') && $user->uid == $account->uid)) && uc_recurring_get_user_fees($account->uid);
