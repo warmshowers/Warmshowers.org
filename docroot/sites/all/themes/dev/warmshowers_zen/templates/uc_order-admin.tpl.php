@@ -7,6 +7,7 @@
 ?>
 
 <?php $account = user_load($order->uid); ?>
+<?php $account_link = l($account->fullname, 'user/' . $account->uid, array('attributes' => array('title' => t('View user profile.')))); ?>
 
 <p>
 <p>
@@ -15,14 +16,13 @@
 </p>
 
 
-
 Order Number: <?php echo $order_admin_link; ?><br />
-Member: <?php print $account->fullname ?>  (<?php print "{$account->city}, {$account->province}, {$account->country}"; ?>)<br/>
+Member: <?php print "{$account_link} ({$account->city}, {$account->province}, {$account->country})" ?><br/>
 Member Join Date: <?php print date('Y-m-d', $account->created); ?><br/>
 Member Language: <?php print $account->language . '(' . $account->languagesspoken . ')'; ?><br/>
 <?php echo t('Email:'); ?> <?php echo $order_email; ?><br />
 <?php echo t('Order total:'); ?> <?php echo $order_total; ?><br />
-</p>
+<?php echo t('Payment Method:' . $order_payment_method); ?><br/>
 
 <p>
 <?php echo t('Products:'); ?><br />
