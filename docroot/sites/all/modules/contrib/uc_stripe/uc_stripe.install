@@ -22,133 +22,132 @@ function uc_stripe_requirements($phase) {
     $requirements['uc_stripe_curl']['description'] = $t("The Stripe API requires the PHP <a href='!curl_url'>cURL</a> library.", array('!curl_url' => 'http://php.net/manual/en/curl.setup.php'));
   }
 
+  if (!_uc_stripe_load_api()) {
+    $requirements['uc_stripe_api']['title'] = $t('Stripe PHP API');
+    $requirements['uc_stripe_api']['value'] = $t('Not Installed');
+    $requirements['uc_stripe_api']['severity'] = REQUIREMENT_ERROR;
+    $requirements['uc_stripe_api']['description'] = $t('The Stripe PHP API is not installed or cannot be loaded.');
+  }
+
+
+  if ($phase == 'runtime' && !_uc_stripe_check_api_keys()) {
+    $requirements['uc_stripe_keys']['title'] = $t('Stripe API Keys.');
+    $requirements['uc_stripe_keys']['value'] = $t('Not configured');
+    $requirements['uc_stripe_keys']['severity'] = REQUIREMENT_ERROR;
+    $requirements['uc_stripe_keys']['description'] = $t('The Stripe API keys are not fully configured.');
+  }
+
+  if ($phase == 'runtime' &&
+    (!variable_get('uc_checkout_skip_review', FALSE)
+    || !module_exists('uc_optional_checkout_review')
+    || variable_get('uc_credit_validate_numbers', FALSE))
+    ) {
+    $requirements['uc_stripe_config']['title'] = $t('Ubercart Configuration for Stripe.');
+    $requirements['uc_stripe_config']['value'] = $t('Incorrect');
+    $requirements['uc_stripe_config']['severity'] = REQUIREMENT_ERROR;
+    $requirements['uc_stripe_config']['description'] = $t('For PCI-DSS compliance, Ubercart Checkout Skip Review must be enabled and uc_credit credit card number validation must be disabled.');
+  }
+
   return $requirements;
+}
+
+/**
+ * Load the PHP API
+ *
+ * @return bool
+ */
+function _uc_stripe_load_api() {
+  $path = libraries_get_path('stripe');
+  $loaded = @include_once $path . '/lib/Stripe.php';
+  if (empty($path) || empty($loaded)) {
+    watchdog('uc_stripe', 'Stripe PHP API Library not found. Please install into sites/all/libraries/stripe', array(), WATCHDOG_ERROR);
+    return FALSE;
+  }
+  return TRUE;
 }
 
 /**
  * Implements hook_install().
  */
 function uc_stripe_install() {
-  drupal_install_schema('uc_stripe');
-  // This turns off the uc_recurring cron task to renew. We want this
-  // off because the renewal payments are handled by Stripe and initiating
-  // them separately will cause a mess.
-  variable_set('uc_recurring_trigger_renewals', FALSE);
+  // This turns ON the uc_recurring cron task to renew. We want this
+  // ON because the renewal payments are handled by Ubercart and NOT the stripe gateway
+  variable_set('uc_recurring_trigger_renewals', TRUE);
+
+  // For PCI-DSS compatibility, skip review must be enabled so cc data doesn't
+  // get to server.
+  variable_set('uc_checkout_skip_review', TRUE);
+
+  // Stripe does cc validation, so uc_credit must not... especially because
+  // uc_credit gets a bogus cc number.
+  variable_set('uc_credit_validate_numbers', FALSE);
 }
 
 /**
- * Implements hook_uninstall().
+ * Enable triggered renewals, as uc_recurring manages renewals with this version.
  */
-function uc_stripe_uninstall() {
-  drupal_uninstall_schema('uc_stripe');
+function uc_stripe_update_6201(&$sandbox) {
+  variable_set('uc_recurring_trigger_renewals', TRUE);
+  variable_set('uc_checkout_skip_review', TRUE);
+  variable_set('uc_credit_validate_numbers', FALSE);
+
+  module_enable('uc_optional_checkout_review');
+
+  return array('#vset' => array('success' => TRUE, 'query' => 'Enabled uc_recurring triggered renewals (uc_recurring_trigger_renewals) and required uc_checkout_skip_review'));
 }
 
 /**
- * Implements hook_schema().
+ * Move customer IDs from uc_recurring_stripe into account
+ * @return string
  */
-function uc_stripe_schema() {
-  $schema = array();
-
-  $schema['uc_recurring_stripe'] = array(
-    'description' => 'Stores customer ids and plan names for Stripe subscriptions.',
-    'fields' => array(
-      'rfid' => array(
-        'description' => 'The recurring fee id.',
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'active' => array(
-        'description' => 'Whether or not this subscription is currently active.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'uid' => array(
-        'description' => 'The uid of this user.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'order_id' => array(
-        'description' => 'The order_id of the purchase.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'nid' => array(
-        'description' => 'The nid of this subscription product.',
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'customer_id' => array(
-        'description' => 'The Stripe customer id.',
-        'type' => 'varchar',
-        'length' => 50,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-      'plan_id' => array(
-        'description' => 'The corresponding plan id.',
-        'type' => 'varchar',
-        'length' => 50,
-        'not null' => TRUE,
-        'default' => '',
-      ),
-    ),
-    'primary key' => array('rfid'),
-  );
-  return $schema;
-}
-
-/**
- * Implements hook_update_N().
- *
- * Added order_id to schema.
- */
-function uc_stripe_update_6101() {
+function uc_stripe_update_6202(&$sandbox) {
   $ret = array();
-  db_add_field($ret, 'uc_recurring_stripe', 'order_id', array(
-      'description' => 'The order_id of the purchase.',
-      'type' => 'int',
-      'unsigned' => TRUE,
-      'not null' => TRUE,
-    )
-  );
-  return $ret;
+  $sandbox['per_run'] = 10;  // users per run
+
+  if (db_table_exists('uc_recurring_stripe')) {
+    if (!isset($sandbox['progress'])) {
+      $sandbox['progress'] = 0;
+      $sandbox['max'] = db_result(db_query('SELECT COUNT(rfid)
+      FROM {uc_recurring_stripe} urs
+      WHERE urs.rfid IN (
+        SELECT max(sq.rfid) FROM {uc_recurring_stripe} sq WHERE sq.uid=urs.uid AND active=1
+     )'));
+    }
+    $ret = _uc_stripe_move_customer_id($sandbox);
+    return $ret;
+  }
+  return array('#done' => array('success' => TRUE, 'query' => 'Old uc_recurring_stripe table did not exist, no action taken.'));
 }
 
 /**
- * Implements hook_update_N().
- *
- * Added active to schema to indicate subscription status.
+ * Move customer ids from uc_recurring_stripe into user account
  */
-function uc_stripe_update_6102() {
+function _uc_stripe_move_customer_id(&$sandbox) {
   $ret = array();
-  db_add_field($ret, 'uc_recurring_stripe', 'active', array(
-      'description' => 'Whether or not this subscription is currently active.',
-      'type' => 'int',
-      'unsigned' => TRUE,
-      'not null' => TRUE,
-    )
-  );
-  return $ret;
-}
 
-/**
- * Implements hook_update_N().
- *
- * Added nid of subscription object.
- */
-function uc_stripe_update_6103() {
-  $ret = array();
-  db_add_field($ret, 'uc_recurring_stripe', 'nid', array(
-      'description' => 'The nid of this subscription product.',
-      'type' => 'int',
-      'unsigned' => TRUE,
-      'not null' => TRUE,
+  $query = '
+    SELECT rfid, uid, customer_id
+    FROM {uc_recurring_stripe} urs
+    WHERE urs.rfid IN (
+      SELECT max(sq.rfid) FROM {uc_recurring_stripe} sq WHERE sq.uid=urs.uid AND active=1
     )
-  );
+    ';
+
+  $result = db_query_range($query, $sandbox['progress'], $sandbox['per_run']);
+  $count = $visited = 0;
+  while ($item = db_fetch_array($result)) {
+    $account = user_load($item['uid']);
+    $visited++;
+    $ret[] = array('success' => TRUE, 'query' => "Updated account {$account->name} uid={$account->uid}");
+    if (empty($account->uc_stripe_customer_id)) {
+      user_save($account, array('uc_stripe_customer_id' => $item['customer_id']));
+      $count++;
+    }
+  }
+  $sandbox['progress'] += $sandbox['per_run'];
+
+  if ($sandbox['progress'] <= $sandbox['max']) {
+    $ret['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
   return $ret;
 }

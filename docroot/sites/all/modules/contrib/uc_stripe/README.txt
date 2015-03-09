@@ -1,20 +1,5 @@
 This is an Ubercart payment gateway module for Stripe.
 
-It includes integration with the Ubercart Recurring Payments
-module for subscriptions.
-
-Currently this module is only compatible with Drupal 6.
-Support for Drupal 7 planned, but not yet started.
-
-!! IMPORTANT !!
-===============
-
-This module is a work in progress and as such has not been
-extensively tested in a production environment. DO NOT INSTALL
-THIS IN A PRODUCTION ENVIRONMENT. If you want to help test,
-please do, but do not use it for anything mission critical
-until it has been tested further.
-
 Installation and Setup
 ======================
 
@@ -41,35 +26,23 @@ and set up as described below
 Recurring Payments Setup
 ========================
 
-First, you'll need the Ubercart Recurring module:
+You'll need the Ubercart Recurring module:
 http://drupal.org/project/uc_recurring installed. It is not
 listed as a dependency for this Stripe payment module because
 this module could be used without recurring payments.
 But it is a dependency to use the recurring payments piece of
-this module.
+this module. Note that this module does *not* use Stripe subscriptions.
+Instead, recurring payments are managed by uc_recurring, which does not
+retain any valid CC info, only the stripe customer id.
 
-Create a product in your Drupal site. After creating that
-product, edit it and click on the "Features" tab. Under
-"Add a new feature," select "Recurring fee" and click add.
-In order for this to work with Stripe, you must select the
-"Applicable SKU." This will create the subscription plan in
-Stripe (provided of course that you have your API keys set up).
-Then, later, when a user purchases this product, they will get
-added as "Customers" to this "Plan."
+Recurring payments require automatically triggered renewals using
+uc_recurring_trigger_renewals ("Enabled triggered renewals" must be enabled
+on admin/store/settings/payment/edit/recurring)
 
-Notes:
+If you were using Stripe subscriptions in v1 of this module, you may have to
+disable those subscriptions in order to not double-charge your customers.
 
-- Stripe doesn't have a way to set the number of billing periods.
-So basically people are subscribed or unsubscribed, not
-subscribed for 12 months then done. We hope to add the
-ability to change this later, but we would have to do it
-on our end. So for example, we would have to keep track of
-the time since the subscription started in Drupal and send
-Stripe a request when that time is up.
-
-
-Todo
-====
-- Enable set number of billing periods. So the system will
-keep track of the time and then shoot of a request to Stripe
-via cron to cancel the subscription once the billing period is up.
+uc_stripe 6.x-2.x was based on Bitcookie's work (thanks!) which was posted at
+http://bitcookie.com/blog/pci-compliant-ubercart-and-stripe-js
+from discussion in the uc_stripe issue queue,
+https://www.drupal.org/node/1467886
