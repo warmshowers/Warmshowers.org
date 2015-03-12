@@ -190,6 +190,10 @@ function warmshowers_zen_status_messages($display = NULL) {
  * @return string
  */
 function warmshowers_zen_form_element($element, $value) {
+  // This looks just awful on checkbox, so use classic theming for it.
+  if ($element['#type'] == 'checkbox') {
+    return theme_form_element($element, $value);
+  }
   // This is also used in the installer, pre-database setup.
   $t = get_t();
 
