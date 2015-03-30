@@ -23,9 +23,7 @@
  * @see wsuser_preprocess_wsuser_member_contact_location()
  */
 
-?>
-
-<?php if (!$is_self):
+if (!$is_self) {
   print theme('linkbutton',
     array(
       'title' => t('Provide Feedback'),
@@ -39,5 +37,5 @@
       'classes' => 'rounded dark big',
     )
   );
-endif;
+}
 ?>
