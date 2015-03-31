@@ -32,7 +32,7 @@ function _user_location_fieldlist() {
   global $sourceoptions;
   $fields = array(
 	'country' => array('type' => 'select', 'title' => t('Country'), 'required' => TRUE ),
-	'street' => array('type' => 'textfield', 'title' => t('Street Address')),
+	'street' => array('type' => 'textfield', 'title' => t('Street Address'), 'description' => t('If you do not want to disclose your exact location until you correspond with guests, omit this.')),
 	'additional' => array('type' => 'textfield', 'title' => t('Additional')),
 	'city' => array('type' => 'textfield', 'title' => t('City/Town'), 'required'=>TRUE),
 	'province' => array('type' => 'select', 'title' => t('State/Province'), 'required'=>TRUE),
@@ -369,41 +369,36 @@ function _user_location_validate($form, $user) { //CHANGEd all the $edits to $fo
 function _user_location_save(&$edit, &$account) {
   $account = user_load(array('uid'=>$account->uid));;
 
-
-  // Only do geocoding if the location has been updated
+  // Only do geocoding if the country is provided in $edit
   // And if source is not user-located
-  // Or if it's not set or admin user is doing it
-  if (array_key_exists('country',$edit) && array_key_exists('province',$edit)) {
-    if ( (user_access('administer users') ||
-    $account->latitude == 0 || $account->source == 0 ||
-    ($edit['city'] != $account->city)
-    || ($edit['street'] != $account->street)
-    || ($edit['country'] != $account->country)
-    || ($edit['province'] != $account->province) )
-    && count($edit) && $account->source != 1 && ($edit['status'] == NULL || $edit['status']==1)) {
-      $geocoded_location = _user_location_geocode($edit);
-      $source = $geocoded_location['source'];
-      if ($source <= 8) {
-        $edit['source'] = $geocoded_location['source'];
-        $edit['latitude'] = $geocoded_location['latitude'];
-        $edit['longitude'] = $geocoded_location['longitude'];
-        drupal_set_message(t("User location geocoded with accuracy %source", array('%source' => $source)));
-        if ($source > 3) {
-          drupal_set_message(t("We were unable to completely determine your location. Please set your location using "). l(t("the Set Map Location tab"),"user/$account->uid/location"));
-        } else {
-          drupal_set_message(t("Your map location has been determined from your address, but please check it using "). l(t("the Set Map Location tab"),"user/$account->uid/location"));
-        }
+  if (array_key_exists('country', $edit) && $account->source != 1) {
+    $location_keys = array('street', 'city', 'province', 'country', 'postal_code');
+    $location = array();
+    foreach ($location_keys as $key) {
+      $location[$key] = array_key_exists($key, $edit) ? $edit[$key] : $account->$key;
+    }
+
+    $geocoded_location = _user_location_geocode($location);
+    $source = $geocoded_location['source'];
+    if ($source <= 8) {
+      $edit['source'] = $geocoded_location['source'];
+      $edit['latitude'] = $geocoded_location['latitude'];
+      $edit['longitude'] = $geocoded_location['longitude'];
+      drupal_set_message(t("User location geocoded with accuracy %source", array('%source' => $source)));
+      if ($source > 3) {
+        drupal_set_message(t("We were unable to completely determine your location. Please set your location using "). l(t("the Set Map Location tab"),"user/$account->uid/location"));
+      } else {
+        drupal_set_message(t("Your map location has been determined from your address, but please check it using "). l(t("the Set Map Location tab"),"user/$account->uid/location"));
       }
     }
   }
-
 
   $placeholders = "%d,";
   $valuenames = "oid,";
   $fieldlist_values = array();
   foreach (array_keys(_user_location_fieldlist()) as $item) {
     // Create the parts of the insert statement
-    if (!array_key_exists($item,$edit)) {
+    if (!array_key_exists($item, $edit)) {
       continue;
     }
     $placeholders .= "'%s',";
@@ -647,7 +642,7 @@ function _user_location_getnextlevel($parents) {
  *   4. Try the zipcodes database developed for this module from geonames
  *   5. Just get the geographic center of the country from user_location_countries table
  *
- * @param unknown_type $location  (really a $user)
+ * @param array $location with street, city, province, country, postal_code
  * @return unknown  Location array with latitude, longitude, and source
  */
 function _user_location_geocode($location = array()) {
@@ -854,7 +849,7 @@ function location_google_geocoder($location = array()) {
   $fullurl = "${baseurl}address=${addr}&components=country:${location['country']}";
   // We seem to need the google server api, and it seems not to be working quite right
   // However, key is not required
-   $fullurl .= "&key=${key}";
+  // $fullurl .= "&key=${key}";
 
   $results = drupal_http_request($fullurl);
 
