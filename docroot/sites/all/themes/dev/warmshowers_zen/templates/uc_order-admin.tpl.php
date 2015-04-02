@@ -23,6 +23,7 @@ Member Language: <?php print $account->language . '(' . $account->languagesspoke
 <?php echo t('Email:'); ?> <?php echo $order_email; ?><br />
 <?php echo t('Order total:'); ?> <?php echo $order_total; ?><br />
 <?php echo t('Payment Method:' . $order_payment_method); ?><br/>
+<?php echo t('Donortools search link:' . 'https://warmshowers.donortools.com/personas?search=' . urlencode($order_email) . '&go=true'); ?>
 
 <p>
 <?php echo t('Products:'); ?><br />
