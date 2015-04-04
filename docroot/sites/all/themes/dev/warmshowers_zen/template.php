@@ -419,3 +419,38 @@ function warmshowers_zen_donations_thermometer($amount, $target, $currency, $siz
 
   return $text;
 }
+
+
+/**
+ * Customize the message on the checkout-complete page, since we have
+ * free orders that shouldn't say "donate"
+ *
+ * @param $message
+ * @param null $order
+ * @return string
+ */
+function warmshowers_zen_uc_cart_complete_sale($message, $order = NULL) {
+
+  $x = 1;
+
+  $title = t('Thanks for your support');
+
+  $product = $order->products[0]->model;
+
+  drupal_set_title($title);
+
+  if ($order->order_total == 0) {
+    switch ($product) {
+      case 'membership_hostingonly':
+        $message = t('You incredible hosts are the backbone of our community, the ones that really make it happen. Thanks so much for showing your support by selecting the hosting-only donation level.');
+        break;
+      case 'membership_free':
+      case 'membership_trial':
+        $message = t('Thank you for being part of the Warm Showers community!  Your participation in hosting, riding, and giving valuable feedback is the fuel that keeps the community going.  If in the future you are able, please consider contributing a monetary donation as well, to help offset the growing costs associated with a global hospitality program.');
+        break;
+
+    }
+  }
+  return $message;;
+
+}
