@@ -67,7 +67,7 @@
   </div>
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
-    <?php print check_markup($account->comments); ?>
+    <div id="account-comments"><?php print check_markup($account->comments); ?></div>
     <div id="host-services">
       <h2><?php print t('Hosting information'); ?></h2>
       <?php if ($notcurrentlyavailable) : ?>
