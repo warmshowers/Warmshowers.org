@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * @file
+ * Implementation of installation/uninstallation hooks.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function persistent_login_schema() {
+  $schema = array();
+  $schema['persistent_login'] = array(
+    'description' => 'Stores Persistent Login (PL) information for users that check Remember me when they log in.  If this info matches an anonymous user\'s PL cookie, they are logged in automatically.  See http://jaspan.com/improved_persistent_login_cookie_best_practice for details on the technique used.',
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1,
+        'description' => 'The {users}.uid this row is for.',
+      ),
+      'series' => array('type' => 'varchar', 'length' => 43, 'not null' => 1,
+        'description' => 'The long-lived series identifying the PL token sequence.',
+      ),
+      'token' => array('type' => 'varchar', 'length' => 43, 'not null' => 1,
+        'description' => 'The single-use PL login token.',
+      ),
+      'expires' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1,
+        'description' => 'The expiration date for this series of tokens.',
+      ),
+    ),
+    'primary key' => array('uid', 'series'),
+    'indexes' => array(
+      'expires' => array('expires'),
+      'uid_expires' => array('uid', 'expires'),
+    ),
+  );
+  $schema['persistent_login_history'] = array(
+    'description' => 'Stores previous entries from the {persistent_login} table just before they are erased.  The uid, series, token, and expires fields are copied verbatim.',
+    'fields' => array(
+      'uid' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'series' => array('type' => 'varchar', 'length' => 43, 'not null' => 1),
+      'token' => array('type' => 'varchar', 'length' => 43, 'not null' => 1),
+      'expires' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1),
+      'at' => array('type' => 'int', 'unsigned' => 1, 'not null' => 1,
+        'description' => 'When this entry was copied from the {persistent_login} table.',
+      ),
+      'why' => array('type' => 'varchar', 'length' => 255, 'not null' => 1,
+        'description' => 'Why this entry was deleted from the {persistent_login} table.',
+      ),
+    ),
+    'primary key' => array('uid', 'series', 'token'),
+    'indexes' => array(
+      'expires' => array('at'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function persistent_login_uninstall() {
+  // Delete all module variables.
+  variable_del('persistent_login_welcome');
+  variable_del('persistent_login_maxlife');
+  variable_del('persistent_login_maxlogins');
+  variable_del('persistent_login_secure');
+  variable_del('persistent_login_pages');
+  variable_del('persistent_login_cookie_prefix');
+  variable_del('persistent_login_history');
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function persistent_login_requirements($phase) {
+  $requirements = array();
+  switch ($phase) {
+    case 'runtime':
+      $lifetime = ini_get('session.cookie_lifetime');
+      if ($lifetime > 0) {
+        $requirements['persistent_login'] = array(
+            'title' => t('PHP session cookie lifetime'),
+            'severity' => REQUIREMENT_ERROR,
+            'description' => _persistent_login_get_config_warning_msg(),
+            'value' => $lifetime,
+        );
+      }
+      break;
+  }
+  return $requirements;
+}
+
+/**
+ * Change length of series and token fields to accomodate longer d7 hashes.
+ */
+function persistent_login_update_7001() {
+  db_change_field('persistent_login', 'series', 'series', array('type' => 'varchar', 'length' => 43, 'not null' => TRUE));
+  db_change_field('persistent_login', 'token', 'token', array('type' => 'varchar', 'length' => 43, 'not null' => TRUE));
+
+  db_change_field('persistent_login_history', 'series', 'series', array('type' => 'varchar', 'length' => 43, 'not null' => TRUE));
+  db_change_field('persistent_login_history', 'token', 'token', array('type' => 'varchar', 'length' => 43, 'not null' => TRUE));
+}
+
+/**
+ * Update secure pages variable with new path to PL settings.
+ */
+function persistent_login_update_7002(){
+  $pl_secure_paths = variable_get('persistent_login_pages', '');
+  if (!empty($pl_secure_paths)) {
+    variable_set(
+      'persistent_login_pages',
+      str_replace('admin/settings/persistent_login', 'admin/config/system/persistent_login', $pl_secure_paths)
+    );
+  }
+}

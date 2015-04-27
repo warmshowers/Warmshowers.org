@@ -1,0 +1,135 @@
+<?php
+
+/**
+ * @file
+ * Ensures that required files are available.
+ */
+
+/**
+ * Implements hook_init().
+ *
+ * Ensures that required PEAR modules are available, or else disables the
+ * Mail MIME module to avoid conflicts.
+ */
+function mailmime_init() {
+  // This only needs to succeed once.
+  if (cache_get('mailmime_installed', 'cache_bootstrap')) {
+    return;
+  }
+  if (mailmime_check_requirements()) {
+    cache_set('mailmime_installed', TRUE, 'cache_menu');
+    return;
+  }
+  // Requirements check failed; disable module and issue an error message.
+  module_disable(array('mailmime'));
+  $args = array(
+    '!include' => url('admin/modules',
+      array('fragment' => 'edit-modules-other-include-enable')
+    ),
+    '!include_path' => url('http://php.net/set_include_path'),
+    '!module' => url('admin/modules',
+      array('fragment' => 'edit-modules-mail-mailmime-enable')
+    ),
+    '!modules' => url('admin/modules'),
+    '!mime' => url('http://pear.php.net/package/Mail_Mime'),
+    '!mimedecode' => url('http://pear.php.net/package/Mail_mimeDecode'),
+    '!mimepart' => url('http://pear.php.net/manual/package.mail.mail-mimepart.mail-mimepart.php'),
+    '!pear' => url('http://pear.php.net'),
+    '!pearerror' => url('http://pear.php.net/manual/core.pear.pear-error.pear-error.php'),
+    '!readme' => url(drupal_get_path('module', 'mailmime') . '/README.html', array('fragment' => 'requirements')),
+  );
+  drupal_set_message(
+    t('One or more of the required <a href="!pear">PEAR</a> classes could not be loaded:<ul><li><a href="!mime">Mail_Mime</a></li><li><a href="!mimedecode">Mail_mimeDecode</a></li><li><a href="!mimepart">Mail_mimePart</a></li><li><a href="!pearerror">PEAR_Error</a></li></ul> The <a href="!module">Mail MIME</a> module has been disabled to avoid further errors. Please satisfy the module requirements listed in the <a href="!readme">documentation</a>, then visit your <a href="!modules">Modules</a> page to re-enable the <a href="!module">Mail MIME</a> module.',
+      $args), 'error'
+  );
+  if (module_exists('include')) {
+    drupal_set_message(
+      t('The <a href="!include">Include</a> module tried to automatically download the required files, but the attempt failed. You may retry the download by re-enabling the <a href="!module">Mail MIME</a> module.  If your hosting provider has disabled the <a href="!include_path"><code>set_include_path</code></a> directive, the files must be manually installed.',
+        $args), 'error'
+    );
+  }
+  else {
+    drupal_set_message(
+      t('If installed, the <a href="!include">Include</a> module can attempt to automatically download the required files for you.',
+        $args), 'status'
+    );
+  }
+  watchdog('mailmime',
+    'The <a href="!module">Mail MIME</a> module has disabled itself.',
+    $args, WATCHDOG_CRITICAL
+  );
+}
+
+/**
+ * Checks whether required files exist.
+ */
+function mailmime_check_requirements() {
+  // Try including the files, then cleck for the classes.
+  @include_once('Mail/mime.php');
+  @include_once('Mail/mimeDecode.php');
+  @include_once('Mail/mimePart.php');
+  if ( class_exists('Mail_Mime')
+    && class_exists('Mail_mimeDecode')
+    && class_exists('Mail_mimePart')
+  ) {
+    if (!method_exists('Mail_mimePart', 'encodeHeader')) {
+      drupal_set_message(
+        t('Your version of <a href="@mimepart">!mimepart</a> is too old.  Please update to version 1.6.1 or later.',
+          array(
+            '@mimepart' => 'http://pear.php.net/package/Mail_Mime/docs/1.6.1/Mail_Mime/Mail_mimePart.html',
+            '!mimepart' => 'Mail_mimePart',
+          )
+        ),
+        'error'
+      );
+      return FALSE;
+    }
+    return TRUE;
+  }
+  // One or more classes don't exist.  Try downloading them.
+  if (module_exists('include')) {
+    return mailmime_download_requirements();
+  }
+  return FALSE;
+}
+
+/**
+ * Attempts to use the Include module to download required files.
+ */
+function mailmime_download_requirements() {
+  $packages = array(
+    'Mail_mime' => array(
+      'local_path' => 'Mail/',
+      'remote_path' => 'https://raw.github.com/pear/Mail_Mime/master/Mail/',
+      'files' => array(
+        'mime.php',
+        'mimePart.php',
+      ),
+    ),
+    'Mail_mimeDecode' => array(
+      'local_path' => 'Mail/',
+      'remote_path' => 'http://svn.php.net/repository/pear/packages/Mail_mimeDecode/trunk/Mail/',
+      'files' => array(
+        'mimeDecode.php',
+      ),
+    ),
+    'PEAR' => array(
+      'local_path' => '',
+      'remote_path' => 'https://raw.github.com/pear/pear-core/master/',
+      'files' => array(
+        'PEAR.php',
+        'PEAR5.php',
+      ),
+    ),
+  );
+  foreach ($packages as $name => $package) {
+    $dst = $package['local_path'];
+    $src = $package['remote_path'];
+    foreach ($package['files'] as $file) {
+      if (!include_check_path("$dst$file", "$src$file", 'url')) {
+        return FALSE;
+      }
+    }
+  }
+  return TRUE;
+}

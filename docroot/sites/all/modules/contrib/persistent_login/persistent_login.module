@@ -1,0 +1,590 @@
+<?php
+
+/**
+ * @file
+ * Provide a "Remember Me" checkbox in the login form.
+ */
+
+define('PERSISTENT_LOGIN_SECURE_PATHS', "user/*/*
+user/*/address
+cart/checkout
+admin/config/system/persistent_login
+");
+
+define('PERSISTENT_LOGIN_MAXLIFE', 30);
+
+/**
+ * Implements hook_help().
+ */
+function persistent_login_help($path, $arg) {
+  if ($path == 'admin/help#persistent_login') {
+    return t('Provide a "Remember Me" checkbox in the login form.');
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function persistent_login_permission() {
+  return array(
+    'administer persistent login' => array(
+      'title' => t('Administer Persistent Login'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_boot().
+ * Before a cached page is served, perform a Persistent Login if appropriate.
+ * Persistent Login must operate during boot because if page caching is enabled,
+ * other hooks are never invoked unless the user is already logged in.
+ */
+function persistent_login_boot() {
+  _persistent_login_check();
+}
+
+/**
+ * Implements hook_init().
+ * Before the menu system takes control, perform a Persistent Login if
+ * appropriate.
+ */
+function persistent_login_init() {
+  global $user;
+  // If the user is logged in only via Persistent Login, then don't let them
+  // visit restricted pages.
+  if (isset($_SESSION['persistent_login_login']) && _persistent_login_match($_GET['q'])) {
+    $_SESSION['persistent_login_default_user'] = $user->name;
+    $user = user_load(0);
+    unset($_SESSION['persistent_login_check']);
+    unset($_SESSION['persistent_login_login']);
+    $_SESSION['persistent_login_reauth'] = TRUE;
+    unset($_GET['destination']);
+    drupal_set_message(t('Please verify your username and password to access this page.'), 'error');
+    drupal_goto('user/login', array('query' => drupal_get_destination()));
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function persistent_login_menu() {
+  $items = array();
+  $items['persistent_login/erase'] = array(
+    'title' => 'Erase persistent logins',
+    'page callback' => 'persistent_login_erase',
+    'access callback' => 'persistent_login_erase_access',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'file' => 'persistent_login.pages.inc',
+  );
+  $items['admin/config/system/persistent_login'] = array(
+    'title' => 'Persistent Login',
+    'description' => 'Control Persistent Login session lifetime and restricted pages.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('persistent_login_admin_settings'),
+    'access arguments' => array('administer persistent login'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'persistent_login.pages.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function persistent_login_menu_alter(&$items) {
+  $items['user/register']['access callback'] = 'persistent_login_user_register_access';
+}
+
+/**
+ * Access callback to check permission to erase user's Persistent Login records.
+ */
+function persistent_login_erase_access($uid = NULL) {
+  global $user;
+  if ($user->uid) {
+    if (empty($uid)) {
+      $uid = $user->uid;
+    }
+    if ($user->uid == $uid || user_access('administer persistent login')) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function persistent_login_form_alter(&$form, $form_state, $form_id) {
+  $alter_form = FALSE;
+  if (substr($form_id, 0, 10) == 'user_login') {
+    // This is a login form that we want to alter.
+    $alter_form = TRUE;
+  }
+  elseif (substr($form_id, 0, 13) == 'user_register') {
+    // This is a user register form, but we only want to alter this if
+    // - Visitors can create accounts and no administrator approval is required.
+    // - E-mail verification is not required when a visitor creates an account.
+    // - The form is not being executed by a user administrator.
+    if (!variable_get('user_email_verification', 1) && variable_get('user_register', 1) == 1 && !user_access('administer users')) {
+      $alter_form = TRUE;
+    }
+  }
+  if (!$alter_form) {
+    return;
+  }
+
+  // If the user is reauthenticating, then fill in the name element with the
+  // user name provided by persistent_login_init().
+  if (isset($_SESSION['persistent_login_default_user'])) {
+    // Make sure we still have a 'name' element on this form. Note that someone
+    // else could have removed it from its own hook_form_alter() implementation.
+    if (isset($form['name'])) {
+      $form['name']['#default_value'] = $_SESSION['persistent_login_default_user'];
+    }
+    unset($_SESSION['persistent_login_default_user']);
+  }
+
+  // Don't show Remember Me checkbox if we're reauthenticating to
+  // access a protected page unless I change the code to delete the PL
+  // session if the user does not check the box.
+  //
+  // This variable is not unset until login succeeds so if the user
+  // mistypes the password Remember Me will stay hidden.  Since this
+  // can only get set within a valid PL session, there is no risk of
+  // it hiding Remember Me for a non-logged-in user.
+  //
+  if (!empty($_SESSION['persistent_login_reauth'])) {
+    return;
+  }
+
+  // Let's add the "Remember me" checkbox to the login/user register form.
+  if (isset($form['account']) && is_array($form['account'])) {
+    $form['account']['persistent_login'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Remember me'),
+    );
+  }
+  else {
+    $form['persistent_login'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Remember me'),
+    );
+  }
+
+  // Add an after_build callback that we'll use to adjust the weight
+  // and tabindex attributes of the "Remember me" checkbox.
+  if (!isset($form['#after_build'])) {
+    $form['#after_build'] = array();
+  }
+  $form['#after_build'][] = 'persistent_login_form_after_build_proxy';
+}
+
+/**
+ * Proxy function to call persistent_login_form_after_build(), because it might
+ * not be included yet when the form is processed and invokes the callback.
+ */
+function persistent_login_form_after_build_proxy($form, &$form_state) {
+  module_load_include('inc', 'persistent_login', 'persistent_login.pages');
+  return persistent_login_form_after_build($form, $form_state);
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function persistent_login_user_login(&$edit, $account) {
+  // If we are coming from a login form, $edit['persistent_login']
+  // is set if the user checked it.  If we are coming from
+  // persistent_login_check(), $edit['persistent_login'] is also
+  // set along with pl_series and pl_expiration.  Either way, issue a
+  // new PL cookie, preserving series and expiration if present.
+  if (!empty($edit['values']['persistent_login'])) {
+    _persistent_login_create_cookie($account, $edit);
+  }
+  // Assume this is a non-PL login; clear persistent_login_login.
+  // If this is a PL login, it will be set again by
+  // _persistent_login_check (our caller).
+  unset($_SESSION['persistent_login_login']);
+  // see comment in _form_alter()
+  unset($_SESSION['persistent_login_reauth']);
+}
+
+/**
+ * Implements hook_user_logout().
+ */
+function persistent_login_user_logout($account) {
+  $cookie_name = _persistent_login_get_cookie_name();
+  if (!empty($_COOKIE[$cookie_name])) {
+    _persistent_login_setcookie($cookie_name, '', REQUEST_TIME - 86400);
+    unset($_SESSION['persistent_login_check']);
+    unset($_SESSION['persistent_login_login']);
+    unset($_SESSION['persistent_login_reauth']);
+    list($uid, $series, $token) = explode(':', $_COOKIE[$cookie_name]);
+    _persistent_login_invalidate('logout', "uid = :uid AND series = :series", array(':uid' => $uid, ':series' => $series));
+  }
+}
+
+/**
+ * Implements hook_user_view().
+ */
+function persistent_login_user_view($account, $view_mode) {
+  global $user;
+  if ($user->uid == $account->uid || user_access('administer persistent login')) {
+    $n = db_query('SELECT COUNT(*) FROM {persistent_login} WHERE uid = :uid AND (expires = 0 OR expires > :expires)', array(':uid' => $account->uid, ':expires' => REQUEST_TIME))->fetchField();
+    if ($n > 0) {
+      if (!isset($account->content['security'])) {
+        $account->content['security'] = array();
+      }
+      $account->content['security'] += array(
+            '#type' => 'user_profile_category',
+            '#title' => t('Security'),
+            '#weight' => 10,
+          );
+      $account->content['security']['persistent_login'] = array(
+            '#type' => 'user_profile_item',
+            '#title' => t('Remembered logins'),
+            '#markup' => t('@acct %n persistent login session(s) created with the "Remember Me" login option on this site.  If you no longer trust the computer(s) on which these remembered sessions were created or think your account has been compromised for any reason, you can !erase_link.  This will not log you out of your current session but you will have to provide your username and password to log in the next time you visit this site.',
+              array(
+                '@acct' => (($user->uid == $account->uid) ? t('You have') : t('User @user has', array('@user' => $account->name))),
+                '%n' => $n,
+                '!erase_link' => l(t('erase persistent logins now'), 'persistent_login/erase/' . $account->uid, array(), drupal_get_destination()),
+              )
+            ),
+            '#attributes' => array('class' => 'logins'),
+          );
+    }
+  }
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function persistent_login_user_presave(&$edit, $account, $category) {
+  if (isset($account->uid) && !empty($edit['pass'])) {
+    // If the password is modified, wipe all persistent logins.
+    _persistent_login_invalidate('user_edit', 'uid = :uid', array(':uid' => $account->uid));
+
+    if (isset($_SESSION)) {
+      unset($_SESSION['persistent_login_check']);
+      unset($_SESSION['persistent_login_login']);
+    }
+  }
+}
+
+/**
+ * Implements hook_user_cancel().
+ */
+function persistent_login_user_cancel($edit, $account, $method) {
+  _persistent_login_invalidate('user_cancel', 'uid = :uid', array(':uid' => $account->uid));
+  unset($_SESSION['persistent_login_check']);
+  unset($_SESSION['persistent_login_login']);
+}
+
+/**
+ * Implements hook_cron().
+ */
+function persistent_login_cron() {
+  _persistent_login_invalidate('cron', 'expires > 0 AND expires < :expires', array(':expires' => REQUEST_TIME));
+
+  // Remove old login invalidation history
+  if (0 < ($history_days = variable_get('persistent_login_history', 0))) {
+    db_query('DELETE FROM {persistent_login_history} WHERE at < :time', array(':time' => REQUEST_TIME - 86400 * $history_days));
+  }
+}
+
+/**
+ * Do the real work.  Note that we may be in BOOTSTRAP_PAGE_CACHE mode with
+ * few modules loaded.
+ *
+ * If a non-logged in user has a valid Persistent Login cookie, log her in,
+ * disable the old cookie, and issue a new one for next time.  Then
+ * reload the current page so the user is logged in from the
+ * beginning.
+ *
+ * If a non-logged in user has an invalid PL cookie that indicates an
+ * attack has occurred, panic.
+ *
+ * If a user logged in by Persistent Login tries to access a protected
+ * page, redirect them to the login page.  Their remembered login is
+ * preserved, though, so they can skip the login and keep browsing
+ * non-protected pages.
+ */
+function _persistent_login_check() {
+  global $user;
+  $path = isset($_GET['q']) ? $_GET['q'] : '';
+
+  // Do not interfere with login/logout pages. Note that we're performing this
+  // check during hook_boot(), Drupal has not already normalized the path, so
+  // we need to take care of the path prefix defined for language negotiation.
+  $mode = variable_get('language_negotiation_language', array());
+  if (isset($mode['locale-url'])) {
+    $ll_enabled = language_list('enabled');
+    foreach (array_keys($ll_enabled[1]) as $prefix) {
+      if (!empty($prefix) && preg_match('`^(?:' . preg_quote($prefix) . '/){0,1}(?:user/login|user/logout)$`', $path)) {
+        return;
+      }
+    }
+  }
+  elseif ($path == 'user/login' || $path == 'user/logout') {
+    return;
+  }
+
+  $now = REQUEST_TIME;
+
+  $cookie_name = _persistent_login_get_cookie_name();
+
+
+  if ($user->uid == 0 && isset($_COOKIE[$cookie_name]) && !isset($_SESSION['persistent_login_check'])) {
+    // For efficiency, only check once per session unless something changes.
+    $_SESSION['persistent_login_check'] = TRUE;
+
+    list($uid, $series, $token) = explode(':', $_COOKIE[$cookie_name]);
+
+    // Determine if the token is valid by looking for it in the db.
+    $res = db_query("SELECT u.name, pl.uid, pl.series as pl_series, pl.token as pl_token, pl.expires as pl_expires FROM {persistent_login} pl INNER JOIN {users} u USING (uid) WHERE u.status = :status AND pl.uid = :uid AND pl.series = :series", array(':status' => 1, ':uid' => $uid, ':series' => $series));
+    $r = $res->fetchAssoc();
+    if (!is_array($r) || count($r) == 0) {
+      // $uid:$series is invalid
+      return;
+    }
+    else if ($r['pl_expires'] > 0 && $r['pl_expires'] < REQUEST_TIME) {
+      // $uid:$series has expired
+      return;
+    }
+
+    // now, any outcome requires this
+    require_once DRUPAL_ROOT . '/includes/common.inc';
+    require_once DRUPAL_ROOT . '/includes/path.inc';
+    require_once DRUPAL_ROOT . '/includes/theme.inc';
+
+    if ($r['pl_token'] === $token) {
+      // Delete the one-time use persistent login cookie.
+      _persistent_login_invalidate('used', "uid = :uid AND series = :series", array(':uid' => $uid, ':series' => $series));
+
+      // The Persistent Login cookie is valid.  $r is a 'user form'
+      // that contains only name, uid, pl_series, pl_token, and
+      // pl_expires.  Add persistent_login so we and other modules can
+      // tell what is going on.
+      //
+      $r['persistent_login'] = 1;
+
+      // Log in the user.  Use user_external_login() so all the right
+      // things happen.  Be sure to override persistent_login_login to
+      // TRUE afterwards (our hook_user sets it to FALSE).
+      //
+      // user_external_login() requires user.module and
+      // drupal_get_form() which needs system.module... just finish booting.
+      drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+
+      $account = user_load($r['uid']);
+      // Check if user is blocked.
+      $state['values']['name'] = $account->name;
+      user_login_name_validate(array(), $state);
+      if (!form_get_errors()) {
+        // Load global $user and perform final login tasks.
+        $form_state['uid'] = $account->uid;
+        $form_state['values'] = array();
+        $form_state['values']['persistent_login'] = 1;
+        user_login_submit(array(), $form_state);
+      } else {
+        return;
+      }
+      $_SESSION['persistent_login_login'] = TRUE;
+
+      // Only welcome the user back once per session.
+      if (empty($_SESSION['persistent_login_welcomed']) && variable_get('persistent_login_welcome', TRUE)) {
+        drupal_set_message(t('Welcome back, %name.', array('%name' => $r['name'])));
+      }
+      $_SESSION['persistent_login_welcomed'] = TRUE;
+
+      // Reload this page as the user.  If page caching is enabled,
+      // the user was not logged in until now and so the page may have
+      // come from the cache.  Also, some other init hook may care.
+      // Also, note that we prevent redirections to front page path.
+      if (empty($_POST)) {
+        if (!isset($_GET['destination']) && drupal_is_front_page()) {
+          drupal_goto('');
+        }
+        else {
+          $dest = drupal_get_destination();
+          $_GET['destination'] = $dest['destination'];
+          drupal_goto();
+        }
+      }
+      // Only reached if POST data available.
+      return;
+    }
+    else {
+      // The Persistent Login cookie is NOT valid, but $uid:$series
+      // was right.  This means two browsers are sharing the cookie,
+      // so someone is cheating.  Panic.
+
+      // watchdog() needs a module that is not loaded yet during hook_boot(),
+      // and t() needs the language initialized... just finish booting.
+      drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+
+      // Reset PL state in $_SESSION.
+      $d = array();
+      _persistent_login_invalidate('stolen', 'uid = :uid', array(':uid' => $uid));
+      persistent_login_user_logout($user);
+      // Delete all open sessions for this user.  Use $uid from the
+      // PL cookie, not $user->uid which is still 0.  No need to
+      // regenerate the session, user will be anonymous on next visit.
+      drupal_session_destroy_uid($uid);
+      // Log the event, warn the user.
+      watchdog('security', 'Stolen Persistent Login session for user %user detected.', array('%user' => $r['name']), WATCHDOG_ERROR);
+      drupal_set_message(t('<p><b>SECURITY ALERT!</b></p><p>You previously logged in to this site and checked the <em>Remember me</em> box.  At that time, this site stored a "login cookie" on your web browser that it uses to identify you each time you return.  However, the login cookie that your browser just provided is incorrect.  One possible cause of this error is that your web browser cookies have been stolen and used by someone else to impersonate you at this site.</p><p>As a precaution, we logged out all of your current sessions and deactivated all your remembered logins to this site.  You can log in again now.</p>'), 'error');
+      drupal_goto();
+      return;
+    }
+  }
+}
+
+/**
+ * Create a Persistent Login cookie.
+ *
+ * We're about to set a new PL cookie.  If the user already has a PL
+ * but $edit['pl_series'] does not exist, they got here because they
+ * tried to access a protected page and had to reauthenticate
+ * (because $edit['pl_series'] is added by _persistent_login_check(),
+ * not by any login form).  Clean up the old PL series to avoid junk
+ * in the db.
+ */
+function _persistent_login_create_cookie($acct, $edit = array()) {
+  $cookie_name = _persistent_login_get_cookie_name();
+  if (isset($_COOKIE[$cookie_name]) && !isset($edit['pl_series'])) {
+    list($uid, $series, $token) = explode(':', $_COOKIE[$cookie_name]);
+    _persistent_login_invalidate('cleanup', "uid = :uid AND series = :series", array(':uid' => $uid, ':series' => $series));
+  }
+
+  $token   = drupal_get_token(uniqid(mt_rand(), TRUE));
+  $days    = variable_get('persistent_login_maxlife', PERSISTENT_LOGIN_MAXLIFE);
+  $expires = (isset($edit['pl_expires']) ? $edit['pl_expires'] : (($days > 0) ? REQUEST_TIME + $days * 86400 : 0));
+  $series  = (isset($edit['pl_series']) ? $edit['pl_series'] : drupal_get_token(uniqid(mt_rand(), TRUE)));
+
+  _persistent_login_setcookie($cookie_name, $acct->uid . ':' . $series . ':' . $token, $expires > 0 ? $expires : 2147483647);
+
+  $q = db_query('INSERT INTO {persistent_login} (uid, series, token, expires) VALUES (:uid, :series, :token, :expires)',
+    array(':uid' => $acct->uid, ':series' => $series, ':token' => $token, ':expires' => $expires));
+  if ($q->rowCount() != 1) {
+    watchdog('security', 'Persistent Login FAILURE: could not insert (%user, %series, %tok, %expires)', array(
+      '%user' => $acct->name,
+      '%series' => $series,
+      '%tok' => $token,
+      '%expires' => $expires,
+    ), WATCHDOG_ERROR);
+  }
+  else {
+    // Make sure we only remember the specified number of Persistent Logins per user.
+    $maxlogins = variable_get('persistent_login_maxlogins', 10);
+    $expires = (int) db_query_range('SELECT expires FROM {persistent_login} WHERE uid = :uid ORDER BY expires DESC', $maxlogins, 1, array(':uid' => $acct->uid))->fetchField();
+    if ($expires > 0) {
+      _persistent_login_invalidate('too many', 'uid = :uid AND expires <= :expires', array(':uid' => $acct->uid, ':expires' => $expires));
+    }
+  }
+}
+
+/**
+ * Set a cookie with the same options as the session cookie.
+ *
+ * @param $name
+ *  The name of the cookie.
+ * @param $value
+ *  The value to store in the cookie.
+ * @param $expire
+ *   The time the cookie expires. This is a Unix timestamp so is in number of seconds
+ *   since the epoch. By default expires when the browser is closed.
+ */
+function _persistent_login_setcookie($name, $value, $expire = 0) {
+  $params = session_get_cookie_params();
+  setcookie($name, $value, $expire, $params['path'], $params['domain'], $params['secure']);
+}
+
+/**
+ * Get the name of the Persistent Login cookie.
+ *
+ * Include $base_path in PERSISTENT_LOGIN so a user can be logged in
+ * to more than one Drupal site per domain.
+ */
+function _persistent_login_get_cookie_name() {
+  static $cookie_name;
+  if (!isset($cookie_name)) {
+    // Derive the PL cookie name from the Drupal session name.
+    // See conf_init() in Drupal includes/bootstrap.inc.
+    $cookie_name = variable_get('persistent_login_cookie_prefix', 'PERSISTENT_LOGIN_') . substr(session_name(), 4);
+  }
+  return $cookie_name;
+}
+
+/**
+ * Check the page passsed and see if it should be secure or insecure.
+ *
+ * @param $path
+ *  The path of the page to check.
+ *
+ * @return
+ *  0 - Page should be insecure.
+ *  1 - Page should be secure.
+ */
+function _persistent_login_match($path) {
+  $secure = variable_get('persistent_login_secure', 1);
+  $pages = trim(variable_get('persistent_login_pages', PERSISTENT_LOGIN_SECURE_PATHS));
+
+  if ($pages) {
+    $front = variable_get('site_frontpage', 'node');
+    $regexp = ('/^(?:' .
+      preg_replace(
+        array(
+          '/(\r\n?|\n)/',
+          '/\\\\\*/',
+          '/(^|\|)\\\\<front\\\\>($|\|)/',
+        ),
+        array(
+          '|',
+          '.*',
+          '\1' . preg_quote($front, '/') . '\2',
+        ),
+        preg_quote($pages, '/')
+      )
+      . ')$/'
+    );
+    return !($secure xor preg_match($regexp, $path));
+  }
+  else {
+    return 0;
+  }
+}
+
+function _persistent_login_invalidate($why, $where, $args) {
+
+  if (variable_get('persistent_login_history', 0)) {
+    $args2 = $args;
+    $args2[':at'] = REQUEST_TIME;
+    $args2[':why'] = $why;
+    db_query("INSERT INTO {persistent_login_history} (uid, series, token, expires, at, why) SELECT uid, series, token, expires, :at, :why FROM {persistent_login} WHERE " . $where, $args2);
+  }
+
+  db_query('DELETE FROM {persistent_login} WHERE ' . $where, $args);
+}
+
+/**
+ * Return the warning message to be displayed via hook_requirements() or on the
+ * Persistent Login settings page as a message.
+ */
+function _persistent_login_get_config_warning_msg() {
+  return t(
+    'Your site\'s <em>session.cookie_lifetime</em> PHP setting is %life.  When using Persistent Login, it should be 0 so that PHP sessions end when the user closes his/her browser.  You can change this setting by editing <strong>%file</strong>.',
+    array(
+      '%life' => ini_get('session.cookie_lifetime'),
+      '%file' => conf_path() . '/settings.php',
+    )
+  );
+}
+
+/**
+ * Disable 'Create Account' link if a user is logged in via PL and trying to
+ * access a PL restricted page.
+ */
+function persistent_login_user_register_access() {
+  return user_register_access() && empty($_SESSION['persistent_login_reauth']);
+}
