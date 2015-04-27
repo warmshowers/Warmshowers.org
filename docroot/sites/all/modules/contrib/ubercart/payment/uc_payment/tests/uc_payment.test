@@ -1,0 +1,95 @@
+<?php
+
+/**
+ * @file
+ * Ubercart payment related tests
+ */
+
+class UbercartPaymentPaneTestCase extends UbercartTestHelper {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Payment checkout pane',
+      'description' => 'Ensures that the payment pane functions properly during checkout.',
+      'group' => 'Ubercart',
+    );
+  }
+
+  /**
+   * Overrides DrupalWebTestCase::setUp().
+   */
+  public function setUp() {
+    parent::setUp(array('uc_payment', 'uc_payment_pack'));
+    $this->drupalLogin($this->adminUser);
+    $this->drupalPost('node/' . $this->product->nid, array(), t('Add to cart'));
+  }
+
+  /**
+   * Verifies checkout page presents all enabled payment methods.
+   */
+  public function testPaymentMethodOptions() {
+    // No payment methods.
+    variable_set('uc_payment_method_check_checkout', FALSE);
+    $this->drupalGet('cart/checkout');
+    $this->assertText('Checkout cannot be completed without any payment methods enabled. Please contact an administrator to resolve the issue.');
+
+    // Single payment method.
+    variable_set('uc_payment_method_check_checkout', TRUE);
+    $this->drupalGet('cart/checkout');
+    $this->assertNoText('Select a payment method from the following options.');
+    $this->assertFieldByXPath("//input[@name='panes[payment][payment_method]' and @disabled='disabled']");
+
+    // Multiple payment methods.
+    variable_set('uc_payment_method_other_checkout', TRUE);
+    $this->drupalGet('cart/checkout');
+    $this->assertText('Select a payment method from the following options.');
+    $this->assertNoFieldByXPath("//input[@name='panes[payment][payment_method]' and @disabled='disabled']");
+  }
+
+  /**
+   * Tests operation of uc_payment_show_order_total_preview variable.
+   */
+  public function testOrderTotalPreview() {
+    variable_set('uc_payment_show_order_total_preview', TRUE);
+    $this->drupalGet('cart/checkout');
+    $this->assertText('Order total:');
+
+    variable_set('uc_payment_show_order_total_preview', FALSE);
+    $this->drupalGet('cart/checkout');
+    $this->assertNoText('Order total:');
+  }
+
+  /**
+   * Tests free orders.
+   */
+  public function testFreeOrders() {
+    $free_product = $this->createProduct(array('sell_price' => 0));
+    variable_set('uc_payment_method_check_checkout', TRUE);
+
+    // Check that paid products cannot be purchased for free.
+    $this->drupalGet('cart/checkout');
+    $this->assertText('Check or money order');
+    $this->assertNoText('No payment required');
+    $this->assertNoText('Subtotal: $0.00');
+
+    // Check that a mixture of free and paid products cannot be purchased for free.
+    $this->drupalPost('node/' . $free_product->nid, array(), t('Add to cart'));
+    $this->drupalGet('cart/checkout');
+    $this->assertText('Check or money order');
+    $this->assertNoText('No payment required');
+    $this->assertNoText('Subtotal: $0.00');
+
+    // Check that free products can be purchased successfully with no payment.
+    $this->drupalPost('cart', array(), t('Remove'));
+    $this->drupalPost('cart', array(), t('Remove'));
+    $this->drupalPost('node/' . $free_product->nid, array(), t('Add to cart'));
+    $this->drupalGet('cart/checkout');
+    $this->assertNoText('Check or money order');
+    $this->assertText('No payment required');
+    $this->assertText('Subtotal: $0.00');
+
+    // Check that this is the only available payment method.
+    $this->assertNoText('Select a payment method from the following options.');
+    $this->assertFieldByXPath("//input[@name='panes[payment][payment_method]' and @disabled='disabled']");
+  }
+}

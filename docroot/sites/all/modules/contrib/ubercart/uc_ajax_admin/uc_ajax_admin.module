@@ -1,0 +1,240 @@
+<?php
+
+/**
+ * @file
+ * Configures Ajax behaviours on the Ubercart checkout page.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function uc_ajax_admin_help($path, $arg) {
+  if ($path == 'admin/store/settings/checkout/ajax') {
+    $output = '<p>' . t('Use this page to configure Ajax behaviors on the form. The table below associates triggering form input elements with panes. The contents of each associated pane will be refreshed whenever the customer clicks on or changes the triggering form element. For example, you can cause the available payment methods to be refreshed when the customer changes their billing zone.') . '</p>';
+    $output .= '<p>' . t("Note that the triggering elements you can choose are listed based on the form as it would be displayed to you right now. For example, if none of your shipping methods apply to the current cart contents, you won't see the shipping quote selection element. If you don't see the form element you wish to use as a trigger, try adding some products to the shopping cart or otherwise simulating the customer experience, and verify that those elements are present on the form itself.") . '</p>';
+    return $output;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_ajax_admin_menu() {
+  $items = array();
+  $items['admin/store/settings/checkout/ajax'] = array(
+    'title' => 'Ajax',
+    'description' => 'Administer ajax updates on checkout form.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_ajax_admin_form', 'checkout'),
+    'access arguments' => array('administer store'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+  );
+  return $items;
+}
+
+/**
+ * Administration form for uc_ajax.
+ *
+ * @param $target_form
+ *   The form for which ajax behaviors are to be administered. Currently only
+ *   'checkout' is supported.
+ */
+function uc_ajax_admin_form($form, &$form_state, $target_form = 'checkout') {
+  module_load_include('inc', 'uc_store', 'includes/uc_ajax_attach');
+  switch ($target_form) {
+    case 'checkout':
+      $triggers = _uc_ajax_admin_checkout_trigger_options(_uc_ajax_admin_build_checkout_form());
+      $panes = _uc_checkout_pane_list();
+      $wrappers = array();
+      foreach ($panes as $id => $pane) {
+        $wrappers["$id-pane"] = _uc_checkout_pane_data($id, 'title');
+      }
+      break;
+
+    default:
+      drupal_not_found();
+  }
+  $form['#uc_ajax_target'] = $target_form;
+  $form['#uc_ajax_config'] = variable_get('uc_ajax_' . $target_form, _uc_ajax_defaults($target_form));
+
+  $form['table'] = tapir_get_table('uc_ajax_admin_table', $triggers, $wrappers, $form['#uc_ajax_config']);
+  $form['actions'] = array(
+    '#type' => 'actions',
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+    ),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for the uc_ajax_admin form.
+ */
+function uc_ajax_admin_form_submit($form, &$form_state) {
+  $config = $form['#uc_ajax_config'];
+  foreach ($form_state['values']['table'] as $index => $entry) {
+    $key = $entry['key'];
+    if ($index === '_new') {
+      if (!empty($key) && !empty($entry['panes'])) {
+        $config[$key] = $entry['panes'];
+      }
+    }
+    elseif ($entry['remove'] || empty($entry['panes'])) {
+      unset($config[$key]);
+    }
+    else {
+      $config[$key] = $entry['panes'];
+    }
+  }
+  variable_set('uc_ajax_' . $form['#uc_ajax_target'], $config);
+  drupal_set_message(t('Your changes have been saved.'));
+}
+
+/**
+ * TAPIr table callback for the uc_ajax administrative form.
+ *
+ * @param $trigger_options
+ *   The select options for triggering elements.
+ * @param $wrapper_options
+ *   The select options for wrappers.
+ * @param $config
+ *   The existing configuration.
+ */
+function uc_ajax_admin_table($trigger_options, $wrapper_options, $config) {
+  $rows = array();
+  foreach ($config as $key => $panes) {
+    list(, $pane) = explode('][', $key);
+    $rows[] = array(
+      'key' => array(
+        '#type' => 'hidden',
+        '#value' => $key,
+        '#suffix' => empty($trigger_options[ucfirst($pane)][$key]) ? $key : ucfirst($pane) . ': ' . $trigger_options[ucfirst($pane)][$key],
+      ),
+      'panes' => array(
+        '#type' => 'select',
+        '#options' => $wrapper_options,
+        '#default_value' => $panes,
+        '#multiple' => TRUE,
+      ),
+      'remove' => array(
+        '#type' => 'checkbox',
+        '#default_value' => FALSE,
+      ),
+    );
+  }
+  $rows['_new'] = array(
+    'key' => array(
+      '#type' => 'select',
+      '#options' => array(0 => t('--Add a new element--')) + $trigger_options,
+    ),
+    'panes' => array(
+      '#type' => 'select',
+      '#options' => $wrapper_options,
+      '#multiple' => TRUE,
+    ),
+    'remove' => array(
+      '#type' => 'hidden',
+      '#value' => 0,
+    ),
+  );
+
+  $table = array(
+    '#type' => 'tapir_table',
+    '#tree' => TRUE,
+    '#columns' => array(
+      'remove' => array(
+        'cell' => t('Remove'),
+        'weight' => 3,
+      ),
+      'key' => array(
+        'cell' => t('Triggering form element'),
+        'weight' => 1,
+      ),
+      'panes' => array(
+        'cell' => t('Panes to update'),
+        'weight' => 2,
+      ),
+    ),
+  ) + $rows;
+
+  return $table;
+}
+
+/**
+ * Recursively builds a list of all form elements which are suitable triggers
+ * for ajax updates.
+ *
+ * @param $element
+ *   The element to check.
+ * @param $list
+ *   The list being built.  When complete will be an array of the form
+ *     'element_name' => 'Element title'
+ *   where 'element_name' is the name of the element as would be specified for
+ *   form_set_error(), and 'Element title' is a best guess at the human readable
+ *   name of the element.
+ */
+function _uc_ajax_admin_list_triggers($element, &$list) {
+  if (!empty($element['#input']) && !in_array($element['#type'], array('hidden', 'uc_address'))) {
+    $key = implode('][', $element['#array_parents']);
+    switch ($element['#type']) {
+      case 'button': case 'submit':
+        $title = empty($element['#value']) ? $key : $element['#value'];
+        break;
+      default:
+        $title = empty($element['#title']) ? $key : $element['#title'];
+    }
+    $list[$key] = $title;
+  }
+  if (empty($element['#type']) || !in_array($element['#type'], array('radios', 'checkboxes'))) {
+    foreach (element_children($element) as $child) {
+      _uc_ajax_admin_list_triggers($element[$child], $list);
+    }
+  }
+}
+
+/**
+ * Builds a hierarchical list of possible ajax triggers for the checkout form.
+ *
+ * @param $form
+ *   The fully processed checkout form to search for triggers.
+ *
+ * @return
+ *   An hierarchical array of select options, categorized by pane.
+ */
+function _uc_ajax_admin_checkout_trigger_options($form) {
+  $list = array();
+  foreach (element_children($form['panes']) as $name) {
+    $group = ucfirst($name);
+    $list[$group] = array();
+    _uc_ajax_admin_list_triggers($form['panes'][$name], $list[$group]);
+    if (empty($list[$group])) {
+      unset($list[$group]);
+    }
+  }
+  return $list;
+}
+
+/**
+ * Builds the checkout form, using the cart order if it exists, or a default
+ * shippable order if not.
+ */
+function _uc_ajax_admin_build_checkout_form() {
+  module_load_include('inc', 'uc_cart', 'uc_cart.pages');
+  $order = empty($_SESSION['cart_order']) ? FALSE : uc_order_load($_SESSION['cart_order']);
+  if (!$order) {
+    $order = new UcOrder();
+    $order->products = array((object) array(
+      'cart_item_id' => 0,
+      'title' => 'fake',
+      'nid' => 0,
+      'qty' => 1,
+      'price' => 1,
+      'data' => array('shippable' => TRUE),
+      'model' => 0,
+      'weight' => 0
+    ));
+  }
+  return drupal_get_form('uc_cart_checkout_form', $order);
+}

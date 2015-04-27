@@ -1,0 +1,171 @@
+<?php
+/**
+ * @file
+ * Google Analytics implemented for Services.
+ */
+
+/**
+ * Implements services_request_postproces_alter.
+ */
+function gaservice_services_request_postprocess_alter($controller, $args, $reponse) {
+  $ga_account = variable_get('GA_for_mobile_account', NULL);
+  if (empty($ga_account)) {
+    return;
+  }
+
+  $menu = menu_get_item();
+  $service = $menu['page_arguments'][0];
+  $allowed_services = variable_get('gaservice_services', NULL);
+  if ($allowed_services[$service] == '0') {
+    return;
+  }
+  $method_name = '';
+  // Copyright 2009 Google Inc. All Rights Reserved.
+
+  /* TODO: Devise a better way to match the method name of the call.
+       This way will pick the first with the same callback function.
+       However, this doesn't seem to be common practice.*/
+  foreach (services_controllers_list($service) as $controller_name) {
+    $resource = services_controller_get($controller_name, $service);
+
+    if ($resource['callback'] == $controller['callback']) {
+      $method_name = $controller_name;
+      break;
+    }
+  }
+  // Check for standard services if it is set to report to GA.
+  if (!empty($method_name)) {
+    $queue = DrupalQueue::get('gaservice');
+    $queue->createItem(array(
+      'referer' => $_SERVER['HTTP_REFERER'],
+      'query' => $_SERVER['QUERY_STRING'],
+      'path' => $service . '/' . $method_name,
+    ));
+  }
+}
+
+/**
+ * Implements hook_exit().
+ */
+function gaservice_exit() {
+  if (variable_get('queue_class_gaservice', 'MemoryQueue') == 'MemoryQueue') {
+    gaservice_call_ga();
+  }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function gaservice_cron() {
+  if (variable_get('queue_class_gaservice', 'MemoryQueue') == 'SystemQueue') {
+    gaservice_call_ga();
+  }
+}
+
+/**
+ * A Helper function taht calls the GA script and sends the tracking info.
+ */
+function gaservice_call_ga() {
+  $ga_account = variable_get('GA_for_mobile_account', NULL);
+  $queue = DrupalQueue::get('gaservice');
+  include_once drupal_get_path('module', 'gaservice') . '/ga_mod.php';
+  while ($item = $queue->claimItem()) {
+    $referer = $item->data['referer'];
+    $query = $item->data['query'];
+    $path = $item->data['path'];
+
+    if (empty($referer)) {
+      $referer = '-';
+    }
+
+    trackPageView(urlencode($referer), $path, $ga_account, $utmdebug);
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function gaservice_menu() {
+  $items['admin/config/system/gaservice'] = array(
+    'title' => t('Google Analytics Service'),
+    'description' => t('Server side GA scripts'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gaservice_settings'),
+    'access arguments' => array('administer Google Analytics Service'),
+  );
+  return $items;
+}
+
+/**
+ * Menu callback to configure gaservice module settings.
+ */
+function gaservice_settings() {
+  $form['GA_for_mobile_account'] = array(
+    '#title' => t('Google Analytics for Mobile Account'),
+    '#description' => t('Please setup the Google Analytics for Mobile account number. You can replace "UA-XX" with "MO-XX".'),
+    '#type' => 'textfield',
+    '#size' => '10',
+    '#required' => TRUE,
+    '#default_value'=>variable_get('GA_for_mobile_account', NULL),
+  );
+
+  // Get all avaiable services.
+  foreach (services_endpoint_load_all() as $method) {
+    $form_methods[$method->name] = $method->name;
+  }
+
+  $form['gaservice_services'] = array(
+    '#title' => t('Endpoint Access'),
+    '#description' => t('Please turn on the recording option for the services that you want to report to Google Analytics'),
+    '#type' => 'checkboxes',
+    '#multiple' => TRUE,
+    '#options' => $form_methods,
+    '#default_value'=>variable_get('gaservice_services', array()),
+  );
+
+  $form['queue_class_gaservice'] = array(
+    '#title' => t('Google Analytics Call Operation'),
+    '#description' => t('Use this setting to determine when the call to Google Analytics will happen.<br /><br /> <ul><li><b>End of api call</b> will wait until results are displayed to send the request to Google Analytics.</li><li><b>Cron</b> will queue all the requests up until cron runs and then send all the requests at once.</li></ul><br />Note:On larger apis with lots of traffic, it may be necessary to change this to cron to lighten the load a little. However, this will make the requests appear as they all happened at the same time that cron ran.'),
+    '#type' => 'select',
+    '#required' => TRUE,
+    '#options' => array(
+      'MemoryQueue' => 'End of api call',
+      'SystemQueue' => 'Cron',
+    ),
+    '#default_value' => variable_get('queue_class_gaservice', 'MemoryQueue'),
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Helper function that allows a request to be made and immediatly dropped to
+ *   move on to the next one.
+ * @see http://stackoverflow.com/a/3945465
+ */
+function gaservice_request_async($url) {
+  $parts = parse_url($url);
+  $fp = fsockopen($parts['host'],
+      isset($parts['port'])?$parts['port']:80,
+      $errno, $errstr, 30);
+  // Data goes in the path for a GET request.
+  $parts['path'] .= '?' . $parts['query'];
+  $out = 'GET ' . $parts['path'] . " HTTP/1.1\r\n";
+  $out .= 'Host: ' . $parts['host'] . "\r\n";
+  $out .= 'User-Agent: ' . $_SERVER["HTTP_USER_AGENT"] . "\r\n";
+  $out .= 'Accepts-Language: ' . $_SERVER['HTTP_ACCEPT_LANGUAGE'] . "\r\n";
+  $out .= "Connection: Close\r\n\r\n";
+
+  fwrite($fp, $out);
+  fclose($fp);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function gaservice_permission() {
+  return array(
+    'administer Google Analytics Service' => array(
+	  'title' => t('Allow administration of the Google Analytics Service module settings')
+	)
+  );
+}

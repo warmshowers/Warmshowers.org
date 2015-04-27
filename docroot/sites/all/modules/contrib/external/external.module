@@ -1,0 +1,99 @@
+<?php
+// $Id$
+
+/**
+ * Implements hook_perm().
+ */
+function external_perm() {
+  $permissions = array('administer external');
+  return $permissions;
+}
+
+/**
+ * Implements hook_help().
+ */
+function external_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case "admin/help#external":
+      $output = '<p>'.  t("Opens external links and PDFs in new tabs with jQuery") .'</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implement hook_init().
+ */
+function external_init() {
+  if (external_active() && variable_get('external_enabled', TRUE)) {
+    drupal_add_js(array('externalpdf' => variable_get('external_docs_enabled', FALSE)), 'setting');
+    drupal_add_js(drupal_get_path('module', 'external') .'/external.js');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function external_menu() {
+  $items = array();
+
+  $items['admin/config/content/external'] = array(
+    'title' => 'External New Tab',
+    'description' => 'Configure the settings for the External New Tab module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('external_admin_settings'),
+    'access arguments' => array('administer external'),
+  );
+
+  return $items;
+}
+
+/**
+ * Build the form for the settings page.
+ */
+function external_admin_settings() {
+  $form = array();
+
+  $form['external_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable External Module'),
+    '#default_value' => variable_get('external_enabled', TRUE),
+  );
+  $form['external_docs_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Open PDFs in new tabs'),
+    '#default_value' => variable_get('external_docs_enabled', FALSE),
+  );
+  $form['external_disabled_patterns'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Pages to exclude'),
+    '#default_value' => variable_get('external_disabled_patterns', "admin*\nimg_assist*\nnode/add/*\nnode/*/edit"),
+    '#description' => t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>')),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Determine if the module is active for the page being viewed.
+ */
+function external_active() {
+  $path = drupal_get_path_alias($_GET['q']);
+  $patterns = variable_get('external_disabled_patterns', "admin*\nimg_assist*\nnode/add/*\nnode/*/edit");
+  $front_page = variable_get('site_frontpage', 'node');
+
+  $regexp = '/^('. preg_replace(
+    array('/(\r\n?|\n)/', '/\\\\\*/', '/(^|\|)\\\\<front\\\\>($|\|)/'),
+    array('|', '.*', '\1'. preg_quote($front_page, '/') .'\2'),
+    preg_quote($patterns, '/')) .')$/';
+
+  // Compare with the internal and path alias (if any).
+  $page_match = preg_match($regexp, $path);
+  if ($path != $_GET['q']) {
+    $page_match = $page_match || preg_match($regexp, $_GET['q']);
+  }
+
+  return !$page_match;
+}
+

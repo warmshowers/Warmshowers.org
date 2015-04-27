@@ -1,0 +1,96 @@
+<?php
+/**
+ * @file
+ * Reg with pic module file.
+ */
+
+/**
+ * Implements hook_form_alter().
+ */
+function reg_with_pic_form_user_admin_settings_alter(&$form, &$form_state, $form_id) {
+  $form['personalization']['pictures']['reg_with_pic_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable pictures on registration'),
+    '#default_value' => variable_get('reg_with_pic_enabled', 0),
+    '#weight' => -10
+  );
+  $form['personalization']['pictures']['reg_with_pic_weight'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Registraton Picture Field Weight'),
+    '#description' => t('Set to an integer, positive or negative, to control the weight of the picture field on the registration form.'),
+    '#size' => 5,
+    '#default_value' => variable_get('reg_with_pic_weight', 0),
+    '#weight' => -10
+  );
+  $form['#submit'][] = 'reg_with_pic_settings_submit';
+  return $form;
+}
+
+/**
+ * Submit handler for user admin settings form.
+ */
+function reg_with_pic_settings_submit(&$form, &$form_state) {
+  // Save enabled variable.
+  variable_set('reg_with_pic_enabled', $form_state['values']['reg_with_pic_enabled']);
+  // Save weight variable.
+  variable_get('reg_with_pic_weight', $form_state['values']['reg_with_pic_weight']);
+}
+
+/**
+ * Implements hook_form_user_register_alter().
+ */
+function reg_with_pic_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+  // Set picture fieldset.
+  $form['picture'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Picture'),
+    '#weight' => variable_get('reg_with_pic_weight', 0),
+    '#access' => (variable_get('user_pictures', 0) && variable_get('reg_with_pic_enabled', 0))
+  );
+  // Set picture file field.
+  $form['picture']['picture_upload'] = array(
+    '#type' => 'file',
+    '#title' => t('Upload picture'),
+    '#size' => 48,
+    '#description' => t('Your virtual face or picture. Pictures larger than @dimensions pixels will be scaled down.', array('@dimensions' => variable_get('user_picture_dimensions', '85x85'))) . ' ' . filter_xss_admin(variable_get('user_picture_guidelines', '')),
+  );
+  // Validate with user module validation function.
+  $form['#validate'][] = 'user_validate_picture';
+
+  return $form;
+}
+
+/**
+ * Implements hook_entity_presave().
+ */
+function reg_with_pic_entity_presave($account, $type) {
+  // Only handle new users that have an uploaded picture.
+  // user_save() will handle old users.
+  if ($type != 'user' || !$account->is_new || empty($account->picture) || !is_object($account->picture)) {
+    return;
+  }
+  $picture = $account->picture;
+  $info = image_get_info($picture->uri);
+  $picture_directory =  file_default_scheme() . '://' . variable_get('user_picture_path', 'pictures');
+
+  // Set the new uid since it is typically not set at this point. user_save()
+  // will use this uid if set so no problems setting it early here.
+  if (empty($account->uid)) {
+    $account->uid = db_next_id(db_query('SELECT MAX(uid) FROM {users}')->fetchField());
+  }
+
+  // Prepare the pictures directory.
+  file_prepare_directory($picture_directory, FILE_CREATE_DIRECTORY);
+  $destination = file_stream_wrapper_uri_normalize($picture_directory . '/picture-' . $account->uid . '-' . REQUEST_TIME . '.' . $info['extension']);
+
+  // Move the temporary file into the final location.
+  if ($picture = file_move($picture, $destination, FILE_EXISTS_RENAME)) {
+    $picture->status = FILE_STATUS_PERMANENT;
+    $account->picture = file_save($picture);
+    file_usage_add($picture, 'user', 'user', $account->uid);
+  }
+  // Update user record with picture fid.
+  if (isset($account->picture->fid)) {
+    $account->picture = $account->picture->fid;
+  }
+}

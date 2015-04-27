@@ -1,0 +1,336 @@
+<?php
+
+/**
+ * @file
+ * Manage subscription/memberships.
+ *
+ * Development
+ *  Chris Hood http://univate.com.au
+ */
+
+/**
+ * Implements hook_help().
+ */
+function uc_recurring_subscription_help($path, $arg) {
+  switch ($path) {
+    case 'admin/store/subscriptions':
+    case 'admin/store/subscriptions/overview':
+      return t("Below is a list of the subscription products managed by the subscription manager. A subscription is a product that members can purchase to gain access to a role on the site that is automatically renewed on a specific interval. You can add new subscription using the create subscription tab.");
+  }
+}
+
+/**
+ * Implements hook_init().
+ */
+function uc_recurring_subscription_init() {
+  module_load_include('inc', 'uc_recurring_subscription', 'uc_recurring_subscription.ca');
+}
+
+/**
+ * Implements hook_permission().
+ */
+function uc_recurring_subscription_permission() {
+  return array(
+    'manage subscriptions' => array(
+      'title' => t('manage subscriptions'),
+      'description' => t('TODO Add a description for \'manage subscriptions\''),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_recurring_subscription_menu() {
+  $items = array();
+
+  $items['admin/store/subscriptions'] = array(
+    'title' => 'Subscription Manager',
+    'description' => 'Manage recurring subscription products.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_overview'),
+    'access arguments' => array('manage subscriptions'),
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+  $items['admin/store/subscriptions/overview'] = array(
+    'title' => 'Overview',
+    'description' => 'Manage recurring subscription products.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_overview'),
+    'access arguments' => array('manage subscriptions'),
+    'file' => 'uc_recurring_subscription.admin.inc',
+    'weight' => -10,
+  );
+  $items['admin/store/subscriptions/create'] = array(
+    'title' => 'Create Subscription',
+    'description' => '.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_product_form'),
+    'access arguments' => array('manage subscriptions'),
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+  $items['admin/store/subscriptions/%/edit'] = array(
+    'title' => 'Edit Subscription',
+    'description' => '.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_product_form', 3),
+    'access arguments' => array('manage subscriptions'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+  $items['node/%/edit/subscription'] = array(
+    'title' => 'Subscription',
+    'description' => '.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_product_form', 1),
+    'access callback' => 'uc_product_edit_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+  $items['admin/store/subscriptions/subscribers'] = array(
+    'title' => 'Manage Subscribers',
+    'description' => '.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_subscriber_list'),
+    'access arguments' => array('manage subscriptions'),
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+  $items['admin/store/subscriptions/settings'] = array(
+    'title' => 'Subscription Settings',
+    'description' => '.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_subscription_settings_form'),
+    'access arguments' => array('manage subscriptions'),
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+  $items['subscriptions/ahah/%'] = array(
+    'page callback' => 'uc_recurring_subscription_ahah',
+    'page arguments' => array(2),
+    'access arguments' => array('manage subscriptions'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_recurring_subscription.admin.inc',
+  );
+
+  // override the ability to delete the subscription attribute
+  $items['admin/store/attributes/' . variable_get('uc_recurring_subscription_attribute', '') . '/delete'] = array(
+    'title' => 'Delete operation not Availabe',
+    'page callback' => 'uc_recurring_subscription_attribute_delete',
+    'access arguments' => array('administer attributes'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ *
+ */
+function uc_recurring_subscription_menu_alter(&$items) { }
+
+/**
+ *
+ */
+function uc_recurring_subscription_attribute_delete() {
+  return t('This attribute cannot be deleted as it is used by the subscrition products to provide payment options.');
+}
+
+/**
+ * Load a recurring subscription object.
+ */
+function uc_recurring_subscription_load($nid) {
+  $subscription = db_query("SELECT * FROM {uc_recurring_subscription} WHERE nid = :nid", array(':nid' => $nid))->fetchObject();
+  if (!empty($subscription)) {
+    $subscription->access = empty($subscription->access) ? array() : unserialize($subscription->access);
+  }
+  return $subscription;
+}
+
+/**
+ * Delete recurring subscription.
+ */
+function uc_recurring_subscription_delete($nid) {
+  // TODO Please review the conversion of this statement to the D7 database API syntax.
+  /* db_query("DELETE FROM {uc_recurring_subcription} WHERE nid = %d", $nid) */
+  db_delete('uc_recurring_subscription')
+  ->condition('nid', $nid)
+  ->execute();
+}
+
+/**
+ * Implements hook_node_load().
+ */
+function uc_recurring_subscription_node_load($nodes, $types) {
+  if (!in_array(variable_get('uc_recurring_subscription_product_class', 'uc_recurring_subscription'), $types)) {
+    return;
+  }
+  $result = db_query('SELECT * FROM {uc_recurring_subscription} WHERE nid IN(:nids)', array(':nids' => array_keys($nodes)));
+  foreach ($result as $record) {
+    $nodes[$record->nid]->subscription = $record;
+    $nodes[$record->nid]->subscription->access = empty($record->access) ? array() : unserialize($record->access);
+  }
+}
+
+/**
+ * This loads the reucrring product features as well as the attribute option for
+ * this feature.
+ */
+function _uc_recurring_subscription_get_product_features($product_id) {
+  $attribute = uc_attribute_load(variable_get('uc_recurring_subscription_attribute', ''), $product_id, 'product');
+
+  $products = array();
+  $result = db_query("SELECT p.pfid from {uc_recurring_product} p LEFT JOIN {uc_product_features} f ON p.pfid=f.pfid WHERE f.nid = :nid", array(':nid' => $product_id))->fetchAll();
+  
+  foreach ($result as $p) {
+    $product = uc_recurring_product_fee_load($p->pfid);
+    $option_name = _uc_recurring_subscription_create_attribute_option($product->regular_interval_value, $product->regular_interval_unit);
+    $option = _uc_recurring_subscription_option($option_name);
+    $product->option = uc_attribute_subject_option_load($option->oid, 'product', $product_id);
+
+    if ($attribute->default_option == $option->oid) {
+      $product->option->default_option = TRUE;
+    }
+
+    $products[] = $product;
+  }
+  if (count($products) > 1) {
+    usort($products, '_uc_recurring_subscription_product_feature_sort');
+  }
+  return $products;
+}
+
+/**
+ *
+ */
+function _uc_recurring_subscription_option($option_name) {
+  $attribute = uc_attribute_load(variable_get('uc_recurring_subscription_attribute', ''));
+  $option = _uc_recurring_subscription_attribute_option_by_name($attribute->aid, $option_name);
+  return $option;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_recurring_subscription_theme() {
+  return array(
+    'uc_recurring_subscription_item' => array(
+      'render element' => 'form',
+    ),
+    'uc_recurring_subscription_products' => array(
+      'render element' => 'form',
+    ),
+    'uc_recurring_subscription_role_items' => array(
+      'render element' => 'form',
+    ),
+    'uc_recurring_subscription_og_items' => array(
+      'render element' => 'form',
+    ),
+  );
+}
+
+/**
+ * Format a standard naming convension for attribute names.
+ */
+function _uc_recurring_subscription_create_attribute_option($value, $interval) {
+  if ($value == 1) {
+    $intervals = array(
+      'days' => t('Daily'),
+      'weeks' => t('Weekly'),
+      'months' => t('Monthly'),
+      'years' => t('Yearly'),
+    );
+    return $intervals[$interval];
+  }
+  return t('Every @value @interval', array('@value' => $value, '@interval' => $interval));
+}
+
+/**
+ * Find attribute option with a given aid and name
+ */
+function _uc_recurring_subscription_attribute_option_by_name($aid, $name) {
+  $option = db_query("SELECT * from {uc_attribute_options} WHERE aid = :aid AND name = :name", array(
+      ':aid' => $aid,
+      ':name' => $name,
+    ))->fetchObject();
+  // If it doesn't exist we create it.
+  if (empty($option)) {
+    $option = new stdClass();
+    $option->aid = $aid;
+    $option->name = $name;
+    uc_attribute_option_save($option);
+  }
+  return $option;
+}
+
+/**
+ * Function used by uasort to sort product features.
+ */
+function _uc_recurring_subscription_product_feature_sort($a, $b) {
+  $a_weight = (isset($a->option) && isset($a->option->ordering)) ? $a->option->ordering : 0;
+  $b_weight = (isset($b->option) && isset($b->option->ordering)) ? $b->option->ordering : 0;
+  if ($a_weight == $b_weight) {
+    return 0;
+  }
+  return ($a_weight < $b_weight) ? -1 : 1;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function uc_recurring_subscription_form_alter(&$form, $form_state, $form_id) {
+  $aid = variable_get('uc_recurring_subscription_attribute', '');
+  if (isset($form['aid']) && $form['aid']['#value'] == $aid) {
+    // Hide critical options from forum vocabulary.
+    if ($form_id == 'uc_attribute_form') {
+      $form['help_subscription_attribute'] = array(
+        '#value' => t('This is the designated subscription product attribute. Some of the normal attribute options have been disabled.'),
+        '#weight' => -1,
+      );
+      $form['name']['#disabled'] = TRUE;
+    }
+
+  }
+}
+
+
+/*******************************************************************************
+ * UC Recurring Access Hooks - allow access by restricted by the time purchasedi
+ * of each role in this module.
+ ******************************************************************************/
+
+/**
+ * All recurring access by roles setup by this module.
+ */
+function uc_recurring_subscription_uc_recurring_access_types_alter(&$access) {
+  $access['role'] = t('Role');
+}
+
+/**
+ * Add access definitions for roles.
+ */
+function uc_recurring_subscription_uc_recurring_access_apply($fee, $product) {
+  global $user;
+  $subscription = uc_recurring_subscription_load($product->nid);
+  if (empty($subscription->access['subscribe_grant'])) {
+    return;
+  }
+  // role rules
+  foreach ($subscription->access['subscribe_grant'] as $rid) {
+    $access = uc_recurring_access_user_load($fee->uid, 'role', $rid);
+    if (empty($access)) {
+      $access = new stdClass();
+      $access->uid = $fee->uid;
+      $access->created = REQUEST_TIME;
+      $access->access_type = 'role';
+      $access->id = $rid;
+      $access->new = TRUE;
+      $access->time_applied = 0;
+      $access->time_owed = 0;
+    }
+    $interval = $fee->next_charge - REQUEST_TIME;
+    $access->time_applied += min($interval, variable_get('uc_recurring_access_interval', '31536000'));
+    $access->time_owed += $interval;
+    uc_recurring_access_user_save($access);
+    uc_order_comment_save($fee->order_id, $user->uid, t('Applied recurring access to role id: @role.', array('@role' => $rid)));
+  }
+}

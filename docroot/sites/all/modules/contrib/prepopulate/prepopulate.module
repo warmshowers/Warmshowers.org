@@ -1,0 +1,94 @@
+<?php
+
+/**
+ * @file
+ * Fill form elements with data from GET or POST values.
+ *
+ * Originally written by ea. Farris <eafarris@gmail.com>
+ * Based on an idea from chx, from the conversation at
+ * http://www.drupal.org/node/27155.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function prepopulate_help($path, $arg) {
+  switch ($path) {
+    case 'admin/modules#description':
+      return t('Pre-populates forms with HTTP GET or POST data');
+
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function prepopulate_form_alter(&$form, $form_state, $form_id) {
+  // If this is a subsequent step of a multi-step form, the prepopulate values
+  // have done their work, and the user may have modified them: bail.
+  if (!empty($form_state['rebuild'])) {
+    return;
+  }
+  // Provide for accepting base64 encoded fields.
+  if (isset($_REQUEST['pp'])) {
+    parse_str(base64_decode($_REQUEST['pp']), $_REQUEST);
+  }
+  if (isset($_REQUEST['edit'])) {
+    $form['#after_build'][] = 'prepopulate_after_build';
+  }
+}
+
+/**
+ * An #after_build function to set the values prepopulated in the request.
+ */
+function prepopulate_after_build($form, &$form_state) {
+  if (isset($_REQUEST['pp'])) {
+    parse_str(base64_decode($_REQUEST['pp']), $_REQUEST);
+  }
+  if (isset($_REQUEST['edit'])) {
+    $request = (array) $_REQUEST['edit'];
+    _prepopulate_request_walk($form, $request);
+  }
+  return $form;
+}
+
+/**
+ * Internal helper to set element values from the $_REQUEST variable.
+ *
+ * @param array &$form
+ *   A form element.
+ * @param mixed &$request_slice
+ *   String or array. Value(s) to be applied to the element.
+ */
+function _prepopulate_request_walk(&$form, &$request_slice) {
+  $limited_types = array('value', 'hidden', 'button', 'image_button');
+  if (is_array($request_slice)) {
+    foreach (array_keys($request_slice) as $request_variable) {
+      if (element_child($request_variable) && !empty($form[$request_variable]) &&
+       (!isset($form[$request_variable]['#type']) || !in_array($form[$request_variable]['#type'], $limited_types))) {
+        if (!isset($form[$request_variable]['#access']) || $form[$request_variable]['#access'] != FALSE) {
+          _prepopulate_request_walk($form[$request_variable], $request_slice[$request_variable]);
+        }
+      }
+    }
+    if (!empty($form['#default_value']) && is_array($form['#default_value'])) {
+      $form['#default_value'] = array_merge($form['#default_value'], $request_slice);
+    }
+  }
+  else {
+    if ($form['#type'] == 'markup' || empty($form['#type'])) {
+      $form['#value'] = check_plain($request_slice);
+    }
+    else {
+      $form['#value'] = $request_slice;
+    }
+    if ($form['#type'] == 'checkboxes' || $form['#type'] == 'checkbox') {
+      if (!empty($form['#value'])) {
+        $form['#checked'] = TRUE;
+      }
+      else {
+        $form['#checked'] = FALSE;
+      }
+    }
+  }
+}

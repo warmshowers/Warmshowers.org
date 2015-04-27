@@ -1,0 +1,859 @@
+<?php
+
+/*
+ * @file
+ * Advanced Ranking Poll Module 2/29/2012 MW
+ */
+// adding these in case no normal polls have caused them to be added. There
+// appeared to be an issue with the includes going missing in those cases. The
+// module_load_include only adds them once so it's safe.
+module_load_include('inc', 'advpoll', 'includes/advpoll_voteapi');
+module_load_include('inc', 'advpoll', 'includes/advpoll_helper');
+
+/*
+ * Implements hook_node_view
+ * 
+ * Overriding what advanced poll does with the node_view hook for those polls
+ * that are either borda or runoff.
+ */
+
+function advpoll_ranking_node_view($node, $view_mode) {
+  if ($node->type == 'advpoll') {
+    $data = advpoll_get_data($node);
+    if ($data->behavior == 'borda' || $data->behavior == 'runoff'
+      || $data->behavior == 'borda_all' || $data->behavior == 'runoff_all') {
+      drupal_add_css(drupal_get_path('module', 'advpoll') . '/css/advpoll.css', array(
+        'group' => CSS_DEFAULT,
+        'every_page' => TRUE
+        )
+      );
+      // replace the markup for choices with appropriate markup.
+      unset($node->content['advpoll_choice']);
+      // check for eligibility to vote
+      if (advpoll_user_eligibility($node)) {
+        // print out voting form
+        if ($data->behavior == 'borda' || $data->behavior == 'runoff') {
+          $rendered_form = drupal_get_form('advpoll_ranking_choice_form', $data, $node);
+          $voteform = '<div class="advpoll-ranking-wrapper">' . drupal_render($rendered_form) . '</div>';
+          $node->content['advpoll_choice'] = array('#markup' => $voteform, '#weight' => 1);
+        } else {
+          $rendered_form = drupal_get_form('advpoll_draggable_form', $data, $node);
+          $voteform = '<div class="advpoll-ranking-wrapper">' . drupal_render($rendered_form) . '</div>';
+          $node->content['advpoll_choice'] = array('#markup' => $voteform, '#weight' => 1);
+        }
+      } else {
+        // get user's votes if they're logged in and if voting is normal
+        $votes = array();
+        if ($data->mode == 'normal') {
+          $votes = advpoll_get_user_votes($node->nid, $node->nid);
+        }
+
+        if ($data->behavior == 'borda' || $data->behavior == 'borda_all') {
+          $results = advpoll_display_borda_results($node->nid, $data);
+        } else {
+          $results = advpoll_display_runoff_results($node->nid, $data);
+        }
+
+        $node->content['advpoll_choice'] = array('#markup' => $results, '#weight' => 1);
+      }
+    }
+    // JS needs to be present for any ranking poll in case form is re-rendered by vote cancellation.
+    drupal_add_js(drupal_get_path('module', 'advpoll_ranking') . '/js/advpoll-ranking.js', 'file');
+    drupal_add_js(array('advpoll_ranking' => array('display' => 'TRUE')), 'setting');
+  }
+}
+
+/**
+ * Implements hook_menu_alter().
+ *
+ * Alters output of the Vote inspection page.
+ */
+function advpoll_ranking_menu_alter(&$items) {
+  $items['node/%node/advpoll/votes']['page callback'] = 'advpoll_ranking_votes_page';
+  $items['node/%node/results']['page callback'] = 'advpoll_ranking_results_page';
+}
+
+/*
+ * Determine how display the votes based on its type
+ * 
+ * @param $node
+ * An advpoll node
+ * @return
+ * Returns poll display markup.
+ */
+
+function advpoll_ranking_results_page($node) {
+  drupal_add_css(drupal_get_path('module', 'advpoll') . '/css/advpoll.css', array('group' => CSS_DEFAULT, 'every_page' => TRUE));
+
+  drupal_set_title(check_plain($node->title));
+  $data = advpoll_get_data($node);
+  if ($data->behavior == 'borda' || $data->behavior == 'borda_all') {
+    $results = advpoll_display_borda_results($node->nid, $data, 1);
+  } elseif ($data->behavior == 'runoff' || $data->behavior == 'runoff_all') {
+    $results = advpoll_display_runoff_results($node->nid, $data, 1);
+  } else {
+    $results = advpoll_display_results($node->nid, $data, 1);
+  }
+  return $results;
+}
+
+/**
+ * Display the overridden votes page. Uses almost the same output but allows grouping
+ * for borda and instant-runoff.
+ *  
+ * Generates page for administering individual voters on a poll.  Enables administrator
+ * to clear all votes. For users that can view votes but not administer them, the button
+ * is not displayed.
+ * 
+ * @param $node
+ * An advpoll node
+ * @return
+ * Markup displayed by menu callback for this page. 
+ */
+function advpoll_ranking_votes_page($node) {
+  drupal_add_css(drupal_get_path('module', 'advpoll') . '/css/advpoll.css', array('group' => CSS_DEFAULT, 'every_page' => TRUE));
+
+  $data = advpoll_get_data($node);
+
+  $output = t('This table lists all the recorded votes for this poll.');
+  if ($data->mode == 'unlimited') {
+    $output = t('With unlimited voting, a timestamp is used to identify unique votes.  If it is important to identify users by ID or IP, switch to normal voting mode which will use your Voting API settings to record votes.');
+  } elseif ($data->mode == 'cookie') {
+    $output = t('With cookie-based voting, a timestamp is used to identify unique votes while the poll\'s id is set in the cookie to limit votes for a limited time.  If it is important to identify users by ID or IP, switch to normal voting mode which will use your Voting API settings to record votes.');
+  } else {
+    $output = t('If anonymous users are allowed to vote, they will be identified by the IP address of the computer they used when they voted.');
+  }
+
+  $header = array();
+  $header[] = array('data' => t('Visitor'), 'field' => 'uid');
+  $header[] = array('data' => t('Date'), 'field' => 'timestamp', 'sort' => 'asc');
+  $header[] = array('data' => t('Choice'), 'tag');
+
+  $nid = $node->nid;
+
+  $query = db_select('votingapi_vote', 'v')
+    ->condition('entity_id', $nid)
+    ->extend('PagerDefault')
+    ->limit(20)
+    ->extend('TableSort')
+    ->orderByHeader($header)
+    ->fields('v', array(
+    'uid',
+    'timestamp',
+    'tag',
+    'vote_source',
+    'value',
+    ));
+
+  $results = $query->execute();
+  $user_obj = NULL;
+  $rows = array();
+  foreach ($results as $item) {
+    $user_id = $item->uid;
+
+    if (!$user_id) {
+      $user_id = $item->vote_source;
+    } else {
+      $user_obj = user_load($user_id);
+      if ($user_obj) {
+        $user_id = l($user_obj->name, 'user/' . $user_id);
+      }
+    }
+
+    if ($data->behavior == 'borda' || $data->behavior == 'borda_all'
+      || $data->behavior == 'runoff' || $data->behavior == 'runoff_all') {
+      $rows[] = array(
+        'data' => array(
+          $user_id,
+          format_date($item->timestamp),
+          advpoll_match_tag_to_choice($data->choices, $item->tag),
+          $item->value,
+        )
+      );
+    } else {
+      $rows[] = array(
+        'data' => array(
+          $user_id,
+          format_date($item->timestamp),
+          advpoll_match_tag_to_choice($data->choices, $item->tag),
+        )
+      );
+    }
+  }
+
+  if ($rows) {
+    if ($data->behavior == 'borda' || $data->behavior == 'borda_all'
+      || $data->behavior == 'runoff' || $data->behavior == 'runoff_all') {
+      $rows = advpoll_ranking_process_rows($rows);
+    }
+
+    $output .= theme('table', array(
+      'header' => $header,
+      'rows' => $rows,
+      )
+    );
+
+    $output .= theme('pager', array('tags' => array()));
+    if (user_access('administer votes')) {
+      $rendered_form = drupal_get_form('advpoll_clear_votes_form');
+      $output .= drupal_render($rendered_form);
+    }
+  } else {
+    $output .= '<hr /><p>' . t('No votes are currently recorded for %title', array('%title' => $node->title)) . '</p>';
+  }
+
+  return $output;
+}
+
+/**
+ * Implements hook_theme().
+ *
+ * Theme elements used by Advanced Ranking Poll.
+ */
+function advpoll_ranking_theme($existing, $type, $theme, $path) {
+  $theme_hooks = array(
+    'advpoll_runoff' => array(
+      'variables' => array(
+        'total' => 0,
+        'rows' => array(),
+        'percentage' => 0,
+        'nid' => NULL,
+        'cancel_form' => NULL
+      ),
+      'path' => drupal_get_path('module', 'advpoll_ranking') . '/templates',
+      'template' => 'advpoll-runoff'
+    ),
+    'advpoll_borda_bar' => array(
+      'variables' => array(
+        'percentage' => 0,
+        'votes' => 0,
+        'voted' => 0
+      ),
+      'path' => drupal_get_path('module', 'advpoll_ranking') . '/templates',
+      'template' => 'advpoll-borda-bar'
+    ),
+    'advpoll_draggable' => array(
+      'variables' => array(
+        'data' => NULL,
+        'node' => NULL,
+      ),
+      'path' => drupal_get_path('module', 'advpoll_ranking') . '/templates',
+      'template' => 'advpoll-draggable',
+    ),
+    'advpoll_ranking' => array(
+      'variables' => array(
+        'data' => NULL,
+        'node' => NULL,
+      ),
+      'path' => drupal_get_path('module', 'advpoll_ranking') . '/templates',
+      'template' => 'advpoll-ranking',
+    ),
+  );
+
+  return $theme_hooks;
+}
+
+/*
+ * form view for ranking and borda poll draggable version
+ */
+
+function advpoll_draggable_form($form, &$form_state, $data, $node) {
+  $form['#id'] = 'advpoll-ranking-draggable-form-' . $node->nid;
+  $form['choices'] = array('#theme' => 'advpoll_draggable', '#data' => $data, '#node' => $node);
+
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#ajax' => array(
+      'callback' => 'advpoll_draggable_submit',
+      'wrapper' => 'advpoll-ranking-draggable-form-' . $node->nid,
+      'name' => 'submit1',
+    ),
+    '#value' => t('Vote'),
+  );
+
+
+  return $form;
+}
+
+/*
+ * Submit handler for ranking polls
+ */
+
+function advpoll_draggable_submit($form, &$form_state) {
+  $data = advpoll_get_form_data($form_state, 1);
+  $count = count($data->choices);
+  $nid = $form_state['build_info']['args'][1]->nid;
+  $votes = array();
+
+  $message = advpoll_form_submit_check($data, $nid);
+
+  if ($message) {
+    $form['message'] = array(
+      '#type' => 'markup',
+      '#prefix' => '<div id="message">',
+      '#suffix' => '</div>',
+      '#markup' => $message,
+    );
+    return $form;
+  }
+
+  $votes = advpoll_ranking_process_results($form_state['input']['choice'], $data->choices, $votes);
+  advpoll_ranking_process_votes($data, $nid, $votes);
+
+  if ($data->behavior == 'borda' || $data->behavior == 'borda_all') {
+    $element['#markup'] = advpoll_display_borda_results($nid, $data);
+  } else {
+    $element['#markup'] = advpoll_display_runoff_results($nid, $data);
+  }
+  return $element;
+}
+
+/*
+ * form view for ranking forms used in Borda and Instant Run-off
+ */
+
+function advpoll_ranking_choice_form($form, &$form_state, $data, $node) {
+  $count = count($data->choices);
+  // allow only the number of choices available for hidden select
+
+  $form['#id'] = 'advpoll-ranking-form-' . $node->nid;
+  $form['choices'] = array('#theme' => 'advpoll_ranking', '#data' => $data, '#node' => $node);
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#ajax' => array(
+      'callback' => 'advpoll_ranking_submit',
+      'wrapper' => 'advpoll-ranking-form-' . $node->nid,
+      'name' => 'submit1',
+    ),
+    '#value' => t('Vote'),
+  );
+
+  $form['write_in_weight'] = array(
+    '#type' => 'hidden',
+    '#default_value' => 'no-js',
+  );
+
+  return $form;
+}
+
+/*
+ * Submit handler for ranking polls
+ */
+
+function advpoll_ranking_submit($form, &$form_state) {
+  
+  $data = advpoll_get_form_data($form_state, 1);
+  $count = count($data->choices);
+  $nid = $form_state['build_info']['args'][1]->nid;
+  $votes = array();
+  // even though content type is advpoll, we'll track type as ranking for the purpose of
+  // managing votes in the voting API table
+  $writein = '';
+
+  $message = advpoll_form_submit_check($data, $nid);
+
+  if ($message) {
+    $form['message'] = array(
+      '#type' => 'markup',
+      '#prefix' => '<div id="message">',
+      '#suffix' => '</div>',
+      '#markup' => $message,
+    );
+    return $form;
+  }
+
+  // check to see if a write-in exists and was filled in.
+  if ($data->write_in) {
+
+    if (isset($form_state['input']['write_in'])) {
+      $writein = trim($form_state['input']['write_in']);
+      $writein_weight = $form_state['input']['write_in_weight'];
+
+      // Sanitize and check to see if there's a valid write in afterward.
+      // Note - no reason for a normal user to add markup so strip it.
+      $writein = filter_xss($writein);
+      $writein = check_plain($writein);
+
+      // Check for conditions under which checking for write in is appropriate
+      if ($writein_weight == 'no-js' || $writein_weight > 0) {
+        if ($writein) {
+          $writein_choice = advpoll_process_writein($nid, $writein, $data);
+          $data->choices[] = $writein_choice;
+
+          if ($writein_weight == 'no-js') {
+            $writein_weight = 1;
+          }
+          $votes[] = array('rank' => $writein_weight, 'id' => $writein_choice['choice_id']);
+        } elseif ($writein_weight != 'no-js') {
+          // assumes the user placed it in selection table but did not fill in the
+          // form element.
+          $form['message'] = array(
+            '#type' => 'markup',
+            '#prefix' => '<div id="message">',
+            '#suffix' => '</div>',
+            '#markup' => t('Please type in a valid write-in choice or select a different option.'),
+          );
+          return $form;
+        }
+      }
+    }
+  }
+
+  // If the poll only allows one vote but there is a vote, that is the write in value. No need to process.
+  // Otherwise, we need to process it.
+  if ($data->max_choices > 1 || !$votes) {
+    $votes = advpoll_ranking_process_results($form_state['input']['choice'], $data->choices, $votes);
+  }
+
+  if (count($votes) > 0 && count($votes) <= $data->max_choices) {
+
+    advpoll_ranking_process_votes($data, $nid, $votes);
+
+    if ($data->behavior == 'borda' || $data->behavior == 'borda_all') {
+      $element['#markup'] = advpoll_display_borda_results($nid, $data);
+    } else {
+      $element['#markup'] = advpoll_display_runoff_results($nid, $data);
+    }
+    return $element;
+  } else {
+    $form['message'] = array(
+      '#type' => 'markup',
+      '#prefix' => '<div id="message">',
+      '#suffix' => '</div>',
+      '#markup' => t('Select up to @quantity @votes.', array(
+        '@quantity' => $data->max_choices,
+        '@votes' => format_plural($data->max_choices, 'vote', 'votes'),
+        )
+      ),
+    );
+    return $form;
+  }
+}
+
+/*
+ * Handles voting algorithm used by different types of ranking polls and 
+ * passes off results to voting api.
+ * 
+ * @param $nid
+ * Node id of the poll
+ * @param $data
+ * Data from the node formatted by one of the helper functions in the 
+ * advpoll_helper.inc document.
+ * @param votes
+ * An array of voting information needed by Voting API
+ */
+
+function advpoll_ranking_process_votes($data, $nid, $votes) {
+  if ($data->behavior == 'borda' || $data->behavior == 'borda_all' || $data->behavior == 'runoff_all') {
+    // borda is based upon the number of possible choices.
+    // algorithm is (number of choices - ranking) where first
+    // place is 0.
+    // Ref: http://en.wikipedia.org/wiki/Borda_count#Voting_and_counting
+    $points = count($data->choices);
+  } else {
+    // runoff voting ranks each user's choices and eliminates
+    // low score.
+    // Ref: http://en.wikipedia.org/wiki/Instant-runoff_voting#Election_procedure
+    $points = $data->max_choices;
+  }
+
+  foreach ($votes as $ranking) {
+    $vote = array();
+    $vote['type'] = 'advpoll';
+    $vote['tag'] = $ranking['id'];
+    $vote['nid'] = $nid;
+    $vote['value'] = $points - ($ranking['rank'] - 1);
+    $vote['mode'] = $data->mode;
+    $vote['duration'] = $data->cookie_duration;
+    advpoll_add_votes($vote);
+  }
+}
+
+function advpoll_ranking_process_results($results, $choices, $votes) {
+
+  foreach ($results as $key => $result) {
+    if ($result) {
+      $votes[] = array('rank' => $result, 'id' => $choices[$key]['choice_id']);
+    }
+  }
+  return $votes;
+}
+
+/*
+ * Determines how to theme poll results for Instant Run-off.  The display
+ * for run-off results is unique and does not use the bars.
+ * 
+ * @param $nid
+ * Node id of the poll
+ * @param $data
+ * Data from the node formatted by one of the helper functions in the 
+ * advpoll_helper.inc document.
+ * @param $page
+ * A boolean value that indicates whether the request is to be displayed 
+ * normally (0) or on the results page (1)
+ * @return
+ * Returns appropriate markup for displaying the run-off poll.
+ */
+
+function advpoll_display_runoff_results($nid, $data, $page = 0) {
+  $output = '';
+  $form = NULL;
+  $expired = FALSE;
+
+  if ($data->state == 'close') {
+    $expired = TRUE;
+  }
+
+  if ($data->start_date && $data->start_date > time() || $data->end_date && $data->end_date < time()) {
+    $expired = TRUE;
+  }
+
+  // get user's votes if they're logged in and if voting is normal
+  $uservotes = array();
+  if ($data->mode == 'normal') {
+    $uservotes = advpoll_get_user_votes($nid);
+  }
+
+  if (user_access('cancel own vote') && $uservotes && !$expired) {
+    $form = drupal_get_form('advpoll_ranking_cancel_form', $nid);
+  }
+  $rendered_form = drupal_render($form);
+
+  if (!$page && !$uservotes && $data->electoral && ($data->show_results == 'afterclose'
+    || $data->show_results == 'never' ) && !$expired) {
+    $output .= theme('advpoll_ineligible', array(
+      'data' => $data
+      )
+    );
+  } elseif (!$page && ($data->show_results == 'never'
+    || ($data->show_results == 'afterclose' && !$expired))) {
+    $output .= theme('advpoll_noresults', array(
+      'data' => $data,
+      'votes' => $uservotes,
+      'nid' => $nid,
+      'cancel_form' => $rendered_form,
+      )
+    );
+  } else {
+
+    $criteria = array();
+    $criteria['entity_id'] = $nid;
+    $criteria['entity_type'] = 'advpoll';
+
+    $results = votingapi_select_votes($criteria);
+
+    $voters = array();
+    $votes = array();
+    $tally = array();
+
+    $user = '';
+    // for run-off voting each vote from a user counts as one vote regardless of how
+    // many candidates they selected.
+    foreach ($results as $result) {
+      // get votes per user to get total votes
+      ($result['uid']) ? $user = $result['uid'] : $user = $result['vote_source'];
+      if (isset($voters[$user])) {
+        $voters[$user]++;
+      } else {
+        $voters[$user] = 1;
+      }
+
+      // total value of all votes for each choice
+      if (isset($votes[$result['tag']])) {
+        $votes[$result['tag']] += $result['value'];
+      } else {
+        $votes[$result['tag']] = $result['value'];
+      }
+      // total individual votes for each choice
+      if (isset($tally[$result['tag']])) {
+        $tally[$result['tag']]++;
+      } else {
+        $tally[$result['tag']] = 1;
+      }
+    }
+
+    // order poll by votes
+    asort($votes);
+    // get votes in descending order
+    $votes = array_reverse($votes, TRUE);
+
+    $rows = array();
+    $all_by_key = array();
+    $write_in = array();
+
+    // get all choices with unique ID as key
+    foreach ($data->choices as $choice) {
+      // store all choices by key
+      $all_by_key[$choice['choice_id']] = $choice['choice'];
+      $write_in[$choice['choice_id']] = $choice['write_in'];
+    }
+
+    // build rows for table
+    foreach ($votes as $key => $vote) {
+      if ($uservotes && in_array($key, $uservotes)) {
+        $rows[] = array(
+          'id' => $key,
+          'total' => $vote,
+          'votes' => $tally[$key],
+          'choice' => $all_by_key[$key],
+          'user_choice' => TRUE,
+          'write_in' => $write_in[$key],
+        );
+      } else {
+        $rows[] = array(
+          'id' => $key,
+          'total' => $vote,
+          'votes' => $tally[$key],
+          'choice' => $all_by_key[$key],
+          'user_choice' => FALSE,
+          'write_in' => $write_in[$key],
+        );
+      }
+      // remove from keyed list of choices so we can ensure all choices display even if there
+      // are no votes for that choice
+      unset($all_by_key[$key]);
+    }
+    $divisor = count($voters) * 100;
+    $percentage = 0;
+    if ($divisor > 0) {
+      $percentage = round($rows[0]['votes'] / count($voters) * 100, 1);
+    }
+    // add on items that did not receive votes
+    if ($all_by_key) {
+      foreach ($all_by_key as $key => $choice) {
+        $rows[] = array(
+          'id' => $key,
+          'total' => 0,
+          'votes' => 0,
+          'choice' => $choice,
+          'user_choice' => FALSE,
+          'write_in' => $write_in[$key],
+        );
+      }
+    }
+
+    // pass to template for markup.
+    $output .= theme('advpoll_runoff', array(
+      'total' => count($voters),
+      'rows' => $rows,
+      'percentage' => $percentage,
+      'nid' => $nid,
+      'cancel_form' => $rendered_form,
+      )
+    );
+  }
+
+  return $output;
+}
+
+/*
+ * Determines how to theme poll results based on settings in $data.
+ * Borda display differs in that items that have the same values are
+ * grouped into one 'bar' display.
+ * 
+ * @param $nid
+ * Node id of the poll
+ * @param $data
+ * Data from the node formatted by one of the helper functions in the 
+ * advpoll_helper.inc document.
+ * @param $page
+ * A boolean value that indicates whether the request is to be displayed 
+ * normally (0) or on the results page (1)
+ * @return
+ * Returns appropriate borda poll markup
+ */
+
+function advpoll_display_borda_results($nid, $data, $page = 0) {
+  $output = '';
+  $form = NULL;
+
+  $expired = FALSE;
+  if (($data->start_date && $data->start_date > time() || $data->end_date && $data->end_date < time()) || $data->state == 'close') {
+    $expired = TRUE;
+  }
+
+  // get user's votes if they're logged in and if voting is normal
+  $votes = array();
+  if ($data->mode == 'normal') {
+    $votes = advpoll_get_user_votes($nid);
+  }
+  if (user_access('cancel own vote') && $votes && !$expired) {
+    $form = drupal_get_form('advpoll_ranking_cancel_form', $nid);
+  }
+  $rendered_form = drupal_render($form);
+
+  if (!$page && !$votes && $data->electoral && ($data->show_results == 'afterclose'
+    || $data->show_results == 'never' ) && !$expired) {
+    $output .= theme('advpoll_ineligible', array(
+      'data' => $data
+      )
+    );
+  } elseif (!$page && ($data->show_results == 'never'
+    || ($data->show_results == 'afterclose' && !$expired))) {
+    $output .= theme('advpoll_noresults', array(
+      'data' => $data,
+      'votes' => $votes,
+      'nid' => $nid,
+      'cancel_form' => $rendered_form,
+      )
+    );
+  } else {
+    $results = advpoll_get_votes($nid, $data->behavior);
+    $bars = '';
+    $final = advpoll_update_choices($data->choices, $results['choices']);
+    $reordered = array();
+    foreach ($final as $item) {
+
+      $title = $item['title'];
+
+      $show_bar = TRUE;
+      if ($item['write_in']) {
+        $title .= ' ' . t('(Write in)');
+
+        $node = node_load($nid);
+        $show_bar = _advpoll_show_writeins_access();
+      }
+
+      if ($show_bar) {
+
+        $voted = FALSE;
+        if (in_array($item['tag'], $votes)) {
+          $voted = TRUE;
+        }
+        if (!isset($reordered[$item['percentage']])) {
+          $reordered[$item['percentage']] = array();
+        }
+        $reordered[$item['percentage']][] = array(
+          'title' => $title,
+          'votes' => $item['votes'],
+          'voted' => $voted,
+        );
+      }
+    }
+
+    foreach ($reordered as $key => $candidates) {
+      $titles = array();
+      foreach ($candidates as $candidate) {
+        $candidate['voted'] ? $class = 'voted' : $class = 'not-voted';
+        $titles[] = '<span class="' . $class . '">' . $candidate['title'] . '</span>';
+      }
+
+      $bars .= theme('advpoll_borda_bar', array(
+        'title' => implode(', ', $titles),
+        'percentage' => $key,
+        'votes' => $candidate['votes'],
+        )
+      );
+    }
+
+    $output .= theme('advpoll_results', array(
+      'bars' => $bars,
+      'total' => $results['total'],
+      'voted' => $votes,
+      'nid' => $nid,
+      'cancel_form' => $rendered_form,
+      )
+    );
+  }
+
+  return $output;
+}
+
+/*
+ * Remove duplicate rows for a given user in the case of multiple choice
+ * (typical of a ranking poll) and display one user's choice as a token delimited
+ * list indicating ranking preference
+ * 
+ * @param $rows
+ * Several rows of voting data
+ * @return
+ * Returns a set of rows with duplicates removed and replaced with a single
+ * row displaying user's ranking of choices.
+ */
+
+function advpoll_ranking_process_rows($rows) {
+  $users = array();
+  $sorted = array();
+  $votes = array();
+  $final = array();
+  // get selections by user and put a single row of data in the sorted list by user.
+  foreach ($rows as $row) {
+    $user = strip_tags($row['data'][0]);
+    // store choices with index being the value assigned to that choice
+    $votes[$user][$row['data'][3]] = $row['data'][2];
+    if (!in_array($user, $users)) {
+      $users[] = $user;
+      // remove vote value column since we do not want to display it in the table.
+      unset($row['data'][3]);
+      $sorted[] = $row;
+    }
+  }
+
+  // Now match up and rank user selections with the user's unique row.
+  foreach ($sorted as $row) {
+    $user = strip_tags($row['data'][0]);
+    $choices = $votes[$user];
+    krsort($choices);
+    $choice = implode(' > ', $choices);
+    $row['data'][2] = $choice;
+    $final[] = $row;
+  }
+
+  $rows = $final;
+  return $rows;
+}
+
+/*
+ * Form element for canceling votes
+ */
+
+function advpoll_ranking_cancel_form($form, &$form_state, $nid) {
+
+  $form['#nid'] = $nid;
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#ajax' => array(
+      'callback' => 'advpoll_ranking_cancel_vote_submit',
+      'wrapper' => 'advpoll-' . $nid,
+      'name' => 'submit1',
+    ),
+    '#value' => t('Cancel your vote'),
+  );
+
+  return $form;
+}
+
+/*
+ * Submit function for cancelling a vote.
+ */
+
+function advpoll_ranking_cancel_vote_submit($form, &$form_state) {
+  global $user;
+  if ($user->uid) {
+    $nid = $form['#nid'];
+
+    $criteria = array();
+    $criteria['entity_id'] = $nid;
+    $criteria['entity_type'] = 'advpoll';
+    $criteria['uid'] = $user->uid;
+
+    votingapi_delete_votes(votingapi_select_votes($criteria));
+
+    $node = node_load($nid);
+
+    if (advpoll_user_eligibility($node)) {
+      // print out voting form
+      $data = advpoll_get_data($node);
+
+      if ($data->behavior == 'borda' || $data->behavior == 'runoff') {
+        $update_form = drupal_get_form('advpoll_ranking_choice_form', $data, $node);
+      } else {
+        $update_form = drupal_get_form('advpoll_draggable_form', $data, $node);
+      }
+      return drupal_render($update_form);
+    }
+  }
+}

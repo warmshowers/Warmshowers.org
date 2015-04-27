@@ -1,0 +1,337 @@
+<?php
+
+/**
+ * @file
+ * Install file for privatemsg.module
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function privatemsg_schema() {
+  $schema = array();
+  $schema['pm_index'] = array(
+    'description'       => '{pm_index} holds indexing information about messages and recipients for fast retrieval',
+    'fields'        => array(
+      'mid'    => array(
+        'description'   => 'Private Message ID',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'thread_id'     => array(
+        'description'   => 'Messages thread ID',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'recipient'     => array(
+        'description'   => 'ID of the recipient object, typically user',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'is_new'     => array(
+        'description'   => 'Whether the user has read this message',
+        'type'          => 'int',
+        'default'       => 1,
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'deleted' => array(
+        'description'   => 'Whether the user has deleted this message',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'type' => array(
+        'description'   => 'Type of recipient object',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 'user'
+      ),
+    ),
+    'primary key'     => array('mid', 'recipient', 'type'),
+    'indexes'         => array(
+      'list'         => array('recipient', 'type', 'deleted', 'is_new'),
+      'messages'     => array('mid', 'recipient', 'type'),
+      'participants' => array('thread_id', 'recipient', 'type', 'deleted'),
+    ),
+  );
+
+  $schema['pm_message'] = array(
+    'description'       => '{pm_messages} holds the message information',
+    'fields'        => array(
+      'mid'    => array(
+        'description'   => 'Private Message ID',
+        'type'          => 'serial',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'author'     => array(
+        'description'   => 'UID of the author',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'subject'     => array(
+        'description'   => 'Subject text of the message',
+        'type'          => 'varchar',
+        'length'        => 255,
+        'not null'      => TRUE,
+      ),
+      'body'     => array(
+        'description'   => 'Body of the message',
+        'type'          => 'text',
+        'not null'      => TRUE,
+        'size'          => 'big',
+      ),
+      'format'        => array(
+        'type'          => 'varchar',
+        'length'        => 255,
+        'not null'      => FALSE,
+        'description'   => 'The {filter_formats}.format of the message text.',
+      ),
+      'timestamp'     => array(
+        'description'   => 'Time when the message was sent',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'has_tokens'     => array(
+        'description'   => 'Indicates if the message has tokens',
+        'type'          => 'int',
+        'size'          => 'small',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+        'default'       => 0,
+      ),
+    ),
+    'primary key'     => array('mid'),
+  );
+
+  $schema['pm_disable'] = array(
+    'description'       => '{pm_disable} holds the list of users that have disabled private messaging',
+    'fields' => array(
+      'uid'    => array(
+        'description'   => 'ID of the user',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+    ),
+    'primary key'       => array('uid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function privatemsg_install() {
+  // Define default formats for date format types.
+  variable_set("date_format_privatemsg_current_day", 'g:i a');
+  variable_set("date_format_privatemsg_current_year", 'M j');
+  variable_set("date_format_privatemsg_years", 'n/j/y');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function privatemsg_uninstall() {
+  variable_del('private_message_view_template');
+  variable_del('privatemsg_per_page');
+  variable_del('privatemsg_display_loginmessage');
+  variable_del('privatemsg_display_fields');
+  variable_del('privatemsg_display_link_self');
+  variable_del('privatemsg_view_default_amount');
+  variable_del('privatemsg_view_max_amount');
+  variable_del('privatemsg_view_use_max_as_default');
+  variable_del('privatemsg_display_profile_links');
+  variable_del('privatemsg_link_node_types');
+  variable_del('privatemsg_display_on_teaser');
+  variable_del('privatemsg_no_messages_notification');
+  variable_del('privatemsg_display_on_comments');
+}
+
+/**
+ * Implements hook_update_dependencies().
+ */
+function privatemsg_update_dependencies() {
+  if (module_exists('privatemsg_filter')) {
+    $dependencies['privatemsg']['7004']['privatemsg_filter'] = '7001';
+    return $dependencies;
+  }
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function privatemsg_update_last_removed() {
+  // Only upgrading from 6.x-1.3 or later is supported.
+  return 6007;
+}
+
+
+/**
+ * Add has_tokens field to indicate if a message is using tokens.
+ */
+function privatemsg_update_7000() {
+  db_add_field('pm_message', 'has_tokens', array(
+    'description'   => 'Indicates if the message has tokens',
+    'type'          => 'int',
+    'size'          => 'small',
+    'not null'      => TRUE,
+    'unsigned'      => TRUE,
+    'default'       => 0,
+  ));
+}
+
+/**
+ * Update format column to varchar.
+ */
+function privatemsg_update_7001() {
+  db_change_field('pm_message', 'format', 'format', array(
+    'type'          => 'varchar',
+    'length'        => 255,
+    'not null'      => FALSE,
+    'description'   => 'The {filter_formats}.format of the message text.',
+  ));
+}
+
+
+/**
+ * Add {pm_disable} table.
+ */
+function privatemsg_update_7002() {
+
+  // Make sure to not run this update twice.
+  if (db_table_exists('pm_disable')) {
+    return;
+  }
+
+  $schema['pm_disable'] = array(
+    'description'       => '{pm_disable} holds the list of users that have disabled private messaging',
+    'fields' => array(
+      'uid'    => array(
+        'description'   => 'ID of the user',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+    ),
+    'primary key'       => array('uid'),
+  );
+
+  if (!(db_table_exists('pm_disable'))) {
+    db_create_table('pm_disable', $schema['pm_disable']);
+  }
+}
+
+/**
+ * Change schema to allow other recipients than single users.
+ */
+function privatemsg_update_7003() {
+  // Make sure to not run this update twice.
+  if (db_field_exists('pm_index', 'recipient')) {
+    return;
+  }
+  db_drop_index('pm_index', 'list');
+  db_drop_index('pm_index', 'messages');
+  db_drop_index('pm_index', 'participants');
+  db_change_field('pm_index', 'uid', 'recipient', array(
+    'description'   => 'ID of the recipient object, typically user',
+    'type'          => 'int',
+    'not null'      => TRUE,
+    'unsigned'      => TRUE,
+  ));
+  db_add_field('pm_index', 'type', array(
+    'description'   => 'Type of recipient object',
+    'type' => 'varchar',
+    'not null' => TRUE,
+    'length'  => '255',
+    'default' => 'user',
+  ), array(
+    'indexes' => array(
+      'list'         => array('recipient', 'type', 'deleted', 'is_new'),
+      'messages'     => array('mid', 'recipient', 'type'),
+      'participants' => array('thread_id', 'recipient', 'type', 'deleted'),
+    ),
+  ));
+}
+
+/**
+ * Remove duplicate entries in {pm_index}.
+ */
+function privatemsg_update_7004(&$sandbox) {
+  // If the primary key already exists, this doesn't need to run.
+  if (db_index_exists('pm_index', 'PRIMARY')) {
+    return;
+  }
+
+  // First run, initialize sandbox and check if we are ready to run.
+  if (!isset($sandbox['current_thread_id'])) {
+    $sandbox['current_thread_id'] = 0;
+    // Assume that the thread ids are distributed more or less equally over the
+    // whole data set. This allows us to calculate the approximate progress.
+    $sandbox['max'] = db_query('SELECT MAX(thread_id) FROM {pm_index}')->fetchField();
+  }
+
+  // Fetch the next 10 thread_ids.
+  $result = db_query_range('SELECT DISTINCT thread_id FROM {pm_index} WHERE thread_id > :thread_id ORDER BY thread_id ASC', 0, 20, array(':thread_id' => $sandbox['current_thread_id']));
+  $threads = $result->fetchCol();
+
+  if (!empty($threads)) {
+    // By limiting this slow query (having condition) on a specific set of
+    // threads, this allows us to process the slow having part on a relatively
+    // small subset of pm_index that can be selected based on the thread_id
+    // index. There might also be cases where is_new and/or deleted are not
+    // equal, use MAX(is_new) and MIN(deleted) for these cases.
+    $sql = 'SELECT COUNT(*) AS count, pmi.recipient, pmi.type, pmi.mid, pmi.thread_id, MAX(pmi.is_new) As is_new, MIN(pmi.deleted) AS deleted FROM {pm_index} pmi WHERE thread_id IN (:threads) GROUP BY pmi.recipient, pmi.type, pmi.mid, pmi.thread_id HAVING COUNT(*) > 1';
+    $result = db_query($sql, array(':threads' => $threads));
+    foreach ($result as $row) {
+      // Delete all occurrences of these entries.
+      db_delete('pm_index')
+        ->condition('mid', $row->mid)
+        ->condition('recipient', $row->recipient)
+        ->condition('type', $row->type)
+        ->execute();
+      // Re-insert a single entry. We do this to explicitly keep messages
+      // unread and undeleted if there are conflicting entries.
+      db_insert('pm_index')
+        ->fields(array(
+          'mid' => $row->mid,
+          'thread_id' => $row->thread_id,
+          'recipient' => $row->recipient,
+          'type' => $row->type,
+          'is_new' => $row->is_new,
+          'deleted' => $row->deleted,
+        ))
+        ->execute();
+    }
+    $sandbox['current_thread_id'] = max($threads);
+  }
+  // Set #finished based on sandbox.
+  $sandbox['#finished'] = empty($sandbox['max']) ? 1 : ($sandbox['current_thread_id'] / $sandbox['max']);
+}
+
+/**
+ * Add primary key to {pm_index}.
+ */
+function privatemsg_update_7005() {
+  if (!db_index_exists('pm_index', 'PRIMARY')) {
+    db_add_primary_key('pm_index', array('mid', 'recipient', 'type'));
+  }
+}
+
+/**
+ * Define default formats for date format types.
+ */
+function privatemsg_update_7006() {
+  variable_set("date_format_privatemsg_current_day", 'g:i a');
+  variable_set("date_format_privatemsg_current_year", 'M j');
+  variable_set("date_format_privatemsg_years", 'n/j/y');
+}

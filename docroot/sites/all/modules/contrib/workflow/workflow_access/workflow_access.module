@@ -1,0 +1,241 @@
+<?php
+
+/**
+ * @file
+ * Provides node access permissions based on workflow states.
+ */
+
+/**
+ * Implements hook_menu().
+ *
+ * Uses pattern of EntityWorkflowUIController::hook_menu().
+ */
+function workflow_access_menu() {
+  $items = array();
+
+  $path = 'admin/config/workflow/workflow';
+  $id_count = count(explode('/', $path));
+
+  $items[$path . '/access'] = array(
+    'title' => 'Access settings',
+    'file' => 'workflow_access.pages.inc',
+    'access arguments' => array('administer workflow'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('workflow_access_priority_form'),
+    'type' => MENU_LOCAL_ACTION,
+  );
+  $items[$path . '/manage/%workflow/access'] = array(
+    'title' => 'Access',
+    'file' => 'workflow_access.pages.inc',
+    'access arguments' => array('administer workflow'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array(
+      'workflow_access_form',
+      $id_count + 1,
+      $id_count + 2,
+    ),
+    // 'type' => MENU_CALLBACK,
+    // 'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_help().
+ */
+function workflow_access_help($path, $arg) {
+  switch ($path) {
+    case 'admin/config/workflow/workflow/manage/%/access':
+      return t("WARNING: Use of the 'Edit any', 'Edit own', and even 'View
+        published content' permissions for the content type may override these
+        access settings. You may need to <a href='!url'>alter the priority of
+        the Workflow access module</a>.", array('!url' => url('admin/config/workflow/workflow/access'))
+      );
+  }
+}
+
+/**
+ * Implements hook_features_api().
+ *
+ * Tell the Features module that we intend to provide one exportable component.
+ */
+function workflow_access_features_api() {
+  return array(
+    'workflow_access' => array(
+      'name' => t('Workflow access'),
+      'file' => drupal_get_path('module', 'workflow_access') . '/workflow_access.features.inc',
+      'default_hook' => 'workflow_access_features_default_settings',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'feature_source' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_workflow_operations().
+ *
+ * Create action link for access form on EntityWorkflowUIController::overviewForm.
+ */
+function workflow_access_workflow_operations($op, $workflow = NULL, $state = NULL) {
+  switch ($op) {
+    case 'workflow':
+      $actions = array();
+      $wid = $workflow->wid;
+
+      $alt = t('Control content access for @wf', array('@wf' => $workflow->getName()));
+      $actions = array(
+        'workflow_access_form' => array(
+          'title' => t('Access'),
+          'href' => "admin/config/workflow/workflow/manage/$wid/access",
+          'attributes' => array('alt' => $alt, 'title' => $alt),
+        ),
+      );
+
+      return $actions;
+  }
+}
+
+/**
+ * Implements hook_node_grants().
+ *
+ * Supply the workflow access grants. We are simply using
+ * roles as access lists, so rids translate directly to gids.
+ */
+function workflow_access_node_grants($account, $op) {
+  return array(
+    'workflow_access' => array_keys($account->roles),
+    'workflow_access_owner' => array($account->uid),
+  );
+}
+
+/**
+ * Implements hook_node_access_records().
+ *
+ * Returns a list of grant records for the passed in node object.
+ * This hook is invoked by function node_access_acquire_grants().
+ */
+function workflow_access_node_access_records($node) {
+  $grants = array();
+
+  // Only relevant for content with Workflow.
+  if (!isset($node->workflow_transitions)) {
+    $node->workflow_transitions = array();
+    // Sometimes, a node is saved without going through workflow_transition_form.
+    // E.g.,
+    // - when saving a node with workflow_node programmatically with node_save();
+    // - when changing a state on a node view page/history tab;
+    // - when rebuilding permissions via batch for workflow_node and workflow_field.
+    // In that case, we need to create the workflow_transions ourselves to
+    // calculate the grants.
+    foreach (_workflow_info_fields($node, 'node') as $field_name => $field) {
+      $old_sid = FALSE;
+      // Create a dummy transition, just to set $node->workflow_transitions.
+      if (isset($node->workflow)) {
+        $old_sid = $new_sid = $node->workflow;
+      }
+      elseif (isset($node->{$field_name}[LANGUAGE_NONE])) {
+        $old_sid = $new_sid = _workflow_get_sid_by_items($node->{$field_name}[LANGUAGE_NONE]);
+      }
+      if ($old_sid) {
+        $transition = new WorkflowTransition();
+        $transition->setValues('node', $node, $field_name, $old_sid, $new_sid, $node->uid, REQUEST_TIME, '');
+
+        // Store the transition, so it can be easily fetched later on.
+        // Store in an array, to prepare for multiple workflow_fields per entity.
+        // This is a.o. used in hook_entity_update to trigger 'transition post'.
+        $node->workflow_transitions[$field_name] = $transition;
+      }
+    }
+  }
+
+  // Get 'author' of this entity.
+  // - Some entities (e.g., taxonomy_term) do not have a uid.
+  // But then again: node_access is only for nodes...
+  $uid = isset($node->uid) ? $node->uid : 0;
+
+  foreach ($node->workflow_transitions as $transition) {
+    $field_name = $transition->field_name;
+    $priority = variable_get('workflow_access_priority', 0);
+
+    if ($current_sid = workflow_node_current_state($node, 'node', $field_name)) {
+      foreach (workflow_access_get_workflow_access_by_sid($current_sid) as $grant) {
+        $realm = ($uid > 0 && $grant->rid == WORKFLOW_ROLE_AUTHOR_RID) ? 'workflow_access_owner' : 'workflow_access';
+        $gid = ($uid > 0 && $grant->rid == WORKFLOW_ROLE_AUTHOR_RID) ? $uid : $grant->rid;
+
+        // Anonymous ($uid == 0) author is not allowed for role 'author' (== -1).
+        // Both logically (Anonymous having more rights then authenticated)
+        // and technically: $gid must be a positive int.
+        if ($gid < 0) { // if ($uid == 0 && $grant->rid == WORKFLOW_ROLE_AUTHOR_RID) {
+          continue;
+        }
+
+        $grants[] = array(
+          'realm' => $realm,
+          'gid' => $gid,
+          'grant_view' => $grant->grant_view,
+          'grant_update' => $grant->grant_update,
+          'grant_delete' => $grant->grant_delete,
+          'priority' => $priority,
+          'field_name' => $field_name, // Just for analysis and info.
+        );
+      }
+    }
+  }
+  return $grants;
+}
+
+/**
+ * Implements hook_node_access_explain().
+ *
+ * This is a Devel Node Access hook.
+ */
+function workflow_access_node_access_explain($row) {
+  static $interpretations = array();
+  switch ($row->realm) {
+    case 'workflow_access_owner':
+      $interpretations[$row->gid] = t('Workflow access: author of the content may access');
+      break;
+
+    case 'workflow_access':
+      $roles = user_roles();
+      $interpretations[$row->gid] = t('Workflow access: %role may access', array('%role' => $roles[$row->gid]));
+      break;
+  }
+  return (!empty($interpretations[$row->gid]) ? $interpretations[$row->gid] : NULL);
+}
+
+/**
+ * DB functions - all DB interactions are isolated here to make for easy updating should our schema change.
+ */
+
+/**
+ * Given a sid, retrieve the access information and return the row(s).
+ */
+function workflow_access_get_workflow_access_by_sid($sid) {
+  $results = db_query('SELECT * from {workflow_access} where sid = :sid', array(':sid' => $sid));
+  return $results->fetchAll();
+}
+
+/**
+ * Given a sid and rid (the unique key), delete all access data for this state.
+ */
+function workflow_access_delete_workflow_access_by_sid_rid($sid, $rid) {
+  db_delete('workflow_access')->condition('sid', $sid)->condition('rid', $rid)->execute();
+}
+
+/**
+ * Given a sid, delete all access data for this state.
+ */
+function workflow_access_delete_workflow_access_by_sid($sid) {
+  db_delete('workflow_access')->condition('sid', $sid)->execute();
+}
+
+/**
+ * Given data, insert into workflow access - we never update.
+ */
+function workflow_access_insert_workflow_access_by_sid(&$data) {
+  $data = (object) $data;
+  workflow_access_delete_workflow_access_by_sid_rid($data->sid, $data->rid);
+  drupal_write_record('workflow_access', $data);
+}

@@ -1,0 +1,110 @@
+<?php
+
+/**
+ * @file
+ * Provide views integration for workflows.
+ *
+ * Why it's own module? Some sites have views some don't,
+ * all prefer a lower code footprint and better performance.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function workflow_views_menu() {
+  $items = array();
+  $items['workflow-comment/%workflow_transition/edit'] = array(
+     // %workflow_transition maps to function workflow_state_transition_record_load()
+    'title' => 'Edit workflow log comment',
+    'description' => 'Edit workflow state transition comment.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('workflow_views_comment_edit_form', 1),
+    'access arguments' => array('edit workflow log'),
+    'file' => 'workflow_views.comment_edit_page.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function workflow_views_permission() {
+  return array(
+    'access workflow summary views' => array(
+      'title' => t('Access workflow summary views'),
+      'description' => t('Access workflow summary views.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Create a new 'workflow_tab' view mode, to use in the workflow history tab.
+ */
+function workflow_views_entity_info_alter(&$entity_info) {
+  $field_maps = _workflow_info_fields();
+
+  foreach ($field_maps as $field_name => $field_map) {
+    foreach ($field_map['bundles'] as $entity_type => $bundles) {
+      if (isset($entity_info[$entity_type])) {
+        // If a module is rudely disabled, the $entity may not exist anymore.
+        $entity_info[$entity_type]['view modes']['workflow_tab'] = array(
+          'label' => t('Workflow History'),
+          'custom settings' => FALSE,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ *
+ * @todo D8: remove hook_views_api. See [#1875596]
+ */
+function workflow_views_views_api() {
+  return array(
+    'api' => 3,
+    // The views.inc files are already in the root directory,
+    // as required in D8.
+    // 'path' => drupal_get_path('module', 'workflow_views'),
+  );
+}
+
+/**
+ * Implements hook_views_default_views().
+ *
+ * Loads all Views, custom made by this module, as stored in files xxx.view.inc.
+ *
+ * @see http://www.deckfifty.com/blog/2012-02/using-drupal-views-code
+ * @see http://mc-kenna.com/drupal/2009/05/managing-drupal-views-the-proper-way
+ * @see http://www.chapterthree.com/blog/matt_cheney/howto_best_practices_embedding_views_code
+ *
+ *   https://api.drupal.org/api/views/views.api.php/function/hook_views_default_views/7
+ *   "This hook allows modules to provide their own views which can either be used as-is or as a "starter" for users to build from.
+ *   "This hook should be placed in MODULENAME.views_default.inc and it will be auto-loaded.
+ *   "The $view->disabled boolean flag indicates whether the View should be enabled (FALSE) or disabled (TRUE) by default.
+ *
+ *   "A best practice is to go through and add t() to all title and label strings, with the exception of menu strings.
+ */
+function workflow_views_views_default_views() {
+  $views = array();
+
+  $modulename = 'workflow_views';
+
+  // Find views in this directory, and the 'views' subdirectory.
+  $dir = drupal_get_path('module', $modulename) . '/';
+  $regex = '/\.view\.inc$/';
+  $files = array();
+  $files += file_scan_directory($dir, $regex, array('recurse' => FALSE));
+  $files += file_scan_directory($dir . 'views/', $regex, array('recurse' => FALSE));
+  foreach ($files as $filepath => $file) {
+    require $filepath;
+    if (isset($view)) {
+      $views[$view->name] = $view;
+    }
+  }
+
+  return $views;
+}

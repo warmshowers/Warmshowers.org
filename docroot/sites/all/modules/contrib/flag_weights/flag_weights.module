@@ -1,0 +1,239 @@
+<?php
+
+/**
+ * @file
+ *   Add flag-weights to the Flag module.
+ */
+
+define('MIN_DEFAULT_WEIGHT', -2147483648);
+define('MAX_DEFAULT_WEIGHT', 2147483647);
+
+/**
+ * Implements hook_schema_alter(). We alter $schema by reference().
+ *
+ * @param $schema
+ *   The system-wide schema collected by drupal_get_schema().
+ */
+function flag_weights_schema_alter(&$schema) {
+  // Add fields to existing schema.
+  $schema['flag_content']['fields']['weight'] = array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'unsigned' => FALSE,
+    // 'description' => t('Flag weight within region.'),
+  );
+
+  $schema['flags']['fields']['default_weight'] = array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'unsigned' => FALSE,
+    'description' => t('Default weight applied to new items.'),
+  );
+}
+
+/**
+ * Implements hook_views_data().
+ *
+ * Provide a field that can be used to sort a view.
+ */
+function flag_weights_views_data() {
+  $data = array();
+
+  $data['flag_content']['weight'] = array(
+    'title' => t('Weight'),
+    'help' => t('Used for sorting the list of flagged items.'),
+    'real field' => 'weight',
+    'field' => array(
+      'handler' => 'views_handler_field_numeric',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort_flag_weights',
+    ),
+  );
+
+  return $data;
+}
+
+/**
+ * Flag an item using the given Flag name.
+ *
+ * @param $flag_name
+ *   The content-type for the flag, eg: node.
+ * @see _flag_weights_flag()
+ */
+function flag_weights_set_flag($content_type, $content_id, $account = NULL, $weight = 0) {
+  $handler = flag_create_handler($content_type);
+  return _flag_weights_flag($handler, $content_id, $account, $weight);
+}
+
+/**
+ * Flag an item using the given Flag name.
+ *
+ * @param $flag_name
+ *   The machine-name for the flag to use, eg: bookmarks.
+ * @see _flag_weights_flag()
+ */
+function flag_weights_set_flag_with_flag($flag_name, $content_id, $account = NULL, $weight = 0) {
+  $handler = flag_get_flag($flag_name);
+  return _flag_weights_flag($handler, $content_id, $account, $weight);
+}
+
+/**
+ * Flags an item, and set it's weight.
+ *
+ * @param $handler
+ *   The Flag to use
+ * @param $content_id
+ *   The ID of the item to flag or unflag.
+ * @param $account
+ *   The user on whose behalf to flag. Leave empty for the current user.
+ * @param $weight
+ *   A weight used for ordering the item within the flagged-items list.
+ * @return
+ *   FALSE if some error occured (e.g., user has no permission, flag isn't
+ *   applicable to the item, etc.), TRUE otherwise.
+ */
+function _flag_weights_flag($handler, $content_id, $account = NULL, $weight = 0) {
+  $ok = $handler->flag('flag', $content_id, $account);
+  if ($ok && $weight != 0) {
+    if (!isset($account)) {
+      $account = $GLOBALS['user'];
+    }
+    flag_weights_set_weight($handler->fid, $handler->content_type, $content_id, $account->uid, $weight);
+  }
+  return $ok;
+}
+
+/**
+ * Update the weight of an existing flagged item.
+ */
+function flag_weights_set_weight($fid, $content_type, $content_id, $uid, $weight) {
+
+  db_update('flag_content')
+  ->fields(array(
+    'weight' => $weight,
+  ))
+  ->condition('fid', $fid)
+  ->condition('content_type', $content_type)
+  ->condition('content_id', $content_id)
+  ->condition('uid', $uid)
+  ->execute();
+}
+
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function flag_weights_ctools_plugin_directory($module, $plugin) {
+	if (($module == 'draggableviews') && ($plugin == 'handler')) {
+		return 'handlers';
+	}
+}
+/**
+ * Implements hook_form_FORMID_alter().
+ *
+ * Add the default-weight setting to the Flags edit page.
+ */
+function flag_weights_form_flag_form_alter(&$form, &$form_state) {
+  $default_weight = _flag_weights_get_default_weight($form['#flag']->fid);
+  if ($default_weight == MIN_DEFAULT_WEIGHT) {
+    $default_weight = 'MIN';
+  }
+  elseif ($default_weight == MAX_DEFAULT_WEIGHT) {
+    $default_weight = 'MAX';
+  }
+
+  $form['default_weight'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default weight'),
+    '#default_value' => $default_weight,
+    '#description' => t('Enter the default weight for this Flag (or MIN/MAX to set the weight lower/higher than existing content respectively.'),
+    '#required' => TRUE,
+    '#weight' => 15,
+    '#length' => 3,
+    // '#access' => empty($flag->locked['unflag_short']),
+  );
+
+  $form['#submit'][] = 'flag_weights_flag_form_submit';
+
+}
+
+/**
+ * Custom submit handler for flag_form form.
+ */
+function flag_weights_flag_form_submit($form, &$form_state) {
+  // Parse the textfield to determine the value to apply to the DB
+  $default_weight = $form_state['values']['default_weight'];
+  if (strcasecmp($default_weight, 'MIN') == 0) {
+    $default_weight = MIN_DEFAULT_WEIGHT;
+  }
+  elseif (strcasecmp($default_weight, 'MAX') == 0) {
+    $default_weight = MAX_DEFAULT_WEIGHT;
+  }
+
+  // By the time this executed, the Flag will already have been inserted/updated
+  // so $flag->fid is set
+  _flag_weights_set_default_weight($form['#flag']->fid, $default_weight);
+}
+
+function _flag_weights_get_default_weight($fid) {
+  return db_query("SELECT default_weight FROM {flags} WHERE fid = :fid", array(':fid' => $fid))->fetchField();
+}
+
+function _flag_weights_set_default_weight($fid, $default_weight) {
+  db_update('flags')
+  ->fields(array(
+    'default_weight' => $default_weight,
+  ))
+  ->condition('fid', $fid)
+  ->execute();
+}
+
+/**
+ * Implements hook_flag().
+ *
+ * When content has been flagged, update the flag to use the default weight.
+ */
+function flag_weights_flag($action, $flag, $content_id, $account) {
+  if ($action == 'flag') {
+    $default_weight = _flag_weights_get_default_weight($flag->fid);
+
+    // If the configured default weight is MIN/MAX then set it to the right int.
+    if ($default_weight == MIN_DEFAULT_WEIGHT) {
+      if ($flag->global) {
+        $found_min = db_query("SELECT min(weight) FROM {flag_content} WHERE fid = :fid", array(':fid' => $flag->fid))->fetchField();
+      }
+      else {
+        $found_min = db_query("SELECT min(weight) FROM {flag_content} WHERE fid = :fid AND uid = :uid", array(':fid' => $flag->fid, ':uid' => $account->uid))->fetchField();
+      }
+
+      if ($found_min !== FALSE && $found_min > MIN_DEFAULT_WEIGHT) {
+        $default_weight = $found_min - 1;
+      }
+    }
+    elseif ($default_weight == MAX_DEFAULT_WEIGHT) {
+      if ($flag->global) {
+        $found_max = db_query("SELECT max(weight) FROM {flag_content} WHERE fid = :fid", array(':fid' => $flag->fid))->fetchField();
+      }
+      else {
+        $found_max = db_query("SELECT max(weight) FROM {flag_content} WHERE fid = :fid AND uid = :uid", array(':fid' => $flag->fid, ':uid' => $account->uid))->fetchField();
+      }
+      if ($found_max !== FALSE && $found_max < MAX_DEFAULT_WEIGHT) {
+        $default_weight = $found_max + 1;
+      }
+    }
+
+    // Don't bother applying a weight of 0 - this is the default.
+    if ($default_weight != 0) {
+      db_update('flag_content')
+  ->fields(array(
+        'weight' => $default_weight,
+      ))
+  ->condition('fid', $flag->fid)
+  ->condition('content_id', $content_id)
+  ->execute();
+    }
+  }
+}

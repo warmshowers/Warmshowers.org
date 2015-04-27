@@ -1,0 +1,321 @@
+<?php
+
+/**
+ * @file
+ * Credit card payment method tests.
+ */
+
+/**
+ * Tests credit card payments with the test gateway.
+ *
+ * This class is intended to be subclassed for use in testing other credit
+ * card gateways. Subclasses which test other gateways need to:
+ * - Define getInfo().
+ * - Override setUp(), if necessary, to enable the other gateway and any other
+ *   needed modules.
+ * - Override configureGateway() to implement gateway-specific configuration.
+ * No other overrides are necessary, although a subclass may want to add
+ * additional test functions to cover cases not included in this base class.
+ */
+class UbercartCreditCardTestCase extends UbercartTestHelper {
+
+  /**
+   * A selection of "test" numbers to use for testing credit card payemnts.
+   * These numbers all pass the Luhn algorithm check and are reserved by
+   * the card issuer for testing purposes.
+   */
+  protected static $test_cards = array(
+    '378282246310005',  // American Express
+    '371449635398431',
+    '370000000000002',
+    '378734493671000',  // American Express Corporate
+    '5610591081018250', // Australian BankCard
+    '30569309025904',   // Diners Club
+    '38520000023237',
+    '38000000000006',   // Carte Blanche
+    '6011111111111117', // Discover
+    '6011000990139424',
+    '6011000000000012',
+    '3530111333300000', // JCB
+    '3566002020360505',
+    '3088000000000017',
+    '5555555555554444', // MasterCard
+    '5105105105105100',
+    '4111111111111111', // Visa
+    '4012888888881881',
+    '4007000000027',
+    '4012888818888',
+  );
+
+
+  /**
+   * Describes this test case.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Credit cards with Test Gateway',
+      'description' => 'Uses the Test Gateway to ensure credit card processing is functioning.',
+      'group' => 'Ubercart',
+    );
+  }
+
+  /**
+   * Implements DrupalWebTestCase::setUp().
+   */
+  public function setUp(array $modules = array()) {
+    $modules += array('uc_payment', 'uc_credit', 'test_gateway');
+    $permissions = array('administer credit cards', 'process credit cards');
+    parent::setUp($modules, $permissions);
+
+    // Need admin permissions in order to change credit card settings.
+    $this->drupalLogin($this->adminUser);
+
+    // Configure and enable Credit card module and Test gateway.
+    $this->configureCreditCard();
+    $this->configureGateway();
+  }
+
+  /**
+   * Helper function to configure Credit Card payment method settings.
+   */
+  protected function configureCreditCard() {
+    $this->drupalPost(
+      'admin/store/settings/payment',
+      array('uc_payment_method_credit_checkout' => TRUE),
+      t('Save configuration')
+    );
+    $this->assertFieldByName(
+      'uc_payment_method_credit_checkout',
+      TRUE,
+      t('Credit card payment method is enabled')
+    );
+
+    // Create key directory, make it readable and writeable.
+    // Putting this under sites/default/files because SimpleTest needs to be
+    // able to create the directory - this is NOT where you'd put the key file
+    // on a live site.  On a live site, it should be outside the web root.
+    drupal_mkdir('sites/default/files/simpletest.keys', 0755);
+
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array(
+        'uc_credit_encryption_path' => 'sites/default/files/simpletest.keys',
+      ),
+      t('Save configuration')
+    );
+
+    $this->assertFieldByName(
+      'uc_credit_encryption_path',
+      'sites/default/files/simpletest.keys',
+      t('Key file path has been set.')
+    );
+
+    $this->assertTrue(
+      file_exists('sites/default/files/simpletest.keys/' . UC_CREDIT_KEYFILE_NAME),
+      t('Key has been generated and stored.')
+    );
+    $this->pass('Key = ' . uc_credit_encryption_key());
+
+  }
+
+  /**
+   * Helper function to configure Credit Card gateway.
+   */
+  protected function configureGateway() {
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array(
+        'uc_payment_credit_gateway' => 'test_gateway',
+        'uc_pg_test_gateway_enabled' => TRUE,
+      ),
+      t('Save configuration')
+    );
+
+    $this->assertFieldByName(
+      'uc_pg_test_gateway_enabled',
+      TRUE,
+      t('Test gateway is enabled')
+    );
+  }
+
+  /**
+   * Implements DrupalWebTestCase::tearDown().
+   */
+  public function tearDown() {
+    // Cleanup keys directory after test.
+    drupal_unlink('sites/default/files/simpletest.keys/' . UC_CREDIT_KEYFILE_NAME);
+    drupal_rmdir('sites/default/files/simpletest.keys');
+    parent::tearDown();
+  }
+
+  /**
+   * Helper function. Creates a new order.
+   */
+  protected function createOrder($fields = array()) {
+    $order = uc_order_new();
+    foreach ($fields as $key => $value) {
+      $order->$key = $value;
+    }
+
+    if (empty($order->primary_email)) {
+      $order->primary_email = $this->randomString() . '@example.org';
+    }
+
+    if (!isset($fields['products'])) {
+      $item = clone $this->product;
+      $item->qty = 1;
+      $item->price = $item->sell_price;
+      $item->data = array();
+      $order->products = array($item);
+    }
+
+    $order->order_total = uc_order_get_total($order, TRUE);
+    $order->line_items = uc_order_load_line_items($order, TRUE);
+    uc_order_save($order);
+
+    return $order;
+  }
+
+  /**
+   * Tests security settings configuration.
+   */
+  public function testSecuritySettings() {
+    // TODO:  Still need tests with existing key file
+    // where key file is not readable or doesn't contain a valid key
+
+    // Create key directory, make it readable and writeable.
+    drupal_mkdir('sites/default/files/testkey', 0755);
+
+    // Try to submit settings form without a key file path.
+    // Save current variable, reset to its value when first installed.
+    $temp_variable = variable_get('uc_credit_encryption_path', '');
+    variable_set('uc_credit_encryption_path', '');
+
+    $this->drupalGet('admin/store/settings/payment/method/credit');
+    $this->assertText(t('Credit card security settings must be configured in the security settings tab.'));
+
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array(),
+      t('Save configuration')
+    );
+    $this->assertFieldByName(
+      'uc_credit_encryption_path',
+      t('Not configured.'),
+      t('Key file has not yet been configured.')
+    );
+    // Restore variable setting.
+    variable_set('uc_credit_encryption_path', $temp_variable);
+
+    // Try to submit settings form with an empty key file path.
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array('uc_credit_encryption_path' => ''),
+      t('Save configuration')
+    );
+    $this->assertText('Key path must be specified in security settings tab.');
+
+    // Specify non-existent directory
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array('uc_credit_encryption_path' => 'sites/default/ljkh/asdfasfaaaaa'),
+      t('Save configuration')
+    );
+    $this->assertText('You have specified a non-existent directory.');
+
+    // Next, specify existing directory that's write protected.
+    // Use /dev, as that should never be accessible.
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array('uc_credit_encryption_path' => '/dev'),
+      t('Save configuration')
+    );
+    $this->assertText('Cannot write to directory, please verify the directory permissions.');
+
+    // Next, specify writeable directory, but with excess whitespace
+    // and trailing /
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array('uc_credit_encryption_path' => '  sites/default/files/testkey/ '),
+      t('Save configuration')
+    );
+    // See that the directory has been properly re-written to remove
+    // whitespace and trailing /
+    $this->assertFieldByName(
+      'uc_credit_encryption_path',
+      'sites/default/files/testkey',
+      t('Key file path has been set.')
+    );
+    $this->assertText('Credit card encryption key file generated.');
+
+    // Check that warning about needing key file goes away.
+    $this->assertNoText(t('Credit card security settings must be configured in the security settings tab.'));
+    // Remove key file.
+    drupal_unlink('sites/default/files/testkey/' . UC_CREDIT_KEYFILE_NAME);
+
+    // Finally, specify good directory
+    $this->drupalPost(
+      'admin/store/settings/payment/method/credit',
+      array('uc_credit_encryption_path' => 'sites/default/files/testkey'),
+      t('Save configuration')
+    );
+    $this->assertText('Credit card encryption key file generated.');
+
+    // Test contents - must contain 32-character hexadecimal string.
+    $this->assertTrue(
+      file_exists('sites/default/files/simpletest.keys/' . UC_CREDIT_KEYFILE_NAME),
+      t('Key has been generated and stored.')
+    );
+    $this->assertTrue(
+      preg_match("([0-9a-fA-F]{32})", uc_credit_encryption_key()),
+      t('Valid key detected in key file.')
+    );
+
+    // Cleanup keys directory after test.
+    drupal_unlink('sites/default/files/testkey/' . UC_CREDIT_KEYFILE_NAME);
+    drupal_rmdir('sites/default/files/testkey');
+  }
+
+  /**
+   * Tests that an order can be placed using the test gateway.
+   */
+  public function testCheckout() {
+    $this->drupalPost('node/' . $this->product->nid, array(), t('Add to cart'));
+    $this->checkout(array(
+      'panes[payment][details][cc_number]' => array_rand(array_flip(self::$test_cards)),
+      'panes[payment][details][cc_cvv]' => mt_rand(100, 999),
+      'panes[payment][details][cc_exp_month]' => mt_rand(1, 12),
+      'panes[payment][details][cc_exp_year]' => mt_rand(date('Y') + 1, 2022),
+    ));
+    $this->assertText('Your order is complete!');
+  }
+
+  /**
+   * Tests that expiry date validation functions correctly.
+   */
+  public function testExpiryDate() {
+    $order = $this->createOrder(array('payment_method' => 'credit'));
+
+    $year = date('Y');
+    $month = date('n');
+    for ($y = $year; $y <= $year + 2; $y++) {
+      for ($m = 1; $m <= 12; $m++) {
+        $edit = array(
+          'amount' => 1,
+          'cc_data[cc_number]' => '4111111111111111',
+          'cc_data[cc_cvv]' => '123',
+          'cc_data[cc_exp_month]' => $m,
+          'cc_data[cc_exp_year]' => $y,
+        );
+        $this->drupalPost('admin/store/orders/' . $order->order_id . '/credit', $edit, 'Charge amount');
+
+        if ($y > $year || $m >= $month) {
+          $this->assertText('The credit card was processed successfully.', t('Card with expiry date @month/@year passed validation.', array('@month' => $m, '@year' => $y)));
+        }
+        else {
+          $this->assertNoText('The credit card was processed successfully.', t('Card with expiry date @month/@year correctly failed validation.', array('@month' => $m, '@year' => $y)));
+        }
+      }
+    }
+  }
+}

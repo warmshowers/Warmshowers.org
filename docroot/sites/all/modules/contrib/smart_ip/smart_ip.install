@@ -1,0 +1,259 @@
+<?php
+
+/**
+ * @file
+ * Installation callback for Smart IP.
+ */
+
+/**
+ * Implements hook_requirements().
+ *
+ * @see smart_ip_admin_settings()
+ */
+function smart_ip_requirements($phase = 'runtime') {
+  $requirements = array();
+  if ($phase == 'runtime') {
+    $correct_key = variable_set('smart_ip_correct_ipinfodb_key', FALSE);
+    if (!$correct_key) {
+      $smart_ip_source = variable_get('smart_ip_source', 'ipinfodb_service');
+      if ($smart_ip_source == 'ipinfodb_service') {
+        // Generate an appropriate error message:
+        // Missing API keys.
+        $ipinfodb_key = variable_get('smart_ip_ipinfodb_key', '');
+        if (empty($ipinfodb_key)) {
+          $requirements['smart_ip'] = array(
+            'title'       => 'IPInfoDB API key',
+            'severity'    => REQUIREMENT_ERROR,
+            'value'       => t('Not configured'),
+            'description' => t('The IPInfoDB API key is not configured yet. Visit Smart IP settings !page.', array(
+              '!page' => l(t('page'), 'admin/config/people/smart_ip'),
+            )),
+          );
+        }
+        else {
+          $response = drupal_http_request(smart_ip_get_ipinfodb_url($ipinfodb_key, '127.0.0.1'));
+          if (isset($response->data)) {
+            $stat = drupal_json_decode($response->data);
+            if ((isset($stat['Status']) && ($stat['Status'] == 'MISSING API KEY' || $stat['Status'] == 'INVALID API KEY')) || (isset($stat['statusCode']) && ($stat['statusCode'] == 'ERROR'))) {
+              $requirements['smart_ip'] = array(
+                'title'       => 'IPInfoDB API key',
+                'severity'    => REQUIREMENT_ERROR,
+                'value'       => t('Invalid'),
+                'description' => t('The IPInfoDB API key is invalid. Visit Smart IP settings !page.', array(
+                  '!page' => l(t('page'), 'admin/config/people/smart_ip'),
+                )),
+              );
+            }
+            else {
+              variable_set('smart_ip_correct_ipinfodb_key', TRUE);
+            }
+          }
+        }
+      }
+    }
+  }
+  return $requirements;
+} 
+ 
+/**
+ * Smart IP schema definition array.
+ *
+ * @return
+ *   A Schema API table definition array.
+ */
+function smart_ip_schema_definition_array() {
+  return array(
+    'description' => 'Association between IP range and Geo location',
+    'fields' => array(
+      'geoip_id' => array(
+        'description' => 'ID assigned by maxmind',
+        'type'        => 'int',
+        'size'        => 'big',
+        'not null'    => TRUE,
+      ),
+      'ip_ref' => array(
+        'description' => 'Lowest IP Address in Range',
+        'type'        => 'int',
+        'size'        => 'big',
+        'not null'    => TRUE,
+      ),
+      'country_code' => array(
+        'description' => 'ISO 3166 2-Character Country Code',
+        'type'        => 'varchar',
+        'length'      => 3,
+        'not null'    => TRUE,
+      ),
+      'region' => array(
+        'description' => '2-Character Region Code',
+        'type'        => 'varchar',
+        'length'      => 3,
+        'not null'    => FALSE,
+      ),
+      'city' => array(
+        'description' => 'Name of city targeted by the coordinates',
+        'type'        => 'varchar',
+        'length'      => 128,
+        'not null'    => FALSE,
+      ),      
+      'zip' => array(
+        'description' => 'Postal code of targeted by the coordinates',
+        'type'        => 'varchar',
+        'length'      => 8,
+        'not null'    => FALSE,
+      ),
+      'latitude' => array(
+        'description' => 'Latitude',
+        'type'        => 'float',
+        'size'        => 'big',
+        'not null'    => TRUE,
+      ),
+      'longitude' => array(
+        'description' => 'Longitude',
+        'type'        => 'float',
+        'size'        => 'big',
+        'not null'    => TRUE,
+      ),
+    ),
+    'primary key' => array('ip_ref'),
+    'indexes' => array(
+      'geoip_id' => array('geoip_id'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_schema().
+ */
+function smart_ip_schema() {
+  $schema['smart_ip'] = smart_ip_schema_definition_array();
+  $schema['cache_smart_ip'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_smart_ip']['description'] = 'Cache table for storing temporary data during Smart IP database update.';
+  return $schema;
+}
+
+
+/**
+ * Implements hook_install().
+ *
+ * Creates database tables needed by this module.
+ */
+function smart_ip_install() {
+  variable_set('smart_ip_correct_ipinfodb_key', FALSE);
+  variable_set('smart_ip_get_zip_done', FALSE);
+  variable_set('smart_ip_extract_zip_done', FALSE);
+  variable_set('smart_ip_store_location_csv_done', FALSE);
+  variable_set('smart_ip_db_update_busy', FALSE);
+  variable_set('smart_ip_location_csv_pointer', 0);
+  variable_set('smart_ip_location_csv_last_pointer', 0);
+  variable_set('smart_ip_blocks_csv_pointer', 0);
+  variable_set('smart_ip_blocks_csv_last_pointer', 0);
+  variable_set('smart_ip_roles_to_geolocate', array(DRUPAL_AUTHENTICATED_RID));
+  variable_set('cache_class_cache_smart_ip', 'DrupalDatabaseCache');
+}
+
+/**
+ * Rename 'country' field to 'country_code'.
+ */
+function smart_ip_update_7000() {
+  $spec = array(
+    'description' => 'ISO 3166 2-Character Country Code',
+    'type'        => 'char',
+    'length'      => 3,
+    'not null'    => TRUE,
+  );
+  db_change_field('smart_ip', 'country', 'country_code', $spec);
+}
+
+/**
+ * Removed smart_ip_save_user_location variable, replaced with geotargeting by role.
+ */
+function smart_ip_update_7001() {
+  if (variable_get('smart_ip_save_user_location', TRUE)) {
+    variable_set('smart_ip_roles_to_geolocate', array(DRUPAL_AUTHENTICATED_RID));
+  }
+  else {
+    variable_set('smart_ip_roles_to_geolocate', array());
+  }
+  variable_del('smart_ip_save_user_location');
+}
+
+/**
+ * Added smart_ip_source variable.
+ */
+function smart_ip_update_7002() {
+  if (variable_get('smart_ip_use_ipinfodb_service', FALSE)) {
+    variable_set('smart_ip_source', 'ipinfodb_service');
+  }
+  elseif (variable_get('smart_ip_auto_update', FALSE)) {
+    variable_set('smart_ip_source', 'local_db');
+  }
+  variable_del('smart_ip_use_ipinfodb_service');
+}
+
+/**
+ * Corrected GeoIP Web Service city to city_isp_org.
+ */
+function smart_ip_update_7003() {
+  if (variable_get('smart_ip_maxmind_service', 'country') == 'city') {
+    variable_set('smart_ip_maxmind_service', 'city_isp_org');
+  }
+}
+
+/**
+ * Assure that cache_smart_ip ISN'T memcache based
+ */
+function smart_ip_update_7004() {
+  if (variable_get('cache_class_cache_smart_ip', FALSE)) {
+    variable_set('cache_class_cache_smart_ip', 'DrupalDatabaseCache');
+  }
+}
+
+/**
+ * Move content of device_geolocation_allowed_pages
+ * variable to smart_ip_allowed_pages variable
+ */
+function smart_ip_update_7005() {
+  $device_geolocation_allowed_pages = variable_get('device_geolocation_allowed_pages', '');
+  if (!empty($device_geolocation_allowed_pages)) {
+    variable_set('smart_ip_allowed_pages', $device_geolocation_allowed_pages);
+  }
+  variable_del('device_geolocation_allowed_pages');
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * Removes all tables and variables inserted into the
+ * database by this module.
+ */
+function smart_ip_uninstall() {
+  variable_del('smart_ip_source');
+  variable_del('smart_ip_ip2location_bin_path');
+  variable_del('smart_ip_maxmind_service');
+  variable_del('smart_ip_maxmind_key');
+  variable_del('smart_ip_use_ipinfodb_api_version');
+  variable_del('smart_ip_correct_ipinfodb_key');
+  variable_del('smart_ip_ipinfodb_key');
+  variable_del('smart_ip_get_zip_done');
+  variable_del('smart_ip_extract_zip_done');
+  variable_del('smart_ip_store_location_csv_done');
+  variable_del('smart_ip_db_update_busy');
+  variable_del('smart_ip_db_update_busy_timeout');
+  variable_del('smart_ip_indicator_last_ip');
+  variable_del('smart_ip_location_csv_pointer');
+  variable_del('smart_ip_location_csv_last_pointer');
+  variable_del('smart_ip_blocks_csv_pointer');
+  variable_del('smart_ip_blocks_csv_last_pointer');
+  variable_del('smart_ip_auto_update');
+  variable_del('smart_ip_last_update');
+  variable_del('smart_ip_debug');
+  variable_del('smart_ip_test_ip_address');
+  variable_del('smart_ip_allowed_pages');
+  variable_del('smart_ip_save_user_location_creation');
+  variable_del('smart_ip_roles_to_geolocate');
+  variable_del('smart_ip_maxmind_bin_db_last_update');
+  variable_del('smart_ip_maxmind_bin_db_update_error');
+  variable_del('smart_ip_maxmind_license');
+  variable_del('smart_ip_maxmind_bin_db_auto_update');
+  variable_del('cache_class_cache_smart_ip');
+}

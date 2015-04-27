@@ -1,0 +1,1025 @@
+<?php
+
+/**
+ * @file
+ * The Login one time module.
+ */
+
+/**
+ * Implements hook_perm().
+ */
+function login_one_time_permission() {
+  return array(
+    'send link to login one time' => array(
+      'title' => t('Send a login one time link'),
+    ),
+    'use link to login one time' => array(
+      'title' => t('Use a login one time link'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function login_one_time_menu() {
+  $items = array();
+
+  $items['login_one_time/%/%/%'] = array(
+    'title' => 'Login one time',
+    'page callback' => 'login_one_time_page',
+    'page arguments' => array(1, 2, 3),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/people/login_one_time'] = array(
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('login_one_time_settings'),
+    'title' => 'Login one time',
+    'description' => 'Configure the settings for Login one time.',
+  );
+
+  $items['login_one_time_autocomplete_users'] = array(
+    'title' => 'Login one time autocomplete users',
+    'page callback' => 'login_one_time_autocomplete_users',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Retrieve a pipe delimited string of autocomplete suggestions.
+ */
+function login_one_time_autocomplete_users($autocomplete = '') {
+  // If the request has a '/' in the search text, then the menu system will have
+  // split it into multiple arguments, recover the intended $autocomplete.
+  $args = func_get_args();
+  $autocomplete = implode('/', $args);
+
+  drupal_json_output(login_one_time_user_options($autocomplete));
+}
+
+/**
+ * Menu callback to configure module settings.
+ */
+function login_one_time_settings() {
+  $form['global'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Global settings"),
+  );
+  $form['global']['login_one_time_expiry'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Link expiry'),
+    '#default_value' => variable_get('login_one_time_expiry', ''),
+    '#size' => strlen(PHP_INT_MAX),
+    '#maxlength' => strlen(PHP_INT_MAX),
+    '#description' => t("How long, in seconds, before links expire.  Leave blank to default to two weeks (1,209,600 seconds)."),
+  );
+  $form['global']['login_one_time_user_widget'] = array(
+    '#type' => 'radios',
+    '#title' => t('User selection widget'),
+    '#default_value' => variable_get('login_one_time_user_widget', 'autocomplete'),
+    '#options' => array(
+      'autocomplete' => t('Autocomplete textfield'),
+      'select' => t('Select list'),
+    ),
+    '#description' => t("If using a <em>user selection</em> widget, this configures the form element type.  For smaller sites a select list could be easier to use."),
+  );
+
+  $form['mail'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("E-mail settings"),
+  );
+  $form['mail']['login_one_time_mail_message'] = array(
+    '#markup' => t('Customize <em>login one time</em> e-mail messages sent to users at the <a href="!user_settings">User settings</a> page.', array('!user_settings' => url('admin/config/people/accounts'))),
+  );
+
+  $form['path'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Path settings"),
+  );
+  $form['path']['listed'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Listed"),
+    '#description' => t("Which paths to make available for selection."),
+  );
+
+  $form['path']['listed']['login_one_time_path_front'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Front page"),
+    '#description' => t("The front page of the website."),
+    '#default_value' => variable_get('login_one_time_path_front', TRUE),
+  );
+  $form['path']['listed']['login_one_time_path_user'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("User page"),
+    '#description' => t("The user's account page."),
+    '#default_value' => variable_get('login_one_time_path_user', TRUE),
+  );
+  $form['path']['listed']['login_one_time_path_user_edit'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("User edit page"),
+    '#description' => t("The user's account edit page."),
+    '#default_value' => variable_get('login_one_time_path_user_edit', TRUE),
+  );
+  $form['path']['listed']['login_one_time_path_current'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Current page"),
+    '#description' => t("Page from which <em>login one time</em> e-mail is sent."),
+    '#default_value' => variable_get('login_one_time_path_current', TRUE),
+  );
+  $form['path']['listed']['login_one_time_path_custom'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Custom paths'),
+    '#default_value' => variable_get('login_one_time_path_custom', ''),
+    '#description' => t("Enter one path per line.  You may also supply a display name for the path using a key|value pair, where the key is the path and the value is the display name."),
+  );
+  $form['path']['default'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("Default path"),
+    '#description' => t("This is where the user will be directed to upon using a <em>login one time</em> link, or the default choice when using the <em>path selection</em> widget."),
+  );
+  $form['path']['default']['login_one_time_path_default'] = login_one_time_select_widget(
+    variable_get('login_one_time_path_default', NULL),
+    t("Default path")
+  );
+  $form['path']['default']['login_one_time_path_default']['#required'] = FALSE;
+
+  $form['user'] = array(
+    '#type' => 'fieldset',
+    '#title' => t("User account page settings"),
+
+  );
+  $form['user']['login_one_time_user_view'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Show <em>login one time</em> button."),
+    '#description' => t("Permitted users will be able to e-mail the link via a button on the user's account page."),
+    '#default_value' => variable_get('login_one_time_user_view', TRUE),
+  );
+  $form['user']['login_one_time_user_select'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Show <em>path selection</em> widget."),
+    '#description' => t("Will only show when the button is shown as well."),
+    '#default_value' => variable_get('login_one_time_user_select', FALSE),
+  );
+  $form['user']['login_one_time_user_set_mail'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Show <em>email override</em> widget."),
+    '#description' => t("To send to an email address other than the account email.  Will only show when the button is shown as well."),
+    '#default_value' => variable_get('login_one_time_user_set_mail', FALSE),
+  );
+  $form['user']['login_one_time_user_ignore_current_pass'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Ignore the <em>current password</em> field'),
+    '#description' => t('Will ignore and hide the current password field when on the user edit page.'),
+    '#default_value' => variable_get('login_one_time_user_ignore_current_pass', FALSE),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Implements hook_user_view().
+ */
+function login_one_time_user_view($account, $view_mode, $langcode) {
+  if (
+    user_access('use link to login one time', $account) &&
+    user_access('send link to login one time') &&
+    variable_get('login_one_time_user_view', TRUE)
+  ) {
+    $select = variable_get('login_one_time_user_select', FALSE);
+    $set_mail = variable_get('login_one_time_user_set_mail', FALSE);
+    $account->content['login_one_time'] = array(
+      '#title' => t('Login one time'),
+      '#type' => 'item',
+      '#markup' => login_one_time_button(
+        $account->name,
+        NULL,
+        $select,
+        $set_mail
+      ),
+    );
+  }
+}
+
+/**
+ * Get a login one time form.
+ *
+ * @param $username
+ *   If supplied force the email to go to this user, if not supplied will
+ *   display a select element with all active users. NOTE: It is assumed that
+ *   this user has permission to use login one time links, if they do not the
+ *   button will still appear but the mail will not be sent.
+ * @param $path
+ *   If supplied will force the emailed link to redirect to this path. If not
+ *   supplied will use default setting, or fallback to the URL of the page this
+ *   code is called from.  Supply empty string to prompt for selection.
+ * @param $select
+ *   If TRUE will display a select element to choose from configured paths, the
+ *   default choice will come from $path or be calculated the same way, or if
+ *   empty string supplied it will prompt for selection.
+ * @param $set_mail
+ *   If TRUE shows textbox to override the recipient email address.
+ * @return
+ *   The HTML string of the form, for use in output.
+ */
+function login_one_time_button($username = NULL, $path = NULL, $select = FALSE, $set_mail = FALSE) {
+  if (user_access('send link to login one time')) {
+    if (is_object($username) && isset($username->name)) {
+      // Woops, they've supplied an $account!
+      $username = $username->name;
+    }
+    $form = drupal_get_form('login_one_time_button_form', $username, $path, $select, $set_mail);
+    return drupal_render($form);
+  }
+  return NULL;
+}
+
+/**
+ * Form to send a one-time login link
+ *
+ * @param $form
+ * @param $form_state
+ * @param $username
+ *   If supplied force the email to go to this user, if not supplied will
+ *   display a select element with all active users. NOTE: It is assumed that
+ *   this user has permission to use login one time links, if they do not the
+ *   button will still appear but the mail will not be sent.
+ * @param $path
+ *   If supplied will force the emailed link to redirect to this path. If not
+ *   supplied will use default setting, or fallback to the URL of the page this
+ *   code is called from.  Supply empty string to prompt for selection.
+ * @param $select
+ *   If TRUE will display a select element to choose from configured paths, the
+ *   default choice will come from $path or be calculated the same way, or if
+ *   empty string supplied it will prompt for selection.
+ * @param $set_mail
+ *   If TRUE shows textbox to override the recipient email address.
+ */
+function login_one_time_button_form($form, $form_state, $username = NULL, $path = NULL, $select = FALSE, $set_mail = FALSE) {
+  $form = array();
+  $form['#redirect'] = FALSE;
+  if ($username) {
+    $form['account'] = array(
+      '#type' => 'value',
+      '#value' => $username,
+    );
+    $account = user_load_by_name($username);
+    $button_text = t('Send login one time link to @username', array('@username' => format_username($account)));
+  }
+  else {
+    $form['account'] = login_one_time_users_widget();
+    $button_text = t('Send login one time link');
+  }
+  if ($select) {
+    $form['path'] = login_one_time_select_widget($path);
+  }
+  else {
+    $form['path'] = array(
+      '#type' => 'value',
+      '#value' => $path,
+    );
+  }
+  if ($set_mail) {
+    $form['set_mail'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Email override'),
+    );
+  }
+
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => $button_text,
+  );
+
+  if (isset($form_state['storage']['done']) && $form_state['storage']['done']) {
+    $form['submit']['#disabled'] = TRUE;
+  }
+
+  return $form;
+}
+
+/**
+ * Generate the select widget options.
+ */
+function login_one_time_select_widget($path = NULL, $title = NULL) {
+  // Set a default path if $path not given.
+  if (is_null($path)) {
+    $path = variable_get('login_one_time_path_default', NULL);
+    if (is_null($path)) {
+      $path = 'login_one_time[current]';
+    }
+  }
+  $form = array(
+    '#type' => 'select',
+    '#default_value' => $path,
+    '#options' => array('' => t("- Choose a page -")) + login_one_time_path_options($path),
+    '#required' => TRUE,
+  );
+  if ($title) {
+    $form['#title'] = $title;
+  }
+  return $form;
+}
+
+/**
+ * Generate the users widget options.
+ */
+function login_one_time_users_widget($username = NULL, $title = NULL) {
+  $accounts = array();
+  if (variable_get('login_one_time_user_widget', 'autocomplete') == 'autocomplete') {
+    $form = array(
+      '#type' => 'textfield',
+      '#default_value' => $username,
+      '#size' => 30,
+      '#maxlength' => 128,
+      '#required' => TRUE,
+      '#autocomplete_path' => 'login_one_time_autocomplete_users',
+    );
+  }
+  else {
+    $form = array(
+      '#type' => 'select',
+      '#default_value' => $username,
+      '#options' => array('' => t("- Choose a user -")) + login_one_time_user_options(),
+      '#required' => TRUE,
+    );
+  }
+  if ($title) {
+    $form['#title'] = $title;
+  }
+  return $form;
+}
+
+/**
+ * Build the list of path select widget options.
+ */
+function login_one_time_path_options($path = NULL) {
+  $options = array();
+
+  // Get variables and assemble the array.
+  if (variable_get('login_one_time_path_front', TRUE)) {
+    $options['login_one_time[front]'] = t("Front page");
+  }
+  if (variable_get('login_one_time_path_user', TRUE)) {
+    $options['user'] = t("User page");
+  }
+  if (variable_get('login_one_time_path_user_edit', TRUE)) {
+    $options['login_one_time[user_edit]'] = t("User edit page");
+  }
+  if (variable_get('login_one_time_path_current', TRUE)) {
+    $options['login_one_time[current]'] = t("Current page");
+  }
+  if (variable_get('login_one_time_path_custom', '')) {
+    $customs = explode("\n", variable_get('login_one_time_path_custom', ''));
+    if (is_array($customs)) {
+      foreach ($customs as $custom) {
+        $custom_option = explode("|", $custom);
+        $options[$custom_option[0]] = $custom_option[1] ? $custom_option[1] : $custom_option[0];
+      }
+    }
+  }
+
+  // Include the $path in the $options, if not already there.
+  // This may override some settings in some cases, but it kinda means those
+  // settings were incomplete.
+  if ($path && !isset($options[$path])) {
+    if ($path == "login_one_time[current]") {
+      $display = t("Current page");
+    }
+    elseif ("login_one_time[front]") {
+      $display = t("Front page");
+    }
+    else {
+      $display = $path;
+    }
+    $options[$path] = $display;
+  }
+
+  // Allow modules to modify this list correctly.
+  drupal_alter("login_one_time_path_options", $options);
+
+  return $options;
+}
+
+/**
+ * Build the list of user select widget options.
+ */
+function login_one_time_user_options($autocomplete = NULL) {
+  $options = array();
+
+  // Only return users with a permitted role id.
+  $permitted_role_ids = array_keys(user_roles(TRUE, 'use link to login one time'));
+  if (!empty($permitted_role_ids)) {
+    $args = array();
+    $args[':rids'] = $permitted_role_ids;
+    $where = '';
+    if ($autocomplete) {
+      $where = " AND u.name LIKE :autocomplete";
+      $args[':autocomplete'] = '%' . $autocomplete . '.%';
+    }
+    $result = db_query(
+      'SELECT u.name AS name FROM {users} u'
+      . ' INNER JOIN {users_roles} ur ON u.uid = ur.uid AND ur.rid IN (:rids)'
+      . ' WHERE u.status <> 0'
+      . $where
+      . ' ORDER BY u.name',
+      $args
+    );
+    foreach ($result as $row) {
+      $options[$row->name] = $row->name;
+    }
+  }
+
+  // Allow modules to modify this list correctly.
+  drupal_alter("login_one_time_user_options", $options);
+
+  return $options;
+}
+
+/**
+ * Validate function for the form to send a one-time login link.
+ */
+function login_one_time_button_form_validate($form, &$form_state) {
+  if (!empty($form_state['values']['set_mail'])) {
+    if (!valid_email_address($form_state['values']['set_mail'])) {
+      form_set_error('set_mail', t('Invalid email address.'));
+    }
+  }
+}
+
+/**
+ * Submit function for the form to send a one-time login link.
+ */
+function login_one_time_button_form_submit($form, &$form_state) {
+  $values = &$form_state['values'];
+  $accounts = user_load_multiple(array(), array('name' => $values['account']));
+  $account = reset($accounts);
+  $set_mail = !empty($values['set_mail']) ? $values['set_mail'] : NULL;
+  $result = login_one_time_send_mail($account, $values['path'], $set_mail);
+  if ($result) {
+    $form_state['storage']['done'] = TRUE;
+    drupal_set_message(
+      t(
+        "A one-time login link has been sent to @username.",
+        array('@username' => format_username($account))
+      )
+    );
+  }
+  else {
+    drupal_set_message(
+      t("There was a problem sending the one-time login link."),
+      'error'
+    );
+  }
+}
+
+/**
+ * Send the login one time link to a user via email.
+ *
+ * @param $account
+ *   The loaded account object for the user to whom the email will be sent.
+ * @param $path
+ *   If supplied will force the emailed link to redirect to this path. If not
+ *   supplied will use default setting, or fallback to the URL of the page this
+ *   code is called from.
+ * @param $email
+ *   If supplied will override the account email address.
+ * @return
+ *   The return value from drupal_mail_send(), if ends up being called.
+ *
+ */
+function login_one_time_send_mail($account, $path = NULL, $email = NULL) {
+  if (user_access('use link to login one time', $account)) {
+    return login_one_time_mail_notify('login_one_time', $account, $path, $email);
+  }
+  else {
+    drupal_set_message(
+      t(
+        '@username is not permitted to use login one time links.  Mail not sent to this user.',
+        array('@username' => format_username($account))
+      ),
+      'warning'
+    );
+  }
+}
+
+/**
+ * Generate a one-time link for the $account
+ */
+function login_one_time_get_link($account, $path = NULL) {
+
+  // Path juggle - watch closely now....
+
+  // If there is no path get the default path.
+  if (!$path) {
+    $path = variable_get('login_one_time_path_default', NULL);
+  }
+  // If there is STILL no path or the path is 'current', use the current path.
+  if (!$path || $path == "login_one_time[current]") {
+    $path = drupal_get_path_alias($_GET['q']);
+  }
+  // If the path is 'front' then set it to no path.
+  elseif ($path == "login_one_time[front]") {
+    $path = "";
+  }
+  elseif ($path == "login_one_time[user_edit]") {
+    $path = "user/" . $account->uid . "/edit";
+  }
+
+  $timestamp = REQUEST_TIME;
+  return url(
+    "login_one_time/" . $account->uid . "/" . $timestamp . "/" .
+      user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid),
+    array(
+      'query' => array('destination' => $path),
+      'absolute' => TRUE,
+    )
+  );
+}
+
+/**
+ * Create email settings as part of user admin settings
+ */
+function login_one_time_form_user_admin_settings_alter(&$form, &$form_state) {
+  //$email_token_help = t('Available variables are:') . ' !username, !site, !password, !uri, !uri_brief, !mailto, !date, !login_uri, !edit_uri, !login_url.';
+  $email_token_help = t('Available variables are:') . ' [site:name], [site:url], [user:name], [user:mail], [site:login-url], [site:url-brief], [user:edit-url], <strong>[user:login-one-time]</strong>, [user:cancel-url].';
+
+  $form['email_login_one_time'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Login one time e-mail'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#description' => t('Customize login one time e-mail messages sent to users.') . ' ' . $email_token_help,
+    '#group' => 'email',
+  );
+  $form['email_login_one_time']['login_one_time_subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#default_value' => login_one_time_mail_text('login_one_time_subject'),
+    '#maxlength' => 180,
+  );
+  $form['email_login_one_time']['login_one_time_body'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Body'),
+    '#default_value' => login_one_time_mail_text('login_one_time_body'),
+    '#rows' => 12,
+  );
+}
+
+/**
+ * Returns a mail string for a variable name.
+ *
+ * Used by user_mail() and the settings forms to retrieve strings.
+ */
+function login_one_time_mail_text($key, $path = NULL, $language = NULL, $variables = array()) {
+  if ($admin_setting = variable_get($key, FALSE)) {
+    // An admin setting overrides the default string.
+    return strtr($admin_setting, $variables);
+  }
+  else {
+    $langcode = isset($language) ? $language->language : NULL;
+    $options = array();
+    if (!is_null($langcode)) {
+      $options['langcode'] = $langcode;
+    }
+    // No override, return default string.
+    switch ($key) {
+      case 'login_one_time_subject':
+        return t('One-time login link for [user:name] at [site:name]', $variables, $options);
+      case 'login_one_time_body':
+        return t("[user:name],\n\nA request to give you a one-time login for your account has been made at [site:name].\n\nYou may now log in to [site:url-brief] by clicking on this link or copying and pasting it in your browser:\n\n[user:login-one-time]\n\nThis is a one-time login, so it can be used only once.  It expires in two weeks and nothing will happen if it's not used.\n\n--  [site:name] team", $variables, $options);
+    }
+  }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function login_one_time_mail($key, &$message, $params) {
+   // This code handles a mixture of Drupal 6 legacy !variables and Drupal 7 tokens.
+
+  $language = $message['language'];
+  $path = &$params['path'];
+  $variables = login_one_time_mail_tokens($params['account'], $language, $path);
+
+  $subject = login_one_time_mail_text($key . '_subject', $path, $language, $variables);
+  $body = login_one_time_mail_text($key . '_body', $path, $language, $variables);
+
+  $subject = token_replace($subject, array('user' => $params['account']));
+  $body = token_replace($body, array('user' => $params['account'], 'path' => $path));
+
+  $message['subject'] .= $subject;
+  $message['body'][] = $body;
+}
+
+/**
+ * Return an array of token to value mappings for user e-mail messages.
+ *
+ * @param $account
+ *  The user object of the account being notified.  Must contain at
+ *  least the fields 'uid', 'name', and 'mail'.
+ * @param $language
+ *  Language object to generate the tokens with.
+ * @return
+ *  Array of mappings from token names to values (for use with strtr()).
+ *
+ * @todo: To be deprecated.
+ */
+function login_one_time_mail_tokens($account, $language, $path = NULL) {
+  global $base_url;
+  $tokens = array(
+    '!username' => $account->name,
+    '!site' => variable_get('site_name', 'Drupal'),
+    '!login_url' => login_one_time_get_link($account, $path),
+    '!uri' => $base_url,
+    '!uri_brief' => preg_replace('!^https?://!', '', $base_url),
+    '!mailto' => $account->mail,
+    '!date' => format_date(REQUEST_TIME, 'medium', '', NULL, $language->language),
+    '!login_uri' => url('user', array('absolute' => TRUE, 'language' => $language)),
+    '!edit_uri' => url('user/' . $account->uid . '/edit', array('absolute' => TRUE, 'language' => $language)),
+  );
+  if (!empty($account->password)) {
+    $tokens['!password'] = $account->password;
+  }
+  return $tokens;
+}
+
+/**
+ * Menu callback; process login one time link and redirect.
+ */
+function login_one_time_page($uid, $timestamp, $hashed_pass) {
+  global $user;
+
+  // Check if the user is already logged in. The back button is often the culprit here.
+  if ($user->uid) {
+    drupal_set_message(t('It is not necessary to use this link to login anymore. You are already logged in.'));
+
+    $action = login_one_time_get_action_path();
+
+    if (!empty($action)) {
+      drupal_goto($action);
+    }
+    else {
+      drupal_goto("<front>");
+    }
+  }
+  else {
+    // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
+    $timeout = variable_get('login_one_time_expiry', '');
+    if (!$timeout) {
+      $timeout = 86400 * 14;
+    }
+    $current = REQUEST_TIME ;
+    // Some redundant checks for extra security ?
+    $account = user_load($uid);
+    if ($timestamp < $current && isset($account) && $account->status == 1) {
+      // Deny one-time login to blocked accounts.
+      if (drupal_is_denied(ip_address())) {
+        drupal_set_message(t('You have tried to use a one-time login for an account which has been blocked.'), 'error');
+        drupal_goto("<front>");
+      }
+
+      // Deny one-time login to accounts without permission
+      if (!user_access('use link to login one time', $account)) {
+        drupal_set_message(t('You have tried to use a one-time login for an account which is no longer permitted to use one-time login links.'), 'error');
+        drupal_goto("<front>");
+      }
+
+      // No time out for first time login.
+      if ($timeout && $account->login && $current - $timestamp > $timeout) {
+        drupal_set_message(t('You have tried to use a one-time login link that has expired. Please use the log in form to supply your username and password.'));
+        drupal_goto('user/login');
+      }
+      elseif ($account->uid && $timestamp > $account->login && $timestamp < $current && $hashed_pass == user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid)) {
+
+        $action = login_one_time_get_action_path();
+
+        watchdog('user', 'User %name used one-time login link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
+        // Set the new user.
+        $user = $account;
+        // user_authenticate_finalize() also updates the login timestamp of the
+        // user, which invalidates further use of the one-time login link.
+        user_login_finalize();
+
+        // Integrate with the rules module, see login_one_time.rules.inc.
+        if (module_exists('rules')) {
+          rules_invoke_event('login_one_time_used', $user);
+        }
+
+        module_invoke_all('login_one_time_used', $user);
+
+	// Add a session variable indicating whether the ignore current password field setting is enabled.
+	$_SESSION['ignore_current_pass'] = variable_get('login_one_time_user_ignore_current_pass', FALSE);
+        drupal_set_message(t('You have just used your one-time login link.'));
+        if (!empty($action)) {
+          drupal_goto($action);
+        }
+        else {
+          drupal_goto("<front>");
+        }
+
+      }
+      else {
+        drupal_set_message(t('You have tried to use a one-time login link which has been used. Please use the log in form to supply your username and password.'));
+        drupal_goto('user/login');
+      }
+    }
+    else {
+      // Deny access, no more clues.
+      // Everything will be in the watchdog's URL for the administrator to check.
+      drupal_access_denied();
+    }
+  }
+}
+
+/**
+ * Get the action path for redirect.
+ */
+function login_one_time_get_action_path() {
+  return urlencode($_REQUEST['destination']);
+}
+
+/**
+ * Conditionally create and send a notification email when a certain
+ * operation happens on the given user account.
+ *
+ * @see user_mail_tokens()
+ * @see drupal_mail()
+ *
+ * @param $op
+ *  The operation being performed on the account.
+ *
+ * @param $account
+ *  The user object of the account being notified.  Must contain at
+ *  least the fields 'uid', 'name', and 'mail'.
+ * @param $path
+ *  The path to send the user to when they click the link.
+ * @param $email
+ *  If supplied will override the email address of the account.
+ * @param $language
+ *  Optional language to use for the notification, overriding account language.
+ * @return
+ *  The return value from drupal_mail_send(), if ends up being called.
+ */
+function login_one_time_mail_notify($op, $account, $path, $email = NULL, $language = NULL) {
+  $params['account'] = $account;
+  $params['path'] = $path;
+  $email = $email ? $email : $account->mail;
+  $language = $language ? $language : user_preferred_language($account);
+  $mail = drupal_mail('login_one_time', $op, $email, $language, $params);
+  return empty($mail) ? NULL : $mail['result'];
+}
+
+/**
+ * Implements hook_user_operations().
+ */
+function login_one_time_user_operations() {
+  $operations = array();
+  $options = login_one_time_path_options();
+  foreach ($options as $path => $display) {
+    $operations['login_one_time_bulk_send_mail_' . $path] = array(
+      'label' => t('Send one-time login link to the selected users (!display)', array('!display' => $display)),
+      'callback' => 'login_one_time_bulk_send_mail',
+      'callback arguments' => array($path),
+    );
+  }
+  return $operations;
+}
+
+/**
+ * Bulk send login one time links to users via email.
+ *
+ * @param $account
+ *   An array of user IDs.
+ * @param $path
+ *   If supplied will force the emailed link to redirect to this path. If not
+ *   supplied will use default setting, or fallback to the URL of the page this
+ *   code is called from.
+ * @return
+ *   Multidimensional array of return data including user IDs and responses
+ *   from login_one_time_send_mail.
+ */
+function login_one_time_bulk_send_mail($accounts, $path = NULL) {
+  $return = array();
+  foreach ($accounts as $uid) {
+    $account = user_load((int)$uid);
+    if ($account !== FALSE) {
+      $return[] = array(
+        'uid' => $uid,
+        'response' => login_one_time_send_mail($account, $path),
+      );
+    }
+    else {
+      drupal_set_message(t('There was a problem loading account %uid', array('%uid' => $uid)));
+    }
+  }
+  return $return;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function login_one_time_block_info() {
+  $blocks[0] = array(
+    'info' => t('Login one time'),
+    'cache' => 'BLOCK_CACHE_PER_ROLE' | 'BLOCK_CACHE_PER_PAGE',
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function login_one_time_block_configure($delta = '') {
+  if ($delta == 0) {
+    $form['default'] = login_one_time_select_widget(
+      variable_get('login_one_time_block_default', NULL),
+      t("Default path")
+    );
+    $form['default']['#required'] = FALSE;
+    $form['default']['#description'] = t("This is where the user will be directed to upon using a <em>login one time</em> link, or the default choice when using the <em>path selection</em> widget.");
+    $form['select'] = array(
+      '#type' => 'checkbox',
+      '#title' => t("Show <em>path selection</em> widget."),
+      '#default_value' => variable_get('login_one_time_block_select', FALSE),
+    );
+    $form['set_mail'] = array(
+      '#type' => 'checkbox',
+      '#title' => t("Show <em>email override</em> widget."),
+      '#default_value' => variable_get('login_one_time_block_set_mail', FALSE),
+    );
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function login_one_time_block_save($delta = '', $edit = array()) {
+  if ($delta == 0) {
+    variable_set('login_one_time_block_default', $edit['default']);
+    variable_set('login_one_time_block_select', $edit['select']);
+    variable_set('login_one_time_block_set_mail', $edit['set_mail']);
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function login_one_time_block_view($delta = '') {
+  if ($delta == 0) {
+    $path = variable_get('login_one_time_block_default', NULL);
+    $select = variable_get('login_one_time_block_select', FALSE);
+    $set_mail = variable_get('login_one_time_block_set_mail', FALSE);
+    $block = array(
+      'subject' => t('Login one time'),
+      'content' => login_one_time_button(NULL, $path, $select, $set_mail),
+    );
+    return $block;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function login_one_time_form_user_profile_form_alter(&$form, &$form_state) {
+  // Remove the current password field from user profile edit form
+  // and disable validation.
+  if (variable_get('login_one_time_user_ignore_current_pass', FALSE) && isset($_SESSION['ignore_current_pass']) && $_SESSION['ignore_current_pass']) {
+    // Check for the current password validation hook, and disable it.
+    $key = array_search('user_validate_current_pass', $form['#validate']);
+
+    if ($key !== FALSE) {
+      unset($form['#validate'][$key]);
+    }
+
+    // Disable the current password form.
+    $form['account']['current_pass_required_value']['#access'] = FALSE;
+    $form['account']['current_pass']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function login_one_time_tokens($type, $tokens, $data = array(), $options = array()) {
+  $replacements = array();
+
+  if ($type == 'user' && !empty($data['user'])) {
+    $account = $data['user'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        // Simple key values on the node.
+        case 'login-one-time':
+          $path = isset($data['path']) ? $data['path'] : NULL;
+          $replacements[$original] = login_one_time_get_link($account, $path);
+        break;
+      }
+    }
+  }
+  if ($type == 'comment' & !empty($data['comment'])) {
+    $comment = $data['comment'];
+
+    foreach ($tokens as $name => $original) {
+      switch($name) {
+        case 'login-one-time':
+          $node = node_load($comment->nid);
+          $author = user_load($node->uid);
+          $replacements[$original] = login_one_time_get_link($author, url("node/$node->nid") . '#' . $comment->cid);
+        break;
+      }
+    }
+  }
+  return $replacements;
+}
+
+/**
+ * Implements hook_token_info().
+ */
+function login_one_time_token_info() {
+
+  $info['tokens']['user']['login-one-time'] = array(
+    'name' => t('Login one time link'),
+    'description' => t("A one-time login link set to the configured default path."),
+  );
+  if (module_exists('comment')) {
+    $info['tokens']['comment']['login-one-time'] = array(
+      'name' => t('Login one time link'),
+      'description' => t("A one-time login link for the commented node's author."),
+    );
+  }
+  return $info;
+}
+
+/**
+ * Set all user roles to have the permission to use login one time links.
+ *
+ * @return
+ *   TRUE if operation was performed, FALSE if it was not needed.
+ */
+function login_one_time_force_permissions() {
+  $permitted_role_ids = array_keys(user_roles(TRUE, 'use link to login one time'));
+  // Only do this if nobody has been given the permission yet.
+  if (empty($permitted_role_ids)) {
+    $role_ids = array_keys(user_roles(TRUE));
+    foreach ($role_ids as $rid) {
+      user_role_change_permissions($rid, array('use link to login one time' => TRUE));
+    }
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_action_info().
+ */
+function login_one_time_action_info() {
+  return array(
+    'login_one_time_send_mail_action' => array(
+      'label' => t('Send a login one-time email.'),
+      'type' => 'user',
+      'configurable' => TRUE,
+      'triggers' => array('any'),
+    ),
+  );
+}
+
+/**
+ * Generates settings form for login_one_time_send_mail_action().
+ */
+function login_one_time_send_mail_action_form($context) {
+  $form['path'] = login_one_time_select_widget();
+  $form['path']['#title'] = t('Select a destination path');
+  unset($form['path']['#options']['login_one_time[current]']);
+
+  return $form;
+}
+
+/**
+ * Submit handler for login_one_time_send_mail_action_form().
+ *
+ * Returns an associative array of values which will be available in the
+ * $context when an action is executed.
+ */
+function login_one_time_send_mail_action_submit($form, $form_state) {
+  return array('path' => $form_state['values']['path']);
+}
+
+/**
+ * Action function for login_one_time_send_mail_action.
+ *
+ * @param $entity
+ *   The user object being acted upon.
+ * @param $context
+ *   Array with parameters for this action: depends on the trigger.
+ */
+function login_one_time_send_mail_action(&$account, $context = array()) {
+  login_one_time_send_mail($account, $context['path']);
+}

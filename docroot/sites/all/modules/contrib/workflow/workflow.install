@@ -1,0 +1,774 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the workflow module.
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function workflow_enable() {
+  $message = t('Thanks for using Workflow. To maintain workflows, enable the
+    <a href="!url_ui">Workflow UI module</a>. To add a Workflow Field to your
+    entity, enable the <a href="!url">Workflow Field module</a>.',
+    array(
+      '!url_ui' => url('admin/config/modules'),
+      '!url_field' => url('admin/config/modules'),
+    )
+  );
+  drupal_set_message($message);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function workflow_uninstall() {
+  variable_del('workflow_states_per_page');
+  // Delete type-workflow mapping variables.
+  foreach (node_type_get_types() as $type => $name) {
+    variable_del('workflow_' . $type);
+  }
+}
+
+/**
+ * Implements hook_requirements().
+ *
+ * Let admins know that Workflow is in use.
+ *
+ * @todo: extend workflow_requirements() for use with Workflow Field API.
+ */
+function workflow_requirements($phase) {
+  $requirements = array();
+  switch ($phase) {
+    case 'install':
+      break;
+
+    case 'update':
+      break;
+
+    case 'runtime':
+      // Show info on admin/reports/status.
+      $types = db_query('SELECT wid, type FROM {workflow_type_map} WHERE wid <> 0 ORDER BY type')->fetchAllKeyed();
+      // If there are no types, then just bail.
+      if (count($types) == 0) {
+        return;
+      }
+      // Let's make it look nice.
+      if (count($types) == 1) {
+        $type_list = current($types);
+      }
+      else {
+        $last = array_pop($types);
+        if (count($types) > 2) {
+          $type_list = implode(', ', $types) . ', and ' . $last;
+        }
+        else {
+          $type_list = current($types) . ' and ' . $last;
+        }
+      }
+
+      $t = get_t();
+      $requirements['workflow'] = array(
+        'title' => $t('Workflow'),
+        'value' => $t('Workflow is active on the @types content types.', array('@types' => $type_list)),
+        'severity' => REQUIREMENT_OK,
+      );
+      break;
+
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_schema().
+ */
+function workflow_schema() {
+  $schema['workflows'] = array(
+    'description' => 'Workflows',
+    'fields' => array(
+      'wid' => array(
+        'description' => 'The primary identifier for a workflow.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The machine-readable name of this workflow.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'label' => array(
+        'description' => 'The human-readable name of this workflow.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'translatable' => TRUE,
+      ),
+      'status' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        // Set the default to ENTITY_CUSTOM without using the constant as it is
+        // not safe to use it at this point.
+        'default' => 0x01,
+        'size' => 'tiny',
+        'description' => 'The exportable status of the entity.',
+      ),
+      'module' => array(
+        'description' => 'The name of the providing module if the entity has been defined in code.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'tab_roles' => array(
+        'description' => 'The role IDs that can access the workflow tabs on node pages.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+        'serialize' => TRUE,
+      ),
+      'options' => array(
+        'description' => 'Additional settings for the workflow.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('wid'),
+    'unique keys' => array('name' => array('name')),
+  );
+  $schema['workflow_type_map'] = array(
+    'fields' => array(
+      'type' => array(
+        'description' => 'The {node_type}.type the workflow is used on.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'wid' => array(
+        'description' => 'The {workflows}.wid this record affects.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+    ),
+    'indexes' => array(
+      'type' => array('type', 'wid'),
+    ),
+  );
+  $schema['workflow_transitions'] = array(
+    'fields' => array(
+      'tid' => array(
+        'description' => 'The primary identifier for a workflow transition.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The machine-readable name of this transition.',
+        'type' => 'varchar',
+        'length' => '32',
+        // 'not null' => TRUE,
+        'default' => '',
+      ),
+      'label' => array(
+        'description' => 'The human-readable name of this transition.',
+        'type' => 'varchar',
+        'length' => '128',
+        'not null' => TRUE,
+        'default' => '',
+        'translatable' => TRUE,
+      ),
+      'sid' => array(
+        'description' => 'The {workflow_states}.sid start state.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'target_sid' => array(
+        'description' => 'The {workflow_states}.sid target state.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'roles' => array(
+        'description' => 'The {role}.sid that a user must have to perform transition.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('tid'),
+    'indexes' => array(
+      'sid' => array('sid'),
+      'target_sid' => array('target_sid'),
+    ),
+  );
+  $schema['workflow_states'] = array(
+    'fields' => array(
+      'sid' => array(
+        'description' => 'The primary identifier for a workflow state.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'wid' => array(
+        'description' => 'The {workflows}.wid this state is part of.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'name' => array(
+        'description' => 'The machine-readable name of this state.',
+        'type' => 'varchar',
+        'length' => '255',
+        // 'not null' => TRUE,
+        'default' => '',
+      ),
+      'state' => array(
+        'description' => 'The human-readable name of this state.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+        'translatable' => TRUE,
+      ),
+      'weight' => array(
+        'description' => 'The weight (order) of the state.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '4',
+      ),
+      'sysid' => array(
+        'description' => 'The type of state, usually either WORKFLOW_CREATION or empty.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '4',
+      ),
+      'status' => array(
+        'description' => 'Whether the current state is active still.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+        'disp-width' => '4',
+      ),
+    ),
+    'primary key' => array('sid'),
+    'indexes' => array(
+      'sysid' => array('sysid'),
+      'wid' => array('wid'),
+    ),
+  );
+  $schema['workflow_scheduled_transition'] = array(
+    'fields' => array(
+      'entity_type' => array(
+        'description' => 'The type of entity this transition belongs to.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'nid' => array(
+        'description' => 'The entity ID of the object this transition belongs to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'field_name' => array(
+        'description' => 'The name of the field the transition relates to.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'language' => array(
+        'description' => 'The {languages}.language of the entity.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'delta' => array(
+        'description' => 'The sequence number for this data item, used for multi-value fields',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'old_sid' => array(
+        'description' => 'The {workflow_states}.sid this state starts at.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'sid' => array(
+        'description' => 'The {workflow_states}.sid this state transitions to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'uid' => array(
+        'description' => 'The user who scheduled this state transition.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'scheduled' => array(
+        'description' => 'The date this transition is scheduled for.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'comment' => array(
+        'description' => 'The comment explaining this transition.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+    ),
+    'indexes' => array(
+      'entity_type' => array('entity_type'),
+      'entity_id' => array('entity_type', 'nid'),
+    ),
+  );
+  $schema['workflow_node_history'] = array(
+    'fields' => array(
+      'hid' => array(
+        'description' => 'The unique ID for this record.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'entity_type' => array(
+        'description' => 'The type of entity this transition belongs to.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid this record is for.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'revision_id' => array(
+        'description' => 'The current version identifier.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'length' => 10,
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+      'field_name' => array(
+        'description' => 'The name of the field the transition relates to.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'language' => array(
+        'description' => 'The {languages}.language of the entity.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'delta' => array(
+        'description' => 'The sequence number for this data item, used for multi-value fields',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'old_sid' => array(
+        'description' => 'The {workflow_states}.sid this transition started as.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'sid' => array(
+        'description' => 'The {workflow_states}.sid this transition transitioned to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid who made this transition.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'stamp' => array(
+        'description' => 'The unique stamp for this transition.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'comment' => array(
+        'description' => 'The comment explaining this transition.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('hid'),
+    'indexes' => array(
+      'sid' => array('entity_type', 'nid', 'sid'),
+    ),
+  );
+  $schema['workflow_node'] = array(
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The {node}.nid this record is for.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'sid' => array(
+        'description' => 'The {workflow_states}.sid that this node is currently in.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid who triggered this state.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'stamp' => array(
+        'description' => 'The unique stamp for the transition.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '11',
+      ),
+    ),
+    'primary key' => array('nid'),
+    'indexes' => array(
+      'nid' => array('nid', 'sid'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Require highest 6.x release.
+ */
+function workflow_update_last_removed() {
+  return 6101;
+}
+
+/**
+ * Table update from 6 to 7.
+ *
+ * Adding a unique key for fields (already held unique in code).
+ */
+function workflow_update_7000() {
+  if (!db_index_exists('workflows', 'name')) {
+    db_add_unique_key('workflows', 'name', array('name'));
+  }
+  if (!db_index_exists('workflow_states', 'wid_state')) {
+    db_add_unique_key('workflow_states', 'wid_state', array('wid', 'state'));
+  }
+}
+
+/**
+ * Add userid to scheduled transition table.
+ */
+function workflow_update_7002() {
+  db_add_field('workflow_scheduled_transition', 'uid', array(
+    'description' => 'The user who scheduled this state transition.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'disp-width' => '10',
+    'initial' => 0,
+    ));
+}
+
+/**
+ * Add Entity field capabilities to workflow_scheduled_transition table.
+ */
+function workflow_update_7003() {
+  $field = array(
+    'description' => 'The type of entity this transition belongs to.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  if (!db_field_exists('workflow_scheduled_transition', 'entity_type')) {
+    db_add_field('workflow_scheduled_transition', 'entity_type', $field);
+  }
+  if (!db_field_exists('workflow_node_history', 'entity_type')) {
+    db_add_field('workflow_node_history', 'entity_type', $field);
+  }
+
+  $field = array(
+    'description' => 'The name of the field the transition relates to.',
+    'type' => 'varchar',
+    'length' => 32,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  if (!db_field_exists('workflow_scheduled_transition', 'field_name')) {
+    db_add_field('workflow_scheduled_transition', 'field_name', $field);
+  }
+  if (!db_field_exists('workflow_node_history', 'field_name')) {
+    db_add_field('workflow_node_history', 'field_name', $field);
+  }
+
+  $field = array(
+    'description' => 'The {languages}.language of the entity.',
+    'type' => 'varchar',
+    'length' => 32,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  if (!db_field_exists('workflow_scheduled_transition', 'language')) {
+    db_add_field('workflow_scheduled_transition', 'language', $field);
+  }
+  if (!db_field_exists('workflow_node_history', 'language')) {
+    db_add_field('workflow_node_history', 'language', $field);
+  }
+
+  $field = array(
+    'description' => 'The sequence number for this data item, used for multi-value fields',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  );
+  if (!db_field_exists('workflow_scheduled_transition', 'delta')) {
+    db_add_field('workflow_scheduled_transition', 'delta', $field);
+  }
+  if (!db_field_exists('workflow_node_history', 'delta')) {
+    db_add_field('workflow_node_history', 'delta', $field);
+  }
+
+  db_drop_index('workflow_scheduled_transition', 'nid');
+  db_drop_index('workflow_scheduled_transition', 'entity_id');
+  db_drop_index('workflow_scheduled_transition', 'entity_type');
+  db_add_index('workflow_scheduled_transition', 'entity_id', array('entity_type', 'nid'));
+  db_add_index('workflow_scheduled_transition', 'entity_type', array('entity_type'));
+
+  db_drop_index('workflow_node_history', 'nid');
+  db_drop_index('workflow_node_history', 'sid');
+  db_add_index('workflow_node_history', 'sid', array('entity_type', 'nid', 'sid'));
+}
+
+/**
+ * Update scheduled state transitions with no association to "node".
+ */
+function workflow_update_7004() {
+  db_update('workflow_scheduled_transition')
+    ->fields(array(
+      'entity_type' => 'node',
+      'language' => LANGUAGE_NONE,
+      'delta' => '0',
+      )
+    )
+    ->execute();
+}
+
+/**
+ * Enable Workflow Node module. See https:\/\/drupal.org\/node\/2122541 .
+ */
+function workflow_update_7005() {
+  module_enable(array('workflownode'));
+}
+
+/**
+ * Set historical records with no associated entity to "node".
+ *
+ * Otherwise, they won't show up in the Workflow tab.
+ */
+function workflow_update_7006() {
+  db_update('workflow_node_history')
+    ->fields(array(
+      'entity_type' => 'node',
+      )
+    )
+    ->condition('entity_type', '')
+    ->execute();
+}
+
+/**
+ * Convert roles to entity-like arrays.
+ */
+function workflow_update_7007() {
+  // For this update, do not use the Workflow API, since some table fields are
+  // not present yet. Also, do not move to the 'floating' hook_update_N().
+
+  $schema = workflow_schema();
+  // Change length from 60 to 255, to create a 'standard' Roles field,
+  // like workflow_transitions-roles.
+  $table = 'workflows';
+  $fields = $schema[$table]['fields'];
+  db_change_field($table, 'tab_roles', 'tab_roles', $fields['tab_roles']);
+
+  // Save field workflows-tab_roles in serialized array (using explode for the last time).
+  $query = "SELECT * FROM {workflows} w ";
+  $result = db_query($query);
+  foreach ($result as $record) {
+
+    // Replace role ID 'author' by '-1'.
+    // Update workflow->tab_roles to serializable array.
+    $roles = $record->tab_roles;
+    // Allow reprocessing this hook, by checking if this is an array.
+    if (!(strpos($roles, 'a:') === 0)) {
+      $roles = str_replace('author', '-1', $roles);
+      $record->tab_roles = empty($roles) ? array() : explode(',', $roles);
+      $num_updated = db_update('workflows')
+        ->fields(array(
+          'tab_roles' => serialize($record->tab_roles),
+        ))
+        ->condition('wid', $record->wid, '=')
+        ->execute();
+    }
+  }
+
+  // Save field workflow_transitions-roles in serialized array (using explode for the last time).
+  // Replace role ID 'author' by '-1'.
+  $query = "SELECT wt.tid, wt.roles FROM {workflow_transitions} wt";
+  $result = db_query($query);
+  foreach ($result as $record) {
+    $roles = $record->roles;
+    // Allow reprocessing this hook, by checking if this is an array.
+    if (!(strpos($roles, 'a:') === 0)) {
+      $roles = str_replace('author', '-1', $roles);
+      $record->roles = empty($roles) ? array() : explode(',', $roles);
+      $num_updated = db_update('workflow_transitions')
+        ->fields(array(
+          'roles' => serialize($record->roles),
+        ))
+        ->condition('tid', $record->tid, '=')
+        ->execute();
+    }
+  }
+}
+
+/**
+ * Add Revision to workflow history table.
+ *
+ * There is no update for current states.
+ */
+// function workflow_update_7008() {
+//   // This is moved to the general hook_update_N().
+// }
+
+
+/**
+ * Remove invalid transitions.
+ */
+function workflow_update_7014() {
+  // Some error in cloning Workflows generated superfluous, invalid Transitions.
+  $num_deleted = db_delete('workflow_transitions')
+    ->condition('sid', 0)
+    ->execute();
+}
+
+/**
+ * Add database fields. Make Workflow entity-aware, exportable.
+ */
+function workflow_update_7015() {
+  $schema = workflow_schema();
+
+  // Update the Workflow table.
+  $table = 'workflows';
+  $fields = $schema[$table]['fields'];
+  if (!db_field_exists($table, 'label')) {
+    db_add_field($table, 'label', $fields['label']);
+  }
+  if (!db_field_exists($table, 'status')) {
+    db_add_field($table, 'status', $fields['status']);
+  }
+  if (!db_field_exists($table, 'module')) {
+    db_add_field($table, 'module', $fields['module']);
+  }
+
+  // Update the WorkflowConfigTransitions table.
+  $table = 'workflow_transitions';
+  $fields = $schema[$table]['fields'];
+  if (!db_field_exists($table, 'label')) {
+    db_add_field($table, 'label', $fields['label']);
+  }
+  if (!db_field_exists($table, 'name')) {
+    db_add_field($table, 'name', $fields['name']);
+  }
+
+  // Update the WorkflowStates table.
+  $table = 'workflow_states';
+  $fields = $schema[$table]['fields'];
+  if (!db_field_exists($table, 'name')) {
+    db_add_field($table, 'name', $fields['name']);
+  }
+
+  // Update the WorkflowHistory table.
+  $table = 'workflow_node_history';
+  $fields = $schema[$table]['fields'];
+  // This is moved from hook_update_7008().
+  if (!db_field_exists($table, 'revision_id')) {
+    db_add_field($table, 'revision_id', $fields['revision_id']);
+  }
+
+  // Load&save workflows, to populate the label.
+  // Do this after all db-updates!!
+  foreach (workflow_load_multiple() as $workflow) {
+    $workflow->save();
+    // Load&save workflow states, to populate the state name.
+    foreach ($workflow->getStates(TRUE, TRUE) as $state) {
+      $state->save();
+    }
+  }
+
+  // The update system is going to flush all caches,
+  // including the updated Rules Action, so nothing to do here.
+}

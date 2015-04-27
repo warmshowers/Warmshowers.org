@@ -1,0 +1,835 @@
+<?php
+
+/**
+ * @file
+ * Install file for Advanced Poll
+ * Much thanks to the example modules. MW
+ * 
+ * */
+function advpoll_schema() {
+  // Install electoral list table
+  $schema['advpoll_electoral_list'] = array(
+    'fields' => array(
+      'nid' => array(
+        'description' => t('Node id for the relevant advpoll.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'description' => t('User id who will be given access to vote in an advpoll.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('nid', 'uid'),
+  );
+
+  return $schema;
+}
+
+function advpoll_install() {
+
+// fetch the t function for use in install
+  $t = get_t();
+
+  // We define the node type as an associative array.
+  $node_adv = array(
+    'type' => 'advpoll',
+    'name' => $t('Advanced Poll'),
+    'base' => 'node_content',
+    'has_title' => 1,
+    'description' => $t('Advanced Poll adds additional poll functionality, cookie voting, write-ins and voting modes.'),
+    'title_label' => $t('Question'),
+    'custom' => TRUE,
+  );
+
+  // Complete the node type definition by setting any defaults not explicitly
+  // declared above.
+  // http://api.drupal.org/api/function/node_type_set_defaults/7
+  $content_type = node_type_set_defaults($node_adv);
+
+  //We add a body field and set the body label immediately.
+  node_add_body_field($content_type, $t('Description'));
+
+  // Save the content type
+  node_type_save($content_type);
+
+
+  // Load the instance definition for our content type's body
+  // http://api.drupal.org/api/function/field_info_instance/7
+  $body_instance = field_info_instance('node', 'body', 'advpoll');
+
+  // Add our example_node_list view mode to the body instance display by
+  // instructing the body to display as a summary
+  $body_instance['display']['advpoll_list'] = array(
+    'label' => 'hidden',
+    'type' => 'text_summary_or_trimmed',
+  );
+
+  // http://api.drupal.org/api/function/field_update_instance/7
+  field_update_instance($body_instance);
+
+  // http://api.drupal.org/api/function/field_create_field/7
+  foreach (_advpoll_installed_fields() as $field) {
+    field_create_field($field);
+  }
+
+  // Create all the instances for our fields.
+  // http://api.drupal.org/api/function/field_create_instance/7
+  foreach (_advpoll_installed_instances() as $instance) {
+    $instance['entity_type'] = 'node';
+    $instance['bundle'] = $node_adv['type'];
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * @ingroup node_example
+ */
+function advpoll_uninstall() {
+  // Gather all the example content that might have been created while this
+  // module was enabled.  Simple selects still use db_query().
+  // http://api.drupal.org/api/function/db_query/7
+  $sql = 'SELECT nid FROM {node} n WHERE n.type = :type';
+  $result = db_query($sql, array(':type' => 'advpoll'));
+  $nid = array();
+  foreach ($result as $row) {
+    $nid[] = $row->nid;
+  }
+
+
+  if ($nid) {
+    db_delete('votingapi_vote')
+      ->condition('entity_id', $nid, 'IN')
+      ->condition('entity_type', 'advpoll')
+      ->execute();
+
+    // Delete all the nodes at once
+    // http://api.drupal.org/api/function/node_delete_multiple/7
+    node_delete_multiple($nid);
+  }
+  // Loop over each of the fields defined by this module and delete
+  // all instances of the field, their data, and the field itself.
+  // http://api.drupal.org/api/function/field_delete_field/7
+  foreach (array_keys(_advpoll_installed_fields()) as $field) {
+    field_delete_field($field);
+  }
+
+  // Loop over any remaining field instances attached to the node_example
+  // content type (such as the body field) and delete them individually.
+  // http://api.drupal.org/api/function/field_delete_field/7
+  $instances = field_info_instances('node', 'advpoll');
+  foreach ($instances as $instance_name => $instance) {
+    field_delete_instance($instance);
+  }
+
+  // Delete our content type
+  // http://api.drupal.org/api/function/node_type_delete/7
+  node_type_delete('advpoll');
+
+  // Purge all field infromation
+  // http://api.drupal.org/api/function/field_purge_batch/7
+  field_purge_batch(1000);
+}
+
+/**
+ * Returns a structured array defining the fields created by this content type.
+ *
+ * This is factored into this function so it can be used in both
+ * node_example_install() and node_example_uninstall().
+ *
+ * @return
+ *  An associative array specifying the fields we wish to add to our
+ *  new node type.
+ *
+ * @ingroup node_example
+ */
+function _advpoll_installed_fields() {
+  $t = get_t();
+  return array(
+    // -- Choices field --
+    'advpoll_choice' => array(
+      'active' => '1',
+      'cardinality' => '-1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_choice',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'choice' => array(
+          0 => 'choice',
+        ),
+      ),
+      'module' => 'advpoll_field',
+      'settings' => array(),
+      'translatable' => '0',
+      'type' => 'advpoll',
+    ),
+    // -- Max number of choices field
+    'advpoll_max_choices' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_max_choices',
+      'foreign keys' => array(),
+      'indexes' => array(),
+      'module' => 'number',
+      'settings' => array(),
+      'translatable' => '0',
+      'type' => 'number_integer',
+    ),
+    // -- Poll behavior field
+    'advpoll_behavior' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_behavior',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'module' => 'list',
+      'settings' => array(
+        'allowed_values' => array(
+          'approval' => $t('Approval voting'),
+          'pool' => $t('Pool votes and choices'),
+        ),
+        'allowed_values_function' => '',
+      ),
+      'translatable' => '0',
+      'type' => 'list_text',
+    ),
+    // -- Poll closed field
+    'advpoll_closed' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_closed',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'module' => 'list',
+      'settings' => array(
+        'allowed_values' => array(
+          'close' => $t('Close poll'),
+          'open' => $t('Open poll'),
+        ),
+        'allowed_values_function' => '',
+      ),
+      'translatable' => '0',
+      'type' => 'list_text',
+    ),
+    // -- Cookie duration field
+    'advpoll_cookie_duration' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_cookie_duration',
+      'foreign keys' => array(),
+      'indexes' => array(),
+      'module' => 'number',
+      'settings' => array(),
+      'translatable' => '0',
+      'type' => 'number_integer',
+    ),
+    // Poll date field
+    'advpoll_dates' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_dates',
+      'foreign keys' => array(),
+      'indexes' => array(),
+      'module' => 'date',
+      'settings' => array(
+        'cache_count' => '4',
+        'cache_enabled' => 0,
+        'granularity' => array(
+          'day' => 'day',
+          'hour' => 0,
+          'minute' => 0,
+          'month' => 'month',
+          'second' => 0,
+          'year' => 'year',
+        ),
+        'timezone_db' => '',
+        'todate' => 'required',
+        'tz_handling' => 'none',
+      ),
+      'translatable' => '0',
+      'type' => 'datetime',
+    ),
+    // Poll mode field
+    'advpoll_mode' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_mode',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'module' => 'list',
+      'settings' => array(
+        'allowed_values' => array(
+          'normal' => $t('Normal (handled by default Vote API settings)'),
+          'cookie' => $t('By Cookie'),
+          'unlimited' => $t('Unlimited (Allows those with permission to vote on polls to vote as many times as they wish. Write-ins are disabled).'),
+        ),
+        'allowed_values_function' => '',
+      ),
+      'translatable' => '0',
+      'type' => 'list_text',
+    ),
+    // Poll options field
+    'advpoll_options' => array(
+      'active' => '1',
+      'cardinality' => '4',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_options',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'module' => 'list',
+      'settings' => array(
+        'allowed_values' => array(
+          'writein' => $t('Allow users to cast write-in votes'),
+          'electoral' => $t('Restrict voting to electoral list'),
+          'block' => $t('Generate a block for this poll'),
+        ),
+        'allowed_values_function' => '',
+      ),
+      'translatable' => '0',
+      'type' => 'list_text',
+    ),
+    // -- Poll Results field
+    'advpoll_results' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'advpoll_results',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'module' => 'list',
+      'settings' => array(
+        'allowed_values' => array(
+          'aftervote' => $t('After voting'),
+          'afterclose' => $t('After poll is closed'),
+          'never' => 'Never',
+        ),
+        'allowed_values_function' => '',
+      ),
+      'translatable' => '0',
+      'type' => 'list_text',
+    ),
+  );
+}
+
+/**
+ * Returns a structured array defining the instances for this content type.
+ *
+ * The instance lets Drupal know which widget to use to allow the user to enter
+ * data and how to react in different view modes.  We are going to display a
+ * page that uses a custom "node_example_list" view mode.  We will set a
+ * cardinality of three allowing our content type to give the user three color
+ * fields.
+ *
+ * This is factored into this function so it can be used in both
+ * node_example_install() and node_example_uninstall().
+ *
+ * @return
+ *  An associative array specifying the instances we wish to add to our new
+ *  node type.
+ *
+ * @ingroup node_example
+ */
+function _advpoll_installed_instances() {
+  $t = get_t();
+  return array(
+    // -- Choices field instance display info
+    'advpoll_choice' => array(
+      'default_value' => NULL,
+      'deleted' => '0',
+      'description' => $t('Add at least 2 choices for your poll.  Write-in values indicate user generated content.  If you approve of a choice that has been written in by a user, uncheck it and it will be integrated into the poll for others to vote upon.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '1',
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_choice',
+      'label' => $t('Poll Choice'),
+      'required' => 1,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 0,
+        'module' => 'advpoll_field',
+        'settings' => array(),
+        'type' => 'advpoll_write_in',
+        'weight' => '1',
+      ),
+    ),
+    // -- Max choices instance display
+    'advpoll_max_choices' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => '1',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('Select the maximum number of choices that can be voted upon.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'number',
+          'settings' => array(
+            'decimal_separator' => '.',
+            'prefix_suffix' => TRUE,
+            'scale' => 0,
+            'thousand_separator' => ' ',
+          ),
+          'type' => 'hidden',
+          'weight' => 2,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_max_choices',
+      'label' => $t('Maximum choices'),
+      'required' => 1,
+      'settings' => array(
+        'max' => '',
+        'min' => '1',
+        'prefix' => '',
+        'suffix' => '',
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 0,
+        'module' => 'number',
+        'settings' => array(),
+        'type' => 'number',
+        'weight' => '2',
+      ),
+    ),
+    // -- Date fields instance display
+    'advpoll_dates' => array(
+      'deleted' => '0',
+      'description' => $t('Select the date range that controls the availability of this poll.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'date',
+          'settings' => array(
+            'format_type' => 'long',
+            'fromto' => 'both',
+            'multiple_from' => '',
+            'multiple_number' => '',
+            'multiple_to' => '',
+          ),
+          'type' => 'hidden',
+          'weight' => 5,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_dates',
+      'label' => $t('Poll availability'),
+      'required' => 0,
+      'settings' => array(
+        'default_value' => 'now',
+        'default_value2' => 'strtotime',
+        'default_value_code' => '',
+        'default_value_code2' => '+30 days',
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'date',
+        'settings' => array(
+          'increment' => '15',
+          'input_format' => 'Y-m-d H:i:s',
+          'input_format_custom' => '',
+          'label_position' => 'above',
+          'text_parts' => array(),
+          'year_range' => '-0:+1',
+        ),
+        'type' => 'date_popup',
+        'weight' => '3',
+      ),
+    ),
+    // Open/Closed field instance display
+    'advpoll_closed' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => 'open',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('When closed, a poll may no longer be voted upon but will display its results if settings allow.  For blocks, polls that are enabled to show results will show results, otherwise the block will no longer be available.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 6,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_closed',
+      'label' => $t('Close poll'),
+      'required' => 1,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_buttons',
+        'weight' => '4',
+      ),
+    ),
+    // Options fields display instance
+    'advpoll_options' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => 'showvotes',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('Permission settings are necessary for allowing write-in voting, visibility of individual votes and administration of electoral lists.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 3,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_options',
+      'label' => $t('Voting options'),
+      'required' => 0,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_buttons',
+        'weight' => '5',
+      ),
+    ),
+    // Mode field instance display
+    'advpoll_mode' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => 'normal',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('Warning, changing this setting after votes have already been recorded for this poll will cause existing votes to be flushed.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 4,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_mode',
+      'label' => $t('Vote storage mode'),
+      'required' => 1,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_buttons',
+        'weight' => '6',
+      ),
+    ),
+    // Cookie duration field
+    'advpoll_cookie_duration' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => '60',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('If the poll\'s voting availability is being controlled by a cookie, this value determine how long to wait between votes in minutes.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'number',
+          'settings' => array(
+            'decimal_separator' => '.',
+            'prefix_suffix' => TRUE,
+            'scale' => 0,
+            'thousand_separator' => ' ',
+          ),
+          'type' => 'hidden',
+          'weight' => 8,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_cookie_duration',
+      'label' => $t('Cookie duration'),
+      'required' => 0,
+      'settings' => array(
+        'max' => '',
+        'min' => '1',
+        'prefix' => '',
+        'suffix' => '',
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 0,
+        'module' => 'number',
+        'settings' => array(),
+        'type' => 'number',
+        'weight' => '7',
+      ),
+    ),
+    // Results field display instance
+    'advpoll_results' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => 'aftervote',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('This value determines when to show the results of a poll.  By default, while voting is on going, users will see the results so long as they are no longer eligible to vote.  To display results without allowing an opportunity to vote, select \'After poll is closed\' and close the poll.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 9,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_results',
+      'label' => $t('Display results'),
+      'required' => 1,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_buttons',
+        'weight' => '8',
+      ),
+    ),
+    // Poll behavior field
+    'advpoll_behavior' => array(
+      'default_value' => array(
+        0 => array(
+          'value' => 'approval',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => $t('Approval voting weighs each vote against each individual choice rather than pooling all votes.'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 7,
+        ),
+        'example_node_list' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'advpoll_behavior',
+      'label' => $t('Voting behavior'),
+      'required' => 1,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_buttons',
+        'weight' => '10',
+      ),
+    ),
+  );
+}
+
+/*
+ * Implements hook_update_N()
+ * 7000 removes Show votes option.
+ */
+
+function advpoll_update_7000() {
+  db_delete('field_data_advpoll_options')
+    ->condition('advpoll_options_value', 'showvotes')
+    ->execute();
+  // fetch the t function for use in install
+  $t = get_t();
+
+  // Remove options that are no longer valid from initial build and replace
+  // only with valid options.
+  $field = array(
+    'field_name' => 'advpoll_options',
+    'settings' => array(
+      'allowed_values' => array(
+        'writein' => $t('Allow users to cast write-in votes'),
+        'electoral' => $t('Restrict voting to electoral list'),
+        'block' => $t('Generate a block for this poll'),
+      ),
+      'allowed_values_function' => '',
+    ),
+  );
+  field_update_field($field);
+}
+

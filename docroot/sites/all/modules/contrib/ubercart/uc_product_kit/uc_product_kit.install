@@ -1,0 +1,166 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_product_kit module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_product_kit_schema() {
+  $schema['uc_product_kits'] = array(
+    'description' => 'Stores product kit information.',
+    'fields' => array(
+      'vid' => array(
+        'description' => 'The {node}.vid of the product kit.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid of the product kit.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'product_id' => array(
+        'description' => 'The {uc_products}.nid of a product contained in the kit.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'mutable' => array(
+        'description' => 'A flag indicating whether the contents of the kit can be changed by the customer. 1 => Mutable. 0 => Immutable.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'qty' => array(
+        'description' => 'The number of this product contained in the kit.',
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'discount' => array(
+        'description' => 'The adjustment to the {uc_products}.sell_price of the product.',
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'ordering' => array(
+        'description' => 'The weight of this product in relation to other products in the kit.',
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'synchronized' => array(
+        'description' => 'A flag indicating that changes to the sell price of this product will change the total price of the kit. 1 => Yes. 0 => No.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('vid', 'product_id'),
+    'foreign keys' => array(
+      'node' => array(
+        'table' => 'node',
+        'columns' => array(
+          'nid' => 'nid',
+          'vid' => 'vid',
+        ),
+      ),
+      'uc_products' => array(
+        'table' => 'uc_products',
+        'columns' => array('product_id' => 'nid'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_enable().
+ */
+function uc_product_kit_enable() {
+  // Hack the product kit node type into the catalog if this module is enabled
+  // some time after uc_catalog.
+  if (module_exists('uc_catalog') && $vid = variable_get('uc_catalog_vid', 0)) {
+    $field = field_info_field('taxonomy_catalog');
+    if (!isset($field['bundles']['node']['product_kit'])) {
+      uc_catalog_add_node_type('product_kit');
+    }
+  }
+
+  // Add the body field.
+  node_types_rebuild();
+  $types = node_type_get_types();
+  node_add_body_field($types['product_kit'], t('Description'));
+
+  uc_product_set_teaser_display('product_kit');
+
+  // Add a default image field to product kits.
+  uc_product_add_default_image_field('product_kit');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_product_kit_uninstall() {
+  variable_del('uc_product_kit_mutable');
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_product_kit_update_last_removed() {
+  return 6003;
+}
+
+/**
+ * Use actual node permissions for product kits.
+ */
+function uc_product_kit_update_7000() {
+  $node_perms = array_keys(node_list_permissions('product_kit'));
+
+  foreach ($node_perms as $node_perm) {
+    $product_perm = str_replace(array('any', 'product_kit content'), array('all', 'product kits'), $node_perm);
+
+    foreach (user_roles(FALSE, $product_perm) as $rid => $role) {
+      db_merge('role_permission')
+        ->key(array(
+          'rid' => $rid,
+          'permission' => $node_perm,
+        ))
+        ->fields(array(
+          'module' => 'node',
+        ))
+        ->execute();
+    }
+
+    // Clean up.
+    db_delete('role_permission')
+      ->condition('permission', $product_perm)
+      ->execute();
+  }
+
+  return t('Changed product node permissions to the actual node permissions.');
+}
+
+/**
+ * Set default display settings for product kit teasers.
+ */
+function uc_product_kit_update_7001() {
+  uc_product_set_teaser_display('product_kit');
+
+  return t('Set display settings for product kit teasers.');
+}

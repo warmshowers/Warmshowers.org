@@ -1,0 +1,228 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function nodeblock_schema() {
+  $schema['nodeblock'] = array(
+    'description' => 'The base table for nodeblock.module.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The primary identifier for a node.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'enabled' => array(
+        'description' => 'A flag indicating whether a block should be created.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+      'machine_name' => array(
+        'description' => 'The machine name for a block.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'block_title' => array(
+        'description' => 'The block title for a block.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'view_mode' => array(
+        'description' => 'The view mode used to render the node.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'node_link' => array(
+        'description' => 'Whether the node links should be shown.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'comment_link' => array(
+        'description' => 'Whether the comment links should be shown.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'translation_fallback' => array(
+        'description' => 'A flag indicating whether the translation fallback is enabled.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('nid'),
+    'unique keys' => array(
+      'machine_name' => array('machine_name'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Placeholder for potential Drupal 6 upgrade path
+ */
+function nodeblock_update_7100() {
+
+}
+
+/**
+ * Remove variable settings for nodes where blocks are not enabled.
+ */
+function nodeblock_update_7101() {
+  $variables = variable_initialize();
+  foreach($variables as $name => $value) {
+    if(strpos($name, 'nodeblock') !== false) {
+      if(strpos($name, 'nodeblock_block_') !== false) {
+        $blocks[str_replace('nodeblock_block_', '', $name)] = $name;
+      }
+      else if(strpos($name, 'nodeblock_comment_link_') === false && strpos($name, 'nodeblock_node_link_') === false && strpos($name, 'nodeblock_view_mode_') === false) {
+        if((bool)$value) {
+          $content_types[] = str_replace('nodeblock_', '', $name);
+        }
+      }
+    }
+  }
+  if(!empty($content_types) && !empty($blocks)) {
+    $query = db_select('node', 'n')
+         ->fields('n', array ('nid'))
+         ->condition('n.type', $content_types);
+    $result = $query->execute()->fetchAll();
+
+    if(!empty($result)) {
+      foreach($result as $value) {
+        $nids[$value->nid] = $value->nid;
+      }
+      if(!empty($nids)) {
+        $blocks = array_diff_key($blocks, $nids);
+        if(!empty($blocks)) {
+          foreach($blocks as $name) {
+            variable_del($name);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Adding a new nodeblock table and create entries for all existing nodeblocks.
+ */
+function nodeblock_update_7102() {
+  module_load_include('module', 'nodeblock');
+  if (!db_table_exists('nodeblock')) {
+    $schema = nodeblock_schema();
+    db_create_table('nodeblock', $schema['nodeblock']);
+
+    $types = node_type_get_types();
+    $enabled_types = array();
+    foreach ($types as $type_name => $type) {
+      if (nodeblock_type_enabled($type_name)) {
+        $enabled_types[] = $type_name;
+      }
+    }
+
+    if (count($enabled_types)) {
+      $results = db_select('node', 'n')
+        ->fields('n', array('nid'))
+        ->condition('type', $enabled_types)
+        ->execute()
+        ->fetchCol();
+
+      $defaults = array(
+          'comment_link' => 'node_block_default',
+          'node_link' => 'node_block_default',
+          'view_mode' => 'node_block_default');
+
+      foreach ($results as $nid) {
+        $settings = variable_get('nodeblock_block_' . $nid, $defaults);
+        $settings = array_merge($defaults, $settings);
+        if(isset($settings['teaser']) && $settings['teaser'] == 1) {
+          $settings['view_mode'] == 'teaser';
+        }
+        if(isset($settings['links']) && $settings['links'] == 1) {
+          $settings['node_link'] = 1;
+          $settings['comment_link'] = 1;
+        }
+
+        db_insert('nodeblock')
+          ->fields(array('nid', 'machine_name', 'view_mode', 'node_link', 'comment_link', 'translation_fallback'))
+          ->values(array($nid, $nid, $settings['view_mode'], $settings['node_link'], $settings['comment_link'], variable_get('nodeblock_translation_fallback_' . $nid, 0)))
+          ->execute();
+
+        variable_del('nodeblock_translation_fallback_' . $nid);
+        variable_del('nodeblock_block_' . $nid);
+      }
+    }
+  }
+}
+
+/**
+ * Add new block title column in db.
+ */
+function nodeblock_update_7103() {
+  module_load_include('module', 'nodeblock');
+  if (!db_field_exists('nodeblock', 'block_title')) {
+    db_add_field('nodeblock', 'block_title', array(
+      'description' => 'The block title for a block.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+    ));
+  }
+
+  $types = node_type_get_types();
+  $enabled_types = array();
+  foreach ($types as $type_name => $type) {
+    if (nodeblock_type_enabled($type_name)) {
+      $enabled_types[] = $type_name;
+    }
+  }
+
+  if (count($enabled_types)) {
+    $results = db_select('node', 'n')
+      ->fields('n', array('nid', 'title'))
+      ->condition('type', $enabled_types)
+      ->execute();
+
+    foreach ($results as $node) {
+      db_update('nodeblock')
+        ->fields(array('block_title' => $node->title))
+        ->condition('nid', $node->nid)
+        ->execute();
+    }
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodeblock_uninstall() {
+  $types = node_type_get_types();
+  foreach ($types as $type_name => $type) {
+    if (variable_get('nodeblock_' . $type_name, 0)) {
+      variable_del('nodeblock_' . $type_name);
+      variable_del('nodeblock_comment_link_' . $type_name);
+      variable_del('nodeblock_node_link_' . $type_name);
+      variable_del('nodeblock_view_mode_' . $type_name);
+    }
+  }
+  db_delete('block')
+    ->condition('module', 'nodeblock')
+    ->execute();
+  db_delete('block_role')
+    ->condition('module', 'nodeblock')
+    ->execute();
+}

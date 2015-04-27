@@ -1,0 +1,204 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_paypal module.
+ */
+
+/**
+ * Implements hook_requirements().
+ */
+function uc_paypal_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  $has_curl = function_exists('curl_init');
+
+  // PayPal WPP requires cURL.
+  if (variable_get('uc_pg_paypal_wpp_enabled', TRUE)) {
+    $requirements['uc_paypal_curl'] = array(
+      'title' => $t('cURL'),
+      'value' => $has_curl ? $t('Enabled') : $t('Not found'),
+    );
+    if (!$has_curl) {
+      $requirements['uc_paypal_curl']['severity'] = REQUIREMENT_ERROR;
+      $requirements['uc_paypal_curl']['description'] = $t("PayPal WPP requires the PHP <a href='!curl_url'>cURL</a> library.", array('!curl_url' => 'http://php.net/manual/en/curl.setup.php'));
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_schema().
+ */
+function uc_paypal_schema() {
+  $schema = array();
+
+  $schema['uc_payment_paypal_ipn'] = array(
+    'description' => 'Logs PayPal Instant Payment Notifications.',
+    'fields' => array(
+      'order_id' => array(
+        'description' => 'The order ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'txn_id' => array(
+        'description' => 'The transaction ID from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'txn_type' => array(
+        'description' => 'The transaction type from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'mc_gross' => array(
+        'description' => 'The payment amount from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'status' => array(
+        'description' => 'The IPN status from PayPal.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'receiver_email' => array(
+        'description' => 'The e-mail address of the PayPal account.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'payer_email' => array(
+        'description' => 'The e-mail address of the buyer.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'received' => array(
+        'description' => 'The IPN receipt timestamp.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'order_id' => array('order_id'),
+    ),
+    'foreign keys' => array(
+      'uc_orders' => array(
+        'table' => 'uc_orders',
+        'columns' => array('order_id' => 'order_id'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_paypal_install() {
+  $t = get_t();
+
+  db_merge('uc_order_statuses')
+    ->key(array('order_status_id' => 'paypal_pending'))
+    ->insertFields(array(
+      'order_status_id' => 'paypal_pending',
+      'title' => $t('PayPal pending'),
+      'state' => 'post_checkout',
+      'weight' => 7,
+      'locked' => 1,
+    ))
+    ->updateFields(array(
+      'state' => 'post_checkout',
+      'locked' => 1,
+    ))
+    ->execute();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_paypal_uninstall() {
+  db_update('uc_order_statuses')
+    ->fields(array(
+      'locked' => 0,
+    ))
+    ->condition('order_status_id', 'paypal_pending')
+    ->execute();
+
+  db_delete('variable')
+    ->condition('name', 'uc_paypal_%', 'LIKE')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_paypal_update_last_removed() {
+  // 7.x-3.0-beta2 and earlier were installed with schema version 0,
+  // which causes update.php to fail.
+  return drupal_get_installed_schema_version('uc_paypal') == 0 ? 0 : 6000;
+}
+
+/*
+ * Removed completely unnecessary update 7000.
+ */
+
+/**
+ * Fix incorrect order status configuration.
+ */
+function uc_paypal_update_7001() {
+  db_delete('uc_order_statuses')
+    ->condition('order_status_id', '')
+    ->execute();
+
+  db_merge('uc_order_statuses')
+    ->key(array('order_status_id' => 'paypal_pending'))
+    ->insertFields(array(
+      'order_status_id' => 'paypal_pending',
+      'title' => t('PayPal pending'),
+      'state' => 'payment_received',
+      'weight' => 7,
+      'locked' => 1,
+    ))
+    ->updateFields(array(
+      'state' => 'payment_received',
+      'locked' => 1,
+    ))
+    ->execute();
+}
+
+/**
+ * Fix incorrect order state configuration.
+ */
+function uc_paypal_update_7300() {
+  db_update('uc_order_statuses')
+    ->fields(array(
+      'state' => 'post_checkout',
+    ))
+    ->condition('order_status_id', 'paypal_pending')
+    ->execute();
+}
+
+/**
+ * Remove unused variable.
+ */
+function uc_paypal_update_7301() {
+  variable_del('uc_paypal_wps_checkout_button');
+}

@@ -1,0 +1,431 @@
+<?php
+
+/**
+ * Implementation of hook_features_api().
+ */
+function features_translations_features_api() {
+  return array(
+    'translations' => array(
+      'name' => t('Translations'),
+      'default_hook' => 'translations_defaults',
+      'feature_source' => TRUE,
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_features_export_options().
+ */
+function translations_features_export_options() {
+  $options = array();
+  $textgroups = module_invoke_all('locale', 'groups');
+  foreach (language_list() as $langcode => $language) {
+    foreach ($textgroups as $textgroup => $label) {
+      if ($textgroup == 'default' && $langcode == 'en') continue;
+      if ($textgroup != 'default' && $langcode == translations_features_string_source_language()) continue;
+      $options[$langcode . ':' . $textgroup] = t($language->name) . ': ' . $label;
+    }
+  }
+  return $options;
+}
+
+/**
+ * Helper to return site's string source language.
+ */
+function translations_features_string_source_language() {
+  if (module_exists('i18n_string')) {
+    return i18n_string_source_language();
+  }
+  return language_default('language');
+}
+
+/**
+ * Implementation of hook_features_export().
+ */
+function translations_features_export($data, &$export, $module_name) {
+  $export['features']['translations'] = array_combine(array_values($data), array_values($data));
+  $export['dependencies']['features'] = 'features';
+  $export['dependencies']['features_translations'] = 'features_translations';
+  return array();
+}
+
+/**
+ * Implementation of hook_features_export_render().
+ */
+function translations_features_export_render($module_name, $data, $export = NULL) {
+  $languages = language_list();
+  $code = array();
+  $code[] = '  $translations = array();';
+  $files = array();
+  if (module_exists('l10n_update')) {
+    if (function_exists('l10n_update_get_history')) { // l10n_update-7.x-1.x
+      $files = l10n_update_get_history(TRUE); 
+    } else { // l10n_update-7.x-2.x
+      $files = l10n_update_get_file_history(); 
+    }
+  }
+  foreach ($data as $component) {
+    list($langcode, $textgroup) = explode(':', $component);
+    $strings = _features_translations_locale_export_get_strings($languages[$langcode], $textgroup, $files);
+    foreach ($strings as $md5 => $string) {
+      $code[] = "  \$translations['{$langcode}:{$textgroup}']['{$md5}'] = " . features_var_export($string, '  ') . ";";
+    }
+  }
+  $code[] = '  return $translations;';
+  $code = implode("\n", $code);
+  return array('translations_defaults' => $code);
+}
+
+/**
+ * Implementation of hook_features_revert().
+ */
+function translations_features_revert($module_name) {
+  include_once('includes/locale.inc');
+
+  $translations = features_get_default('translations', $module_name);
+  if (!empty($translations)) {
+    $report = array('updates' => 0, 'skips' => 0, 'additions' => 0, 'deletes' => 0);
+    $lids = array();
+    foreach ($translations as $key => $strings) {
+      list($langcode, $textgroup) = explode(':', $key);
+      foreach ($strings as $md5 => $string) {
+        if (!empty($string['plid'])) {
+          if (!isset($lids[$string['plid']])) {
+            watchdog('features', 'Translations: importing plid %plid not found for string %source', array(
+              '%plid' => $string['plid'], 
+              '%source' => $string['source'],
+            ), WATCHDOG_WARNING);
+            $string['plid'] = 0;
+          }
+          else {
+            $string['plid'] = $lids[$string['plid']];
+          }
+        }
+        $lids[$md5] = _locale_import_one_string_db(
+          $report, 
+          $langcode, 
+          $string['context'], 
+          $string['source'], 
+          $string['translation'], 
+          $textgroup, 
+          $string['location'], 
+          LOCALE_IMPORT_OVERWRITE, 
+          $string['plid'],
+          $string['plural']
+        );
+      }
+    }
+    watchdog('features', 'Translations: results for importing feature %feature: %report', array(
+      '%feature' => $module_name,
+      '%report' => var_export($report, TRUE),
+    ), WATCHDOG_INFO);
+  }
+  return TRUE;
+}
+
+/**
+ * Helper to return translated strings in given language and group.
+ */
+function _features_translations_locale_export_get_strings($language, $group, $files) {
+   //get unchanged strings and write these strings on DB
+  $uclids = array();
+  if (count($files)) {
+    foreach ($files as $key => $value) {
+      if (isset($value[$language->language]->uri)) {
+        $file_uri = $value[$language->language]->uri;
+        if (is_string($file_uri)) {
+          $file = new stdClass();
+          $file->uri = $file_uri;
+          $file->filename = $file_uri;
+          $uclids = array_merge($uclids, _features_translations_update_locale_import_po($file, $language->language, 'default'));
+        }
+      }
+    }
+  }
+  $query = db_select('locales_source', 's');
+  $query->join('locales_target', 't', 's.lid = t.lid');
+  $query->fields('s', array('lid', 'source', 'context', 'location'));
+  $query->fields('t', array('translation', 'plid', 'plural'));
+  $query->addExpression('MD5(CONCAT(s.source, s.context))', 'source_md5');
+  $query->condition('t.language', $language->language);
+  $query->condition('s.textgroup', $group);
+  //exclude unchanged lids
+  if (count($uclids)) {
+    $query->condition('s.lid', $uclids, 'NOT IN');
+  }
+  $query->orderBy('t.plural', 'ASC')->orderBy('source_md5', 'ASC');
+  $result = $query->execute()->fetchAll();
+  $strings = array();
+  $lids = array();
+  foreach ($result as $string) {
+    $md5 = $string->source_md5;
+    $lids[$string->lid] = $md5;
+    if (!empty($string->plid)) {
+      if (!isset($lids[$string->plid])) {
+        watchdog('features', 'Translations: exporting plid %plid not found for string %source.', array('%plid' => $string->plid, '%source' => $string->source));
+        $string->plid = 0;
+      }
+      else {
+        $string->plid = $lids[$string->plid];
+      }
+    }
+    unset($string->lid, $string->source_md5); // don't want those in the export
+    $strings[$md5] = $string;
+  }
+  return $strings;
+}
+
+/**
+ * Parses Gettext Portable Object file information into string lids.
+ *
+ * @param $file
+ *   Drupal file object corresponding to the PO file to import
+ * @param $langcode
+ *   Language code
+ * @param $group
+ *   Text group to import PO file into (eg. 'default' for interface translations)
+ *
+ * @return array
+ *   Result array of found lids on success, empty array on failure.
+ */
+function _features_translations_update_locale_import_po($file, $langcode, $group = 'default') {
+  // Try to allocate enough time to parse and import the data.
+  drupal_set_time_limit(240);
+
+  // Check if we have the language already in the database.
+  if (!db_query("SELECT COUNT(language) FROM {languages} WHERE language = :language", array(':language' => $langcode))->fetchField()) {
+    drupal_set_message(t('The language selected for import is not supported.'), 'error');
+    return FALSE;
+  }
+  // Get strings from file (returns on failure after a partial import, or on success)
+  $uclids = _features_translations_update_locale_import_read_po($file, $langcode, $group);
+  return is_array($uclids) ? $uclids : array();
+}
+
+/**
+ * Parses Gettext Portable Object file information into string lids.
+ *
+ * @param $file
+ *   Drupal file object corresponding to the PO file to import
+ * @param $lang
+ *   Language code
+ * @param $group
+ *   Text group to import PO file into (eg. 'default' for interface translations)
+ *
+ * @return array
+ *   Result array of found lids on success, FALSE on failure.
+ */
+function _features_translations_update_locale_import_read_po($file, $lang = NULL, $group = 'default') {
+  include_once('includes/locale.inc');
+
+  $fd = @fopen($file->uri, "rb"); // File will get closed by PHP on return
+  if (!$fd) {
+    return FALSE;
+  }
+  $context = "COMMENT"; // Parser context: COMMENT, MSGID, MSGID_PLURAL, MSGSTR and MSGSTR_ARR
+  $current = array();   // Current entry being read
+  $plural = 0;          // Current plural form
+  $lineno = 0;          // Current line
+  $uclids = array();
+  while (!feof($fd)) {
+    $line = fgets($fd, 10*1024); // A line should not be this long
+    if ($lineno == 0) {
+      // The first line might come with a UTF-8 BOM, which should be removed.
+      $line = str_replace("\xEF\xBB\xBF", '', $line);
+    }
+    $lineno++;
+    $line = trim(strtr($line, array("\\\n" => "")));
+
+    if (!strncmp("#", $line, 1)) { // A comment
+      if ($context == "COMMENT") { // Already in comment context: add
+        $current["#"][] = substr($line, 1);
+      }
+      elseif (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) { // End current entry, start a new one
+        _features_translations_update_locale_find_one_string($uclids, $current, $lang, $file, $group);
+        $current = array();
+        $current["#"][] = substr($line, 1);
+        $context = "COMMENT";
+      }
+      else { // Parse error
+        return FALSE;
+      }
+    }
+    elseif (!strncmp("msgid_plural", $line, 12)) {
+      if ($context != "MSGID") { // Must be plural form for current entry
+        return FALSE;
+      }
+      $line = trim(substr($line, 12));
+      $quoted = _locale_import_parse_quoted($line);
+      if ($quoted === FALSE) {
+        return FALSE;
+      }
+      $current["msgid"] = $current["msgid"] . "\0" . $quoted;
+      $context = "MSGID_PLURAL";
+    }
+    elseif (!strncmp("msgid", $line, 5)) {
+      if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) {   // End current entry, start a new one
+        _features_translations_update_locale_find_one_string($uclids, $current, $lang, $file, $group);
+        $current = array();
+      }
+      elseif ($context == "MSGID") { // Already in this context? Parse error
+        return FALSE;
+      }
+      $line = trim(substr($line, 5));
+      $quoted = _locale_import_parse_quoted($line);
+      if ($quoted === FALSE) {
+        return FALSE;
+      }
+      $current["msgid"] = $quoted;
+      $context = "MSGID";
+    }
+    elseif (!strncmp("msgctxt", $line, 7)) {
+      if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) {   // End current entry, start a new one
+        _features_translations_update_locale_find_one_string($uclids, $current, $lang, $file, $group);
+        $current = array();
+      }
+      elseif (!empty($current["msgctxt"])) { // Already in this context? Parse error
+        return FALSE;
+      }
+      $line = trim(substr($line, 7));
+      $quoted = _locale_import_parse_quoted($line);
+      if ($quoted === FALSE) {
+        return FALSE;
+      }
+      $current["msgctxt"] = $quoted;
+      $context = "MSGCTXT";
+    }
+    elseif (!strncmp("msgstr[", $line, 7)) {
+      if (($context != "MSGID") && ($context != "MSGCTXT") && ($context != "MSGID_PLURAL") && ($context != "MSGSTR_ARR")) { // Must come after msgid, msgxtxt, msgid_plural, or msgstr[]
+        return FALSE;
+      }
+      if (strpos($line, "]") === FALSE) {
+        return FALSE;
+      }
+      $frombracket = strstr($line, "[");
+      $plural = substr($frombracket, 1, strpos($frombracket, "]") - 1);
+      $line = trim(strstr($line, " "));
+      $quoted = _locale_import_parse_quoted($line);
+      if ($quoted === FALSE) {
+        return FALSE;
+      }
+      $current["msgstr"][$plural] = $quoted;
+      $context = "MSGSTR_ARR";
+    }
+    elseif (!strncmp("msgstr", $line, 6)) {
+      if (($context != "MSGID") && ($context != "MSGCTXT")) {   // Should come just after a msgid or msgctxt block
+        return FALSE;
+      }
+      $line = trim(substr($line, 6));
+      $quoted = _locale_import_parse_quoted($line);
+      if ($quoted === FALSE) {
+        return FALSE;
+      }
+      $current["msgstr"] = $quoted;
+      $context = "MSGSTR";
+    }
+    elseif ($line != "") {
+      $quoted = _locale_import_parse_quoted($line);
+      if ($quoted === FALSE) {
+        return FALSE;
+      }
+      if (($context == "MSGID") || ($context == "MSGID_PLURAL")) {
+        $current["msgid"] .= $quoted;
+      }
+      elseif ($context == "MSGCTXT") {
+        $current["msgctxt"] .= $quoted;
+      }
+      elseif ($context == "MSGSTR") {
+        $current["msgstr"] .= $quoted;
+      }
+      elseif ($context == "MSGSTR_ARR") {
+        $current["msgstr"][$plural] .= $quoted;
+      }
+      else {
+        return FALSE;
+      }
+    }
+  }
+  // End of PO file, flush last entry.
+  if (($context == "MSGSTR") || ($context == "MSGSTR_ARR")) {
+    _features_translations_update_locale_find_one_string($uclids, $current, $lang, $file, $group);
+  }
+  return $uclids;
+}
+
+/**
+ * Finds the translation lid for one string from the po file.
+ *
+ * @param $uclids
+ *   Array to store the string lid
+ * @param $value
+ *   Details of the string stored
+ * @param $lang
+ *   Language to store the string in
+ * @param $file
+ *   Object representation of file being imported, only required when op is 'db-store'
+ * @param $group
+ *   Text group to import PO file into (eg. 'default' for interface translations)
+ */
+function _features_translations_update_locale_find_one_string(&$uclids , $value = NULL, $lang = NULL, $file = NULL, $group = 'default') {
+  if (strpos($value['msgid'], "\0")) {
+    // This string has plural versions.
+    $english = explode("\0", $value['msgid'], 2);
+    $entries = array_keys($value['msgstr']);
+    for ($i = 3; $i <= count($entries); $i++) {
+      $english[] = $english[1];
+    }
+    $translation = array_map('_locale_import_append_plural', $value['msgstr'], $entries);
+    $english = array_map('_locale_import_append_plural', $english, $entries);
+    foreach ($translation as $key => $trans) {
+      if ($key == 0) {
+        $plid = 0;
+      }
+      $ret_lid = _features_translations_update_locale_find_one_string_db($lang, isset($value['msgctxt']) ? $value['msgctxt'] : '', $english[$key], $trans, $group);
+      if ($ret_lid && !in_array($ret_lid, $uclids)) {
+        $uclids[] = $ret_lid;
+      }
+    }
+  }
+  else {
+    // A simple string to find.
+    $english = $value['msgid'];
+    $translation = $value['msgstr'];
+    $ret_lid = _features_translations_update_locale_find_one_string_db($lang, isset($value['msgctxt']) ? $value['msgctxt'] : '', $english, $translation, $group);
+    if ($ret_lid && !in_array($ret_lid, $uclids)) {
+      $uclids[] = $ret_lid;
+    }
+  }
+}
+
+/**
+ * Finds one string translation from the database.
+ *
+ * @param $langcode
+ *   Language code to import string into.
+ * @param $context
+ *   The context of this string.
+ * @param $source
+ *   Source string.
+ * @param $translation
+ *   Translation to language specified in $langcode.
+ * @param $textgroup
+ *   Name of textgroup to store translation in.
+ * @return
+ *   The lid of the existing translation if found.
+ */
+function _features_translations_update_locale_find_one_string_db($langcode, $context, $source, $translation, $textgroup) {
+  $lid = db_query("SELECT lid FROM {locales_source} WHERE source = :source AND context = :context AND textgroup = :textgroup", array(':source' => $source, ':context' => $context, ':textgroup' => $textgroup))->fetchField();
+  $lid_target = 0;
+  if (!empty($translation)) {
+    if ($lid) {
+     //check no changes on target translation.
+      $lid_target = db_query("SELECT lid  FROM {locales_target} WHERE lid = :lid AND language = :language AND translation = :translation", 
+        array(':lid' => $lid, ':language' => $langcode, ':translation' => $translation))->fetchField();
+      if ($lid_target) {
+        return $lid_target;
+      }
+    }
+  }
+  return $lid_target;
+}

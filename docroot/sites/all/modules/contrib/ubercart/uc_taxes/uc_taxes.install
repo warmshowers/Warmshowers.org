@@ -1,0 +1,253 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_taxes module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_taxes_schema() {
+  $schema = array();
+
+  $schema['uc_taxes'] = array(
+    'description' => 'Stores tax information.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Primary key: Unique tax rate id.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The tax rate name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'rate' => array(
+        'description' => 'The tax rate multiplier.',
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0.0,
+      ),
+      'shippable' => array(
+        'description' => 'Flag that describes how this rate applies to shippable and non-shippable products. 0 => Disregard shipability. 1 => Apply tax to shippable products only.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'taxed_product_types' => array(
+        'description' => 'Serialized array of node types to be taxed.',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'taxed_line_items' => array(
+        'description' => 'Serialized array of line item types to be taxed.',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'weight' => array(
+        'description' => 'The weight of this tax rate in relation to other rates.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'display_include' => array(
+        'description' => 'Boolean flag indicating that product prices should be displayed including the tax.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'inclusion_text' => array(
+        'description' => 'Text to be shown near a product price that includes tax.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  $schema['uc_taxed_product_types'] = array(
+    'fields' => array(
+      'tax_id' => array(
+        'description' => 'Tax rate id',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'type' => array(
+        'description' => 'Node type',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('tax_id', 'type'),
+    'indexes' => array(
+      'type' => array('type'),
+    ),
+  );
+
+  $schema['uc_taxed_line_items'] = $schema['uc_taxed_product_types'];
+  $schema['uc_taxed_line_items']['fields']['type']['description'] = 'Line item type';
+
+  return $schema;
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_taxes_update_last_removed() {
+  return 6003;
+}
+
+/**
+ * Add "price including tax" columns.
+ */
+function uc_taxes_update_7000() {
+  db_add_field('uc_taxes', 'include', array(
+    'description' => 'Boolean flag indicating that product prices should be displayed including the tax.',
+    'type' => 'int',
+    'size' => 'tiny',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_add_field('uc_taxes', 'inclusion_text', array(
+    'description' => 'Text to be shown near a product price that includes tax.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  ));
+
+  return t('Added "price including tax" columns.');
+}
+
+/**
+ * Separate taxed product types and line items to joined tables.
+ */
+function uc_taxes_update_7001() {
+  $table = array(
+    'fields' => array(
+      'tax_id' => array(
+        'description' => 'Tax rate id',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'type' => array(
+        'description' => 'Node type',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('tax_id', 'type'),
+    'indexes' => array(
+      'type' => array('type'),
+    ),
+  );
+  db_create_table('uc_taxed_product_types', $table);
+
+  $table['fields']['type']['description'] = 'Line item type';
+  db_create_table('uc_taxed_line_items', $table);
+
+  $p_insert = db_insert('uc_taxed_product_types')->fields(array('tax_id', 'type'));
+  $l_insert = db_insert('uc_taxed_line_items')->fields(array('tax_id', 'type'));
+
+  $result = db_query("SELECT id, taxed_product_types, taxed_line_items FROM {uc_taxes}");
+  foreach ($result as $tax) {
+    $tax->taxed_product_types = unserialize($tax->taxed_product_types);
+    $tax->taxed_line_items = unserialize($tax->taxed_line_items);
+
+    foreach ($tax->taxed_product_types as $type) {
+      $p_insert->values(array(
+        'tax_id' => $tax->id,
+        'type' => $type,
+      ));
+    }
+
+    foreach ($tax->taxed_line_items as $type) {
+      $l_insert->values(array(
+        'tax_id' => $tax->id,
+        'type' => $type,
+      ));
+    }
+
+    $p_insert->execute();
+    $l_insert->execute();
+  }
+}
+
+/**
+ * Fix schema mismatch in update 7000.
+ */
+function uc_taxes_update_7002() {
+  if (db_field_exists('uc_taxes', 'include')) {
+    db_change_field('uc_taxes', 'include', 'display_include', array(
+      'description' => 'Boolean flag indicating that product prices should be displayed including the tax.',
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    ));
+  }
+
+  db_change_field('uc_taxes', 'inclusion_text', 'inclusion_text', array(
+    'description' => 'Text to be shown near a product price that includes tax.',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  ));
+}
+
+/**
+ * Make sure orders have stored tax data.
+ */
+function uc_taxes_update_7003(&$sandbox) {
+  if (!isset($sandbox['progress'])) {
+    $taxes = db_query("SELECT id FROM {uc_taxes}")->fetchField();
+    if (!$taxes) {
+      return;
+    }
+
+    $sandbox['current'] = 0;
+    $sandbox['progress'] = 0;
+    $sandbox['max'] = db_query("SELECT COUNT(order_id) FROM {uc_orders}")->fetchField();
+  }
+
+  $t = get_t();
+  $limit = 100;
+
+  $orders = db_query_range("SELECT order_id FROM {uc_orders} WHERE order_id > :current ORDER BY order_id", 0, $limit, array(':current' => $sandbox['current']))->fetchCol();
+  foreach ($orders as $order_id) {
+    $order = uc_order_load($order_id);
+
+    uc_order_save($order);
+
+    $sandbox['current'] = $order_id;
+    $sandbox['progress']++;
+  }
+
+  if ($sandbox['progress'] < $sandbox['max']) {
+    $sandbox['#finished'] = min(0.99, $sandbox['progress'] / $sandbox['max']);
+  }
+  else {
+    $sandbox['#finished'] = 1;
+  }
+}

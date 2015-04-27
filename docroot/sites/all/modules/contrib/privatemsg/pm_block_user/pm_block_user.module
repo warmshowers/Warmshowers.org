@@ -1,0 +1,410 @@
+<?php
+
+/**
+ * @file
+ * Allows users to block other users from sending them any messages
+ */
+
+/**
+ * Disallow blocking private messages from a user.
+ */
+define('PM_BLOCK_USER_DISALLOW_BLOCKING', 0);
+
+/**
+ * Disallow sending private messages to a user.
+ */
+define('PM_BLOCK_USER_DISALLOW_SENDING', 1);
+
+/**
+ * Implements hook_help().
+ */
+function pm_block_user_help($path) {
+  switch ($path) {
+    case 'admin/settings/messages/block':
+      return '<p>' . t('This area is used to define user blocking rules for the Privatemsg module. Rules allow control of who may block messages from whom. By default all users are allowed to block messages from anyone else. However, a site may have groups of users that need to contact or get information to others, for example: the site may have administrative staff or be a forum with moderators. Groups of users are defined by roles, which can be managed on the <a href="@roles">roles configuration page</a>.', array('@roles' => url('admin/user/roles'))) . '</p>';
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function pm_block_user_menu() {
+  $items['messages/block/%user'] = array(
+    'title'            => 'Block user messages',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('pm_block_user_form', 2),
+    'file'             => 'pm_block_user.pages.inc',
+    'access callback'  => '_pm_block_user_access',
+    'access arguments' => array(2),
+    'type'             => MENU_CALLBACK,
+    'weight'           => -10,
+  );
+
+  $items['messages/blocked'] = array(
+    'title'            => 'Blocked users',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'    => array('pm_block_user_list'),
+    'file'             => 'pm_block_user.pages.inc',
+    'access callback'  => 'privatemsg_user_access',
+    'access arguments' => array('read privatemsg'),
+    'type'             => MENU_LOCAL_TASK,
+    'weight'           => 10,
+  );
+
+  $items['admin/config/messaging/privatemsg/block'] = array(
+    'title'            => 'User blocking rules',
+    'description'      => 'Configure rules for which users may block each other.',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('pm_block_user_settings'),
+    'file'             => 'pm_block_user.admin.inc',
+    'access arguments' => array('administer privatemsg settings'),
+    'type'             => MENU_LOCAL_TASK,
+  );
+  
+  $items['messages/block/js'] = array(
+    'title'            => 'Javascript block actions form',
+    'page callback'    => 'pm_block_user_js',
+    'file'             => 'pm_block_user.admin.inc',
+    'access arguments' => array('administer privatemsg settings'),
+    'type'             => MENU_CALLBACK,
+  );
+
+  $items['messages/user/autocomplete'] = array(
+    'page callback'    => 'privatemsg_autocomplete',
+    'file'             => 'privatemsg.pages.inc',
+    'file path'        => drupal_get_path('module', 'privatemsg'),
+    'access callback'  => 'privatemsg_user_access',
+    'access arguments' => array('write privatemsg'),
+    'type'             => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function pm_block_user_theme() {
+  return array(
+    'pm_block_user_list' => array(
+      'render element' => 'form',
+      'file'      => 'pm_block_user.pages.inc',
+    ),
+    'pm_block_user_actions' => array(
+      'render element' => 'form',
+      'file'      => 'pm_block_user.admin.inc',
+    ),
+  );
+}
+
+function pm_block_user_privatemsg_autocomplete_alter(&$matches, $names, $fragment) {
+  // Remove all types other than user if accessed through
+  // messages/user/autocomplete.
+  if (arg(1) == 'user') {
+    foreach ($matches as $id => $match) {
+      if ($match->type != 'user') {
+        unset($matches[$id]);
+      }
+    }
+  }
+}
+
+/**
+ * Theme the user actions form.
+ *
+ * @ingroup themeable
+ */
+function theme_pm_block_user_actions($form) {
+  // @todo: Something is wrong, remove this hack.
+  $form = $form['form'];
+
+  $rows = array();
+  $headers = array(
+    t('If the author has the role'),
+    t('And the recipient has the role'),
+    t('Action'),
+    t('Enabled'),
+    '',
+  );
+  $form_data = element_children($form);
+
+  foreach ($form_data as $key) {
+    // Build the table row.
+    $row = array(
+      'data' => array(
+        array('data' => drupal_render($form[$key]['author'])),
+        array('data' => drupal_render($form[$key]['recipient'])),
+        array('data' => drupal_render($form[$key]['action'])),
+        array('data' => drupal_render($form[$key]['enabled'])),
+        array('data' => drupal_render($form[$key]['remove'])),
+      ),
+    );
+
+    // Add additional attributes to the row, such as a class for this row.
+    if (isset($form[$key]['#attributes'])) {
+      $row = array_merge($row, $form[$key]['#attributes']);
+    }
+    $rows[] = $row;
+  }
+
+  // If there are no rows, output some instructions for the user.
+  if (empty($form_data)) {
+    $rows[] = array(
+      array(
+        'data' => t("No rules have been added. All users may block private messages from each other. To limit which users may be blocked, click 'Add new rule'."),
+        'colspan' => '5',
+      ),
+    );
+  }
+
+  $output = theme('table', array(
+    'header' => $headers,
+    'rows' => $rows
+  ));
+  $output .= drupal_render_children($form);
+
+  return $output;
+}
+
+/**
+ * Provides access argument for blocking user menu item.
+ *
+ * @param $account
+ *   User object representing the account the menu item will block private
+ *   messages from.
+ *
+ * @return
+ *   TRUE if the user is allowed to block $account, or FALSE if not.
+ */
+function _pm_block_user_access($account) {
+  global $user;
+  if (!privatemsg_user_access('read privatemsg', $user)) {
+    return FALSE;
+  }
+  // Allow to unblock users that are already blocked but the user is now not
+  // allowed to block anymore.
+  if (_pm_block_user_rule_exists($account, $user, PM_BLOCK_USER_DISALLOW_BLOCKING) && !pm_block_user_has_blocked($account, $user)) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Checks if author is blocked by the recipient.
+ *
+ * @param $author
+ *   The user that would send a message.
+ * @param $recipient
+ *   The user that would receive the message.
+ * @return
+ *   TRUE if the recipient has blocked the author.
+ */
+function pm_block_user_has_blocked($author, $recipient) {
+  return db_query('SELECT 1 FROM {pm_block_user} WHERE author = :author AND recipient = :recipient', array(':author' => $author->uid, ':recipient' => $recipient->uid))->fetchField();
+}
+
+/**
+ * Checks whether a rule exists for a given author, recipient and action.
+ *
+ * For example: if this is passed User A (who has the admin role), User B (who
+ * has the authenticated user role) and PM_BLOCK_USER_DISALLOW_BLOCKING
+ * parameters, and a rule is configured that disallows authenticated users
+ * blocking admins then this function will return TRUE.
+ *
+ * @param $author
+ *   Author user object to check.
+ * @param $recipient
+ *   Receiver user object to check.
+ * @param $action
+ *   The action to be taken, defaults to PM_BLOCK_USER_DISALLOW_BLOCKING.
+ *
+ * @return
+ *   TRUE if a rule exists for the combination of author recipient and action.
+ */
+function _pm_block_user_rule_exists($author, $recipient, $action = PM_BLOCK_USER_DISALLOW_BLOCKING) {
+  $block_actions = variable_get('pm_block_user_actions', array());
+  foreach ($block_actions as $details) {
+    // If this rule doesn't relate to $action, or it's disabled
+    // ignore it and go to next loop iteration.
+    if ($details['action'] != $action || !$details['enabled']) {
+      continue;
+    }
+    // There are no rules governing user one, but user one may have roles that
+    // affect other users, so these exceptions are narrow in scope.
+    // Disallow sending affects private message authors.
+    if ($author->uid == 1 && $action == PM_BLOCK_USER_DISALLOW_SENDING) {
+      continue;
+    }
+    // Disallow blocking affects private message recipients.
+    if ($recipient->uid == 1 && $action == PM_BLOCK_USER_DISALLOW_BLOCKING) {
+      continue;
+    }
+    // The author has a role matching the rule and so does the recipient.
+    if (isset($author->roles[$details['author']]) && isset($recipient->roles[$details['recipient']])) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_privatemsg_block_message.
+ */
+function pm_block_user_privatemsg_block_message($author, $recipients, $context = array()) {
+  $blocked = array();
+  // Loop through each recipient and ensure there is no rule blocking this
+  // author from sending them private messages. Use a reference, so when
+  // privatemsg_user_load_multiple() is needed here the array is updated, to
+  // avoid additional checks.
+  foreach (array_keys($recipients) as $id) {
+    // Only recipients of type user are currently supported.
+    if (isset($recipients[$id]->type) && $recipients[$id]->type != 'user') {
+      continue;
+    }
+    // Ensure we have a recipient user object which includes roles.
+    if (!isset($recipients[$id]->roles)) {
+      $uid = str_replace('user_', '', $id);
+      $recipients[$id] = array_shift(privatemsg_user_load_multiple($uid));
+    }
+    // Note: this is checks whether the author may send the message (see third
+    // parameter). Further below is a check whether the recipient may block it.
+    if (_pm_block_user_rule_exists($author, $recipients[$id], PM_BLOCK_USER_DISALLOW_SENDING)) {
+      $blocked[] = array(
+        'recipient' => $id,
+        'message' => t('You are not permitted to send messages to !user.', array('!user' => privatemsg_recipient_format($recipients[$id]))),
+      );
+    }
+  }
+
+  // Only user recipients are supported for now, remove others.
+  $user_recipients = array();
+  foreach ($recipients as $recipient) {
+    if (empty($recipient->type)) {
+      $recipient->type = 'user';
+      $recipient->recipient = $recipient->uid;
+    }
+    if ($recipient->type == 'user') {
+      $user_recipients[$recipient->recipient] = $recipient;
+    }
+  }
+
+  if (empty($user_recipients)) {
+    return $blocked;
+  }
+
+  $args = array(
+    ':author' => $author->uid,
+    ':recipients' => array_keys($user_recipients)
+  );
+  $result = db_query('SELECT recipient FROM {pm_block_user} WHERE author = :author AND recipient IN (:recipients) GROUP BY recipient', $args);
+  foreach ($result as $row) {
+    $recipient = $user_recipients[$row->recipient];
+    // If there's a rule disallowing blocking of this message, send it anyway.
+    if (_pm_block_user_rule_exists($author, $recipient, PM_BLOCK_USER_DISALLOW_BLOCKING)) {
+      continue;
+    }
+    $blocked[] = array(
+      'recipient' => privatemsg_recipient_key($recipient),
+      'message' => t('%name has chosen to block messages from you.', array('%name' => privatemsg_recipient_format($recipient, array('plain' => TRUE))))
+    );
+  }
+  return $blocked;
+}
+
+function pm_block_user_query_privatemsg_message_load_multiple_alter($query) {
+  $query->addField('pmbu', 'recipient', 'is_blocked');
+  $query->leftJoin('pm_block_user', 'pmbu', "base.author = pmbu.author AND pmi.recipient = pmbu.recipient AND pmi.type IN ('user', 'hidden')");
+}
+
+/**
+ * Implements hook_privatemsg_message_view_alter.
+ */
+function pm_block_user_privatemsg_message_view_alter(&$vars) {
+  global $user;
+
+  // @todo: weird, figure out why it is below #message.
+  $author = $vars['message']->author;
+  if (_pm_block_user_rule_exists($author, $user, PM_BLOCK_USER_DISALLOW_BLOCKING)) {
+    return;
+  }
+  if (!isset($vars['message']->thread_id)) {
+    // No thread id, this is probably only a preview
+    return;
+  }
+  $thread_id = $vars['message']->thread_id;
+
+  if ($user->uid <> $author->uid) {
+    if ($vars['message']->is_blocked) {
+      $vars['message_actions']['unblock_author'] = array('title' => t('Unblock'), 'href' => 'messages/block/' . $author->uid, 'query' => array('destination' => 'messages/view/' . $thread_id));
+    }
+    else {
+      $vars['message_actions']['block_author'] = array('title' => t('Block'), 'href' => 'messages/block/' . $author->uid, 'query' => array('destination' => 'messages/view/' . $thread_id));
+    }
+  }
+}
+
+/**
+ * Implements hook_user_cancel().
+ */
+function pm_block_user_user_cancel($edit, $account, $method) {
+  // Always delete, we don't need to keepy anonymous blocking rules.
+  db_delete('pm_block_user')
+    ->condition(db_or()
+      ->condition('author', $account->uid)
+      ->condition('recipient', $account->uid)
+    )
+    ->execute();
+}
+
+/**
+ * Implements hook_query_TAG_alter().
+ *
+ * Remove blocked users.
+ */
+function pm_block_user_query_privatemsg_autocomplete_alter($query) {
+  global $user;
+
+  // Assume the users don't have blocked more than a few dozen other users
+  // but there can be hundreds of thousands of users and make the subquery
+  // unrelated.
+
+  // Create a subquery that gets all users which have blocked the current user.
+  $blocked = db_select('pm_block_user', 'pmbu')
+    ->fields('pmbu', array('recipient'))
+    ->condition('pmbu.author', $user->uid);
+
+  // Exclude these from the possible recipients.
+  $query->condition('u.uid', $blocked, 'NOT IN');
+
+  // Block role configurations.
+  if ($user->uid != 1) {
+    $rids = array();
+    $block_actions = variable_get('pm_block_user_actions', array());
+    foreach ($block_actions as $details) {
+      // Only continue if the rule is enabled and is a disallow sending rule.
+      if ($details['action'] != PM_BLOCK_USER_DISALLOW_SENDING || !$details['enabled']) {
+        continue;
+      }
+      // The author (current user) does have a matching role.
+      if (isset($user->roles[$details['author']])) {
+        // authenticated user role is not stored in the database but all users
+        // have it so there can be no valid recipients. Add a condition that is
+        // always false and bail out because no other rules need to be checked.
+        if ($details['recipient'] == DRUPAL_AUTHENTICATED_RID) {
+          $query->addExpression('1 = 0');
+          return;
+        }
+        // Keep role id, will be added to the query later on.
+        $rids[] = $details['recipient'];;
+      }
+    }
+    // If there are any, add role limitation to the query.
+    if (!empty($rids)) {
+      $join_alias = $query->leftJoin('users_roles', 'ur', 'u.uid = ur.uid');
+      $query->condition(db_or()
+        ->condition($join_alias . '.rid', $rids, 'NOT IN')
+        ->isNull($join_alias . '.rid')
+      );
+    }
+  }
+}

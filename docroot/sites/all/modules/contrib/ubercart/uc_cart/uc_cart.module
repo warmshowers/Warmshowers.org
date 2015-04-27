@@ -1,0 +1,1388 @@
+<?php
+
+/**
+ * @file
+ * Handles all things concerning Ubercart's shopping cart.
+ *
+ * The Ubercart cart system functions much like the e-commerce cart at its base
+ * level... in fact, most carts do.  This module handles the cart display,
+ * adding items to a cart, and checking out.  The module enables the cart,
+ * products, and checkout to be extensible.
+ */
+
+require_once dirname(__FILE__) . '/uc_cart_checkout_pane.inc';
+
+/**
+ * Time in seconds after which a cart order is deemed abandoned.
+ */
+define('UC_CART_ORDER_TIMEOUT', 86400); // 24 hours
+
+/**
+ * Time in seconds after which the checkout page is deemed abandoned.
+ */
+define('UC_CART_CHECKOUT_TIMEOUT', 1800); // 30 minutes
+
+
+/**
+ * Implements hook_menu().
+ */
+function uc_cart_menu() {
+  $items = array();
+
+  $items['admin/store/settings/cart'] = array(
+    'title' => 'Cart',
+    'description' => 'Configure the cart page display and settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_cart_cart_settings_form'),
+    'access arguments' => array('administer store'),
+    'file' => 'uc_cart.admin.inc',
+  );
+  $items['admin/store/settings/checkout'] = array(
+    'title' => 'Checkout',
+    'description' => 'Configure the checkout page display and completion rules.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_cart_checkout_settings_form'),
+    'access arguments' => array('administer store'),
+    'file' => 'uc_cart.admin.inc',
+  );
+  $items['admin/store/settings/checkout/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Edit the basic checkout settings.',
+    'access arguments' => array('administer store'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/store/settings/checkout/rules'] = array(
+    'title' => 'Rules',
+    'description' => 'Edit the checkout rules.',
+    'page callback' => 'uc_cart_checkout_rules',
+    'access arguments' => array('administer store'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+    'file' => 'uc_cart.admin.inc',
+  );
+  $items += rules_ui()->config_menu('admin/store/settings/checkout/rules');
+
+  $items['cart'] = array(
+    'title' => 'Shopping cart',
+    'description' => 'View/modify the contents of your shopping cart or proceed to checkout.',
+    'page callback' => 'uc_cart_view',
+    'access arguments' => array('access content'),
+    'file' => 'uc_cart.pages.inc',
+  );
+  $items['cart/empty'] = array(
+    'title' => 'Empty cart',
+    'description' => 'Confirm that the cart should be emptied.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_cart_empty_confirm'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_cart.pages.inc',
+  );
+  $items['cart/checkout'] = array(
+    'title' => 'Checkout',
+    'description' => 'Purchase the items in your shopping cart.',
+    'page callback' => 'uc_cart_checkout',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_cart.pages.inc',
+  );
+  $items['cart/checkout/review'] = array(
+    'title' => 'Review order',
+    'description' => 'Review an order before final submission.',
+    'page callback' => 'uc_cart_checkout_review',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_cart.pages.inc',
+  );
+  $items['cart/checkout/complete'] = array(
+    'title' => 'Order complete',
+    'description' => 'Display information upon completion of an order.',
+    'page callback' => 'uc_cart_checkout_complete',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_cart.pages.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_image_default_styles().
+ */
+function uc_cart_image_default_styles() {
+  $styles = array();
+
+  $styles['uc_cart'] = array(
+    'effects' => array(
+      array(
+        'name' => 'image_scale',
+        'data' => array(
+          'width' => '50',
+          'height' => '50',
+          'upscale' => 0,
+        ),
+        'weight' => '0',
+      ),
+    ),
+  );
+
+  return $styles;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_cart_theme() {
+  return array(
+    'uc_cart_block_title' => array(
+      'variables' => array(
+        'title' => NULL,
+        'icon_class' => 'cart-empty',
+        'collapsible' => TRUE,
+        'collapsed' => TRUE,
+      ),
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_block_title_icon' => array(
+      'variables' => array('icon_class' => NULL),
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_block_content' => array(
+      'variables' => array(
+        'help_text' => NULL,
+        'items' => NULL,
+        'item_count' => NULL,
+        'item_text' => NULL,
+        'total' => NULL,
+        'summary_links' => NULL,
+        'collapsed' => TRUE,
+      ),
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_block_items' => array(
+      'variables' => array('items' => NULL, 'collapsed' => TRUE),
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_block_summary' => array(
+      'variables' => array(
+        'item_count' => NULL,
+        'item_text' => NULL,
+        'total' => NULL,
+        'summary_links' => NULL,
+      ),
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_view_form' => array(
+      'render element' => 'form',
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_checkout_buttons' => array(
+      'render element' => 'buttons',
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_empty_cart' => array(
+      'variables' => array(),
+      'file' => 'uc_cart.theme.inc',
+    ),
+    'uc_cart_checkout_form' => array(
+      'render element' => 'form',
+      'file' => 'uc_cart.pages.inc',
+    ),
+    'uc_cart_review_table' => array(
+      'variables' => array('items' => array(), 'show_subtotal' => TRUE),
+      'file' => 'uc_cart_checkout_pane.inc',
+    ),
+    'uc_cart_checkout_review' => array(
+      'variables' => array('panes' => NULL, 'form' => NULL),
+      'file' => 'uc_cart.pages.inc',
+    ),
+    'uc_checkout_pane_cart_review' => array(
+      'variables' => array('items' => array()),
+      'file' => 'uc_cart_checkout_pane.inc',
+    ),
+    'uc_cart_complete_sale' => array(
+      'variables' => array('message' => '', 'order' => NULL),
+      'file' => 'uc_cart.theme.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function uc_cart_init() {
+  global $conf;
+  $conf['i18n_variables'][] = 'uc_cart_breadcrumb_text';
+}
+
+/**
+ * Implements hook_cron().
+ */
+function uc_cart_cron() {
+  // Empty anonymous carts.
+  $time = strtotime(variable_get('uc_cart_anon_duration', '4') . ' ' . variable_get('uc_cart_anon_unit', 'hours') . ' ago');
+  $result = db_query("SELECT DISTINCT cart_id FROM {uc_cart_products} WHERE changed <= :changed", array(':changed' => $time));
+  foreach ($result as $row) {
+    if (strlen($row->cart_id) >= 22) {
+      uc_cart_empty($row->cart_id);
+    }
+  }
+
+  // Empty authenticated carts.
+  $time = strtotime(variable_get('uc_cart_auth_duration', '1') . ' ' . variable_get('uc_cart_auth_unit', 'years') . ' ago');
+  $result = db_query("SELECT DISTINCT cart_id FROM {uc_cart_products} WHERE changed <= :changed", array(':changed' => $time));
+  foreach ($result as $row) {
+    if (strlen($row->cart_id) < 22) {
+      uc_cart_empty($row->cart_id);
+    }
+  }
+
+  // Update status of abandoned orders.
+  $result = db_query("SELECT order_id FROM {uc_orders} WHERE order_status = :status AND modified < :time",
+    array(':status' => 'in_checkout', ':time' => REQUEST_TIME - UC_CART_ORDER_TIMEOUT))->fetchCol();
+  foreach ($result as $order_id) {
+    uc_order_update_status($order_id, 'abandoned');
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function uc_cart_node_delete($node) {
+  if (uc_product_is_product($node->type)) {
+    $efq = new EntityFieldQuery();
+    $result = $efq->entityCondition('entity_type', 'uc_cart_item')
+      ->propertyCondition('nid', $node->nid)
+      ->execute();
+
+    if (!empty($result['uc_cart_item'])) {
+      entity_delete_multiple('uc_cart_item', array_keys($result['uc_cart_item']));
+    }
+  }
+}
+
+/**
+ * Implements hook_user_load().
+ */
+function uc_cart_user_load($users) {
+  if (request_uri() == '/user/register?destination=cart/checkout') {
+    foreach ($users as $account) {
+      if ($account->uid != 0) {
+        // Add items from an anonymous cart to a user's permanent cart on login.
+        uc_cart_login_update($account->uid);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function uc_cart_user_login(&$edit, $account) {
+  // Add items from an anonymous cart to a user's permanent cart on login.
+  uc_cart_login_update($account->uid);
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function uc_cart_block_info() {
+  $blocks = array();
+
+  $blocks['cart'] = array(
+    'info' => t('Shopping cart'),
+    'cache' => DRUPAL_NO_CACHE,
+    'pages' => 'admin*',
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function uc_cart_block_view($delta = '') {
+  global $user;
+
+  if ($delta == 'cart') {
+    $product_count = count(uc_cart_get_contents());
+
+    // Display nothing if the block is set to hide on empty and there are no
+    // items in the cart.
+    if (!variable_get('uc_cart_block_empty_hide', FALSE) || $product_count) {
+      // Add the cart block CSS.
+      drupal_add_css(drupal_get_path('module', 'uc_cart') . '/uc_cart_block.css');
+
+      // If the block is collapsible, add the appropriate JS.
+      if (variable_get('uc_cart_block_collapsible', TRUE)) {
+        drupal_add_js(drupal_get_path('module', 'uc_cart') . '/uc_cart_block.js');
+      }
+
+      // First build the help text.
+      $help_text = FALSE;
+
+      // uc_cart_help_text variable is only here for backward compatibility.
+      if (variable_get('uc_cart_show_help_text', FALSE) && ($text = variable_get('uc_cart_help_text', t('Click title to display cart contents.')))) {
+        $help_text = check_plain($text);
+      }
+
+      $items = FALSE;
+      $item_count = 0;
+      $total = 0;
+
+      if ($product_count) {
+        $display_items = entity_view('uc_cart_item', uc_cart_get_contents(), 'cart');
+        foreach (element_children($display_items['uc_cart_item']) as $key) {
+          $display_item = $display_items['uc_cart_item'][$key];
+
+          if (count(element_children($display_item))) {
+            $items[] = array(
+              'nid' => $display_item['nid']['#value'],
+              'qty' => theme('uc_qty', array('qty' => $display_item['qty']['#default_value'])),
+              'title' => $display_item['title']['#markup'],
+              'price' => $display_item['#total'],
+              'desc' => isset($display_item['description']['#markup']) ? $display_item['description']['#markup'] : FALSE,
+            );
+            $total += $display_item['#total'];
+            $item_count += $display_item['qty']['#default_value'];
+          }
+
+        }
+      }
+
+      // Build the item count text and cart links.
+      $item_text = format_plural($item_count, '<span class="num-items">1</span> Item', '<span class="num-items">@count</span> Items');
+
+      $summary_links = array(
+        'cart-block-view-cart' => array(
+          'title' => t('View cart'),
+          'href' => 'cart',
+          'attributes' => array('rel' => 'nofollow'),
+        ),
+      );
+
+      // Only add the checkout link if checkout is enabled.
+      if (variable_get('uc_checkout_enabled', TRUE)) {
+        $summary_links['cart-block-checkout'] = array(
+          'title' => t('Checkout'),
+          'href' => 'cart/checkout',
+          'attributes' => array('rel' => 'nofollow'),
+        );
+      }
+
+      $block['subject'] = t('Shopping cart');
+      $block['content'] = theme('uc_cart_block_content', array(
+        'help_text' => $help_text,
+        'items' => $items,
+        'item_count' => $item_count,
+        'item_text' => $item_text,
+        'total' => $total,
+        'summary_links' => $summary_links,
+        'collapsed' => variable_get('uc_cart_block_collapsed', TRUE)
+      ));
+
+      return $block;
+    }
+  }
+}
+
+/**
+ * Implements hook_block_configure().
+ *
+ * Builds the settings form used by the shopping cart block.
+ */
+function uc_cart_block_configure($delta = '') {
+  if ($delta == 'cart') {
+    $form['uc_cart_block_empty_hide'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Hide block if cart is empty.'),
+      '#default_value' => variable_get('uc_cart_block_empty_hide', FALSE),
+    );
+    $form['uc_cart_block_image'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display the shopping cart icon in the block title.'),
+      '#default_value' => variable_get('uc_cart_block_image', TRUE),
+    );
+    $form['uc_cart_block_collapsible'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Make the shopping cart block collapsible by clicking the name or arrow.'),
+      '#default_value' => variable_get('uc_cart_block_collapsible', TRUE),
+    );
+    $form['uc_cart_block_collapsed'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display the shopping cart block collapsed by default.'),
+      '#default_value' => variable_get('uc_cart_block_collapsed', TRUE),
+    );
+    $form['uc_cart_show_help_text'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display small help text in the shopping cart block.'),
+      '#default_value' => variable_get('uc_cart_show_help_text', FALSE),
+    );
+
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_block_save().
+ *
+ * Saves the shopping cart block settings.
+ */
+function uc_cart_block_save($delta = '', $edit = array()) {
+  if ($delta == 'cart') {
+    variable_set('uc_cart_block_empty_hide', $edit['uc_cart_block_empty_hide']);
+    variable_set('uc_cart_block_image', $edit['uc_cart_block_image']);
+    variable_set('uc_cart_block_collapsible', $edit['uc_cart_block_collapsible']);
+    variable_set('uc_cart_block_collapsed', $edit['uc_cart_block_collapsed']);
+    variable_set('uc_cart_show_help_text', $edit['uc_cart_show_help_text']);
+  }
+}
+
+/**
+ * Preprocesses the cart block output to include the icon.
+ */
+function uc_cart_preprocess_block(&$variables) {
+  global $user;
+
+  if ($variables['block']->module == 'uc_cart' && $variables['block']->delta == 0 && $variables['block']->subject) {
+    // Build the cart image if enabled.
+    if (variable_get('uc_cart_block_image', TRUE)) {
+      $product_count = count(uc_cart_get_contents());
+      if (!$product_count) {
+        // Use the "empty" cart icon.
+        $icon_class = 'cart-block-icon-empty';
+      }
+      else {
+        // Otherwise use the "full" cart icon.
+        $icon_class = 'cart-block-icon-full';
+      }
+    }
+    else {
+      $icon_class = FALSE;
+    }
+
+    $variables['block']->subject = theme('uc_cart_block_title', array(
+      'title' => $variables['block']->subject,
+      'icon_class' => $icon_class,
+      'collapsible' => variable_get('uc_cart_block_collapsible', TRUE),
+      'collapsed' => variable_get('uc_cart_block_collapsed', TRUE),
+    ));
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function uc_cart_views_api() {
+  return array(
+    'api' => '2.0',
+    'path' => drupal_get_path('module', 'uc_cart') . '/views',
+  );
+}
+
+/**
+ * Implements hook_uc_message().
+ */
+function uc_cart_uc_message() {
+  global $user;
+
+  $messages['checkout_instructions'] = '';
+  $messages['review_instructions'] = '<p>' . t("Your order is almost complete. Please review the details below and click 'Submit order' if all the information is correct.  You may use the 'Back' button to make changes to your order if necessary.") . '</p>';
+  $messages['completion_message'] = '<p>' . t('Your order is complete! Your order number is [uc_order:order-number].') . '</p>';
+  $messages['completion_logged_in'] = '<p>' . t('Thank you for shopping at [store:name]. While logged in, you may continue shopping or <a href="[uc_order:url]">view your current order status</a> and order history.') . '</p>';
+  $messages['completion_existing_user'] = '<p>' . t("Thank you for shopping at [store:name]. Your current order has been attached to the account we found matching your e-mail address.\n<br /><br />\n<a href=\"!user_url\">Login</a> to view your current order status and order history. Remember to login when you make your next purchase for a faster checkout experience!", array('!user_url' => '[site:login-url]')) . '</p>';
+  $messages['completion_new_user'] = '<p>' . t("Thank you for shopping at [store:name]. A new account has been created for you here that you may use to view your current order status.\n<br /><br />\n<a href=\"!user_url\">Login</a> to your new account using the following information:\n<br /><br />\n<strong>Username:</strong> !new_username<br />\n<strong>Password:</strong> !new_password", array('!user_url' => '[site:login-url]')) . '</p>';
+  $messages['completion_new_user_logged_in'] = '<p>' . t("Thank you for shopping at [store:name]. A new account has been created for you here that you may use to view your current order status.\n<br /><br />\nYour password and further instructions have been sent to your e-mail address.\n<br /><br />\nFor your convenience, you are already logged in with your newly created account.") . '</p>';
+  $messages['continue_shopping'] = '<p>' . t('<a href="[site:url]">Return to the front page.</a>') . '</p>';
+
+  return $messages;
+}
+
+/**
+ * Implements hook_uc_cart_pane().
+ */
+function uc_cart_uc_cart_pane($items) {
+  $body = array();
+
+  if (!is_null($items)) {
+    $body = drupal_get_form('uc_cart_view_form', $items) + array(
+      '#prefix' => '<div id="cart-form-pane">',
+      '#suffix' => '</div>',
+    );
+  }
+
+  $panes['cart_form'] = array(
+    'title' => t('Default cart form'),
+    'enabled' => TRUE,
+    'weight' => 0,
+    'body' => $body,
+  );
+
+  return $panes;
+}
+
+/**
+ * Implements hook_uc_checkout_pane().
+ */
+function uc_cart_uc_checkout_pane() {
+  $panes['cart'] = array(
+    'callback' => 'uc_checkout_pane_cart',
+    'title' => t('Cart contents'),
+    'desc' => t("Display the contents of a customer's shopping cart."),
+    'weight' => 1,
+    'process' => FALSE,
+    'collapsible' => FALSE,
+  );
+  $panes['customer'] = array(
+    'callback' => 'uc_checkout_pane_customer',
+    'title' => t('Customer information'),
+    'desc' => t('Get the necessary information to create a customer on the site.'),
+    'weight' => 2,
+  );
+  $panes['delivery'] = array(
+    'callback' => 'uc_checkout_pane_delivery',
+    'title' => t('Delivery information'),
+    'desc' => t('Get the information for where the order needs to ship.'),
+    'weight' => 3,
+    'shippable' => TRUE,
+  );
+  $panes['billing'] = array(
+    'callback' => 'uc_checkout_pane_billing',
+    'title' => t('Billing information'),
+    'desc' => t('Get basic information needed to collect payment.'),
+    'weight' => 4,
+  );
+  $panes['comments'] = array(
+    'callback' => 'uc_checkout_pane_comments',
+    'title' => t('Order comments'),
+    'desc' => t('Allow a customer to put comments on an order.'),
+    'weight' => 7,
+  );
+
+  return $panes;
+}
+
+/**
+ * Updates a user's cart to include items from their anonymous session.
+ */
+function uc_cart_login_update($uid) {
+  if (!isset($_SESSION['uc_cart_id'])) {
+    return;
+  }
+
+  // If there are items in the anonymous cart, consolidate them.
+  if ($items = uc_cart_get_contents($_SESSION['uc_cart_id'])) {
+    // Remove the anonymous cart items.
+    uc_cart_empty($_SESSION['uc_cart_id']);
+
+    // Merge the anonymous items into the user cart.
+    foreach ($items as $key => $item) {
+      uc_cart_add_item($item->nid, $item->qty, $item->data, $uid, FALSE, FALSE, FALSE);
+    }
+
+    // Unset the anonymous cart ID, it's no longer needed.
+    unset($_SESSION['uc_cart_id']);
+  }
+}
+
+/**
+ * Displays the contents of the customer's cart.
+ *
+ * Handles simple or complex objects. Some cart items may have a list of
+ * products that they represent. These are displayed but are not able to
+ * be changed by the customer.
+ *
+ * @see uc_cart_view_form_submit()
+ * @see uc_cart_view_form_continue_shopping()
+ * @see uc_cart_view_form_checkout()
+ * @see theme_uc_cart_view_form()
+ * @see uc_cart_view_table()
+ * @ingroup forms
+ */
+function uc_cart_view_form($form, &$form_state, $items = NULL) {
+  $form['#attached']['css'][] = drupal_get_path('module', 'uc_cart') . '/uc_cart.css';
+
+  $form['items'] = array(
+    '#type' => 'tapir_table',
+    '#tree' => TRUE,
+  );
+
+  $i = 0;
+  $display_items = entity_view('uc_cart_item', $items, 'cart');
+  foreach (element_children($display_items['uc_cart_item']) as $key) {
+    $display_item = $display_items['uc_cart_item'][$key];
+    if (count(element_children($display_item))) {
+      $form['items'][$i] = $display_item;
+      $form['items'][$i]['image'] = uc_product_get_picture($display_item['nid']['#value'], 'uc_cart');
+
+      $description = $display_item['title']['#markup'] . $display_item['description']['#markup'];
+      $form['items'][$i]['desc']['#markup'] = $description;
+
+      if (isset($form['items'][$i]['remove'])) {
+        // Backward compatibility with old checkbox method.
+        if ($form['items'][$i]['remove']['#type'] == 'checkbox') {
+          $form['items'][$i]['remove'] = array('#type' => 'submit', '#value' => t('Remove'));
+        }
+
+        $form['items'][$i]['remove']['#name'] = 'remove-' . $i;
+      }
+
+      $form['items'][$i]['title']['#type'] = 'value';
+      $form['items'][$i]['description']['#type'] = 'value';
+
+      if (empty($display_item['qty'])) {
+        $form['items'][$i]['qty'] = array(
+          '#type' => 'hidden',
+          '#value' => 0,
+        );
+      }
+
+      $form['items'][$i]['total'] = array(
+        '#theme' => 'uc_price',
+        '#price' => $display_item['#total'],
+      );
+      if (!empty($display_item['#suffixes'])) {
+        $form['items'][$i]['total']['#suffixes'] = $display_item['#suffixes'];
+      }
+    }
+    $i++;
+  }
+
+  $form['items'] = tapir_get_table('uc_cart_view_table', $form['items']);
+
+  $form['actions'] = array('#type' => 'actions');
+
+  // If the continue shopping element is enabled...
+  if (($cs_type = variable_get('uc_continue_shopping_type', 'link')) !== 'none') {
+    // Add the element to the form based on the element type.
+    if (variable_get('uc_continue_shopping_type', 'link') == 'link') {
+      $form['actions']['continue_shopping'] = array(
+        '#markup' => l(t('Continue shopping'), uc_cart_continue_shopping_url()),
+      );
+    }
+    elseif (variable_get('uc_continue_shopping_type', 'link') == 'button') {
+      $form['actions']['continue_shopping'] = array(
+        '#type' => 'submit',
+        '#value' => t('Continue shopping'),
+        '#submit' => array('uc_cart_view_form_submit', 'uc_cart_view_form_continue_shopping'),
+      );
+    }
+  }
+
+  // Add the empty cart button if enabled.
+  if (variable_get('uc_cart_empty_button', FALSE)) {
+    $form['actions']['empty'] = array(
+      '#type' => 'submit',
+      '#value' => t('Empty cart'),
+      '#submit' => array('uc_cart_view_form_empty'),
+    );
+  }
+
+  // Add the control buttons for updating and proceeding to checkout.
+  $form['actions']['update'] = array(
+    '#type' => 'submit',
+    '#name' => 'update-cart',
+    '#value' => t('Update cart'),
+    '#submit' => array('uc_cart_view_form_submit', 'uc_cart_view_form_update_message'),
+  );
+  $form['actions']['checkout'] = array(
+    '#theme' => 'uc_cart_checkout_buttons',
+  );
+  if (variable_get('uc_checkout_enabled', TRUE)) {
+    $form['actions']['checkout']['checkout'] = array(
+      '#type' => 'submit',
+      '#value' => t('Checkout'),
+      '#submit' => array('uc_cart_view_form_submit', 'uc_cart_view_form_checkout'),
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Default submit handler for uc_cart_view_form().
+ *
+ * @see uc_cart_view_form()
+ */
+function uc_cart_view_form_submit($form, &$form_state) {
+  // If a remove button was clicked, set the quantity for that item to 0.
+  if (substr($form_state['triggering_element']['#name'], 0, 7) == 'remove-') {
+    $item = substr($form_state['triggering_element']['#name'], 7);
+    $form_state['values']['items'][$item]['qty'] = 0;
+    drupal_set_message(t('<strong>!product-title</strong> removed from your shopping cart.', array('!product-title' => $form['items'][$item]['title']['#markup'])));
+  }
+
+  // Update the items in the shopping cart based on the form values, but only
+  // if a qty has changed.
+  foreach ($form['items'] as $key => $item) {
+    if (isset($item['qty']['#default_value']) && $item['qty']['#default_value'] != $form_state['values']['items'][$key]['qty']) {
+      uc_cart_update_item_object((object)$form_state['values']);
+    }
+  }
+}
+
+/**
+ * Displays "cart updated" message for uc_cart_view_form().
+ *
+ * @see uc_cart_view_form()
+ */
+function uc_cart_view_form_update_message($form, &$form_state) {
+  drupal_set_message(t('Your cart has been updated.'));
+}
+
+/**
+ * Continue shopping redirect for uc_cart_view_form().
+ *
+ * @see uc_cart_view_form()
+ */
+function uc_cart_view_form_continue_shopping($form, &$form_state) {
+  $form_state['redirect'] = uc_cart_continue_shopping_url();
+}
+
+/**
+ * Empty cart redirect for uc_cart_view_form().
+ *
+ * @see uc_cart_view_form()
+ */
+function uc_cart_view_form_empty($form, &$form_state) {
+  $form_state['redirect'] = 'cart/empty';
+}
+
+/**
+ * Checkout redirect for uc_cart_view_form().
+ *
+ * @see uc_cart_view_form()
+ */
+function uc_cart_view_form_checkout($form, &$form_state) {
+  $form_state['redirect'] = 'cart/checkout';
+}
+
+/**
+ * Lists the products in the cart in a TAPIr table.
+ */
+function uc_cart_view_table($table) {
+  $table['#columns'] = array(
+    'remove' => array(
+      'cell' => t('Remove'),
+      'weight' => 0,
+    ),
+    'image' => array(
+      'cell' => t('Products'),
+      'weight' => 1,
+    ),
+    'desc' => array(
+      'cell' => '',
+      'weight' => 2,
+    ),
+    'qty' => array(
+      'cell' => theme('uc_qty_label'),
+      'weight' => 3,
+    ),
+    'total' => array(
+      'cell' => t('Total'),
+      'weight' => 4,
+    ),
+  );
+
+  $subtotal = 0;
+  foreach (element_children($table) as $i) {
+    $subtotal += $table[$i]['#total'];
+
+    $table[$i]['remove']['#cell_attributes'] = array('class' => array('remove'));
+    $table[$i]['image']['#cell_attributes'] = array('class' => array('image'));
+    $table[$i]['desc']['#cell_attributes'] = array('class' => array('desc'));
+    $table[$i]['qty']['#cell_attributes'] = array('class' => array('qty'));
+    $table[$i]['total']['#cell_attributes'] = array('class' => array('price'));
+  }
+
+  $table[] = array(
+    'total' => array(
+      '#theme' => 'uc_price',
+      '#prefix' => '<span id="subtotal-title">' . t('Subtotal:') . '</span> ',
+      '#price' => $subtotal,
+      '#cell_attributes' => array(
+        'colspan' => 'full',
+        'class' => array('subtotal'),
+      ),
+    ),
+  );
+
+  return $table;
+}
+
+/**
+ * Returns the URL redirect for the continue shopping element on the cart page.
+ *
+ * @param $unset
+ *   TRUE or FALSE indicating whether or not to unset the last URL variable.
+ *
+ * @return
+ *   The URL or Drupal path that will be used for the continue shopping element.
+ */
+function uc_cart_continue_shopping_url($unset = TRUE) {
+  $url = '';
+
+  // Use the last URL if enabled and available.
+  if (variable_get('uc_continue_shopping_use_last_url', TRUE) && isset($_SESSION['uc_cart_last_url'])) {
+    $url = $_SESSION['uc_cart_last_url'];
+  }
+
+  // If the URL is still empty, fall back to the default.
+  if (empty($url)) {
+    $url = variable_get('uc_continue_shopping_url', '');
+  }
+
+  // Unset the last URL if specified.
+  if ($unset) {
+    unset($_SESSION['uc_cart_last_url']);
+  }
+
+  return $url;
+}
+
+/**
+ * Completes a sale, including adjusting order status and creating user account.
+ *
+ * @param $order
+ *   The order object that has just been completed.
+ * @param $login
+ *   Whether or not to login a new user when this function is called.
+ *
+ * @return
+ *   The HTML text of the default order completion page.
+ */
+function uc_cart_complete_sale($order, $login = FALSE) {
+  global $user;
+
+  // Ensure we have the latest order data.
+  $order->data = unserialize(db_query("SELECT data FROM {uc_orders} WHERE order_id = :order_id", array(':order_id' => $order->order_id))->fetchField());
+
+  // Ensure that user creation and triggers are only run once.
+  if (empty($order->data['complete_sale'])) {
+    uc_cart_complete_sale_account($order);
+
+    // Store account data.
+    db_update('uc_orders')
+      ->fields(array(
+        'uid' => $order->uid,
+        'data' => serialize($order->data),
+      ))
+      ->condition('order_id', $order->order_id)
+      ->execute();
+
+    // Move an order's status from "In checkout" to "Pending".
+    $status = db_query("SELECT order_status FROM {uc_orders} WHERE order_id = :order_id", array(':order_id' => $order->order_id))->fetchField();
+    if (uc_order_status_data($status, 'state') == 'in_checkout') {
+      $status = uc_order_state_default('post_checkout');
+      if (uc_order_update_status($order->order_id, $status)) {
+        $order->order_status = $status;
+      }
+    }
+
+    // Invoke the checkout complete trigger and hook.
+    $account = user_load($order->uid);
+    module_invoke_all('uc_checkout_complete', $order, $account);
+    rules_invoke_event('uc_checkout_complete', $order);
+  }
+
+  $type = $order->data['complete_sale'];
+
+  // Log in new users, if requested.
+  if ($type == 'new_user' && $login && !$user->uid) {
+    $type = 'new_user_logged_in';
+    $user = user_load($order->uid);
+    $edit = array();
+    user_login_finalize($edit);
+  }
+
+  $variables['!new_username'] = isset($order->data['new_user']['name']) ? $order->data['new_user']['name'] : '';
+  $variables['!new_password'] = isset($order->password) ? $order->password : t('Your password');
+  $messages = array(
+    'uc_msg_order_submit' => uc_get_message('completion_message'),
+    'uc_msg_order_' . $type => uc_get_message('completion_' . $type),
+    'uc_msg_continue_shopping' => uc_get_message('continue_shopping'),
+  );
+  foreach ($messages as $id => &$message) {
+    $message = variable_get($id, $message);
+    $message = token_replace($message, array('uc_order' => $order));
+    if ($id == 'uc_msg_order_' . $type) {
+      $message = strtr($message, $variables);
+    }
+  }
+  $output = filter_xss_admin(implode(' ', $messages));
+
+  // Empty that cart...
+  uc_cart_empty();
+
+  return array(
+    '#theme' => 'uc_cart_complete_sale',
+    '#message' => $output,
+    '#order' => $order,
+  );
+}
+
+/**
+ * Link a completed sale to a user.
+ *
+ * @param $order
+ *   The order object that has just been completed.
+ */
+function uc_cart_complete_sale_account($order) {
+  // Order already has a user ID, so the user was logged in during checkout.
+  if ($order->uid) {
+    $order->data['complete_sale'] = 'logged_in';
+    return;
+  }
+
+  $result = db_query("SELECT uid FROM {users} WHERE mail LIKE :email", array(':email' => $order->primary_email));
+
+  // Email address matches an existing account.
+  if ($account = $result->fetchObject()) {
+    $order->uid = $account->uid;
+    $order->data['complete_sale'] = 'existing_user';
+    return;
+  }
+
+  // Set up a new user.
+  $fields = array(
+    'name' => uc_store_email_to_username($order->primary_email),
+    'mail' => $order->primary_email,
+    'init' => $order->primary_email,
+    'pass' => user_password(),
+    'roles' => array(),
+    'status' => variable_get('uc_new_customer_status_active', TRUE) ? 1 : 0,
+  );
+
+  // Override the username, if specified.
+  if (isset($order->data['new_user']['name'])) {
+    $fields['name'] = $order->data['new_user']['name'];
+  }
+
+  // Create the account.
+  $account = user_save('', $fields);
+
+  // Override the password, if specified.
+  if (isset($order->data['new_user']['hash'])) {
+    db_query("UPDATE {users} SET pass = :hash WHERE uid = :uid", array(':hash' => $order->data['new_user']['hash'], ':uid' => $account->uid));
+    $account->password = t('Your password');
+  }
+  else {
+    $account->password = $fields['pass'];
+    $order->password = $fields['pass'];
+  }
+
+  // Send the customer their account details if enabled.
+  if (variable_get('uc_new_customer_email', TRUE)) {
+    $type = variable_get('uc_new_customer_status_active', TRUE) ? 'register_no_approval_required' : 'register_pending_approval';
+    drupal_mail('user', $type, $order->primary_email, uc_store_mail_recipient_language($order->primary_email), array('account' => $account), uc_store_email_from());
+  }
+
+  $order->uid = $account->uid;
+  $order->data['new_user']['name'] = $fields['name'];
+  $order->data['complete_sale'] =  'new_user';
+}
+
+/**
+ * Returns the unique cart_id of the user.
+ *
+ * @param $create
+ *   Toggle auto creation of cart id.
+ *
+ * @return
+ *   Cart id. If $create is FALSE will return FALSE if there is no cart id.
+ */
+function uc_cart_get_id($create = TRUE) {
+  global $user;
+
+  if ($user->uid) {
+    return $user->uid;
+  }
+  elseif (!isset($_SESSION['uc_cart_id']) && $create) {
+    $_SESSION['uc_cart_id'] = md5(uniqid(rand(), TRUE));
+  }
+
+  return isset($_SESSION['uc_cart_id']) ? $_SESSION['uc_cart_id'] : FALSE;
+}
+
+/**
+ * Grabs the items in a shopping cart for a user.
+ *
+ * @param $cid
+ *   (optional) The cart ID to load, or NULL to load the current user's cart.
+ * @param $action
+ *   (optional) Carts are statically cached by default. If set to "rebuild",
+ *   the cache will be ignored and the cart reloaded from the database.
+ *
+ * @return
+ *   An array of cart items.
+ */
+function uc_cart_get_contents($cid = NULL, $action = NULL) {
+  static $items = array();
+
+  $cid = $cid ? $cid : uc_cart_get_id(FALSE);
+
+  // If we didn't get a cid, return empty.
+  if (!$cid) {
+    return array();
+  }
+
+  if ($action == 'rebuild' || $action == 'empty') {
+    unset($items[$cid]);
+    // Mark the current cart order (if any) as needing to be rebuilt.  We only
+    // do this if the cart is being explicitly rebuilt (i.e. after an item is
+    // added, removed or altered).
+    $_SESSION['uc_cart_order_rebuild'] = TRUE;
+  }
+
+  if (!isset($items[$cid])) {
+    // Find all cart items associated with this cart.
+    if ($action != 'empty') {
+      $efq = new EntityFieldQuery();
+      $result = $efq->entityCondition('entity_type', 'uc_cart_item')
+        ->propertyCondition('cart_id', $cid)
+        ->propertyOrderBy('cart_item_id', 'ASC')
+        ->execute();
+      if (!empty($result['uc_cart_item'])) {
+        $items[$cid] = entity_load('uc_cart_item', array_keys($result['uc_cart_item']), NULL, TRUE);
+
+        // Create a bare order and attach it to each item as context.
+        $order = new UcOrder($cid);
+        foreach ($items[$cid] as $item) {
+          $item->order = $order;
+        }
+      }
+      else {
+        $items[$cid] = array();
+      }
+    }
+    else {
+      $items[$cid] = array();
+    }
+
+    // Allow other modules a chance to alter the fully loaded cart object.
+    drupal_alter('uc_cart', $items[$cid]);
+
+    // When there are no longer any items in the cart, the anonymous cart ID is
+    // no longer required. To guard against unsetting the session ID in the
+    // middle of an uc_cart_add_item() call, we only do this on rebuild.
+    // See issue 858816 for details.
+    if (($action == 'empty' || $action == 'rebuild') && empty($items[$cid]) && isset($_SESSION['uc_cart_id']) && $_SESSION['uc_cart_id'] == $cid) {
+      unset($_SESSION['uc_cart_id']);
+    }
+  }
+
+  return $items[$cid];
+}
+
+/**
+ * Returns the total number of items in the shopping cart.
+ *
+ * The total number of items in the cart isn't simply queried directly from the
+ * database, because when the shopping cart is loaded items may in fact be
+ * altered or removed. Hence we actually load the cart and tally up the total
+ * number of items from the fully loaded cart instead.
+ *
+ * @param $cid
+ *   The cart ID of the shopping cart whose items we're totalling; defaults to
+ *   the current user's cart.
+ *
+ * @return
+ *   An integer representing the total number of items in the cart.
+ */
+function uc_cart_get_total_qty($cid = NULL) {
+
+  $qty = 0;
+
+  if (empty($cid)) {
+    $cid = uc_cart_get_id(FALSE);
+  }
+
+  if ($cid) {
+    foreach (uc_cart_get_contents($cid) as $item) {
+      $qty += $item->qty;
+    }
+  }
+
+  return $qty;
+}
+
+/**
+ * Updates a cart item.
+ *
+ * @param $item
+ *   The loaded cart item.
+ *
+ * @return
+ *   unknown_type
+ */
+function uc_cart_update_item($item) {
+  $item_entity = entity_load_single('uc_cart_item', $item->cart_item_id);
+  $item_entity->qty = $item->qty;
+  $item_entity->data = $item->data;
+  entity_save('uc_cart_item', $item_entity);
+}
+
+/**
+ * Adds an item to a user's cart.
+ */
+function uc_cart_add_item($nid, $qty = 1, $data = NULL, $cid = NULL, $msg = TRUE, $check_redirect = TRUE, $rebuild = TRUE) {
+  $cid = $cid ? $cid : uc_cart_get_id();
+  $node = node_load($nid);
+
+  if (is_null($data)) {
+    $data = array('module' => 'uc_product');
+  }
+  if (!isset($data['module'])) {
+    $data['module'] = 'uc_product';
+  }
+
+  if (!uc_product_is_product($node->type)) {
+    drupal_set_message(t('@title is not a product. Unable to add to cart.', array('@title' => $node->title)), 'error');
+    return;
+  }
+
+  $result = module_invoke_all('uc_add_to_cart', $nid, $qty, $data);
+  if (is_array($result) && !empty($result)) {
+    foreach ($result as $row) {
+      if ($row['success'] === FALSE) {
+        if (isset($row['message']) && !empty($row['message'])) {
+          $message = $row['message'];
+        }
+        else {
+          $message = t('Sorry, that item is not available for purchase at this time.');
+        }
+        if (isset($row['silent']) && ($row['silent'] === TRUE)) {
+          if ($check_redirect) {
+            if (isset($_GET['destination'])) {
+              drupal_goto();
+            }
+            $_SESSION['uc_cart_last_url'] = current_path();
+            $redirect = variable_get('uc_add_item_redirect', 'cart');
+            if ($redirect != '<none>') {
+              return $redirect;
+            }
+            else {
+              return array(current_path(), array('query' => drupal_get_query_parameters()));
+            }
+          }
+        }
+        else {
+          drupal_set_message($message, 'error');
+        }
+        return array(current_path(), array('query' => drupal_get_query_parameters()));
+      }
+    }
+  }
+
+  $efq = new EntityFieldQuery();
+  $result = $efq->entityCondition('entity_type', 'uc_cart_item')
+    ->propertyCondition('cart_id', $cid)
+    ->propertyCondition('nid', $node->nid)
+    ->propertyCondition('data', serialize($data))
+    ->execute();
+
+  // If the item isn't in the cart yet, add it.
+  if (empty($result['uc_cart_item'])) {
+    $item_entity = entity_create('uc_cart_item', array(
+      'cart_id' => $cid,
+      'nid' => $node->nid,
+      'qty' => $qty,
+      'data' => $data,
+    ));
+    entity_save('uc_cart_item', $item_entity);
+    if ($msg) {
+      drupal_set_message(t('<strong>@product-title</strong> added to <a href="!url">your shopping cart</a>.', array('@product-title' => $node->title, '!url' => url('cart'))));
+    }
+  }
+  else {
+    // Update the item instead.
+    if ($msg) {
+      drupal_set_message(t('Your item(s) have been updated.'));
+    }
+    $item_entity = entity_load_single('uc_cart_item', current(array_keys($result['uc_cart_item'])));
+    $qty += $item_entity->qty;
+    module_invoke($data['module'], 'uc_update_cart_item', $node->nid, $data, min($qty, 999999), $cid);
+  }
+
+  // If specified, rebuild the cached cart items array.
+  if ($rebuild) {
+    uc_cart_get_contents($cid, 'rebuild');
+  }
+
+  if ($check_redirect) {
+    if (isset($_GET['destination'])) {
+      drupal_goto();
+    }
+
+    $_SESSION['uc_cart_last_url'] = current_path();
+    $redirect = variable_get('uc_add_item_redirect', 'cart');
+    if ($redirect != '<none>') {
+      return $redirect;
+    }
+    else {
+      return array(current_path(), array('query' => drupal_get_query_parameters()));
+    }
+  }
+}
+
+/**
+ * Removes an item from the cart.
+ *
+ * @param $nid
+ *   The node ID of the item to remove.
+ * @param $cid
+ *   The cart ID of the item to remove.
+ * @param $data
+ *   The data array for the item to remove.
+ */
+function uc_cart_remove_item($nid, $cid = NULL, $data = array()) {
+  if (empty($nid)) {
+    return;
+  }
+
+  $cart_id = !(is_null($cid) || empty($cid)) ? $cid : uc_cart_get_id();
+
+  $efq = new EntityFieldQuery();
+  $result = $efq->entityCondition('entity_type', 'uc_cart_item')
+    ->propertyCondition('cart_id', $cart_id)
+    ->propertyCondition('nid', $nid)
+    ->propertyCondition('data', serialize($data))
+    ->execute();
+
+  if (!empty($result['uc_cart_item'])) {
+    entity_delete_multiple('uc_cart_item', array_keys($result['uc_cart_item']));
+  }
+}
+
+/**
+ * Updates the quantity of all the items in a cart object.
+ */
+function uc_cart_update_item_object($cart) {
+  if (is_object($cart)) {
+    foreach ($cart->items as $item) {
+      module_invoke($item['module'], 'uc_update_cart_item', $item['nid'], unserialize($item['data']), $item['qty']);
+    }
+
+    // Rebuild the cached cart items.
+    uc_cart_get_contents(NULL, 'rebuild');
+  }
+}
+
+/**
+ * Empties a cart of its contents.
+ *
+ * @param $cart_id
+ *   The ID of the cart, or NULL to empty the current cart.
+ */
+function uc_cart_empty($cart_id = NULL) {
+  $cart_id = $cart_id ? $cart_id : uc_cart_get_id(FALSE);
+
+  if (!$cart_id) {
+    return;
+  }
+
+  $efq = new EntityFieldQuery();
+  $result = $efq->entityCondition('entity_type', 'uc_cart_item')
+    ->propertyCondition('cart_id', $cart_id)
+    ->execute();
+
+  if (!empty($result['uc_cart_item'])) {
+    entity_delete_multiple('uc_cart_item', array_keys($result['uc_cart_item']));
+  }
+
+  // Remove cached cart.
+  uc_cart_get_contents($cart_id, 'empty');
+}
+
+/**
+ * Gets all of the enabled, sorted cart panes.
+ *
+ * @param $items
+ *   The contents of the cart.
+ */
+function uc_cart_cart_pane_list($items) {
+  $panes = array();
+
+  foreach (module_invoke_all('uc_cart_pane', $items) as $id => $pane) {
+    // Preserve backward compatibility for panes with no key specified.
+    if (is_numeric($id)) {
+      $id = $pane['id'];
+    }
+
+    // Set defaults.
+    $pane += array(
+      'id' => $id,
+      'enabled' => TRUE,
+      'weight' => 0,
+      'body' => array(),
+    );
+
+    $pane['enabled'] = variable_get('uc_cap_' . $id . '_enabled', $pane['enabled']);
+    $pane['weight'] = variable_get('uc_cap_' . $id . '_weight', $pane['weight']);
+
+    $panes[$id] = $pane;
+  }
+
+  // Allow other modules to alter the defaults.
+  drupal_alter('uc_cart_pane', $panes, $items);
+
+  uasort($panes, 'uc_weight_sort');
+
+  return $panes;
+}
+
+/**
+ * Determines whether a cart contains shippable items or not.
+ */
+function uc_cart_is_shippable($cart_id = NULL) {
+  $items = uc_cart_get_contents($cart_id);
+
+  foreach ($items as $item) {
+    if (uc_order_product_is_shippable($item)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Removes panes from the list that match the given conditions.
+ *
+ * @return
+ *   A checkout pane array with panes filtered out that have key values
+ *   matching the combinations in the $remove array.
+ */
+function uc_cart_filter_checkout_panes($panes, $remove) {
+  foreach ($panes as $id => $pane) {
+    foreach ($remove as $key => $value) {
+      if (isset($panes[$id][$key]) && $panes[$id][$key] == $value) {
+        unset($panes[$id]);
+      }
+    }
+  }
+
+  return $panes;
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function uc_cart_entity_info() {
+  return array(
+    'uc_cart_item' => array(
+      'label' => t('Cart item'),
+      'module' => 'uc_cart',
+      'base table' => 'uc_cart_products',
+      'controller class' => 'UcCartItemController',
+      'entity keys' => array(
+        'id' => 'cart_item_id',
+      ),
+      'bundles' => array(
+        'uc_cart_item' => array(
+          'label' => t('Cart item'),
+        ),
+      ),
+    ),
+  );
+}

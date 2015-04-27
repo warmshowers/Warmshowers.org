@@ -1,0 +1,225 @@
+<?php
+
+/*
+Implementation of hook_init
+*/
+function better_messages_init() {
+  drupal_add_css(drupal_get_path('module', 'better_messages') . '/better_messages_admin.css');
+  drupal_add_css(drupal_get_path('module', 'better_messages') . '/skins/default/better_messages.css');
+}
+
+/*
+Implementation of hook_menu
+*/
+function better_messages_menu() {
+  $items = array();
+  $items['admin/config/user-interface/better-messages'] = array(
+    'title' => t('Better Messages settings'),
+    'description' => t('Better handling of Drupal messages UI'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('better_messages_admin'),
+    'access arguments' => array('administer better messages'),
+    'file' => 'better_messages.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function better_messages_permission() {
+	return array(
+    'access better messages' => array(
+      'title' => t('access better messages'),
+      'description' => t('access better messages.'),
+    ),
+		'administer better messages' => array(
+      'title' => t('administer better messages'),
+      'description' => t('administer better messages.'),
+    ),
+  );
+}
+
+/*
+Implementation of hook_theme
+*/
+function better_messages_theme($existing, $type, $theme, $path) {
+  return array(
+    'better_messages_content' => array(
+    	'variables' => array('messages_drupal' => array()),
+    ),
+    'better_messages' => array(
+    	'template'	=> 'better_messages',
+    	'variables' => array('content' => NULL),
+    ),
+  );
+}
+
+/*
+Implementation of hook_theme_registry_alter to add better_messages theme function
+*/
+function better_messages_theme_registry_alter(&$theme_registry) {
+	$theme_registry['status_messages']['function'] = "theme_better_messages";
+}
+
+function theme_better_messages($display = NULL) {
+	$output = '';
+	$better_messages = better_messages_process_visibility();
+ 	$access = user_access('access better messages');
+	$message = drupal_get_messages($display['display']);
+	if ($better_messages && $access && !empty($message)) {
+		$disable_autoclose = better_messages_process_autoclose($message);
+		better_messages_add_files($disable_autoclose);
+		$message = theme('better_messages_content', array('messages_drupal' => $message));
+		// We save the initial output to SESSION so we can put it in <noscript> on page_preprocess
+		$_SESSION['original_messages'] = $message;
+		$message_skin = theme('better_messages', array('content' => $message));
+		// We add a special ID so that JavaScript knows what to handle. Changing the ID will break JavaScript handling code.
+		$output = "<div id=\"better-messages-wrapper\" style=\"display:none;overflow:visible;position:absolute;z-index:9999;\">\n".
+					$message_skin ."\n</div>\n";
+	}
+	else {
+  	$output = theme('better_messages_content', array('messages_drupal' => $message));
+  }
+	return $output;
+}
+
+function theme_better_messages_content($variables) {
+  $messages_drupal = $variables['messages_drupal'];
+	$output = '';
+	$first = TRUE;
+	foreach ($messages_drupal as $type => $messages) {
+		$class = $first ? 'first' : '';
+		$first = FALSE;
+		$output .= "<h2 class=\"messages-label $type\">" . t(drupal_ucfirst($type)) . "</h2>\n";
+		$output .= "<div class=\"messages $type\">\n";
+		if (count($messages) > 1) {
+			$output .= " <ul>\n";
+			foreach ($messages as $k => $message) {
+		      if ($k == 0) {
+  		      $output .= "<li class='message-item first'>$message</li>";
+  		    }
+		      elseif ($k == count($messages) - 1) {
+  		      $output .= "<li class='message-item last'>$message</li>";
+  		    }
+		      else {
+  		      $output .= "<li class='message-item'>$message</li>";
+  		    }
+		    }
+			$output .= " </ul>\n";
+		}
+		else {
+  		$output .= $messages[0];
+    }
+		$output .= "</div>\n";
+	}
+	return $output;
+}
+
+/*
+Preprocess the default status_messages so we add our template file here
+*/
+function better_messages_preprocess_page(&$vars) {
+	if (isset($vars['messages'])) {
+		// Check if path Better Messages is enabled for this path
+		$better_messages = better_messages_process_visibility();
+		$access = user_access('access better messages');
+		if ($better_messages && $access) {
+			$message = $vars['messages'];
+			// Here comes the graceful degrade for browsers with JS disabled
+			$vars['messages'] = "<noscript>\n" . $_SESSION['original_messages'] . "\n</noscript>\n";
+			unset($_SESSION['original_messages']);
+			$vars['closure'] .= $message;
+		}
+	}
+}
+
+/*
+Helper function to get the settings
+*/
+function better_messages_get_settings() {
+	$settings = array(
+		'position' => 'center', 'vertical' => 0, 'horizontal' => 10, 'fixed'	=> 1,
+  	'width' => '400px', 'autoclose'	=> 0,	'opendelay' => 0.3,	'disable_autoclose' => 0,
+	  'show_countdown' => 1, 'hover_autoclose' => 1,
+		'popin' => array('effect' => 'fadeIn', 'duration' => 'slow'),
+		'popout' => array('effect' => 'fadeOut', 'duration' => 'slow'),
+	  'jquery_ui' => array('draggable' => 0, 'resizable' => 0),
+		'extra' => array(
+			'pages' => '',
+			'visibility' => 0,
+      'admin' => TRUE,
+		)
+	);
+	return variable_get('better_messages', $settings);
+}
+
+/*
+Helper function to check where to popup Better Messages relative to path
+*/
+function better_messages_process_visibility() {
+	$settings = better_messages_get_settings();
+
+  global $user;
+  if (!$settings['extra']['admin'] && $user->uid == 1) {
+    return FALSE;
+  }
+
+	if ($settings['extra']['pages']) {
+		$path = drupal_get_path_alias($_GET['q']);
+		$page_match = drupal_match_path($path, $settings['extra']['pages']);
+		if ($path != $_GET['q']) {
+			$page_match = $page_match || drupal_match_path($_GET['q'], $settings['extra']['pages']);
+		}
+		$page_match = !($settings['extra']['visibility'] xor $page_match);
+	}
+	else {
+  	$page_match = TRUE;
+  }
+	return $page_match;
+}
+
+/**
+ * Helper function to process auto close
+ * @return bool
+ */
+
+function better_messages_process_autoclose($message){
+  $settings = better_messages_get_settings();
+  if (array_key_exists('error', $message) ){
+    if ($settings['disable_autoclose']) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  }
+  else {
+    return false;
+  }
+
+}
+
+/**
+ * Helper function to add required JS and CSS only when required
+*/
+function better_messages_add_files($disable_autoclose){
+	$settings = better_messages_get_settings();
+	drupal_add_js(drupal_get_path('module', 'better_messages') . '/better_messages.js');
+	// Remove extra info from JS
+	if (!module_exists('jquery_ui')) {
+		unset($settings['jquery_ui']);
+	}
+	else {
+		foreach ($settings['jquery_ui'] as $jquery_ui_setting => $value) {
+			if ($value == 1) {
+				jquery_ui_add(array('ui.' . $jquery_ui_setting));
+			}
+		}
+	}
+	unset($settings['extra']);
+	if ($disable_autoclose) {
+	  $settings['autoclose'] = 0;
+	}
+	drupal_add_js(array('betterMessages' => $settings), 'setting');
+}

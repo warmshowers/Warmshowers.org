@@ -1,0 +1,163 @@
+<?php
+
+/**
+ * @file js_injector.install
+ *
+ * Install, update and uninstall functions for the js_injector module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function js_injector_schema() {
+  $schema['js_injector_rule'] = array(
+    'description' => t('Table storing JS injector rule definitions.'),
+    'export' => array(
+      'key' => 'name',
+      'primary key' => 'crid',
+      'identifier' => 'rule', // Exports will be defined as $rule
+      'default hook' => 'js_injector_rule',
+      'save callback' => 'js_injector_rule_save',
+      'delete callback' => 'js_injector_rule_delete',
+      'api' => array(
+        'owner' => 'js_injector',
+        'api' => 'js_injector_rules',  // Base name for api include files.
+        'minimum_version' => 1,
+        'current_version' => 1,
+      ),
+    ),
+    'fields' => array(
+      'name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Unique ID for rules. Used to identify them programmatically.',
+      ),
+      'crid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The primary identifier for the JS injection rule',
+        'no export' => TRUE, // do not export database-only keys.
+      ),
+      // Changed to 'admin_description' in an update hook.
+      'admin_description' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'A human readable name of a rule.',
+      ),
+      'js' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'The actual JavaScript code.',
+      ),
+      'position' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'The scope of the JavaScript on the page (e.g. header or footer).',
+      ),
+      'preprocess' => array(
+        'description' => 'Boolean indicating whether the rule should be aggregated into other JS files.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'inline' => array(
+        'description' => 'Boolean indicating whether the rules should be inline (cannot be aggregated).',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'page_visibility' => array(
+        'description' => 'Boolean indicating whether the rule has a white or black list for page visibility.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'page_visibility_pages' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'A list of pages to either hide or show the JavaScript.',
+      ),
+    ),
+    'primary key' => array('crid'),
+    'unique keys' => array(
+      'name' => array('name'),
+    ),
+  );
+  return $schema;
+}
+
+/*
+ * Implements hook_install().
+ *
+ * This is required to create required files directory.
+ */
+function js_injector_install() {
+  if (!js_injector_prepare_directory()) {
+    drupal_set_message(t('The JS injector cache directory could not be created. Please see the <a href="!url">status report</a> for more detail.', array(
+      '!url' => 'admin/reports/status',
+    )), 'error');
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * This is required to cleanup the left over files.
+ */
+function js_injector_uninstall() {
+  // Clean up the directory and all rules, we first need to include the module
+  // file that defines the constant.
+  module_load_include('module', 'js_injector');
+  file_unmanaged_delete_recursive(drupal_realpath(JS_INJECTOR_DIRECTORY_URI));
+}
+
+/**
+ * Implements hook_requirements().
+ *
+ * We'll use this to prevent installation of the module if the file directory
+ * is not available and writable.
+ */
+function js_injector_requirements($phase) {
+  $requirements = array();
+  if ($phase == 'runtime') {
+    $requirements['js_injector_cache_dir'] = array(
+      'title' => t('JS injector cache dir'),
+      'severity' => REQUIREMENT_OK,
+      'value' => t('Exists'),
+    );
+
+    if (!js_injector_prepare_directory()) {
+      $requirements['js_injector_cache_dir']['description'] = t('The JS injector cache directory, %path could not be created due to a misconfigured files directory. Please ensure that the files directory is correctly configured and that the webserver has permission to create directories.', array('%path' => file_uri_target(JS_INJECTOR_DIRECTORY_URI)));
+      $requirements['js_injector_cache_dir']['severity'] = REQUIREMENT_ERROR;
+      $requirements['js_injector_cache_dir']['value'] = t('Unable to create');
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Make sure that the js_injector files directory has been created.
+ *
+ * @return bool TRUE if the directory exists (or was created) and is writable.
+ *              FALSE otherwise.
+ */
+function js_injector_prepare_directory() {
+  $path = JS_INJECTOR_DIRECTORY_URI;
+  return file_prepare_directory($path, FILE_CREATE_DIRECTORY);
+}
+
+/**
+ * Change the description field to be called 'admin_description' so that it is displayed on the export UI list form.
+ */
+function js_injector_update_7001(&$sandbox) {
+  // Quick sanity check to ensure the column exists.
+  if (db_field_exists('js_injector_rule', 'description')) {
+    db_change_field('js_injector_rule', 'description', 'admin_description', array(
+      'type' => 'varchar',
+      'length' => '255',
+      'description' => 'A human readable name of a rule.',
+    ));
+  }
+}

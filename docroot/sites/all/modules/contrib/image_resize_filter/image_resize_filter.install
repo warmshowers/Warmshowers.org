@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function image_resize_filter_install() {
+  drupal_set_message(t('The image resize filter has been installed. Before this does anything, the image resize filter needs to be added to one or more text formats. Visit the <a href="!url">text format administration</a> to set up this filter.', array('!url' => url('admin/config/content/formats'))), 'warning');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function image_resize_filter_uninstall() {
+  drupal_load('module', 'image_resize_filter');
+  image_resize_filter_delete_all();
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function image_resize_filter_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+  if ($phase == 'install' && function_exists('image_get_toolkit')) {
+    if (!image_get_toolkit()) {
+      $requirements['image_resize_filter'] = array(
+        'title' => $t('Image resize filter'),
+        'description' => $t('Image resize filter requires at least one active image toolkit on your server.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Remove the old files sub-directory. Paths to resized images are now shorter.
+ */
+function image_resize_filter_update_6100() {
+  $ret = array();
+
+  drupal_load('module', 'image_resize_filter');
+  image_resize_filter_delete_all();
+  $ret[] = array('success' => TRUE, 'query' => t('The location of resized images has changed. The currently resized images have been flushed.'));
+
+  return $ret;
+}
+
+/**
+ * Remove the "Image resize difference" option.
+ * It was confusing and didn't actually do anything.
+ */
+function image_resize_filter_update_6101() {
+  $ret = array();
+
+  db_query("DELETE FROM {variable} WHERE name LIKE 'image_resize_filter_allowed_difference_%'");
+  $ret[] = array('success' => TRUE, 'query' => t('Image resize allowed difference option removed.'));
+
+  return $ret;
+}
+
+/**
+ * Clear out all resized images to give them proper names if they were missing.
+ */
+function image_resize_filter_update_6102() {
+  $ret = array();
+
+  drupal_load('module', 'image_resize_filter');
+  image_resize_filter_delete_all();
+  $ret[] = array('success' => TRUE, 'query' => t('Previously resized images may have been missing file names. The currently resized images have been flushed.'));
+
+  return $ret;
+}
+
+/**
+ * Upgrade Image Resize Filter to Drupal 7.
+ *
+ * This requires that converting filter settings from being in the variable
+ * table and store these settings in the filters table instead.
+ */
+function image_resize_filter_update_7000() {
+  foreach (filter_formats() as $fid => $format) {
+    $filters = filter_list_format($format->format);
+    if (isset($filters['image_resize_filter'])) {
+      $filters['image_resize_filter']->settings = array(
+        'image_locations' => variable_get('image_resize_filter_image_locations_' . $fid, array('local')),
+        'link' => variable_get('image_resize_filter_link_' . $fid, 0),
+        'link_class' => variable_get('image_resize_filter_link_class_' . $fid, ''),
+        'link_rel' => variable_get('image_resize_filter_link_rel_' . $fid, ''),
+      );
+      // filter_list_format() returns objects but filter_format_save() requires
+      // arrays for each filter.
+      foreach ($filters as $fid => $filter) {
+        $format->filters[$fid] = (array) $filter;
+      }
+      filter_format_save($format);
+    }
+  }
+  db_delete('variable')
+    ->condition('name', 'image_resize_filter_%', 'LIKE')
+    ->execute();
+}

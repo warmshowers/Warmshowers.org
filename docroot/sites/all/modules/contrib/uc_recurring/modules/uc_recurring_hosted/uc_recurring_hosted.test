@@ -1,0 +1,257 @@
+<?php
+
+/**
+ * @file
+ * UC Recurring paypal simpletest
+ */
+
+/**
+ * Test payment gateway api fuctions in uc_recurring.
+ */
+class ucRecurringPaypalWPSTestCase extends ucRecurringTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => t('Paypal WPS'),
+      'description' => t('Test the paypal IPN callback on recurring orders'),
+      'group' => t('Ubercart recurring fees'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('uc_order', 'uc_recurring', 'uc_recurring_product', 'uc_payment', 'uc_paypal', 'uc_recurring_hosted');
+
+    $this->createRecurringUsers();
+  }
+
+  /**
+   *  Place an order with the Paypal WPS gateway.
+   */
+  function testRecurringPaypal() {
+    $this->drupalLogin($this->user_recurring_admin);
+
+    $settings = array(
+      'uc_payment_method_paypal_wps_checkout' => TRUE,
+      'uc_paypal_wps_email' => 'paypal@example.com',
+    );
+    $this->drupalPost('admin/store/settings/payment/edit/methods', $settings, t('Save configuration'));
+
+    // Select mock gateway for payments.
+    $settings = array('uc_recurring_payment_methods[paypal_wps]' => TRUE);
+    $this->drupalPost('admin/store/settings/payment/edit/recurring', $settings, t('Save configuration'));
+
+    // Create products with recurring features.
+    $product = $this->createProduct(array('sell_price' => 20.00));
+    $recurring_feature = $this->createRecurringFeature($product->nid, array('unlimited_intervals' => TRUE, 'fee_amount' => 50));
+    $this->drupalLogout();
+
+    variable_set('uc_paypal_wps_server', url('uc_recurring_hosted/paypal/cgi-bin/webscr', array('absolute' => TRUE)));
+    variable_set('uc_paypal_wps_checkout_button', t('Submit order'));
+    variable_set('uc_paypal_wps_debug_ipn', TRUE);
+
+    $this->drupalPost('node/' . $product->nid, array(), t('Add to cart'));
+    $this->assertRaw($product->title, t('The product name has been displayed on the cart page.'));
+    $this->assertRaw('added to', t('The product name has been displayed on the cart page.'));
+    $this->checkout(array('panes[delivery][delivery_postal_code]' => '12345', 'panes[billing][billing_postal_code]' => '12345'));
+    $order_id = $this->lastCreatedOrderId();
+    $this->assertEqual($order_id, 1, t('First order created.'));
+
+    $url = url('uc_recurring_hosted/paypal/ipn/' . $order_id, array('absolute' => TRUE));
+    $headers = array('Content-Type' => 'application/x-www-form-urlencoded');
+
+    $post = $this->paypal_message('subscr_signup', $order_id);
+
+    $response = drupal_http_request($url, array('headers' => array('headers' => array(
+          'headers' => $headers,
+          'method' => 'POST',
+          'data' => http_build_query($post, '', '&'),
+        ))));
+    $order = uc_order_load($order_id);
+
+    $post = $this->paypal_message('subscr_payment', $order_id, 20);
+    $response = drupal_http_request($url, array('headers' => array('headers' => array(
+          'headers' => $headers,
+          'method' => 'POST',
+          'data' => http_build_query($post, '', '&'),
+        ))));
+    $new_order_id = $this->lastCreatedOrderId();
+    $order = uc_order_load($new_order_id);
+
+    $this->assertTrue(uc_payment_balance($order) <= 0, t('Order @order_id payment processed', array('@order_id' => $new_order_id)));
+
+    // Renew order.
+    $post = $this->paypal_message('subscr_payment', $order_id, 50);
+    $response = drupal_http_request($url, array('headers' => array('headers' => array(
+          'headers' => $headers,
+          'method' => 'POST',
+          'data' => http_build_query($post, '', '&'),
+        ))));
+    $new_order_id = $this->lastCreatedOrderId();
+    $order = uc_order_load($new_order_id);
+    $this->assertTrue(uc_payment_balance($order) <= 0, t('Order @order_id payment processed', array('@order_id' => $new_order_id)));
+    $this->assertEqual($order_id + 1, $new_order_id, t('New order created for renewal'));
+
+    // Handle failed payment.
+    $post = $this->paypal_message('subscr_failed', $order_id, 50);
+    $response = drupal_http_request($url, array('headers' => array('headers' => array(
+          'headers' => $headers,
+          'method' => 'POST',
+          'data' => http_build_query($post, '', '&'),
+        ))));
+    $new_order_id = $this->lastCreatedOrderId();
+    $this->assertEqual($order_id + 1, $new_order_id, t('No new order for failed payment'));
+
+    // Handle cancellation.
+    $post = $this->paypal_message('subscr_cancel', $order_id, 50);
+    $response = drupal_http_request($url, array('headers' => array('headers' => array(
+          'headers' => $headers,
+          'method' => 'POST',
+          'data' => http_build_query($post, '', '&'),
+        ))));
+    $order = uc_order_load($new_order_id);
+
+    $fee = $this->getSingleRecurringFeeFromOrder($order_id);
+    $this->assertEqual($fee->number_intervals, 0, t('Order has been cancelled'));
+
+    module_load_include('inc', 'uc_order', 'uc_order.admin');
+    $this->verbose(uc_order_log($order));
+  }
+
+  /**
+   * Mock return values from paypal
+   */
+  function paypal_message($msg_type, $order_id, $amount = 0) {
+    $subscr_id = 'S-36L13190CF840735L';
+    $lastname = 'lastname';
+    $firstname = 'firstname';
+    $payer_email = 'email@example.com';
+    $order_title = 'Order ' . $order_id;
+    $site_email = 'site@example.com';
+    $messages = array(
+      'subscr_signup' => array(
+        'txn_type' => 'subscr_signup',
+        'subscr_id' => $subscr_id,
+        'last_name' => $lastname,
+        'residence_country' => 'AU',
+        'mc_currency' => 'USD',
+        'item_name' => $order_title,
+        'business' => $site_email,
+        'amount1' => '20.00',
+        'amount3' => '50.00',
+        'recurring' => '1',
+        'verify_sign' => 'AD64hcmiT1x99QnLF9FyFJZ8tiTHAkx9HelO6oUjwyK4tjmKRIrCWgjd',
+        'payer_status' => 'unverified',
+        'payer_email' => $payer_email,
+        'first_name' => $firstname,
+        'receiver_email' => $site_email,
+        'payer_id' => '76VZLCDJFJF34',
+        'invoice' => $order_id . '-QKO',
+        'reattempt' => '1',
+        'subscr_date' => '06:04:49 Aug 31, 2009 PDT',
+        'charset' => 'windows-1252',
+        'notify_version' => '2.8',
+        'period1' => '7 D',
+        'mc_amount1' => '20.00',
+        'period3' => '1 M',
+        'mc_amount3' => '50.00',
+      ),
+      'subscr_payment' => array(
+        'transaction_subject' => '',
+        'payment_date' => '04:23:25 Aug 30, 2009 PDT',
+        'txn_type' => 'subscr_payment',
+        'subscr_id' => $subscr_id,
+        'last_name' => $lastname,
+        'residence_country' => 'AU',
+        'item_name' => $order_title,
+        'payment_gross' => sprintf("%0.2f", $amount),
+        'mc_currency' => 'USD',
+        'business' => $site_email,
+        'payment_type' => 'instant',
+        'protection_eligibility' => 'Ineligible',
+        'verify_sign' => 'ADcTLhZXAOjhiy0C89yIcZ88CzBWADhlrLg1DyMqv-xDus-qyJrrmsvo',
+        'payer_status' => 'unverified',
+        'payer_email' => $payer_email,
+        'txn_id' => '58H79324DK124573U',
+        'receiver_email' => $site_email,
+        'first_name' => $firstname,
+        'invoice' => $order_id . '-EPK',
+        'payer_id' => '6XGCGCPH8W534',
+        'receiver_id' => 'GWA2A76YCPXVQ',
+        'payment_status' => 'Completed',
+        'payment_fee' => '2.63',
+        'mc_fee' => '2.63',
+        'mc_gross' => sprintf("%0.2f", $amount),
+        'charset' => 'windows-1252',
+        'notify_version' => '2.8',
+      ),
+      'subscr_failed' => array(
+        'txn_type' => 'subscr_failed',
+        'subscr_id' => $subscr_id,
+        'last_name' => $lastname,
+        'residence_country' => 'AU',
+        'item_name' => $order_title,
+        'payment_gross' => '50.00',
+        'mc_currency' => 'USD',
+        'business' => $site_email,
+        'verify_sign' => 'Ac1LtbexNvR-7fVEm2Hr8nwAP9nwASZ078vAUAidKZpOaZ8.lZAgmMk4',
+        'payer_status' => 'verified',
+        'payer_email' => $payer_email,
+        'first_name' => $firstname,
+        'receiver_email' => $site_email,
+        'payer_id' => 'WAKK3E8Z9J3E',
+        'invoice' => $order_id . '-BDK',
+        'retry_at' => '06:21:12 Sep 02, 2009 PDT',
+        'payer_business_name' => 'Business',
+        'mc_gross' => '50.00',
+        'charset' => 'windows-1252',
+        'notify_version' => '2.8',
+      ),
+      'subscr_cancel' => array(
+        'txn_type' => 'subscr_cancel',
+        'subscr_id' => $subscr_id,
+        'last_name' => $lastname,
+        'residence_country' => 'AU',
+        'mc_currency' => 'USD',
+        'item_name' => $order_title,
+        'amount1' => '20.00',
+        'business' => $site_email,
+        'amount3' => '50.00',
+        'recurring' => '1',
+        'verify_sign' => 'AFcWxV21C7fd0v3bYYYRCpSSRl31ARFS9PJtnu4RIGItZ5.Ob4xzwvYZ',
+        'payer_status' => 'verified',
+        'payer_email' => $payer_email,
+        'first_name' => $firstname,
+        'receiver_email' => $site_email,
+        'payer_id' => 'WAKK3E8Z9J3EE',
+        'invoice' => $order_id . '-BDK',
+        'reattempt' => '1',
+        'payer_business_name' => 'Business',
+        'subscr_date' => '11:50:37 Sep 02, 2009 PDT',
+        'charset' => 'windows-1252',
+        'notify_version' => '2.8',
+        'period1' => '7 D',
+        'mc_amount1' => '20.00',
+        'period3' => '1 M',
+        'mc_amount3' => '50.00',
+      ),
+      'subscr_eot' => array(
+        'txn_type' => 'subscr_eot',
+        'subscr_id' => $subscr_id,
+        'last_name' => $lastname,
+        'residence_country' => 'AU',
+        'item_name' => $order_title,
+        'mc_currency' => 'USD',
+        'business' => $site_email,
+        'verify_sign' => 'AdQt9JQnh.MOM7Fe6O8DQY7ve6g3ATrYHEG3jPMHBdHlDnTBZeEEQKDR',
+        'payer_status' => 'verified',
+        'payer_email' => $payer_email,
+        'first_name' => $firstname,
+        'receiver_email' => $site_email,
+        'payer_id' => 'SJKZMSLWS4J54',
+        'invoice' => $order_id . '-MSX',
+        'charset' => 'windows-1252',
+        'notify_version' => '2.8',
+      ),
+    );
+    return $messages[$msg_type];
+  }
+}

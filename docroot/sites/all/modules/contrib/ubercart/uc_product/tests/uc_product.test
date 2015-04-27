@@ -1,0 +1,185 @@
+<?php
+
+/**
+ * @file
+ * Ubercart Product Tests
+ */
+
+class UbercartProductTestCase extends UbercartTestHelper {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Products',
+      'description' => 'Ensure that the product content types provided function properly.',
+      'group' => 'Ubercart',
+    );
+  }
+
+  /**
+   * Overrides DrupalWebTestCase::setUp().
+   */
+  public function setUp() {
+    parent::setUp(array(), array('administer content types'));
+    $this->drupalLogin($this->adminUser);
+  }
+
+  /**
+   *
+   */
+  public function testProductNodeForm() {
+    $this->drupalGet('node/add/product');
+
+    foreach (array('model', 'list_price', 'cost', 'sell_price', 'shippable', 'weight', 'weight_units', 'dim_length', 'dim_width', 'dim_height', 'length_units', 'pkg_qty', 'ordering') as $field) {
+      $this->assertFieldByName($field, NULL);
+    }
+
+    $body_key = 'body[und][0][value]';
+
+    // Make a node with those fields.
+    $edit = array(
+      'title' => $this->randomName(32),
+      $body_key => $this->randomName(64),
+      'model' => $this->randomName(8),
+      'list_price' => mt_rand(1, 200),
+      'cost' => mt_rand(0, 100),
+      'sell_price' => mt_rand(1, 150),
+      'shippable' => mt_rand(0, 1),
+      'weight' => mt_rand(1, 50),
+      'weight_units' => array_rand(array(
+        'lb' => t('Pounds'),
+        'kg' => t('Kilograms'),
+        'oz' => t('Ounces'),
+        'g'  => t('Grams'),
+      )),
+      'dim_length' => mt_rand(1, 50),
+      'dim_width' => mt_rand(1, 50),
+      'dim_height' => mt_rand(1, 50),
+      'length_units' => array_rand(array(
+        'in' => t('Inches'),
+        'ft' => t('Feet'),
+        'cm' => t('Centimeters'),
+        'mm' => t('Millimeters'),
+      )),
+    );
+
+    $this->drupalPost(
+      'node/add/product',
+      $edit,
+      t('Save')
+    );
+    $this->assertText(
+      t('Product @title has been created.', array('@title' => $edit['title'])),
+      t('Product created.')
+    );
+    $this->assertText(
+      $edit[$body_key],
+      t('Product body found.')
+    );
+    $this->assertText(
+      t('SKU: @model', array('@model' => $edit['model'])),
+      t('Product model found.')
+    );
+    $this->assertText(
+      t('Price: @price', array('@price' => uc_currency_format($edit['sell_price']))),
+      t('Product sell price found.')
+    );
+    $this->assertNoUniqueText(
+      uc_currency_format($edit['sell_price']),
+      t('Price appears more than once.')
+    );
+
+    $elements = $this->xpath('//body[contains(@class, "uc-product-node")]');
+    $this->assertEqual(count($elements), 1, t('Product page contains body CSS class.'));
+  }
+
+  /**
+   *
+   */
+  public function testProductClassForm() {
+    // Try making a new product class.
+    $class = $this->randomName(12);
+    $type = strtolower($class);
+    $edit = array(
+      'pcid' => $class,
+      'name' => $class,
+      'description' => $this->randomName(32),
+    );
+
+    $this->drupalPost(
+      'admin/store/products/classes',
+      $edit,
+      t('Save')
+    );
+    $this->assertText(
+      t('Product class saved.'),
+      t('Product class form submitted.')
+    );
+
+    $base = db_query('SELECT base FROM {node_type} WHERE type = :type', array(':type' => $type))->fetchField();
+    $this->assertEqual(
+      $base,
+      'uc_product',
+      t('The new content type has been created in the database.')
+    );
+
+    // Change the machine name of an existing class.
+    $new_type = strtolower($this->randomName(12));
+    $edit = array(
+      'type' => $new_type,
+    );
+    $this->drupalPost('admin/structure/types/manage/' . $type, $edit, 'Save content type');
+    $this->assertText('Machine name: ' . $new_type, 'Updated machine name found.');
+    $this->assertNoText('Machine name: ' . $type, 'Old machine name not found.');
+
+    // Make an existing node type a product class.
+    $type = $this->drupalCreateContentType();
+    $edit = array(
+      'pcid' => $type->type,
+      'name' => $type->name,
+      'description' => $type->description,
+    );
+    $node = $this->drupalCreateNode(array('type' => $type->type));
+
+    $this->drupalPost(
+      'admin/store/products/classes',
+      $edit,
+      t('Save')
+    );
+    $this->assertText(
+      t('Product class saved.'),
+      t('Product class form submitted.')
+    );
+
+    $base = db_query('SELECT base FROM {node_type} WHERE type = :type', array(':type' => $type->type))->fetchField();
+    $this->assertEqual(
+      $base,
+      'uc_product',
+      t('The new content type has been taken over by uc_product.'));
+
+    $this->drupalPost('node/' . $node->nid, array('qty' => '1'), 'Add to cart');
+    $this->assertText($node->title . ' added to your shopping cart.');
+  }
+
+  public function testProductQuantity() {
+    variable_set('uc_product_add_to_cart_qty', TRUE);
+
+    // Check zero quantity message.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '0'), 'Add to cart');
+    $this->assertText('The quantity cannot be zero.');
+
+    // Check invalid quantity messages.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => 'x'), 'Add to cart');
+    $this->assertText('The quantity must be a number.');
+
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '1a'), 'Add to cart');
+    $this->assertText('The quantity must be a number.');
+
+    // Check cart add message.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '1'), 'Add to cart');
+    $this->assertText($this->product->title . ' added to your shopping cart.');
+
+    // Check cart update message.
+    $this->drupalPost('node/' . $this->product->nid, array('qty' => '1'), 'Add to cart');
+    $this->assertText('Your item(s) have been updated.');
+  }
+}

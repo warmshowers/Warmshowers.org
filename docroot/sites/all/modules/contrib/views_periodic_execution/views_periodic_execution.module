@@ -1,0 +1,153 @@
+<?php
+
+
+/**
+ * Implementation of hook_views_menu().
+ */
+function views_periodic_execution_menu() {
+  $items = array();
+
+  $items['admin/reports/views_periodic_execution'] = array(
+    'title' => 'Periodic views execution',
+    'description' => t('Shows a list of views that are periodically executed.'),
+    'page callback' => 'views_periodic_execution_report',
+    'file' => 'views_periodic_execution.report.inc',
+    'access arguments' => array('administer views periodic execution'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/reports/views_periodic_execution/reset_time/%/%'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => 'views_periodic_execution_reset_time',
+    'page arguments' => array(4, 5),
+    'file' => 'views_periodic_execution.report.inc',
+    'access arguments' => array('administer views periodic execution'),
+  );
+
+  $items['admin/reports/views_periodic_execution/execute/%/%'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => 'views_periodic_execution_execute',
+    'page arguments' => array(4, 5),
+    'file' => 'views_periodic_execution.report.inc',
+    'access arguments' => array('administer views periodic execution'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm()
+ */
+function views_periodic_execution_permission() {
+  return array(
+    'administer views periodic execution' => array(
+      'title' => t('Administer views periodic execution'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_views_api()
+ */
+function views_periodic_execution_views_api() {
+  return array(
+    'api' => 3,
+  );
+}
+
+/**
+ * Get views with the given display type.
+ *
+ * This function will return an array of the views defined on the current site
+ * with the given display plugin.
+ *
+ * @param $display_type
+ *   The display type to filter by.
+ * @return
+ *   An array of arrays consisting of two elements: 'view', 'display'.
+ *   These map to the view name and display name of the matching views.
+ */
+function views_periodic_execution_get_compatible_views($display_type = 'views_periodic_execution_plugin_display') {
+
+  //Code adapted from context_contrib module
+
+  //Don't re-calculate if already done so this request
+  static $enabled_views;
+  if (isset($enabled_views)) {
+    return $enabled_views;
+  }
+
+  $enabled_views = array();
+  $views = views_get_all_views();
+
+  foreach ($views as $view) {
+    if (empty($views[$view->name]->disabled)) {
+      foreach ($view->display as $id => $display) {
+        $display_plugin = views_fetch_plugin_data('display', $display->display_plugin);
+        if (is_subclass_of($display_plugin['handler'], $display_type)) {
+          $enabled_views[] = array('view' => $view->name, 'display' => $id);
+        }
+      }
+    }
+  }
+  return $enabled_views;
+}
+/**
+ * Gets the last time that the given view and display was executed.
+ *
+ * @param $view
+ *   The view name.
+ * @param $display
+ *   The name of the display on the view.
+ * @return
+ *   The timestamp of when the view was last executed or 0 if it has never
+ *   been executed.
+ */
+function views_periodic_execution_view_last_executed_time_get($view, $display) {
+  $times = variable_get('views_periodic_execution_last_executed_times', array());
+
+  if (isset($times[$view . ':' . $display])) {
+    return $times[$view . ':' . $display];
+  }
+  return 0;
+}
+
+/**
+ * Set the last time that the view and display was executed.
+ *
+ * @param $view
+ *   The view name.
+ * @param $display
+ *   The name of the display on the view.
+ * @param $time
+ *   The timestamp of when the view was executed.
+ */
+function views_periodic_execution_view_last_executed_time_set($view, $display, $time) {
+  $times = variable_get('views_periodic_execution_last_executed_times', array());
+  $times[$view . ':' . $display] = $time;
+  variable_set('views_periodic_execution_last_executed_times', $times);
+}
+
+/**
+ * Implementation of hook_cron().
+ *
+ * Find all the views that are enabled and rules executors, and execute them
+ * according to scheduling.
+ */
+function views_periodic_execution_cron() {
+
+  // We need to find all views with a specific display, and execute them:
+  $views = views_periodic_execution_get_compatible_views();
+  foreach ($views as $view_data) {
+    $last_executed = views_periodic_execution_view_last_executed_time_get($view_data['view'], $view_data['display']);
+    $view = views_get_view($view_data['view']);
+    $view->set_display($view_data['display']);
+    $interval = $view->display_handler->get_interval();
+
+    // The first condition here allows us to have displays that are never automatically executed:
+    if (($interval >= 0) && time() - $last_executed > $interval) {
+      // Execute the view:
+      $view->execute_display($view_data['display']);
+    }
+  }
+}

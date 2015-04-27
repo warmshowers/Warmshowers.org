@@ -1,0 +1,286 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_file module.
+ */
+
+// -1 is the UC_FILE_LIMIT_SENTINEL constant in uc_file.module, but
+// it might not be available (like when upgrading from 5 -> 6.
+
+/**
+ * Implements hook_schema().
+ */
+function uc_file_schema() {
+  $schema = array();
+
+  $schema['uc_files'] = array(
+    'description' => 'Stores information on purchasable files.',
+    'fields' => array(
+      'fid' => array(
+        'description' => 'Primary key: the file ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'filename' => array(
+        'description' => 'The name of the file.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('fid'),
+    'indexes' => array(
+      'filename' => array('filename'),
+    ),
+  );
+
+  $schema['uc_file_products'] = array(
+    'description' => 'Maps file product features to files.',
+    'fields' => array(
+      'fpid' => array(
+        'description' => 'Primary key: the ID for the file-product combination.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'pfid' => array(
+        'description' => 'The {uc_product_features}.pfid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'fid' => array(
+        'description' => 'The {uc_files}.fid of the purchasable file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'model' => array(
+        'description' => 'The product model.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'description' => array(
+        'description' => 'The description of the file.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'shippable' => array(
+        'description' => 'Is this file feature shippable? 1 => Yes. 0 => No.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'download_limit' => array(
+        'description' => 'The number of times the file may be downloaded by a user. -1 indicates the store default will be used.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => -1, // UC_FILE_LIMIT_SENTINEL
+      ),
+      'address_limit' => array(
+        'description' => 'The number of different IP addresses from which the file may be downloaded. -1 indicates the store default will be used.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => -1, // UC_FILE_LIMIT_SENTINEL
+      ),
+
+      'time_granularity' => array(
+        'description' => 'The units of time for time_quantity. -1 indicates the store default will be used.',
+        'type' => 'varchar',
+        'length' => 16,
+        'not null' => TRUE,
+        'default' => '-1', // UC_FILE_LIMIT_SENTINEL
+      ),
+      'time_quantity' => array(
+        'description' => 'With time_granularity, the amount of time the file will be available for download. -1 indicates the store default will be used.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => -1, // UC_FILE_LIMIT_SENTINEL
+      ),
+    ),
+    'indexes' => array(
+      'pfid' => array('pfid'),
+      'fid' => array('fid'),
+    ),
+    'primary key' => array('fpid'),
+    'foreign keys' => array(
+      'uc_product_features' => array(
+        'table' => 'uc_product_features',
+        'columns' => array('pfid' => 'pfid'),
+      ),
+      'uc_files' => array(
+        'table' => 'uc_files',
+        'columns' => array('fid' => 'fid'),
+      ),
+    ),
+  );
+
+  $schema['uc_file_users'] = array(
+    'description' => 'The customers and the files they have purchased.',
+    'fields' => array(
+      'fuid' => array(
+        'description' => 'Primary key: the ID of the file-user combination.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'fid' => array(
+        'description' => 'The {uc_files}.fid that was purchased.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid of the user who purchased the file.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'pfid' => array(
+        'description' => 'The product feature ID of the product that was ordered, from {uc_file_products}.pfid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'file_key' => array(
+        'description' => 'A hash of the data in this row.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'granted' => array(
+        'description' => 'The Unix timestamp indicating when the file was made available for download.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'expiration' => array(
+        'description' => 'The Unix timestamp indicating when the file will no longer be available for download.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => 0,
+      ),
+      'accessed' => array(
+        'description' => 'The number of times the file has been downloaded by the user.',
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'addresses' => array(
+        'description' => 'The number of different IP addresses the user has used to download the file.',
+        'type' => 'text',
+        'serialize' => TRUE,
+        'not null' => FALSE,
+      ),
+      'download_limit' => array(
+        'description' => 'The number of times the user may download the file.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+      'address_limit' => array(
+        'description' => 'The number of different IP addresses the user may use to download the file.',
+        'type' => 'int',
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+    ),
+    'indexes' => array(
+      'fid_uid' => array('fid', 'uid'),
+      'uid' => array('uid'),
+    ),
+    'primary key' => array('fuid'),
+    'foreign keys' => array(
+      'uc_product_features' => array(
+        'table' => 'uc_product_features',
+        'columns' => array('pfid' => 'pfid'),
+      ),
+      'uc_files' => array(
+        'table' => 'uc_files',
+        'columns' => array('fid' => 'fid'),
+      ),
+      'users' => array(
+        'table' => 'users',
+        'columns' => array('uid' => 'uid'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_file_uninstall() {
+  db_delete('uc_product_features')
+    ->condition('fid', 'file')
+    ->execute();
+
+  db_delete('variable')
+    ->condition('name', 'uc_file_%', 'LIKE')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_file_update_last_removed() {
+  return 6006;
+}
+
+/**
+ * Change 'uc_file_file_mask' variable to a preg regular expression.
+ */
+function uc_file_update_7000() {
+  $mask = '/' . variable_get('uc_file_file_mask', '.*') . '/';
+  variable_set('uc_file_file_mask', $mask);
+
+  return t("Variable 'uc_file_file_mask' changed to @mask.", array('@mask' => $mask));
+}
+
+/**
+ * Increase the length of {uc_file_users}.file_key.
+ */
+function uc_file_update_7001() {
+  db_change_field('uc_file_users', 'file_key', 'file_key', array(
+    'type' => 'varchar',
+    'length' => 64,
+    'not null' => TRUE,
+    'default' => '',
+  ));
+}
+
+/**
+ * Add a index on filename since we query on it fairly frequently.
+ */
+function uc_file_update_7002() {
+  // Index may have been added by uc_file_update_6007() in 6.x-2.x.
+  if (!db_index_exists('uc_files', 'filename')) {
+    db_add_index('uc_files', 'filename', array('filename'));
+  }
+}
+
+/**
+ * Change index on uc_file_users.fid to be over fid and uid.
+ */
+function uc_file_update_7003() {
+  // Index may have been changed in 6.x-2.x.
+  if (!db_index_exists('uc_file_users', 'fid_uid')) {
+    db_add_index('uc_file_users', 'fid_uid', array('fid', 'uid'));
+    db_drop_index('uc_file_users', 'fid');
+  }
+}

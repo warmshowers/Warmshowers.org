@@ -1,0 +1,489 @@
+<?php
+
+/**
+ * @file
+ * This file contains tests for the privatemsg limits module
+ */
+
+/**
+ * Test cases for the privatemsg_limits module.
+ */
+class PrivatemsgLimitsTestCase extends PrivatemsgBaseTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Privatemsg Limits',
+      'description' => 'Tests limits on sending and recieving messages.',
+      'group' => 'Privatemsg',
+    );
+  }
+
+  /**
+   * Install necessary modules.
+   */
+  function setUp() {
+    parent::setUp('privatemsg', 'privatemsg_limits', 'privatemsg_filter');
+  }
+
+  /**
+   * Test sending limits with threads as limits object.
+   */
+  function testSendLimitsMessages() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_send_enabled' => TRUE,
+      'privatemsg_limits_send_amount' => 3,
+      'privatemsg_limits_send_amount_role_3' => 5,
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    $this->drupalLogin($user);
+    for ($i = 0; $i < 3; $i++) {
+      // Send three messages.
+      $edit = array(
+        'recipient'   => $user->name,
+        'subject'     => $this->randomName(20),
+        'body[value]'        => $this->randomName(100),
+      );
+      $this->drupalPost('messages/new', $edit, t('Send message'));
+      $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user->name)));
+    }
+
+    // Send a fourth message that fails.
+    $blocked = array(
+      'recipient'   => $user->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t('Your message was not sent because you have exceeded your sending limit. You are allowed to send 3 messages every 1 hour.'));
+
+    // Verify that replies can't be sent either.
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('Your message was not sent because you have exceeded your sending limit. You are allowed to send 3 messages every 1 hour.'));
+
+    // Now the same with admin, he should be able to send 5 messages.
+    $this->drupalLogin($admin);
+    for ($i = 0; $i < 5; $i++) {
+      // Send three messages.
+      $edit = array(
+        'recipient'   => $admin->name,
+        'subject'     => $this->randomName(20),
+        'body[value]'        => $this->randomName(100),
+      );
+      $this->drupalPost('messages/new', $edit, t('Send message'));
+      $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+    }
+
+    // Send a sixth message that fails.
+    $blocked = array(
+      'recipient'   => $admin->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t('Your message was not sent because you have exceeded your sending limit. You are allowed to send 5 messages every 1 hour.'));
+
+    // Verify that replies can't be sent either.
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('Your message was not sent because you have exceeded your sending limit. You are allowed to send 5 messages every 1 hour.'));
+  }
+
+  /**
+   * Test sending limits with threads as limits object.
+   */
+  function testSendLimitsThreads() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_send_enabled' => TRUE,
+      'privatemsg_limits_send_amount' => 3,
+      'privatemsg_limits_send_amount_role_3' => 5,
+      'privatemsg_limits_send_object' => 'thread',
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    $this->drupalLogin($user);
+    for ($i = 0; $i < 3; $i++) {
+      // Send three messages.
+      $edit = array(
+        'recipient'   => $user->name,
+        'subject'     => $this->randomName(20),
+        'body[value]'        => $this->randomName(100),
+      );
+      $this->drupalPost('messages/new', $edit, t('Send message'));
+      $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user->name)));
+    }
+
+    // Send a fourth message that fails.
+    $blocked = array(
+      'recipient'   => $user->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t('Your message was not sent because you have exceeded your sending limit. You are allowed to send 3 messages every 1 hour.'));
+
+    // Verify that replies can still be sent.
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user->name)));
+
+    // Now the same with admin, he should be able to send 5 messages.
+    $this->drupalLogin($admin);
+    for ($i = 0; $i < 5; $i++) {
+      // Send three messages.
+      $edit = array(
+        'recipient'   => $admin->name,
+        'subject'     => $this->randomName(20),
+        'body[value]'        => $this->randomName(100),
+      );
+      $this->drupalPost('messages/new', $edit, t('Send message'));
+      $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+    }
+
+    // Send a sixth message that fails.
+    $blocked = array(
+      'recipient'   => $admin->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t('Your message was not sent because you have exceeded your sending limit. You are allowed to send 5 messages every 1 hour.'));
+
+    // Verify that replies can't be sent either.
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+  }
+
+  /**
+    * Test receive limit with messages as limits object.
+    */
+  function testReceiveLimitsMessages() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_receive_enabled' => TRUE,
+      'privatemsg_limits_receive_amount' => 3,
+      'privatemsg_limits_receive_amount_role_3' => 5,
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    // Check empty inbox.
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used messages) of your @limit messages limit.', array('@percent' => 0, '@used' => 0, '@limit' => 5)));
+
+    $this->drupalLogin($user);
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used messages) of your @limit messages limit.', array('@percent' => 0, '@used' => 0, '@limit' => 3)));
+
+    // Send three messages from user to admin.
+    for ($i = 0; $i < 3; $i++) {
+      $edit = array(
+        'recipient'   => $admin->name,
+        'subject'     => $this->randomName(20),
+        'body[value]'        => $this->randomName(100),
+      );
+      $this->drupalPost('messages/new', $edit, t('Send message'));
+      $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+    }
+
+    // Try sending an additional message.
+    $blocked = array(
+      'recipient'   => $admin->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t("Your message mailbox is currently full. You are allowed a maximum of @limit messages in your mailbox at one time. You won't be able to send or receive new messages until you delete some existing ones.", array('@limit' => 3)), 'Limit exceeded message displayed.');
+
+    // Try to reply to a sent message.
+    $this->drupalGet('messages/sent');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t("Your message mailbox is currently full. You are allowed a maximum of @limit messages in your mailbox at one time. You won't be able to send or receive new messages until you delete some existing ones.", array('@limit' => 3)), 'Limit exceeded message displayed.');
+
+    // Check user limits.
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used messages) of your @limit messages limit.', array('@percent' => 100, '@used' => 3, '@limit' => 3)));
+
+    // Check admin limits.
+    $this->drupalLogin($admin);
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used messages) of your @limit messages limit.', array('@percent' => 60, '@used' => 3, '@limit' => 5)));
+
+    // Try to send a message to the user.
+    $blocked = array(
+      'recipient'   => $user->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t("This message cannot be sent to @user because @user's mailbox is full.", array('@user' => $user->name)));
+
+    // Try to reply to a message.
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $this->assertNoText(t('Send message'));
+  }
+
+  /**
+    * Test receive limit with messages as limits object.
+    */
+  function testReceiveLimitsThreads() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_receive_enabled' => TRUE,
+      'privatemsg_limits_receive_amount' => 3,
+      'privatemsg_limits_receive_amount_role_3' => 5,
+      'privatemsg_limits_receive_object' => 'thread',
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    // Check empty inbox.
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used conversations) of your @limit conversations limit.', array('@percent' => 0, '@used' => 0, '@limit' => 5)));
+
+    $this->drupalLogin($user);
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used conversations) of your @limit conversations limit.', array('@percent' => 0, '@used' => 0, '@limit' => 3)));
+
+    // Send three messages from user to admin.
+    for ($i = 0; $i < 3; $i++) {
+      $edit = array(
+        'recipient'   => $admin->name,
+        'subject'     => $this->randomName(20),
+        'body[value]'        => $this->randomName(100),
+      );
+      $this->drupalPost('messages/new', $edit, t('Send message'));
+      $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+    }
+
+    // Try sending an additional message.
+    $blocked = array(
+      'recipient'   => $admin->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t("Your message mailbox is currently full. You are allowed a maximum of @limit conversations in your mailbox at one time. You won't be able to start or receive new conversations until you delete some existing ones.", array('@limit' => 3)), 'Limit exceeded message displayed.');
+
+    // Try to reply to a sent message.
+    $this->drupalGet('messages/sent');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+
+    // Check user limits.
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used conversations) of your @limit conversations limit.', array('@percent' => 100, '@used' => 3, '@limit' => 3)));
+
+    // Check admin limits.
+    $this->drupalLogin($admin);
+    $this->drupalGet('messages');
+    $this->assertText(t('You are currently using @percent% (@used conversations) of your @limit conversations limit.', array('@percent' => 60, '@used' => 3, '@limit' => 5)));
+
+    // Try to send a message to the user.
+    $blocked = array(
+      'recipient'   => $user->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $blocked, t('Send message'));
+    $this->assertText(t("This message cannot be sent to @user because @user's mailbox is full.", array('@user' => $user->name)));
+
+    // Try to reply to a message.
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user->name)));
+  }
+
+  /**
+   * Test limiting the number of recipients.
+   */
+  function testRecipientsLimits() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user1 = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+    $user2 = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+    $user3 = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_recipients_enabled' => TRUE,
+      'privatemsg_limits_recipients_amount' => 1,
+      'privatemsg_limits_recipients_amount_role_3' => 2,
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    // Send a message to a single user.
+    $edit = array(
+      'recipient'   => $user1->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user1->name)));
+
+    // Send a message to two users.
+    $edit = array(
+      'recipient'   => $user1->name . ', ' . $user2->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user1->name . ', ' . $user2->name)));
+
+    // Try sending a message to three users.
+    $edit = array(
+      'recipient'   => $user1->name . ', ' . $user2->name . ', ' . $user3->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('You are not allowed to send a message to more than @number recipients.', array('@number' => 2)), 'Not allowed message displayed.');
+
+    // Login in as user.
+    $this->drupalLogin($user1);
+    // Send a message to a single users.
+    $edit = array(
+      'recipient'   => $user2->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user2->name)));
+
+    // Try sending a message to two users.
+    $edit = array(
+      'recipient'   => $user2->name . ', ' . $user3->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('You are not allowed to send a message to more than @number recipients.', array('@number' => 1)), 'Not allowed message displayed.');
+  }
+
+  /**
+   * Tests for limiting the number of messages per thread.
+   */
+  function testNumberOfMessagesBlock() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_messages_per_thread' => 2,
+      'privatemsg_limits_messages_per_thread_action' => 'block-message',
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    // Send a message to a user.
+    $edit = array(
+      'recipient'   => $user->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user->name)));
+
+    // Send a reply.
+    $this->drupalLogin($user);
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $edit = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+
+    // Try to send another one.
+    $edit = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $edit, t('Send message'));
+    $this->assertText(t("This message cannot be sent because the thread already contains @limit messages (the maximum number of messages permitted per thread). To send this message, please create a new message thread.", array('@limit' => 2)));
+  }
+
+  /**
+   * Tests for limiting the number of messages per thread.
+   */
+  function testNumberOfMessagesCreate() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $user = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    $this->drupalLogin($admin);
+
+    $settings = array(
+      'privatemsg_limits_messages_per_thread' => 1,
+      'privatemsg_limits_messages_per_thread_action' => 'create-new',
+    );
+    $this->drupalPost('admin/config/messaging/privatemsg/limits', $settings, t('Save configuration'));
+
+    // Send a message to a user.
+    $edit = array(
+      'recipient'   => $user->name,
+      'subject'     => $this->randomName(20),
+      'body[value]'        => $this->randomName(100),
+    );
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $user->name)));
+
+    // Send a reply.
+    $this->drupalLogin($user);
+    $this->drupalGet('messages');
+    $this->clickLink($edit['subject']);
+    $reply = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $reply, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $admin->name)));
+    // Make sure we are in a new thread and the original thread body isn't
+    // displayed anymore.
+    $this->assertNoText($edit['body[value]']);
+    $this->assertText($reply['body[value]']);
+  }
+}

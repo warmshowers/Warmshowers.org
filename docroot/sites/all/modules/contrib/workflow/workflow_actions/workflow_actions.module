@@ -1,0 +1,359 @@
+<?php
+/**
+ * @file
+ * Enables actions to be fired upon a Workflow State change.
+ *
+ * N.B. This module's name is incorrect. It provides Triggers, not Actions.
+ *
+ * Why it's own module? Some sites prefer rules, some prefer actions,
+ * all prefer a lower code footprint and better performance.
+ * Additional credit to gcassie ( http://drupal.org/user/80260 ) for
+ * the initial push to split actions out of core workflow.
+ */
+
+/**
+ * Implements hook_workflow_operations().
+ *
+ * Menu callback, called in workflow.admin.inc to add actions for states.
+ */
+function workflow_actions_workflow_operations($level, $workflow = NULL, $state = NULL) {
+  if ($workflow) {
+    return array(
+      'workflow_overview_actions' => array(
+        'title' => t('Actions'),
+        'href' => 'admin/structure/trigger/workflow/' . $workflow->wid,
+      ),
+    );
+  }
+}
+
+/**
+ * Implements hook_workflow().
+ */
+function workflow_actions_workflow($op, $id, $new_sid, $entity, $force = FALSE, $entity_type = 'node', $field_name = '', $transition = NULL) {
+  switch ($op) {
+    case 'transition post':
+      // Reminder: event 'transition post' does not occur for Workflow Field.
+      _workflow_actions_do($transition);
+      break;
+
+    case 'transition delete':
+      // @todo: implement delete triggers upon 'transition delete'.
+      // The below code generates an error PDOException: SQLSTATE[42S22].
+      // So, it is commented out as per d.o. #2200089. In 7.x-1.2, this trigger
+      // was never invoked. So, 'delete trigger upon transition delete' is now
+      // a feature request.
+      // $tid = $id;
+      // $actions = _workflow_actions_get_actions_by_tid($tid);
+      // foreach ($actions as $aid) {
+      // _workflow_actions_remove($tid, $aid);
+      // }
+      break;
+  }
+}
+
+/**
+ * Implements hook_entity_insert().
+ *
+ * Trigger the 'transition post' event for workflow_field.
+ * Do this only for Trigger & Actions, since Rules has its own way.
+ * And I ndo't like activating an extra hook for nothing.
+ */
+function workflow_actions_entity_insert($entity, $type) {
+  workflow_actions_entity_update($entity, $type);
+}
+
+/**
+ * Implements hook_entity_update().
+ *
+ * @see WorkflowTransition->execute()
+ */
+function workflow_actions_entity_update($entity, $entity_type) {
+  // For workflow_field, the 'transition post' event is not triggered in
+  // WorkflowTransition->execute(), since we are still IN a transition.
+  // This is now triggered here.
+  // (But without hook_workflow, since it crashes workflow_access.)
+  // P.S. You should not mix workflow field and workflow node!!
+  if (module_exists('workflowfield') && !module_exists('workflownode')) {
+    if (isset($entity->workflow_transitions)) {
+      foreach ($entity->workflow_transitions as $transition) {
+        // $transition->post_execute(); // equivalent with hook_entity_save().
+        _workflow_actions_do($transition);
+      }
+    }
+  }
+  elseif (module_exists('workflownode')) {
+    // This is already done in workflow_actions_workflow(). But we cannot move
+    // that here, since node_save()/entity_save() isn't always triggered.
+  }
+}
+
+/**
+ * Implements hook_trigger_info().
+ *
+ * Expose each transition as a hook.
+ */
+function workflow_actions_trigger_info() {
+  static $pseudohooks = array();
+
+  if ($pseudohooks) {
+    return $pseudohooks;
+  }
+
+  // If we come from a specific workflow, only show triggers for that workflow.
+  // Removed: it is confusing.
+  $trigger_page = FALSE;
+  $wid = 0;
+/*
+  if (drupal_substr($_GET['q'], 0, 32) == 'admin/structure/trigger/workflow') {
+    $trigger_page = TRUE;
+    $wid = arg(4);
+  }
+ */
+  $workflows = workflow_load_multiple($wid ? array($wid) : FALSE);
+
+  // Get the mapping for Node API.
+  // Build an array of Wid => array of types.
+  $workflow_node_type_map = module_exists('workflownode') ? workflow_get_workflow_type_map() : array();
+  foreach ($workflow_node_type_map as $type => $wid) {
+    $group = 'workflow';
+    $type_map[$wid][] = array('entity_type' => 'node', 'bundle' => $type, $group);
+  }
+
+  // Get the mapping for Field API.
+  $fields = _workflow_info_fields($entity = NULL, $entity_type = '');
+  foreach ($fields as $field_name => $field) {
+    if ($field['type'] == 'workflow') {
+      foreach ($field['bundles'] as $entity_type => $bundles) {
+        foreach ($bundles as $bundle) {
+          // Add the trigger to the approriate Tab on admin/structure/trigger.
+          switch ($entity_type) {
+            case 'node':          $group = $entity_type; break;
+            case 'taxonomy_term': $group = 'taxonomy';   break;
+            default:              $group = 'workflow';   break;
+          }
+          $type_map[$field['settings']['wid']][] = array(
+            'entity_type' => $entity_type,
+            'bundle' => $bundle,
+            'group' => $group,
+          );
+        }
+      }
+    }
+  }
+
+  // Initialize the Workflow tab on admin/structure/trigger/workflow.
+  $pseudohooks['workflow'] = array();
+  // Create a trigger for each possible combination.
+  foreach ($workflows as $wid => $workflow) {
+    $states = $workflow->getStates('CREATION');
+    foreach ($workflow->getTransitions() as $config_transition) {
+      $state = $states[$config_transition->sid];
+      $target_state = $states[$config_transition->target_sid];
+      if (!$state || !$target_state || !$state->isActive() || !$target_state->isActive()) {
+        continue;
+      }
+      // Add hook for Node API.
+      if (isset($type_map[$wid])) {
+        $creation_flag = $state->isCreationState();
+        foreach ($type_map[$wid] as $type_bundle) {
+
+          // Add the trigger to the appropriate Tab on admin/structure/trigger.
+          $group = isset($type_bundle['group']) ? $type_bundle['group'] : 'workflow';
+
+          $label = t('When @entity_type %bundle moves %workflow from %state to %target_state',
+            array(
+              '@entity_type' => $type_bundle['entity_type'],
+              '%bundle' => $type_bundle['bundle'],
+              '%workflow' => $workflow->label(),
+              '%state' => $state->label(),
+              '%target_state' => $target_state->label(),
+            )
+          );
+          $pseudohooks[$group]['workflow-' . $type_bundle['entity_type'] 
+                                     . '-' . $type_bundle['bundle']
+                                     . '-' . $config_transition->tid] = array(
+            'label' => $label,
+            'workflow_creation_state' => $creation_flag,
+          );
+        }
+      }
+    }
+  }
+
+  // $pseudohooks will not be set if no workflows have been assigned
+  // to node types.
+  if ($pseudohooks) {
+    return $pseudohooks;
+  }
+  elseif ($trigger_page) {
+    drupal_set_message(t('Either no transitions have been set up or this
+      workflow has not yet been assigned to a content type. To enable the
+      assignment of actions, edit the workflow to assign permissions for roles
+      to do transitions. After that is completed, transitions will appear here
+      and you will be able to assign actions to them.')
+    );
+  }
+  else {
+    return array();
+  }
+}
+
+/**
+ * Implements hook_drupal_alter().
+ */
+function workflow_actions_action_info_alter(&$info) {
+  $triggers = workflow_actions_trigger_info();
+  if (empty($triggers)) {
+    return;
+  }
+
+  // Loop through all available node actions and add them as triggers.
+  foreach ($triggers as $groups) {
+    foreach ($groups as $trigger_name => $data) {
+      foreach (node_action_info() as $action => $data) {
+        $info[$action]['triggers'][] = $trigger_name;
+      }
+    }
+  }
+}
+
+/**
+ * Helper function, that triggers actions.
+ * 
+ * @param $transition.
+ *   A Workflow Transition object.
+ */
+function _workflow_actions_do($transition) {
+  $entity_type = $transition->entity_type;
+  $entity = $transition->getEntity();
+  $old_sid = $transition->old_sid;
+  $new_sid = $transition->new_sid;
+
+  // A transition occurred; fire off actions associated with this transition.
+  $workflow = $transition->getWorkflow();
+  $config_transitions = $workflow->getTransitionsBySidTargetSid($old_sid, $new_sid);
+  $config_transition = reset($config_transitions);
+  if ($config_transition) {
+    list(, , $entity_bundle) = entity_extract_ids($entity_type, $entity);
+    $hook = 'workflow-' . $entity_type . '-' . $entity_bundle . '-' . $config_transition->tid;
+    $aids = trigger_get_assigned_actions($hook);
+    if (!$aids) {
+      // With 7x.-2.x, the pseudohooks have an extra 'entity_type' in the name.
+      // This is to be backwards compatible with 7.x-1.2
+      $hook = 'workflow-' . $entity_bundle . '-' . $config_transition->tid;
+      $aids = trigger_get_assigned_actions($hook);
+    }
+
+    if ($aids) {
+      $context = array(
+        'hook' => $hook,
+        'entity_type' => $entity_type,
+      );
+      // We need to get the expected object if the action's type is not 'node'.
+      // We keep the object in $objects so we can reuse it if we have
+      // multiple actions that make changes to an object.
+      $objects = array();
+      foreach ($aids as $aid => $action_info) {
+        if ($action_info['type'] != 'node') {
+          if (!isset($objects[$action_info['type']])) {
+            $objects[$action_info['type']] = _trigger_normalize_node_context($action_info['type'], $entity);
+          }
+          // Since we know the node, we pass it along to the action.
+          $context['node'] = $entity;
+          $result = actions_do($aid, $objects[$action_info['type']], $context);
+        }
+        else {
+          actions_do($aid, $entity, $context);
+        }
+      }
+    }
+  }
+}
+
+
+/**
+ * Remove an action assignment programmatically.
+ *
+ * Helpful when deleting a workflow.
+ *
+ * @param int $tid
+ *   Transition ID.
+ * @param int $aid
+ *   Action ID.
+ */
+function _workflow_actions_remove($tid, $aid) {
+  foreach (_workflow_actions_get_trigger_assignments_by_aid($aid) as $data) {
+    // Transition ID is the last part, e.g., foo-bar-1.
+    $transition = array_pop(explode('-', $data->hook));
+    if ($tid == $transition) {
+      $hooks[] = $data->hook;
+    }
+  }
+  foreach ($hooks as $hook) {
+    _workflow_actions_delete_trigger_assignments_by_aid_op($aid, $hook);
+    foreach (_workflow_actions_get_actions_by_aid($aid) as $action) {
+      watchdog('workflow', 'Action %action has been unassigned.',
+        array('%action' => $action->description));
+    }
+  }
+}
+
+/**
+ * DB functions.
+ */
+
+/**
+ * Get all trigger assignments for workflow.
+ */
+function _workflow_actions_get_trigger_assignments() {
+  $results = db_query('SELECT hook FROM {trigger_assignments} WHERE hook = "workflow"');
+  return $results->fetchAll();
+}
+
+/**
+ * Get all trigger assignments for workflow and a given action.
+ */
+function _workflow_actions_get_trigger_assignments_by_aid($aid) {
+  $results = db_query('SELECT hook FROM {trigger_assignments} WHERE hook = "workflow" AND aid = ":aid"', array(':aid' => $aid));
+  return $results->fetchAll();
+}
+
+/**
+ * Delete assignments, by action and operation.
+ */
+function _workflow_actions_delete_trigger_assignments_by_aid_op($aid, $op) {
+  return db_delete('trigger_assignments')->condition('hook', 'workflow')->condition('hook', $op)->condition('aid', $aid)->execute();
+}
+
+/**
+ * Get a specific action.
+ */
+function _workflow_actions_get_actions_by_aid($aid) {
+  $results = db_query('SELECT * FROM {actions} WHERE aid = ":aid"', array(':aid' => $aid));
+  return $results->fetchAll();
+}
+
+/**
+ * Gets the actions associated with a given transition.
+ *
+ * Array of action ids in the same format as _trigger_get_hook_aids().
+ */
+function _workflow_actions_get_actions_by_tid($tid) {
+  $aids = array();
+  foreach (_workflow_actions_get_trigger_assignments() as $data) {
+    // Transition ID is the last part, e.g., foo-bar-1.
+    $transition = array_pop(explode('-', $data->hook));
+    if ($tid == $transition) {
+      // Specialized, TODO separate this SQL out later.
+      $results = db_query('SELECT aa.aid, a.type FROM {trigger_assignments} aa
+        LEFT JOIN {actions} a ON aa.aid = a.aid
+        WHERE aa.hook = ":hook"
+        ORDER BY weight', array(':hook' => $data->hook));
+      foreach ($results as $action) {
+        $aids[$action->aid]['type'] = $action->type;
+      }
+    }
+  }
+  return $aids;
+}

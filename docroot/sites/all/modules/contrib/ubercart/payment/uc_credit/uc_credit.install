@@ -1,0 +1,85 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_credit module.
+ *
+ * This is mostly legacy code now.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_credit_uninstall() {
+  db_delete('variable')
+    ->condition('name', 'uc_credit_%', 'LIKE')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_credit_update_last_removed() {
+  // 7.x-3.0-beta2 and earlier were installed with schema version 0,
+  // which causes update.php to fail.
+  return drupal_get_installed_schema_version('uc_credit') == 0 ? 0 : 6000;
+}
+
+/**
+ * Remove credit card debug mode.
+ */
+function uc_credit_update_7000(&$sandbox) {
+  drupal_load('module', 'uc_credit');
+  module_load_include('inc', 'uc_store', 'classes/encrypt');
+
+  if (!isset($sandbox['progress'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['current_order_id'] = 0;
+    $sandbox['max'] = db_query("SELECT COUNT(order_id) FROM {uc_orders} WHERE data LIKE '%cc_data%'")->fetchField();
+  }
+
+  $t = get_t();
+  $limit = 100;
+  $crypt = new UbercartEncryption();
+  $key = uc_credit_encryption_key();
+
+  // Truncate stored data from debug mode.
+  $result = db_query_range("SELECT order_id, data FROM {uc_orders} WHERE order_id > :current AND data LIKE '%cc_data%' ORDER BY order_id", 0, $limit, array(':current' => $sandbox['current_order_id']));
+  while ($order = $result->fetchObject()) {
+    $sandbox['current_order_id'] = $order->order_id;
+
+    // Load up the existing data array.
+    $data = unserialize($order->data);
+    $cc_data = uc_credit_cache('save', $data['cc_data']);
+
+    // Save only some limited, PCI compliant data.
+    $cc_data['cc_number'] = substr($cc_data['cc_number'], -4);
+    unset($cc_data['cc_cvv']);
+
+    // Stuff the serialized and encrypted CC details into the array.
+    $data['cc_data'] = $crypt->encrypt($key, base64_encode(serialize($cc_data)));
+
+    // Save it again.
+    db_update('uc_orders')
+      ->fields(array('data' => serialize($data)))
+      ->condition('order_id', $order->order_id)
+      ->execute();
+
+    $sandbox['progress']++;
+    $sandbox['message'] = $t('Scrubbed credit card data from order @order_id', array('@order_id' => $order->order_id));
+  }
+
+
+  if ($sandbox['progress'] < $sandbox['max']) {
+    $sandbox['#finished'] = min(0.99, $sandbox['progress'] / $sandbox['max']);
+  }
+  else {
+    $sandbox['#finished'] = 1;
+
+    variable_del('uc_credit_checkout_process');
+    variable_del('uc_credit_debug');
+    variable_del('uc_credit_clear_status');
+    variable_del('uc_credit_number_duration');
+    variable_del('uc_credit_number_unit');
+  }
+}

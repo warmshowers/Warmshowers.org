@@ -1,0 +1,180 @@
+<?php
+
+/**
+ * @file
+ * Intercepts all outgoing emails to be rerouted to a configurable destination.
+ */
+
+define('REROUTE_EMAIL_ADDRESS', 'reroute_email_address');
+define('REROUTE_EMAIL_ADDRESS_EMPTY_PLACEHOLDER', t('[No reroute email address configured]'));
+define('REROUTE_EMAIL_ENABLE_MESSAGE', 'reroute_email_enable_message');
+define('REROUTE_EMAIL_ENABLE', 'reroute_email_enable');
+
+// Regular expression used to split email addresses provided in form.
+// This allows the use of any number of spaces, commas, or semicolons
+// between email addresses.
+define('REROUTE_EMAIL_EMAIL_SPLIT_RE', '/[\s,;]+/');
+
+
+/**
+ * Implements hook_module_implements_alter().
+ *
+ * Ensure reroute_email runs last when hook_mail_alter is invoked.
+ */
+function reroute_email_module_implements_alter(&$implementations, $hook) {
+  // Testing with isset is only necessary if module doesn't implement the hook.
+  if ($hook == 'mail_alter') {
+    // Move our hook implementation to the bottom.
+    $group = $implementations['reroute_email'];
+    unset($implementations['reroute_email']);
+    $implementations['reroute_email'] = $group;
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function reroute_email_permission() {
+  return array(
+    'administer reroute email' => array(
+      'title' => t('Administer Reroute Email'),
+      'description' => t('Administer the Reroute Email module.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function reroute_email_menu() {
+  $items = array();
+
+  $items['admin/config/development/reroute_email'] = array(
+    'title' => 'Reroute Email',
+    'description' => 'Reroute emails to a test address.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('reroute_email_settings'),
+    'access arguments' => array('administer reroute email'),
+    'file' => 'reroute_email.admin.inc',
+  );
+
+  $items['admin/config/development/reroute_email/settings'] = array(
+    'title' => 'Settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items['admin/config/development/reroute_email/test'] = array(
+    'title' => 'Test email form',
+    'type' => MENU_LOCAL_TASK,
+    'description' => 'Form for sending test email.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('reroute_email_test_email_form'),
+    'access arguments' => array('administer reroute email'),
+    'file' => 'reroute_email.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_mail_alter().
+ *
+ * This hook is required to change the destination of outgoing emails.
+ */
+function reroute_email_mail_alter(&$message) {
+  if (variable_get(REROUTE_EMAIL_ENABLE, 0)) {
+    global $base_url;
+
+    if (empty($message)) {
+      return;
+    }
+
+    if (!is_array($message)) {
+      return;
+    }
+
+    $mailkey = isset($message['id']) ? $message['id'] : t('[mail id] is missing');
+    $to = isset($message['to']) ? $message['to'] : t('[to] is missing');
+
+    $message['headers']['X-Rerouted-Mail-Key'] = $mailkey;
+    $message['headers']['X-Rerouted-Website'] = $base_url;
+
+    // Unset Bcc and Cc fields to prevent emails from going to those addresses.
+    if (isset($message['headers']) && is_array($message['headers'])) {
+
+      // Ensure we catch all Cc and Bcc headers, regardless of case,
+      // and protecting against multiple instances of the "same" header.
+      $header_keys = array();
+      foreach (array_keys($message['headers']) as $key) {
+        $header_keys[strtolower($key)][] = $key;
+      }
+
+      if (!empty($header_keys['cc'])) {
+        foreach ($header_keys['cc'] as $header) {
+          $message['headers']['X-Rerouted-Original-Cc'] = $message['headers'][$header];
+          unset($message['headers'][$header]);
+        }
+      }
+      if (!empty($header_keys['bcc'])) {
+        foreach ($header_keys['bcc'] as $header) {
+          $message['headers']['X-Rerouted-Original-Bcc'] = $message['headers'][$header];
+          unset($message['headers'][$header]);
+        }
+      }
+    }
+
+    // Split the address string on whitespace, ignoring any empty results.
+    $addresslist = preg_split(REROUTE_EMAIL_EMAIL_SPLIT_RE, variable_get(REROUTE_EMAIL_ADDRESS, variable_get('site_mail', ini_get('sendmail_from'))), -1, PREG_SPLIT_NO_EMPTY);
+
+    if (!in_array($to, $addresslist)) {
+      // Not on the list, so reroute to the first address in the list.
+      $message['headers']['X-Rerouted-Original-To'] = $to;
+      $message['to'] = !empty($addresslist[0]) ? $addresslist[0] : REROUTE_EMAIL_ADDRESS_EMPTY_PLACEHOLDER;
+
+      if (variable_get(REROUTE_EMAIL_ENABLE_MESSAGE, 1)) {
+        // Format a message to show at the top.
+        $msg = t("This email was rerouted.") . "\n";
+        $msg .= t("Web site: @site", array('@site' => $base_url)) . "\n";
+        $msg .= t("Mail key: @key", array('@key' => $mailkey)) . "\n";
+        $msg .= t("Originally to: @to", array('@to' => $to)) . "\n";
+        $msg .= "-----------------------\n";
+
+        // Prepend explanation message to the body of the email. This must be
+        // handled differently depending on whether the body came in as a
+        // string or an array. If it came in as a string (despite the fact it
+        // should be an array) we'll respect that and leave it as a string.
+        if (is_string($message['body'])) {
+          $message['body'] = $msg . $message['body'];
+        }
+        else {
+          array_unshift($message['body'], $msg);
+        }
+      }
+    }
+    // Abort sending of the email only if the address is an empty string.
+    if (variable_get(REROUTE_EMAIL_ADDRESS, NULL) === '') {
+      $message['send'] = FALSE;
+      // Record a variable dump of the email in the recent log entries.
+      watchdog('reroute_email', 'Aborted email sending for <em>@message_id</em>. <br/>Detailed email data: Array $message <pre>@message</pre>', array(
+        '@message_id' => $message['id'],
+        '@message' => print_r($message, TRUE),
+      ));
+      // Let users know email has been aborted, but logged.
+      drupal_set_message(t('<em>@message_id</em> was aborted by reroute email, please check the <a href="@dblog">recent log entries</a> for complete details on the rerouted email.', array('@message_id' => $message['id'], '@dblog' => url('admin/reports/dblog'))));
+    }
+  }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function reroute_email_mail($key, &$message, $params) {
+  if ($key != 'test_email_form') {
+    return;
+  }
+  $message['headers']['Cc'] = $params['cc'];
+  $message['headers']['Bcc'] = $params['bcc'];
+  $message['subject'] = $params['subject'];
+  $message['body'][] = $params['body'];
+}

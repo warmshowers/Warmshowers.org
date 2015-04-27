@@ -1,0 +1,383 @@
+<?php
+
+/**
+ * @file
+ * Provides a way to duplicate entire orders.
+ *
+ * Initial module development sponsored by River Valley Tech Collective
+ * http://www.rvtc.us/
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function uc_recurring_order_menu() {
+  $items['admin/store/settings/orders/edit/recurring'] = array(
+    'title' => 'Recurring orders',
+    'description' => 'Edit recurring order information.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_order_settings_form'),
+    'access arguments' => array('administer store'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 0,
+  );
+  return $items;
+}
+
+/**
+ * Settings for recurring orders
+ */
+function uc_recurring_order_settings_form($form) {
+  drupal_set_title(t('Recurring Order Settings'));
+
+  $intervals = variable_get('uc_recurring_order_interval_options', array());
+  foreach ($intervals as $int => $value) {
+    $options[] = $int . '|' . $value;
+  }
+  $options = !empty($options) ? implode("\n", $options) : '';
+
+  $form = array();
+  $form['interval_options'] = array(
+    '#type' => 'textarea',
+    '#required' => TRUE,
+    '#default_value' => $options,
+    '#title' => t('Available Recurring Interval Options'),
+    '#description' => t('Enter one allowed interval per line, in the format time|label, for example: 1 day|Daily.  Times must be in valid <a href="@link">strotime</a> format.  To enter a 0 value (non-recurring), make sure to enter valid strotime such as "0 months"', array('@link' => url('http://php.net/manual/en/function.strtotime.php'))),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+  return $form;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function uc_recurring_order_settings_form_validate($form, &$form_state) {
+  $errors = '';
+  $options = preg_split('/[\r\n]+/', $form_state['values']['interval_options']);
+  foreach ($options as $key => $value) {
+    if (!$value) continue;
+    $i = explode('|', $value);
+    if (strtotime($i[0])) {
+      $intervals[$i[0]] = (isset($i[1]) && $i[1] !== '') ? $i[1] : $i[0];
+    }
+    else {
+      $errors .= t('!error is not valid strtotime format <br />', array('!error' => $i[0]));
+    }
+  }
+  if ($errors) {
+    return form_set_error('interval_options', $errors);
+  }
+  $form_state['values']['intervals'] = $intervals;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function uc_recurring_order_settings_form_submit($form, &$form_state) {
+  variable_set('uc_recurring_order_interval_options', $form_state['values']['intervals']);
+  drupal_set_message(t('The recurring options have been saved.'));
+}
+
+/**
+ * Callback function to return interval options
+ *
+ * @return
+ *   An array of interval options
+ */
+function uc_recurring_order_get_intervals() {
+  $options = variable_get('uc_recurring_order_interval_options', array());
+  foreach ($options as $key => $option) {
+    $options[check_plain($key)] = check_plain($option);
+  }
+  return $options;
+}
+
+/**
+ * Implements hook_uc_cart_pane().
+ */
+function uc_recurring_order_uc_cart_pane($items) {
+  $panes[] = array(
+    'id' => 'recurring',
+    'body' => drupal_get_form('uc_recurring_order_pane_cart'),
+    'title' => t('Recurring order'),
+    'desc' => t("Allows shoppers to select to have their order automatically re-occur."),
+    'weight' => 1,
+    'enabled' => TRUE,
+  );
+  return $panes;
+}
+
+/**
+ * Cart pane recurring form.
+ */
+function uc_recurring_order_pane_cart($form, $form_state) {
+  $intervals = uc_recurring_order_get_intervals();
+
+  if (empty($intervals)) {
+    return;
+  }
+
+  $form['recurring_option'] = array(
+    '#type' => 'select',
+    '#title' => t('Recurring Order'),
+    '#description' => t('Select to have this order automatically repeat.'),
+    '#options' => $intervals,
+    '#default_value' => isset($_SESSION['recurring_option']) ? $_SESSION['recurring_option'] : '',
+  );
+  $form['apply'] = array(
+    '#type' => 'submit',
+    '#value' => t('Apply to order'),
+  );
+  return $form;
+}
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function uc_recurring_order_pane_cart_submit($form, &$form_state) {
+  if ($form_state['values']['recurring_option']) {
+    $recurring_option = $form_state['values']['recurring_option'];
+    $next_renewal = strtotime('+' . $recurring_option, REQUEST_TIME);
+    if ($next_renewal > REQUEST_TIME) {
+      $_SESSION['recurring_option'] = $recurring_option;
+      drupal_set_message(t('Your next order after this will occur on @next.', array('@next' => format_date($next_renewal, 'short'))));
+    }
+    else {
+      unset($_SESSION['recurring_option']);
+    }
+  }
+}
+
+/**
+ * Implements hook_uc_checkout_pane().
+ *
+ * Show a pane just above the order total that allows shoppers to select
+ * recurring option for the order.
+ */
+function uc_recurring_order_uc_checkout_pane() {
+  $panes[] = array(
+    'id' => 'recurring',
+    'callback' => 'uc_recurring_order_pane_checkout',
+    'title' => t('Recurring Order'),
+    'desc' => t("Allows shoppers to select to have their order automatically re-occur."),
+    'weight' => 5,
+    'process' => TRUE,
+  );
+  return $panes;
+}
+
+/**
+ * Checkout Pane callback function.
+ *
+ * Used to display a form in the checkout process so that customers
+ * can select recurring/repeat option.
+ */
+function uc_recurring_order_pane_checkout($op, &$order, $form = NULL, &$form_state = NULL) {
+  switch ($op) {
+    case 'view':
+      $intervals = uc_recurring_order_get_intervals();
+
+      if (empty($intervals)) {
+        return;
+      }
+
+      // Use recurring order info from cart pane if available.
+      if (isset($_SESSION['recurring_option'])) {
+        $recurring = $_SESSION['recurring_option'];
+        unset($_SESSION['recurring_option']);
+      }
+      else {
+        $recurring = isset($order->data['recurring_option']) ? $order->data['recurring_option'] : '';
+      }
+
+      $description = t('Select to have this order automatically repeat.');
+      $contents['recurring_option'] = array(
+        '#type' => 'select',
+        '#title' => t('Recurring Order'),
+        '#default_value' => $recurring,
+        '#options' => $intervals,
+      );
+      return array('description' => $description, 'contents' => $contents);
+
+    case 'process':
+      // Can't renew orders that include product with recurring payments.
+      if (module_exists('uc_recurring_product')) {
+        if (($products = uc_recurring_product_get_recurring_products_in_order($order))) {
+          unset($_SESSION['recurring_option']);
+          drupal_set_message(t('Unable to create recurring order when it contains recurring products'), 'warning');
+          return FALSE;
+        }
+      }
+
+      $recurring = $form_state['values']['panes']['recurring']['recurring_option'];
+      $next_renewal = strtotime('+' . $recurring, REQUEST_TIME);
+      if ($next_renewal > REQUEST_TIME) {
+        $order->data['recurring_option'] = $recurring;
+      }
+      else {
+        unset($_SESSION['recurring_option']);
+      }
+      return TRUE;
+
+    case 'review':
+      $review = NULL;
+      if (!empty($order->data['recurring_option'])) {
+        $next_renewal = strtotime('+' . $order->data['recurring_option']);
+        $review[] = array(
+          'title' => t('Recurring Order'),
+          'data' => t('Your next order after this will occur on @next.', array('@recurring' => $order->data['recurring_option'], '@next' => format_date($next_renewal, 'short'))),
+        );
+      }
+      return $review;
+  }
+}
+
+/**
+ * Implements hook_uc_order().
+ */
+function uc_recurring_order_uc_order($op, $order, $arg2) {
+  switch ($op) {
+    // TODO: Allow admin to create a recurring order from "create order" page.
+    case 'submit':
+      $recurring = isset($order->data['recurring_option']) ? $order->data['recurring_option'] : 0;
+      $next_renewal = strtotime('+' . $recurring);
+      if ($next_renewal > REQUEST_TIME && variable_get('uc_recurring_checkout_process', TRUE)) {
+        if (uc_recurring_order_process_order($order, $recurring) === FALSE) {
+          return array(array('pass' => FALSE, 'message' => t('Your order cannot be completed, because we could not process your recurring payment. Please review your payment details and contact us to complete your order if the problem persists.')));
+        }
+      }
+      break;
+    case 'save':
+      // Only update when this is a recurring order
+      if (isset($arg1->data['recurring_option'])) {
+        global $user;
+        $affected = db_update('uc_recurring_users')
+          ->fields(array(
+            'fee_amount' => uc_order_get_total($arg1),
+          ))
+          ->condition('order_id', $arg1->order_id)
+          ->execute();
+        if ($affected > 0) {
+          uc_order_comment_save($arg1->order_id, $user->uid, t('The recurring order amount was updated.'));
+        }
+        break;
+    }
+  }
+}
+
+/**
+ * Process a recurring order.
+ */
+function uc_recurring_order_process_order($order, $recurring) {
+  global $user;
+
+  if (variable_get('uc_recurring_order_enabled', TRUE)) {
+    $payment_method = !empty($order->payment_method) ? $order->payment_method : 'default';
+    if (!($fee_handler = uc_recurring_get_recurring_info($payment_method))) {
+      drupal_set_message(t('A handler for processing and renewing recurring fees cannot be found for the @payment-method payment method.', array('@payment-method' => $order->payment_method)), 'error');
+      return FALSE;
+    }
+
+    // Create a new fee object.
+    $fee = new stdClass();
+    $fee->uid = $order->uid;
+
+    $fee->fee_handler = $fee_handler['fee handler'];
+
+    $fee->created = REQUEST_TIME;
+    $fee->order_id = $order->order_id;
+
+    // If the product fee amount is 0, it means we need to use the product
+    // price. This allows recurring fees to be adjusted by attributes.
+    $fee->fee_amount = $order->order_total;
+
+    // Add the order's ID as the order title.
+    $fee->fee_title = t('Renewal of order @order_id', array('@order_id' => $order->order_id));
+
+    $fee->next_charge = strtotime('+' . $recurring);
+    $fee->regular_interval = $recurring;
+    $fee->remaining_intervals = -1; // hard coded to unlimited
+    $fee->charged_intervals = 0;
+
+    // Clone the products so we don't mess with the actual order products.
+    $products = array();
+    foreach ($order->products as $index => $product) {
+      $products[$index] = clone $product;
+      unset($products[$index]->order_product_id);
+      unset($products[$index]->order_id);
+    }
+
+    $fee->data = array(
+      'uc_recurring_order' => array(
+        'products' => $products,
+      ),
+    );
+    $fee->attempts = 0;
+    $fee->pfid = NULL;
+    $fee->order_product_id = NULL;
+    $fee->own_handler = !empty($fee_handler['own handler']);
+
+    drupal_alter('recurring_fee_user_create', $fee);
+
+    $rfid = FALSE;
+    if (uc_recurring_invoke($fee->fee_handler, 'process callback', array($order, &$fee))) {
+      $rfid = uc_recurring_fee_user_save($fee);
+      uc_order_comment_save($order->order_id, $user->uid, t('Recurring fee <a href="@recurring-view-fee">@rfid</a> added to order.', array('@recurring-view-fee' => url('admin/store/orders/recurring/view/fee/' . $rfid), '@rfid' => $rfid)));
+    }
+    else {
+      return FALSE;
+    }
+  }
+  return $rfid;
+}
+
+/**
+ * Implements hook_recurring_renewal_pending().
+ */
+function uc_recurring_order_recurring_renewal_pending(&$order, $fee) {
+  // recreate order
+  if (!empty($fee->data['uc_recurring_order'])) {
+    $order->products = $fee->data['uc_recurring_order']['products'];
+    $result = db_query("SELECT * FROM {uc_order_line_items} WHERE order_id = :order_id", array(':order_id' => $fee->order_id));
+    foreach ($result as $line_item) {
+      uc_order_line_item_add($order->order_id, $line_item->type, $line_item->title, $line_item->amount, $line_item->weight, $line_item->data);
+    }
+  }
+}
+
+/**
+ * Alter the Edit screen to show the products in the order.
+ */
+function uc_recurring_order_form_uc_recurring_admin_edit_form_alter(&$form, $form_state) {
+  $rfid = $form['rfid']['#value'];
+
+  $fee = uc_recurring_fee_user_load($rfid);
+
+  if (!empty($fee->data['uc_recurring_order'])) {
+    foreach ($fee->data['uc_recurring_order']['products'] as $product) {
+      $row = array(
+        'title' => $product->title,
+        'qty' => $product->qty,
+        'price' => $product->price,
+      );
+      $rows[] = $row;
+    }
+    $form['products'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Products'),
+      '#description' => theme('table', array(
+        'header' => array('Product', 'Quantity', 'Price'),
+        'rows' => $rows,
+       )),
+      '#weight' => -10,
+    );
+  }
+}

@@ -1,0 +1,217 @@
+<?php
+
+/**
+ * Implements hook_help().
+ */
+function mobile_theme_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    // Main module help for the block module
+    case 'admin/help#mobile_theme':
+      $output .= '<p>' . t('Adds the ability to choose which theme is used when the user visits the site using a mobile device.') . '</p>';
+      $output .= theme('item_list', array(
+        'title' => t('Instructions'),
+        'type' => 'ol',
+        'items' => array(
+          t('Visit the <a href="@appearance">Appearance settings</a>.', array('@appearance' => url('admin/appearance/settings'))),
+          t('Choose the mobile theme that will be used when the user is on a mobile device.'),
+          t('You might want to install one of the alternative device detection method as outlined below.'),
+        ),
+      ));
+      $output .= theme('item_list', array(
+        'title' => t('Alternative detection methods'),
+        'items' => array(
+          'Browscap' => array(
+            'data' => t('Browscap'),
+            'children' => array(
+              t('Install the <a href="@browscap">Browscap</a> Drupal module.', array('@browscap' => 'http://drupal.org/project/browscap')),
+              t('Select Browscap in the <a href="@appearance">Appearance settings</a>.', array('@appearance' => url('admin/appearance/settings'))),
+            ),
+          ),
+          'Mobile Device Detect' => array(
+            'data' => t('Mobile Device Detect'),
+            'children' => array(
+              t('Visit <a href="@detectmobilebrowsers">http://detectmobilebrowsers.mobi</a>.', array('@detectmobilebrowsers' => 'http://detectmobilebrowsers.mobi')),
+              t('<a href="@download">Download the code</a> and extract it to the Mobile Theme module directory.', array('@download' => url('http://detectmobilebrowsers.mobi/?dl'))),
+              t('You should end up with <code>@path</code>.', array('@path' => drupal_get_path('module', 'mobile_theme') . '/mobile_device_detect.php')),
+              t('It is recommended you <a href="@upgrade">upgrade</a> if on a commercial site.', array('@upgrade' => drupal_get_path('module', 'mobile_theme') . '/upgrade.php')),
+              t('Select Mobile Device Detect in the <a href="@appearance">Appearance settings</a>.', array('@appearance' => url('admin/appearance/settings'))),
+            ),
+          ),
+        ),
+      ));
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_custom_theme().
+ */
+function mobile_theme_custom_theme() {
+  // Retrieve the detection method.
+  $method = variable_get('mobile_theme_detection', 'mobile_theme_detect_php');
+
+  // If the detection method cannot be found, revert to default
+  if (!function_exists($method)) {
+    $method = "mobile_theme_detect_php";
+  }
+
+  // Check if this is a mobile 
+  $mobile_device = $method();
+  if ($mobile_device) {
+    $theme = variable_get('mobile_theme_selection', 'default');
+    if ($theme != 'default') {
+      return $theme;
+    }
+  }
+}
+
+/**
+ * Implements hook_mobile_theme_detection().
+ */
+function mobile_theme_mobile_theme_detection() {
+  // Provide get_browser by default.
+  $detection_methods = array(
+    'mobile_theme_detect_php' => t('PHP'),
+    'mobile_theme_detect_getbrowser' => t('get_browser'),
+  );
+
+  // Support Browscap module if available.
+  if (module_exists('browscap')) {
+    $detection_methods['mobile_theme_detect_browscap']  = t('Browscap');
+  }
+
+  // Support for http://detectmobilebrowsers.mobi .
+  if (file_exists(drupal_get_path('module', 'mobile_theme') . '/mobile_device_detect.php')) {
+    $detection_methods['mobile_theme_detect_mobiledevicedetect']  = t('Mobile Device Detect');
+  }
+  return $detection_methods;
+}
+
+/**
+ * Detect whether the user is on a mobile device by using get_browser.
+ */
+function mobile_theme_detect_getbrowser() {
+  $browser = get_browser(NULL, TRUE);
+  if (isset($browser['ismobiledevice'])) {
+    return $browser['ismobiledevice'];
+  }
+}
+
+/**
+ * Detect whether the user is on a mobile device using straight PHP.
+ */
+function mobile_theme_detect_php() {
+  $mobile_browser = 0;
+  if (preg_match('/(up.browser|up.link|mmp|symbian|smartphone|midp|wap|phone|android)/i', strtolower($_SERVER['HTTP_USER_AGENT']))) {
+    $mobile_browser++;
+  }
+  if ((strpos(strtolower($_SERVER['HTTP_ACCEPT']),'application/vnd.wap.xhtml+xml') > 0) or ((isset($_SERVER['HTTP_X_WAP_PROFILE']) or isset($_SERVER['HTTP_PROFILE'])))) {
+    $mobile_browser++;
+  }
+  $mobile_ua = strtolower(substr($_SERVER['HTTP_USER_AGENT'], 0, 4));
+  $mobile_agents = array(
+      'w3c ','acs-','alav','alca','amoi','audi','avan','benq','bird','blac',
+      'blaz','brew','cell','cldc','cmd-','dang','doco','eric','hipt','inno',
+      'ipaq','java','jigs','kddi','keji','leno','lg-c','lg-d','lg-g','lge-',
+      'maui','maxo','midp','mits','mmef','mobi','mot-','moto','mwbp','nec-',
+      'newt','noki','oper','palm','pana','pant','phil','play','port','prox',
+      'qwap','sage','sams','sany','sch-','sec-','send','seri','sgh-','shar',
+      'sie-','siem','smal','smar','sony','sph-','symb','t-mo','teli','tim-',
+      'tosh','tsm-','upg1','upsi','vk-v','voda','wap-','wapa','wapi','wapp',
+      'wapr','webc','winw','winw','xda ','xda-');
+  if (in_array($mobile_ua,$mobile_agents)) {
+    $mobile_browser++;
+  }
+  if (isset($_SERVER['ALL_HTTP']) && strpos(strtolower($_SERVER['ALL_HTTP']), 'OperaMini') > 0) {
+    $mobile_browser++;
+  }
+  if (strpos(strtolower($_SERVER['HTTP_USER_AGENT']), 'windows') > 0) {
+    $mobile_browser = 0;
+  }
+  return $mobile_browser > 0; 
+}
+
+/**
+ * Detect whether the user is on a mobile device by using Browscap.
+ */
+function mobile_theme_detect_browscap() {
+  $browser = browscap_get_browser(NULL);
+  if (isset($browser['ismobiledevice'])) {
+    return $browser['ismobiledevice'];
+  }
+}
+
+/**
+ * Detect whether the user is on a mobile device by using Mobile Device Detect.
+ */
+function mobile_theme_detect_mobiledevicedetect() {
+  // Include mobile_device_detect.php so that we can use it.
+  if (module_load_include('php', 'mobile_theme', 'mobile_device_detect') != FALSE) {
+    return mobile_device_detect();
+  }
+  else {
+    // Display a warning if the detection method was not found.
+    drupal_set_message(t('<em>Mobile Device Detect</em> is not installed. Visit the <a href="@adminhelpmobiletheme">documentation on Mobile Theme</a> for more installation instructions.', array(
+      '@adminhelpmobiletheme' => url('admin/help/mobile_theme'),
+    )), 'warning');
+    return FALSE;
+  }
+}
+
+/**
+ * Alter the system theme settings form to add the mobile theme settings.
+ */
+function mobile_theme_form_system_theme_settings_alter(&$form, $form_state, $form_id) {
+  // Create the administration settings form on the Global Settings page.
+  if ($form['var']['#value'] == 'theme_settings') {
+    // Create the fieldset for the Mobile Theme settings.
+    $form['mobile_theme'] = array(
+      '#type' => 'fieldset',
+      '#prefix' => '<div class="theme-settings-right">',
+      '#suffix' => '</div>',
+      '#title' => t('Mobile theme'),
+      '#description' => t('Configure how the site reacts to a mobile device.'),
+      '#weight' => -4,
+    );
+    // Select box for the detection method.
+    $form['mobile_theme']['mobile_theme_detection'] = array(
+      '#type' => 'select',
+      '#title' => t('Detection method'),
+      '#description' => t('Choose which method will be used to detect mobile devices. Visit the <a href="@help">help documentation</a> for information on how to add other device detection methods.', array(
+        '@help' => url('admin/help/mobile_theme'),
+      )),
+      '#options' => module_invoke_all('mobile_theme_detection'),
+      '#default_value' => variable_get('mobile_theme_detection', 'mobile_theme_detect_php'),
+    );
+    // Select box for the theme to be used for mobile devices.
+    $themes = array('default' => t('Default'));
+    $options = list_themes();
+    foreach ($options as $name => $attr) {
+      if ($attr->status) {
+        $themes[$name] = $attr->info['name'];
+      }
+    }
+    $form['mobile_theme']['mobile_theme_selection'] = array(
+      '#type' => 'select',
+      '#title' => 'Mobile theme',
+      '#description' => t('The theme to use when serving a mobile device.'),
+      '#options' => $themes,
+      '#default_value' => variable_get('mobile_theme_selection', 'default'),
+    );
+    // The submit handler will save the variable.
+    $form['#submit'][] = 'mobile_theme_settings_submit';
+  }
+}
+
+/**
+ * Submit handler on the theme settings to save the mobile theme.
+ */
+function mobile_theme_settings_submit($form, $form_state) {
+  if (isset($form_state['values']['mobile_theme_selection'])) {
+    variable_set('mobile_theme_selection', $form_state['values']['mobile_theme_selection']);
+  }
+  if (isset($form_state['values']['mobile_theme_detection'])) {
+    variable_set('mobile_theme_detection', $form_state['values']['mobile_theme_detection']);
+  }
+}

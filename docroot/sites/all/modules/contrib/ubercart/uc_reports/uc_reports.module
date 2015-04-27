@@ -1,0 +1,227 @@
+<?php
+
+/**
+ * @file
+ * Displays reports on sales, customers, and products to store admin.
+ *
+ * The reports module creates a few table-based reports for an Ubercart store.
+ * Store admins can view reports for sales between different dates, customers
+ * by the products purchased and money spent, and products by their views,
+ * number sold, and revenue produced.
+ */
+
+/**
+ * The maximum number of records.
+ */
+define('UC_REPORTS_MAX_RECORDS', PHP_INT_MAX);
+
+
+/**
+ * Implements hook_help().
+ */
+function uc_reports_help($path, $arg) {
+  $output =  '';
+
+  if (strncmp($path, 'admin/store/reports/', 20) === 0) {
+    $include_statuses = $include_offset = FALSE;
+
+    // Include order status info?
+    if (strpos($path, 'admin/store/reports/sales/year') === 0) {
+      $include_statuses = TRUE;
+    }
+    else {
+      switch ($path) {
+        case 'admin/store/reports/customers':
+        case 'admin/store/reports/products':
+        case 'admin/store/reports/sales':
+          $include_statuses = TRUE;
+          break;
+      }
+    }
+
+    // Include timezone offset info?
+    if (!strncmp($path, 'admin/store/reports/sales', 25)) {
+      $include_offset = TRUE;
+    }
+
+    // Generate message for the path we're at.
+    $output .= '<p>';
+    switch ($path) {
+      case 'admin/store/reports/customers':
+        $output .= t("The following are total orders, products, sales, and average order totals for each store customer. Clicking on the header links will toggle a descending or ascending order for that column. Clicking on a customer's name will take you to a detailed list of orders that customer has made. Clicking on a customers username will take you to their account page.");
+        break;
+      case 'admin/store/reports/products':
+        $output .= t('The table lists each product listed in the store, its amount sold, how many times it has been viewed, revenue it has produced, and gross profit it has generated. If you do not see the number of views you must enable the Statistics module on the <a href="!url">module administration page</a>.', array('!url' => url('admin/modules')));
+        break;
+      case 'admin/store/reports/sales':
+        $output .= t('These are the sales for the last two days, average sales for the month, and the projected sales for the rest of the month. Further down the list you will see other sales statistics.');
+        break;
+      case 'admin/store/reports/sales/custom':
+        $output .= t('Expand the fieldset below to customize the date range of this report, the statuses of orders displayed, and product display options.');
+        break;
+    }
+    if (strpos($path, 'admin/store/reports/sales/year') === 0) {
+      $year = $arg[5] ? $arg[5] : format_date(REQUEST_TIME, 'custom', "Y");
+      $output .= t('This is the monthly break down of sales for the year @year. Clicking on each link will take you to a list of orders during that month.', array('@year' => $year));
+    }
+    $output .= '</p>';
+
+    // Include the statuses/offset as needed.
+    if ($include_offset) {
+      $output .= "<p>" . t('All reports are your local timezone, which is <b>!timezone</b>.', array('!timezone' => date_default_timezone_get())) . "</p>";
+    }
+    if ($include_statuses) {
+      $statuses = array();
+      foreach (uc_reports_order_statuses() as $status) {
+        $statuses[] = db_query("SELECT title FROM {uc_order_statuses} WHERE order_status_id = :id", array(':id' => $status))->fetchField();
+      }
+      $order_statuses = t('<b>Order statuses used:</b> @statuses', array('@statuses' => implode(', ', array_filter($statuses))));
+
+      $output .= "<p>$order_statuses</p>";
+    }
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_reports_menu() {
+  global $user;
+  $items = array();
+
+  $items['admin/store/reports/customers'] = array(
+    'title' => 'Customer reports',
+    'description' => 'View reports for store customers.',
+    'page callback' => 'uc_reports_customers',
+    'access arguments' => array('view reports'),
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/products'] = array(
+    'title' => 'Product reports',
+    'description' => 'View reports for store products.',
+    'page callback' => 'uc_reports_products',
+    'access arguments' => array('view reports'),
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/products/summary'] = array(
+    'title' => 'Product report',
+    'access arguments' => array('view reports'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/products/custom'] = array(
+    'title' => 'Custom product report',
+    'description' => 'View a customized product report',
+    'page callback' => 'uc_reports_products_custom',
+    'access arguments' => array('view reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -5,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales'] = array(
+    'title' => 'Sales reports',
+    'description' => 'View reports for store sales.',
+    'page callback' => 'uc_reports_sales_summary',
+    'access arguments' => array('view reports'),
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales/summary'] = array(
+    'title' => 'Sales summary',
+    'description' => 'View summary of all store sales',
+    'access arguments' => array('view reports'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales/year'] = array(
+    'title' => 'Sales per year',
+    'description' => 'View store sales for a particular year',
+    'page callback' => 'uc_reports_sales_year',
+    'access arguments' => array('view reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -7,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/sales/custom'] = array(
+    'title' => 'Custom sales summary',
+    'description' => 'View a customized sales summary',
+    'page callback' => 'uc_reports_sales_custom',
+    'access arguments' => array('view reports'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -1,
+    'file' => 'uc_reports.admin.inc',
+  );
+  $items['admin/store/reports/getcsv/%/%'] = array(
+    'page callback' => 'uc_reports_get_csv',
+    'page arguments' => array(4, 5),
+    'access arguments' => array('view reports'),
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_reports.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_reports_theme() {
+  return array(
+    'uc_reports_product_table' => array(
+      'variables' => array('header' => NULL, 'rows' => NULL, 'attributes' => array(), 'caption' => NULL, 'colgroups' => array(), 'sticky' => TRUE, 'empty' => ''),
+      'file' => 'uc_reports.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function uc_reports_init() {
+  if (arg(0) == 'admin' && arg(1) == 'store' && arg(2) == 'reports') {
+    drupal_add_css(drupal_get_path('module', 'uc_reports') . '/uc_reports.css');
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for uc_store_settings_form().
+ */
+function uc_reports_form_uc_store_settings_form_alter(&$form, &$form_state) {
+  $form['reports'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Report settings'),
+    '#group' => 'store',
+  );
+  $form['reports']['uc_reports_table_size'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of rows to show in reports'),
+    '#description' => t('The maximum number of rows displayed on one page for a report table.'),
+    '#default_value' => variable_get('uc_reports_table_size', 30),
+    '#size' => 5,
+  );
+
+  $options = array();
+  foreach (uc_order_status_list() as $status) {
+    $options[$status['id']] = $status['title'];
+  }
+
+  $form['reports']['uc_reports_reported_statuses'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Reported statuses'),
+    '#description' => t('Only orders with selected statuses will be included in reports.'),
+    '#options' => $options,
+    '#default_value' => variable_get('uc_reports_reported_statuses', array('completed')),
+    '#multiple' => TRUE,
+  );
+}
+
+/**
+ * Returns a SQL friendly array of order statuses for orders used in reports.
+ */
+function uc_reports_order_statuses() {
+  $statuses = variable_get('uc_reports_reported_statuses', array('completed'));
+
+  return $statuses;
+}

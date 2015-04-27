@@ -1,0 +1,138 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_payment module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function uc_payment_schema() {
+  $schema = array();
+
+  $schema['uc_payment_receipts'] = array(
+    'description' => 'Stores completed payments.',
+    'fields' => array(
+      'receipt_id' => array(
+        'description' => 'Primary key: the payment receipt ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'order_id' => array(
+        'description' => 'The {uc_orders}.order_id.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'method' => array(
+        'description' => 'The payment method.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'amount' => array(
+        'description' => 'The payment amount in the store default currency.',
+        'type' => 'numeric',
+        'precision' => 16,
+        'scale' => 5,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid who collected the payment.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'data' => array(
+        'description' => 'A serialized array of extra payment data.',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+      'comment' => array(
+        'description' => 'A comment made on the payment.',
+        'type' => 'text',
+      ),
+      'received' => array(
+        'description' => 'The Unix timestamp indicating when the payment was received.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'order_id' => array('order_id'),
+    ),
+    'primary key' => array('receipt_id'),
+    'foreign keys' => array(
+      'uc_orders' => array(
+        'table' => 'uc_orders',
+        'columns' => array('order_id' => 'order_id'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_payment_install() {
+  $t = get_t();
+
+  db_insert('uc_order_statuses')
+    ->fields(array(
+      'order_status_id' => 'payment_received',
+      'title' => $t('Payment received'),
+      'state' => 'payment_received',
+      'weight' => 10,
+      'locked' => 1,
+    ))
+    ->execute();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_payment_uninstall() {
+  db_delete('variable')
+    ->condition(db_or()
+      ->condition('name', 'uc_pg_%', 'LIKE')
+      ->condition('name', 'uc_payment_%', 'LIKE'))
+    ->execute();
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_payment_update_last_removed() {
+  // 7.x-3.0-beta2 and earlier were installed with schema version 0,
+  // which causes update.php to fail.
+  return drupal_get_installed_schema_version('uc_payment') == 0 ? 0 : 6002;
+}
+
+/**
+ * Remove unused variables.
+ */
+function uc_payment_update_7000() {
+  variable_del('uc_payment_tracking');
+  variable_del('uc_payment_deleting');
+  variable_del('uc_payment_logging');
+  variable_del('uc_default_payment_msg');
+}
+
+/**
+ * Increase maximum length of comment field.
+ */
+function uc_payment_update_7001() {
+  db_change_field('uc_payment_receipts', 'comment', 'comment', array(
+    'description' => 'A comment made on the payment.',
+    'type' => 'text',
+  ));
+}

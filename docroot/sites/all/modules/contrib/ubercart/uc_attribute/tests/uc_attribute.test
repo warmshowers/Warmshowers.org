@@ -1,0 +1,879 @@
+<?php
+
+/**
+ * @file
+ * Ubercart Attribute Tests.
+ */
+
+/**
+ * SimpleTests for the Ubercart Attributes API.
+ */
+class UbercartAttributeTestCase extends UbercartTestHelper {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'Attribute API',
+      'description' => 'Test the attribute API.',
+      'group' => 'Ubercart',
+    );
+  }
+
+  /**
+   * Overrides DrupalWebTestCase::setUp().
+   */
+  function setUp() {
+    parent::setUp(array('uc_attribute'), array('administer attributes', 'administer product attributes', 'administer product options'));
+    $this->drupalLogin($this->adminUser);
+  }
+
+  /**
+   * Tests the basic attribute API.
+   */
+  public function testAttributeAPI() {
+
+    // Create an attribute.
+    $attribute = self::createAttribute();
+
+    // Test retrieval.
+    $loaded_attribute = uc_attribute_load($attribute->aid);
+
+    // Check the attribute integrity.
+    foreach (self::attributeFieldsToTest() as $field) {
+      if ($loaded_attribute->$field != $attribute->$field) {
+        $this->fail(t('Attribute integrity check failed.'));
+        break;
+      }
+    }
+
+    // Add a product.
+    $product = $this->createProduct();
+
+    // Attach the attribute to a product.
+    uc_attribute_subject_save($attribute, 'product', $product->nid);
+
+    // Confirm the database is correct.
+    $this->assertEqual($attribute->aid, db_query("SELECT aid FROM {uc_product_attributes} WHERE nid = :nid", array(':nid' => $product->nid))->fetchField(), t('Attribute was attached to a product properly.'));
+    $this->assertTrue(uc_attribute_subject_exists($attribute->aid, 'product', $product->nid));
+
+    // Test retrieval.
+    $loaded_attribute = uc_attribute_load($attribute->aid, $product->nid, 'product');
+
+    // Check the attribute integrity.
+    foreach (self::attributeFieldsToTest('product') as $field) {
+      if ($loaded_attribute->$field != $attribute->$field) {
+        $this->fail(t('Attribute integrity check failed.'));
+        break;
+      }
+    }
+
+    // Delete it.
+    uc_attribute_subject_delete($attribute->aid, 'product', $product->nid);
+
+    // Confirm again.
+    $this->assertFalse(db_query("SELECT aid FROM {uc_product_attributes} WHERE nid = :nid", array(':nid' => $product->nid))->fetchField(), t('Attribute was detached from a product properly.'));
+    $this->assertFalse(uc_attribute_subject_exists($attribute->aid, 'product', $product->nid));
+
+    // Add a product class.
+    $product_class = $this->createProductClass();
+
+    // Attach the attribute to a product class.
+    uc_attribute_subject_save($attribute, 'class', $product_class->pcid);
+
+    // Confirm the database is correct.
+    $this->assertEqual($attribute->aid, db_query("SELECT aid FROM {uc_class_attributes} WHERE pcid = :pcid", array(':pcid' => $product_class->pcid))->fetchField(), t('Attribute was attached to a product class properly.'));
+    $this->assertTrue(uc_attribute_subject_exists($attribute->aid, 'class', $product_class->pcid));
+
+    // Test retrieval.
+    $loaded_attribute = uc_attribute_load($attribute->aid, $product_class->pcid, 'class');
+
+    // Check the attribute integrity.
+    foreach (self::attributeFieldsToTest('class') as $field) {
+      if ($loaded_attribute->$field != $attribute->$field) {
+        $this->fail(t('Attribute integrity check failed.'));
+        break;
+      }
+    }
+
+    // Delete it.
+    uc_attribute_subject_delete($attribute->aid, 'class', $product_class->pcid);
+
+    // Confirm again.
+    $this->assertFalse(db_query("SELECT aid FROM {uc_class_attributes} WHERE pcid = :pcid", array(':pcid' => $product_class->pcid))->fetchField(), t('Attribute was detached from a product class properly.'));
+    $this->assertFalse(uc_attribute_subject_exists($attribute->aid, 'class', $product_class->pcid));
+
+    // Create a few more.
+    for ($i = 0; $i < 5; $i++) {
+      $a = self::createAttribute();
+      $attributes[$a->aid] = $a;
+    }
+
+    // Add some options, organizing them by aid and oid.
+    $attribute_aids = array_keys($attributes);
+
+    $all_options = array();
+    foreach ($attribute_aids as $aid) {
+      for ($i = 0; $i < 3; $i++) {
+        $option = self::createAttributeOption(array('aid' => $aid));
+        $all_options[$option->aid][$option->oid] = $option;
+      }
+    }
+    for ($i = 0; $i < 3; $i++) {
+      $option = self::createAttributeOption(array('aid' => $aid));
+      $all_options[$option->aid][$option->oid] = $option;
+    }
+
+    // Get the options.
+    $attribute = uc_attribute_load($attribute->aid);
+
+    // Load every attribute we got.
+    $attributes_with_options = uc_attribute_load_multiple();
+
+    // Make sure all the new options are on attributes correctly.
+    foreach ($all_options as $aid => $options) {
+      foreach ($options as $oid => $option) {
+        foreach (self::attributeOptionFieldsToTest() as $field) {
+          if ($option->$field != $attributes_with_options[$aid]->options[$oid]->$field) {
+            $this->fail(t('Option integrity check failed.'));
+            break;
+          }
+        }
+      }
+    }
+
+    // Pick 5 keys to check at random.
+    $aids = drupal_map_assoc(array_rand($attributes, 3));
+
+    // Load the attributes back.
+    $loaded_attributes = uc_attribute_load_multiple($aids);
+
+    // Make sure we only got the attributes we asked for. No more, no less.
+    $this->assertEqual(count($aids), count($loaded_attributes), t('Verifying attribute result.'));
+    $this->assertEqual(count($aids), count(array_intersect_key($aids, $loaded_attributes)), t('Verifying attribute result.'));
+
+    // Check the attributes' integrity.
+    foreach ($loaded_attributes as $aid => $loaded_attribute) {
+      foreach (self::attributeFieldsToTest() as $field) {
+        if ($attributes[$aid]->$field != $loaded_attributes[$aid]->$field) {
+          $this->fail(t('Attribute integrity check failed.'));
+          break;
+        }
+      }
+    }
+
+    // Add the selected attributes to the product.
+    foreach ($loaded_attributes as $loaded_attribute) {
+      uc_attribute_subject_save($loaded_attribute, 'product', $product->nid, TRUE);
+    }
+
+    // Test loading all product attributes. (This covers uc_attribute_load_product_attributes(),
+    // as the semantics are the same -cha0s)
+    $loaded_product_attributes = uc_attribute_load_multiple(array(), 'product', $product->nid);
+
+    // We'll get all in $loaded_attributes above, plus the original.
+    $product_attributes = $loaded_attributes;
+
+    // Make sure we only got the attributes we asked for. No more, no less.
+    $this->assertEqual(count($loaded_product_attributes), count($product_attributes), t('Verifying attribute result.'));
+    $this->assertEqual(count($loaded_product_attributes), count(array_intersect_key($loaded_product_attributes, $product_attributes)), t('Verifying attribute result.'));
+
+    // Check the attributes' integrity.
+    foreach ($loaded_product_attributes as $aid => $loaded_product_attribute) {
+      foreach (self::attributeFieldsToTest('product') as $field) {
+        if ($loaded_product_attributes[$aid]->$field != $product_attributes[$aid]->$field) {
+          $this->fail(t('Attribute integrity check failed.'));
+          break;
+        }
+      }
+    }
+
+    // Make sure all the options are on attributes correctly.
+    foreach ($all_options as $aid => $options) {
+      foreach ($options as $oid => $option) {
+        if (empty($loaded_product_attributes[$aid]) || empty($loaded_product_attributes[$aid]->options[$oid])) continue;
+
+        foreach (self::attributeOptionFieldsToTest() as $field) {
+          if ($option->$field != $loaded_product_attributes[$aid]->options[$oid]->$field) {
+            $this->fail(t('Option integrity check failed.'));
+            break;
+          }
+        }
+      }
+    }
+
+    // Add the selected attributes to the product.
+    foreach ($loaded_attributes as $loaded_attribute) {
+      uc_attribute_subject_save($loaded_attribute, 'class', $product_class->pcid, TRUE);
+    }
+
+    // Test loading all product attributes. (This covers uc_attribute_load_product_attributes(),
+    // as the semantics are the same -cha0s)
+    $loaded_class_attributes = uc_attribute_load_multiple(array(), 'class', $product_class->pcid);
+
+    // We'll get all in $loaded_attributes above, plus the original.
+    $class_attributes = $loaded_attributes;
+
+    // Make sure we only got the attributes we asked for. No more, no less.
+    $this->assertEqual(count($loaded_class_attributes), count($class_attributes), t('Verifying attribute result.'));
+    $this->assertEqual(count($loaded_class_attributes), count(array_intersect_key($loaded_class_attributes, $class_attributes)), t('Verifying attribute result.'));
+
+    // Check the attributes' integrity.
+    foreach ($loaded_class_attributes as $aid => $loaded_class_attribute) {
+      foreach (self::attributeFieldsToTest('class') as $field) {
+        if ($loaded_class_attributes[$aid]->$field != $class_attributes[$aid]->$field) {
+          $this->fail(t('Attribute integrity check failed.'));
+          break;
+        }
+      }
+    }
+
+    // Make sure all the options are on attributes correctly.
+    foreach ($all_options as $aid => $options) {
+      foreach ($options as $oid => $option) {
+        if (empty($loaded_class_attributes[$aid]) || empty($loaded_class_attributes[$aid]->options[$oid])) continue;
+
+        foreach (self::attributeOptionFieldsToTest() as $field) {
+          if ($option->$field != $loaded_class_attributes[$aid]->options[$oid]->$field) {
+            $this->fail(t('Option integrity check failed.'));
+            break;
+          }
+        }
+      }
+    }
+
+    // Test deletion of base attribute.
+    $aid = $attribute->aid;
+    $options = $attribute->options;
+    uc_attribute_delete($attribute->aid);
+
+    $this->assertFalse(uc_attribute_load($attribute->aid), t('Attribute was deleted properly.'));
+
+    // Sanity check!
+    $this->assertFalse(db_query("SELECT aid FROM {uc_attributes} WHERE aid = :aid", array(':aid' => $attribute->aid))->fetchField(), t('Attribute was seriously deleted properly!'));
+
+    // Test that options were deleted properly.
+    foreach ($options as $option) {
+      $this->assertFalse(db_query("SELECT oid FROM {uc_attribute_options} WHERE oid = :oid", array(':oid' => $option->oid))->fetchField(), t('Make sure options are deleted properly.'));
+    }
+
+    // Test the deletion applied to products too.
+    $loaded_product_attributes = uc_attribute_load_multiple(array(), 'product', $product->nid);
+
+    // We'll get all in $loaded_attributes above, without the original. (Which
+    // has been deleted.)
+    $product_attributes = $loaded_attributes;
+
+    // Make sure we only got the attributes we asked for. No more, no less.
+    $this->assertEqual(count($loaded_product_attributes), count($product_attributes), t('Verifying attribute result.'));
+    $this->assertEqual(count($loaded_product_attributes), count(array_intersect_key($loaded_product_attributes, $product_attributes)), t('Verifying attribute result.'));
+
+    // Test the deletion applied to classes too.
+    $loaded_class_attributes = uc_attribute_load_multiple(array(), 'class', $product_class->pcid);
+
+    // We'll get all in $loaded_attributes above, without the original. (Which
+    // has been deleted.)
+    $class_attributes = $loaded_attributes;
+
+    // Make sure we only got the attributes we asked for. No more, no less.
+    $this->assertEqual(count($loaded_class_attributes), count($class_attributes), t('Verifying attribute result.'));
+    $this->assertEqual(count($loaded_class_attributes), count(array_intersect_key($loaded_class_attributes, $class_attributes)), t('Verifying attribute result.'));
+
+    // Add some adjustments.
+    self::createProductAdjustment(array('combination' => 'a:1:{i:1;s:1:"1";}', 'nid' => 1));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:1;s:1:"2";}', 'nid' => 1));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:1;s:1:"3";}', 'nid' => 1));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:2;s:1:"1";}', 'nid' => 2));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:3;s:1:"1";}', 'nid' => 2));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:1;s:1:"2";}', 'nid' => 3));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:1;s:1:"3";}', 'nid' => 3));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:3;s:1:"2";}', 'nid' => 3));
+    self::createProductAdjustment(array('combination' => 'a:1:{i:3;s:1:"3";}', 'nid' => 4));
+
+    // Test deletion by nid.
+    uc_attribute_adjustments_delete(array('nid' => 1));
+    $this->assertEqual(6, db_query("SELECT COUNT(*) FROM {uc_product_adjustments}")->fetchField());
+
+    // Test deletion by aid.
+    uc_attribute_adjustments_delete(array('aid' => 2));
+    $this->assertEqual(5, db_query("SELECT COUNT(*) FROM {uc_product_adjustments}")->fetchField());
+
+    // Test deletion by oid.
+    uc_attribute_adjustments_delete(array('oid' => 2));
+    $this->assertEqual(3, db_query("SELECT COUNT(*) FROM {uc_product_adjustments}")->fetchField());
+
+    // Test deletion by aid and oid.
+    uc_attribute_adjustments_delete(array('aid' => 1, 'oid' => 3));
+    $this->assertEqual(2, db_query("SELECT COUNT(*) FROM {uc_product_adjustments}")->fetchField());
+  }
+
+  /**
+   * Tests the "add attribute" user interface.
+   */
+  public function testAttributeUIAddAttribute() {
+    $this->drupalGet('admin/store/products/attributes/add');
+
+    $this->assertText(t('The name of the attribute used in administrative forms'), t('Attribute add form working.'));
+
+    $edit = (array) self::createAttribute(array(), FALSE);
+
+    $this->drupalPost('admin/store/products/attributes/add', $edit, t('Submit'));
+    $this->assertText('Options for ' . $edit['name']);
+    $this->assertText('No options for this attribute have been added yet.');
+
+    $this->drupalGet('admin/store/products/attributes');
+    $this->assertRaw('<td class="active">' . $edit['name'] . '</td>', t('Verify name field.'));
+    $this->assertRaw('<td>' . $edit['label'] . '</td>', t('Verify label field.'));
+    $this->assertRaw('<td>' . ($edit['required'] ? t('Yes') : t('No')) . '</td>', t('Verify required field.'));
+    $this->assertRaw('<td>' . $edit['ordering'] . '</td>', t('Verify ordering field.'));
+    $types = _uc_attribute_display_types();
+    $this->assertRaw('<td>' . $types[$edit['display']] . '</td>', t('Verify ordering field.'));
+
+    $aid = db_query("SELECT aid FROM {uc_attributes} WHERE name = :name", array(':name' => $edit['name']))->fetchField();
+    $this->assertTrue($aid, t('Attribute was created.'));
+
+    $attribute = uc_attribute_load($aid);
+    $fields_ok = TRUE;
+    foreach ($edit as $field => $value) {
+      if ($attribute->$field != $value) {
+        $this->showVar($attribute);
+        $this->showVar($edit);
+        $fields_ok = FALSE;
+        break;
+      }
+    }
+
+    $this->assertTrue($fields_ok, t('Attribute created properly.'));
+  }
+
+  /**
+   * Tests the attribute settings page.
+   */
+  public function testAttributeUISettings() {
+    $product = $this->createProduct();
+    $attribute = self::createAttribute(array(
+      'display' => 1,
+    ));
+
+    $option = self::createAttributeOption(array(
+      'aid' => $attribute->aid,
+      'price' => 30,
+    ));
+
+    $attribute->options[$option->oid] = $option;
+    uc_attribute_subject_save($attribute, 'product', $product->nid, TRUE);
+
+    $qty = $product->default_qty;
+    if (!$qty) {
+      $qty = 1;
+    }
+
+    $adjust_price = uc_currency_format($option->price * $qty);
+    $total_price = uc_currency_format(($product->sell_price + $option->price) * $qty);
+
+    $raw = array(
+      'none' => $option->name . '</option>',
+      'adjustment' => $option->name . ', +' . $adjust_price . '</option>',
+      'total' => $total_price . '</option>',
+    );
+
+    foreach (array('none', 'adjustment', 'total') as $type) {
+      $edit['uc_attribute_option_price_format'] = $type;
+      $this->drupalPost('admin/store/settings/products', $edit, t('Save configuration'));
+
+      $this->drupalGet('node/' . $product->nid);
+      $this->assertRaw($raw[$type], t('Attribute option pricing is correct.'));
+    }
+  }
+
+  /**
+   * Tests the "edit attribute" user interface.
+   */
+  public function testAttributeUIEditAttribute() {
+    $attribute = self::createAttribute();
+
+    $this->drupalGet('admin/store/products/attributes/' . $attribute->aid . '/edit');
+    $this->assertText(t('Edit attribute: @name', array('@name' => $attribute->name)), t('Attribute edit form working.'));
+
+    $edit = (array) self::createAttribute(array(), FALSE);
+    $this->drupalPost('admin/store/products/attributes/' . $attribute->aid . '/edit', $edit, t('Submit'));
+
+    $attribute = uc_attribute_load($attribute->aid);
+
+    $fields_ok = TRUE;
+    foreach ($edit as $field => $value) {
+      if ($attribute->$field != $value) {
+        $this->showVar($attribute);
+        $this->showVar($edit);
+        $fields_ok = FALSE;
+        break;
+      }
+    }
+
+    $this->assertTrue($fields_ok, t('Attribute edited properly.'));
+  }
+
+  /**
+   * Tests the "delete attribute" user interface.
+   */
+  public function testAttributeUIDeleteAttribute() {
+    $attribute = self::createAttribute();
+
+    $this->drupalGet('admin/store/products/attributes/' . $attribute->aid . '/delete');
+
+    $this->assertText(t('Are you sure you want to delete the attribute @name?', array('@name' => $attribute->name)), t('Attribute delete form working.'));
+
+    $edit = (array) self::createAttribute();
+    unset($edit['aid']);
+
+    $this->drupalPost('admin/store/products/attributes/' . $attribute->aid . '/delete', array(), t('Delete'));
+
+    $this->assertText(t('Product attribute deleted.'), t('Attribute deleted properly.'));
+  }
+
+  /**
+   * Tests the attribute options user interface.
+   */
+  public function testAttributeUIAttributeOptions() {
+    $attribute = self::createAttribute();
+    $option = self::createAttributeOption(array('aid' => $attribute->aid));
+
+    uc_attribute_option_save($option);
+
+    $this->drupalGet('admin/store/products/attributes/' . $attribute->aid . '/options');
+
+    $this->assertText(t('Options for @name', array('@name' => $attribute->name)), t('Attribute options form working.'));
+  }
+
+  /**
+   * Tests the "add attribute option" user interface.
+   */
+  public function testAttributeUIAttributeOptionsAdd() {
+    $attribute = self::createAttribute();
+
+    $this->drupalGet('admin/store/products/attributes/' . $attribute->aid . '/options/add');
+
+    $this->assertText(t('Options for @name', array('@name' => $attribute->name)), t('Attribute options add form working.'));
+
+    $edit = (array) self::createAttributeOption(array('aid' => $attribute->aid), FALSE);
+    unset($edit['aid']);
+
+    $this->drupalPost('admin/store/products/attributes/' . $attribute->aid . '/options/add', $edit, t('Submit'));
+
+    $option = db_query("SELECT * FROM {uc_attribute_options} WHERE aid = :aid", array(':aid' => $attribute->aid))->fetchObject();
+
+    $fields_ok = TRUE;
+    foreach ($edit as $field => $value) {
+      if ($option->$field != $value) {
+        $this->showVar($option);
+        $this->showVar($edit);
+        $fields_ok = FALSE;
+        break;
+      }
+    }
+
+    $this->assertTrue($fields_ok, t('Attribute option added successfully by form.'));
+  }
+
+  /**
+   * Tests the "edit attribute options" user interface.
+   */
+  public function testAttributeUIAttributeOptionsEdit() {
+    $attribute = self::createAttribute();
+    $option = self::createAttributeOption(array('aid' => $attribute->aid));
+
+    uc_attribute_option_save($option);
+
+    $this->drupalGet('admin/store/products/attributes/' . $attribute->aid . '/options/' . $option->oid . '/edit');
+
+    $this->assertText(t('Edit option: @name', array('@name' => $option->name)), t('Attribute options edit form working.'));
+
+    $edit = (array) self::createAttributeOption(array('aid' => $attribute->aid), FALSE);
+    unset($edit['aid']);
+    $this->drupalPost('admin/store/products/attributes/' . $attribute->aid . '/options/' . $option->oid . '/edit', $edit, t('Submit'));
+
+    $option = uc_attribute_option_load($option->oid);
+
+    $fields_ok = TRUE;
+    foreach ($edit as $field => $value) {
+      if ($option->$field != $value) {
+        $this->showVar($option);
+        $this->showVar($edit);
+        $fields_ok = FALSE;
+        break;
+      }
+    }
+
+    $this->assertTrue($fields_ok, t('Attribute option edited successfully by form.'));
+  }
+
+  /**
+   * Tests the "delete attribute option" user interface.
+   */
+  public function testAttributeUIAttributeOptionsDelete() {
+    $attribute = self::createAttribute();
+    $option = self::createAttributeOption(array('aid' => $attribute->aid));
+
+    uc_attribute_option_save($option);
+
+    $this->drupalGet('admin/store/products/attributes/' . $attribute->aid . '/options/' . $option->oid . '/delete');
+
+    $this->assertText(t('Are you sure you want to delete the option @name?', array('@name' => $option->name)), t('Attribute options delete form working.'));
+
+    $this->drupalPost('admin/store/products/attributes/' . $attribute->aid . '/options/' . $option->oid . '/delete', array(), t('Delete'));
+
+    $option = uc_attribute_option_load($option->oid);
+
+    $this->assertFalse($option, t('Attribute option deleted successfully by form'));
+  }
+
+  /**
+   * Tests the product class attribute user interface.
+   */
+  public function testAttributeUIClassAttributeOverview() {
+    $class = $this->createProductClass();
+    $attribute = self::createAttribute();
+
+    $this->drupalGet('admin/store/products/classes/' . $class->pcid . '/attributes');
+
+    $this->assertText(t('You must first add attributes to this class.'), t('Class attribute form working.'));
+
+    uc_attribute_subject_save($attribute, 'class', $class->pcid);
+
+    $this->drupalGet('admin/store/products/classes/' . $class->pcid . '/attributes');
+
+    $this->assertNoText(t('You must first add attributes to this class.'), t('Class attribute form working.'));
+
+    $a = (array) self::createAttribute(array(), FALSE);
+    unset($a['name'], $a['description']);
+    foreach ($a as $field => $value) {
+      $edit["attributes[{$attribute->aid}][$field]"] = $value;
+    }
+    $this->showVar($edit);
+    $this->drupalPost('admin/store/products/classes/' . $class->pcid . '/attributes', $edit, t('Save changes'));
+
+    $attribute = uc_attribute_load($attribute->aid, $class->pcid, 'class');
+
+    $fields_ok = TRUE;
+    foreach ($a as $field => $value) {
+      if ($attribute->$field != $value) {
+        $this->showVar($attribute);
+        $this->showVar($a);
+        $fields_ok = FALSE;
+        break;
+      }
+    }
+
+    $this->assertTrue($fields_ok, t('Class attribute edited successfully by form.'));
+
+    $edit = array();
+    $edit["attributes[{$attribute->aid}][remove]"] = TRUE;
+    $this->drupalPost('admin/store/products/classes/' . $class->pcid . '/attributes', $edit, t('Save changes'));
+
+    $this->assertText(t('You must first add attributes to this class.'), t('Class attribute form working.'));
+  }
+
+  /**
+   * Tests the "add product class attribute option" user interface.
+   */
+  public function testAttributeUIClassAttributeAdd() {
+    $class = $this->createProductClass();
+    $attribute = self::createAttribute();
+
+    $this->drupalGet('admin/store/products/classes/' . $class->pcid . '/attributes/add');
+
+    $this->assertRaw(t('@attribute </label>', array('@attribute' => $attribute->name)), t('Class attribute add form working.'));
+
+    $edit['add_attributes[' . $attribute->aid . ']'] = 1;
+
+    $this->drupalPost('admin/store/products/classes/' . $class->pcid . '/attributes/add', $edit, t('Add attributes'));
+
+    $this->assertNoText(t('You must first add attributes to this class.'), t('Class attribute form working.'));
+  }
+
+  /**
+   * Tests the product class attribute option user interface.
+   */
+  public function testAttributeUIClassAttributeOptionOverview() {
+    $class = $this->createProductClass();
+    $attribute = self::createAttribute();
+    $option = self::createAttributeOption(array('aid' => $attribute->aid));
+
+    uc_attribute_subject_save($attribute, 'class', $class->pcid);
+
+    $this->drupalGet('admin/store/products/classes/' . $class->pcid . '/options');
+
+    $this->assertRaw(t('@option </label>', array('@option' => $option->name)), t('Class attribute option form working.'));
+
+    $o = (array) self::createAttributeOption(array('aid' => $attribute->aid), FALSE);
+    unset($o['name'], $o['aid']);
+    $o['select'] = TRUE;
+    foreach ($o as $field => $value) {
+      $edit["attributes[$attribute->aid][options][$option->oid][$field]"] = $value;
+    }
+    unset($o['select']);
+    $edit["attributes[$attribute->aid][default]"] = $option->oid;
+    $this->showVar($edit);
+    $this->drupalPost('admin/store/products/classes/' . $class->pcid . '/options', $edit, t('Submit'));
+    $this->assertText('The product class options have been saved.', t('Class attribute option saved.'));
+    $this->showVar($option);
+
+    $option = uc_attribute_subject_option_load($option->oid, 'class', $class->pcid);
+
+    $fields_ok = TRUE;
+    foreach ($o as $field => $value) {
+      if ($option->$field != $value) {
+        $this->showVar($option);
+        $this->showVar($o);
+        $fields_ok = FALSE;
+        break;
+      }
+    }
+    $this->assertTrue($fields_ok, t('Class attribute option edited successfully by form.'));
+  }
+
+  /**
+   * Tests the "product attributes" page.
+   */
+  public function testAttributeUIProductAttributes() {
+    $product = $this->createProduct();
+    $attribute = self::createAttribute(array('display' => 1));
+    $option = self::createAttributeOption(array('aid' => $attribute->aid));
+
+    $this->drupalGet('node/' . $product->nid . '/edit/attributes');
+    $this->assertText('You must first add attributes to this product.');
+
+    $this->clickLink('Add an attribute');
+    $this->assertText($attribute->name);
+
+    $this->drupalPost(NULL, array('add_attributes[' . $attribute->aid. ']' => 1), t('Add attributes'));
+    $this->assertText('1 attribute has been added.');
+    $this->assertText($attribute->name, 'Attribute name found');
+    $this->assertFieldByName('attributes[' . $attribute->aid . '][label]', $attribute->label, 'Attribute label found');
+    $this->assertText($option->name, 'Default option name found');
+    $this->assertText(uc_currency_format($option->price), 'Default option price found');
+    $this->assertFieldByName('attributes[' . $attribute->aid . '][display]', $attribute->display, 'Attribute display setting found');
+
+    $this->drupalGet('node/' . $product->nid . '/edit/attributes/add');
+    $this->assertNoText($attribute->name);
+    $this->assertText('No attributes left to add.');
+
+    $edit = array('attributes[' . $attribute->aid. '][remove]' => 1);
+    $this->drupalPost('node/' . $product->nid . '/edit/attributes', $edit, t('Save changes'));
+    $this->assertText('You must first add attributes to this product.');
+  }
+
+  /**
+   * Tests the "product options" page.
+   */
+  public function testAttributeUIProductOptions() {
+    $product = $this->createProduct();
+    $attribute = self::createAttribute(array('display' => 1));
+    for ($i = 0; $i < 3; $i++) {
+      $option = self::createAttributeOption(array('aid' => $attribute->aid));
+      $attribute->options[$option->oid] = $option;
+    }
+    uc_attribute_subject_save($attribute, 'product', $product->nid, TRUE);
+
+    $this->drupalGet('node/' . $product->nid . '/edit/options');
+    $this->assertText($attribute->name, 'Attribute name found');
+    foreach ($attribute->options as $option) {
+      $this->assertText($option->name, 'Option name found');
+      $this->assertFieldByName('attributes[' . $attribute->aid . '][options][' . $option->oid . '][cost]', $option->cost, 'Option cost field found');
+      $this->assertFieldByName('attributes[' . $attribute->aid . '][options][' . $option->oid . '][price]', $option->price, 'Option price field found');
+      $this->assertFieldByName('attributes[' . $attribute->aid . '][options][' . $option->oid . '][weight]', $option->weight, 'Option weight field found');
+    }
+  }
+
+  /**
+   * Tests the "product adjustments" page.
+   */
+  public function testAttributeUIProductAdjustments() {
+    $product = $this->createProduct();
+    $attribute = self::createAttribute(array('display' => 1));
+    for ($i = 0; $i < 3; $i++) {
+      $option = self::createAttributeOption(array('aid' => $attribute->aid));
+      $adjustment = self::createProductAdjustment(array('combination' => serialize(array($attribute->aid => $option->oid)), 'nid' => $product->nid));
+      $option->model = $adjustment->model;
+      $attribute->options[$option->oid] = $option;
+    }
+    uc_attribute_subject_save($attribute, 'product', $product->nid, TRUE);
+
+    $this->drupalGet('node/' . $product->nid . '/edit/adjustments');
+    $this->assertText('Default product SKU: ' . $product->model, 'Default product SKU found');
+    $this->assertRaw('<th>' . $attribute->name . '</th>', 'Attribute name found');
+    foreach ($attribute->options as $option) {
+      $this->assertRaw('<td>' . $option->name . '</td>', 'Option name found');
+      $this->assertRaw($option->model, 'Option SKU found');
+    }
+  }
+
+  /**
+   * Tests attributes applied to a product.
+   */
+  public function testProductAttribute() {
+    $product = $this->createProduct();
+    $attribute = self::createAttribute(array('display' => 2, 'required' => TRUE));
+    for ($i = 0; $i < 3; $i++) {
+      $option = self::createAttributeOption(array('aid' => $attribute->aid));
+      $adjustment = self::createProductAdjustment(array('combination' => serialize(array($attribute->aid => $option->oid)), 'nid' => $product->nid));
+      $option->model = $adjustment->model;
+      $attribute->options[$option->oid] = $option;
+    }
+    uc_attribute_subject_save($attribute, 'product', $product->nid, TRUE);
+
+    // Product node display.
+    $this->drupalGet('node/' . $product->nid);
+    $this->assertText($attribute->label, 'Attribute label found for product');
+    $this->assertText($attribute->description, 'Attribute description found for product');
+    foreach ($attribute->options as $option) {
+      $this->assertText($option->name, 'Option name found for product');
+      $this->assertText(uc_currency_format($option->price), 'Option price adjustment found for product');
+    }
+
+    // Test required attribute.
+    $this->drupalPost(NULL, array(), 'Add to cart');
+    $this->assertText($attribute->label . ' field is required', 'Required attribute message found.');
+
+    // Cart display.
+    $price = uc_currency_format($product->sell_price + $option->price);
+    $edit = array('attributes[' . $attribute->aid . ']' => $option->oid);
+    $this->drupalPost(NULL, $edit, 'Add to cart');
+    $this->assertText($attribute->label . ': ' . $option->name, 'Attribute and selected option found in cart');
+    $this->assertText($price, 'Adjusted price found in cart');
+
+    // Checkout display.
+    $this->drupalPost(NULL, array(), 'Checkout');
+    $this->assertText($attribute->label . ': ' . $option->name, 'Attribute and selected option found at checkout');
+    $this->assertText($price, 'Adjusted price found at checkout');
+    $this->checkout();
+
+    // Admin order display.
+    $cost = uc_currency_format($product->cost + $option->cost);
+    $this->drupalGet('admin/store/orders/1');
+    $this->assertText($attribute->label . ': ' . $option->name, 'Attribute and selected option found in admin order display');
+    $this->assertText($option->model, 'Adjusted SKU found in admin order display');
+    $this->assertText($cost, 'Adjusted cost found in admin order display');
+    $this->assertText($price, 'Adjusted price found in admin order display');
+
+    // Invoice display.
+    $this->drupalGet('admin/store/orders/1/invoice');
+    $this->assertText($attribute->label . ': ' . $option->name, 'Attribute and selected option found on invoice');
+    $this->assertText('SKU: ' . $option->model, 'Adjusted SKU found on invoice');
+    $this->assertText($price, 'Adjusted price found on invoice');
+  }
+
+  /**
+   * Creates a product adjustment SKU.
+   *
+   * @param $data
+   */
+  public static function createProductAdjustment($data) {
+    $adjustment = $data + array(
+      'model' => self::randomName(8),
+    );
+    db_insert('uc_product_adjustments')
+      ->fields($adjustment)
+      ->execute();
+    return (object) $adjustment;
+  }
+
+  /**
+   * Returns an array of available fields for product or class attributes.
+   *
+   * @param $type
+   */
+  protected static function attributeFieldsToTest($type = '') {
+    $fields = array(
+      'aid', 'name', 'ordering', 'required', 'display', 'description', 'label',
+    );
+
+    switch ($type) {
+      case 'product':
+      case 'class':
+        $info = uc_attribute_type_info($type);
+        $fields = array_merge($fields, array($info['id']));
+        break;
+    }
+    return $fields;
+  }
+
+  /**
+   * Returns array of available fields for product or class attribute options.
+   *
+   * @param $type
+   */
+  protected static function attributeOptionFieldsToTest($type = '') {
+    $fields = array(
+      'aid', 'oid', 'name', 'cost', 'price', 'weight', 'ordering',
+    );
+
+    switch ($type) {
+      case 'product':
+      case 'class':
+        $info = uc_attribute_type_info($type);
+        $fields = array_merge($fields, array($info['id']));
+        break;
+    }
+    return $fields;
+  }
+
+  /**
+   * Creates an attribute.
+   *
+   * @param $data
+   * @param $save
+   */
+  public static function createAttribute($data = array(), $save = TRUE) {
+    $attribute = $data + array(
+      'name' => DrupalWebTestCase::randomName(8),
+      'label' => DrupalWebTestCase::randomName(8),
+      'description' => DrupalWebTestCase::randomName(8),
+      'required' => mt_rand(0, 1) ? TRUE : FALSE,
+      'display' => mt_rand(0, 3),
+      'ordering' => mt_rand(-10, 10),
+    );
+    $attribute = (object) $attribute;
+
+    if ($save) {
+      uc_attribute_save($attribute);
+    }
+    return $attribute;
+  }
+
+  /**
+   * Creates an attribute option.
+   *
+   * @param $data
+   * @param $save
+   */
+  public static function createAttributeOption($data = array(), $save = TRUE) {
+    $max_aid = db_select('uc_attributes', 'a')
+      ->fields('a', array('aid'))
+      ->orderBy('aid', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+    $option = $data + array(
+      'aid' => $max_aid,
+      'name' => DrupalWebTestCase::randomName(8),
+      'cost' => mt_rand(-500, 500),
+      'price' => mt_rand(-500, 500),
+      'weight' => mt_rand(-500, 500),
+      'ordering' => mt_rand(-10, 10),
+    );
+    $option = (object) $option;
+
+    if ($save) {
+      uc_attribute_option_save($option);
+    }
+    return $option;
+  }
+
+  /**
+   * Debug helper function.
+   *
+   * @param $var
+   */
+  function showVar($var) {
+    $this->pass('<pre>' . print_r($var, TRUE) . '</pre>');
+  }
+}

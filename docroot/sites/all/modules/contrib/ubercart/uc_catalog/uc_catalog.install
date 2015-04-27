@@ -1,0 +1,260 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the uc_catalog module.
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function uc_catalog_enable() {
+  foreach (uc_product_types() as $type) {
+    uc_catalog_add_node_type($type);
+  }
+  uc_catalog_add_image_field();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_catalog_uninstall() {
+  if ($vid = variable_get('uc_catalog_vid', 0)) {
+    $vocab = taxonomy_vocabulary_load($vid);
+    drupal_set_message(t('The Ubercart Catalog vocabulary has not been deleted. If you need to delete it, <a href="@url">please do so manually</a>.', array('@url' => url('admin/structure/taxonomy/' . $vocab->machine_name . '/edit'))), 'warning');
+  }
+
+  db_delete('variable')
+    ->condition('name', 'uc_catalog_%', 'LIKE')
+    ->execute();
+}
+
+/**
+ * Implements hook_update_dependencies().
+ */
+function uc_catalog_update_dependencies() {
+  $dependencies['uc_catalog'][7000] = array(
+    'system' => 7020,
+    'taxonomy' => 7002,
+  );
+  $dependencies['uc_catalog'][7001] = array(
+    'system' => 7059,
+  );
+
+  // Try to alter vocabulary machine name before taxonomy reference field is
+  // created. If dependency is honored, uc_catalog_update_7003 is a no-op.
+  $dependencies['taxonomy'][7004] = array(
+    'uc_catalog' => 7002,
+  );
+
+  return $dependencies;
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_catalog_update_last_removed() {
+  return 8;
+}
+
+/**
+ * Sets up a default term image for the Catalog.
+ */
+function uc_catalog_update_7000() {
+  if (!module_exists('image')) {
+    module_enable(array('file', 'image'), FALSE);
+  }
+
+  // Copied from uc_catalog_add_image_field(), since the module won't be
+  // enabled during an upgrade.
+  $field = field_info_field('uc_catalog_image');
+
+  if (!$field) {
+    $field = array(
+      'field_name' => 'uc_catalog_image',
+      'type' => 'image',
+    );
+
+    field_create_field($field);
+  }
+
+  $instance = field_info_instance('taxonomy_term', 'uc_catalog_image', 'catalog');
+
+  // Only add the instance if it doesn't exist. Don't overwrite any changes.
+  if (!$instance) {
+    $label = t('Image');
+    $instance = array(
+      'field_name' => 'uc_catalog_image',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'catalog',
+      'label' => $label,
+      'widget' => array(
+        'type' => 'image_image',
+      ),
+      'display' => array(
+        'full' => array(
+          'label' => 'hidden',
+          'type' => 'image',
+          'settings' => array(
+            'image_link' => 'content',
+            'image_style' => 'uc_category',
+          ),
+        ),
+      ),
+    );
+
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Migrates uploaded catalog images to the new {file} table.
+ */
+function uc_catalog_update_7001(&$sandbox) {
+  if (!db_table_exists('uc_catalog_images')) {
+    return;
+  }
+
+  if (!isset($sandbox['progress'])) {
+    $sandbox['progress'] = 0;
+    $sandbox['current_fid'] = 0;
+    $sandbox['max'] = db_query("SELECT COUNT(*) FROM {files} f INNER JOIN {uc_catalog_images} u ON u.fid = f.fid")->fetchField();
+  }
+
+  $limit = 500;
+
+  // The old {files} tables still exists.  We migrate core data from upload
+  // module, but any contrib module using it will need to do its own update.
+  $result = db_query_range('SELECT tid, f.fid, uid, u.filename, u.filepath AS uri, u.filemime, u.filesize, status, timestamp FROM {files} f INNER JOIN {uc_catalog_images} u ON u.fid = f.fid WHERE f.fid > :current ORDER BY f.fid', 0, $limit, array(':current' => $sandbox['current_fid']), array('fetch' => PDO::FETCH_ASSOC));
+
+  // We will convert filepaths to uri using the default schmeme
+  // and stripping off the existing file directory path.
+  $basename = variable_get('file_directory_path', conf_path() . '/files');
+  $scheme = variable_get('file_default_scheme', 'public') . '://';
+  $fids = array();
+
+  foreach ($result as $file) {
+    // Get term id for the image.
+    $tid = $file['tid'];
+    // Don't break the insert query with extra data.
+    unset($file['tid']);
+
+    $file['uri'] = $scheme . str_replace($basename, '', $file['uri']);
+    $file['uri'] = file_stream_wrapper_uri_normalize($file['uri']);
+    db_merge('file_managed')
+      ->key(array('fid' => $file['fid']))
+      ->fields(array(
+        'uid' => $file['uid'],
+        'filename' => $file['filename'],
+        'uri' => $file['uri'],
+        'filemime' => $file['filemime'],
+        'filesize' => $file['filesize'],
+        'status' => $file['status'],
+        'timestamp' => $file['timestamp'],
+      ))
+      ->execute();
+    $fids[] = $file['fid'];
+
+    // Add the usage entry for the file.
+    file_usage_add((object) $file, 'file', 'taxonomy_term', $tid);
+
+    $term = (object) array(
+      'tid' => $tid,
+      'uc_catalog_image' => array(
+        LANGUAGE_NONE => array(
+          0 => array(
+            'fid' => $file['fid'],
+          ),
+        ),
+      ),
+    );
+
+    _update_7000_field_sql_storage_write('taxonomy_term', 'catalog', $term->tid, NULL, 'uc_catalog_image', $term->uc_catalog_image);
+
+    $sandbox['progress']++;
+    $sandbox['current_fid'] = $file['fid'];
+    $sandbox['message'] = check_plain($file['filename']);
+  }
+  // TODO: delete the found fids from {files}?
+
+  if ($sandbox['progress'] < $sandbox['max']) {
+    $sandbox['#finished'] = min(0.99, $sandbox['progress'] / $sandbox['max']);
+  }
+  else {
+    $sandbox['#finished'] = 1;
+  }
+}
+
+/**
+ * Sets Catalog vocabulary machine name.
+ */
+function uc_catalog_update_7002() {
+  db_query("UPDATE {taxonomy_vocabulary} SET machine_name = :name WHERE vid = :vid", array(':name' => 'catalog', ':vid' => variable_get('uc_catalog_vid', 0)));
+}
+
+/**
+ * Renames Catalog taxonomy reference field created in taxonomy_update_7004().
+ */
+function uc_catalog_update_7003() {
+  $vid = variable_get('uc_catalog_vid', 0);
+  $field_name = 'taxonomy_vocabulary_' . $vid;
+  if ($field = field_info_field($field_name)) {
+    $field['field_name'] = 'taxonomy_catalog';
+    unset($field['id']);
+    field_create_field($field);
+
+    foreach ($field['bundles'] as $type) {
+      $instance = array(
+        'field_name' => 'taxonomy_catalog',
+        'entity_type' => 'node',
+        'bundle' => $type,
+        'label' => t('Catalog'),
+        'settings' => array(
+          'allowed_values' => array(
+            array(
+              'vid' => $vid,
+              'parent' => '0',
+            ),
+          ),
+        ),
+      );
+
+      field_create_instance($instance);
+    }
+
+    if (isset($field['id'])) {
+      field_delete_field($field_name);
+    }
+  }
+}
+
+/**
+ * Delete unused catalog description.
+ */
+function uc_catalog_update_7004() {
+  variable_del('uc_catalog_description');
+}
+
+/**
+ * Delete unused catalog settings.
+ */
+function uc_catalog_update_7005() {
+  variable_del('uc_catalog_show_subcategories');
+  variable_del('uc_catalog_category_columns');
+  variable_del('uc_product_nodes_per_page');
+  variable_del('uc_catalog_grid_display');
+  variable_del('uc_catalog_grid_display_width');
+  variable_del('uc_catalog_grid_display_title');
+  variable_del('uc_catalog_grid_display_model');
+  variable_del('uc_catalog_grid_display_image');
+  variable_del('uc_catalog_grid_display_sell_price');
+  variable_del('uc_catalog_grid_display_add_to_cart');
+  variable_del('uc_catalog_grid_display_attributes');
+}
+
+/**
+ * Delete unused catalog name variable.
+ */
+function uc_catalog_update_7006() {
+  variable_del('uc_catalog_name');
+}

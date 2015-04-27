@@ -1,0 +1,171 @@
+<?php
+
+/**
+ * @file
+ * Provides administrative UI for workflow.
+ *
+ * Why it's own module? Lower code footprint and better performance.
+ * Additional credit to gcassie ( http://drupal.org/user/80260 ) for
+ * the initial push to split UI out of core workflow.
+ * We're moving workflow in a API direction, so UI and the like - out.
+ */
+
+// Caveat: Several hooks have moved into the EntityWorkflowUIController class.
+define('WORKFLOW_ADMIN_UI_ARROW', '&#8594;');
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Adds Admin UI to entities, using EntityWorkflowUIController.
+ */
+function workflow_admin_ui_entity_info_alter(&$entity_info) {
+  $entity_info['Workflow'] += array(
+    'access callback' => 'workflow_access',
+    'admin ui' => array(
+      'path' => 'admin/config/workflow/workflow',
+      // Do not add 'file', since each page has its own file.
+      // 'file' => 'workflow_admin_ui/workflow_admin_ui.pages.inc',
+      'controller class' => 'EntityWorkflowUIController',
+      'menu wildcard' => '%workflow',
+    ),
+  );
+}
+
+/**
+ * Implements hook_help().
+ */
+function workflow_admin_ui_help($path, $arg) {
+  switch ($path) {
+
+    case 'admin/modules':
+    case 'admin/config/workflow/workflow':
+    case 'admin/config/workflow/workflow/manage/%/states':
+      if (module_exists('workflownode') && module_exists('workflowfield')) {
+        $m = t('Do not enable Workfow Node and Workflow Field submodules at the
+          same time (unless you are in a migration phase). Visit the <a href=
+          "@url">modules</a> page.', array('@url' => url('admin/modules',
+          array('fragment' => 'Workflow'))));
+        drupal_set_message($m, 'error');
+      }
+      return;
+
+    case 'admin/config/workflow/workflow/add':
+      return t('To get started, provide a name for your workflow. This name
+        will be used as a label when the workflow status is shown during node
+        editing.');
+
+    case 'admin/config/workflow/workflow/manage/%/states':
+      return t("To create a new state, enter its name in the last row of the
+        'State' column. Check the 'Active' box to make it effective. You may
+        also drag it to the appropriate position.") . '<br />'
+      . t("A state must be marked as active, to be available in the
+        workflow's transitions.") . '<br />'
+      . t("If you wish to inactivate a state that has content (i.e. count is
+        not zero), then you need to select a state to which to reassign that
+        content.");
+
+    case 'admin/config/workflow/workflow/manage/%/transitions':
+      return t('You are currently viewing the possible transitions to and from
+        workflow states. The state is shown in the left column; the state to be
+        moved to is to the right. For each transition, check the box next to
+        the role(s) that may initiate the transition. For example, if only the
+        "production editor" role may move a node from Review state to the
+        Published state, check the box next to "production editor". The author
+        role is built in and refers to the user who authored the node.')
+      . '<br /><i>'
+      . t("If not all roles are in the list, please review which roles may
+        'participate in workflows' <a href='!url'> on the Permissions page</a>.",
+        array('!url' => url('admin/people/permissions', array(
+          'fragment' => 'module-workflow'))));
+
+    case 'admin/config/workflow/workflow/manage/%/labels':
+      return t('You can add labels to transitions if you don\'t like the
+        standard state labels. They will modify the Workflow form options, so
+        specific workflow transitions can have their own labels, relative to
+        the beginning and ending states. Rather than showing the user a
+        workflow box containing options like "review required" as a state in
+        the workflow, it could say "move to the editing department for grammar
+        review".');
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function workflow_admin_ui_permission() {
+  return array(
+    'administer workflow' => array(
+      'title' => t('Administer workflow'),
+      'description' => t('Administer workflow configurations.'),
+    ),
+  );
+}
+
+function workflow_form($form, &$form_state, $workflow, $op, $entity_type) {
+  module_load_include('inc', 'workflow_admin_ui', 'workflow_admin_ui.page.workflow');
+
+  switch ($op) {
+    case 'add':
+    case 'edit':
+    case 'clone':
+      return workflow_admin_ui_edit_form($form, $form_state, $workflow, $op);
+
+    case 'view':
+    case 'delete':
+    default:
+  }
+}
+
+/**
+ * Determines whether the given user has access to a Workflow entity.
+ *
+ * @param string $op
+ *   The operation being performed. One of 'view', 'update', 'create' or 'delete'.
+ * @param object $entity
+ *   Entity to check access for. If no entity is given, it will be
+ *   determined whether access is allowed for all entities of the given type.
+ * @param object $account
+ *   The user to check for. Leave it to NULL to check for the global user.
+ * @param string $entity_type
+ *   The entity type.
+ *
+ * @return bool
+ *   Whether access is allowed or not. If the entity type does not specify any
+ *   access information, NULL is returned.
+ */
+function workflow_access($op, $entity, $account, $entity_type) {
+  return user_access('administer workflow', $account);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function workflow_admin_ui_theme() {
+  return array(
+    'workflow_admin_ui_type_map_form' => array('render element' => 'form'),
+    'workflow_admin_ui_states_form' => array('render element' => 'form'),
+    'workflow_admin_ui_transitions_form' => array('render element' => 'form'),
+  );
+}
+
+/**
+ * Helper function. Create breadcrumbs.
+ *
+ * @param object $workflow
+ *   The workflow object.
+ * @param mixed $extra
+ *   Optional. The link to the extra item to add to the end of the breadcrumbs.
+ */
+function workflow_admin_ui_breadcrumbs($workflow, $extra = NULL) {
+  $bc = array(l(t('Home'), '<front>'));
+  $bc[] = l(t('Configuration'), 'admin/config');
+  $bc[] = l(t('Workflow'), 'admin/config/workflow');
+  $bc[] = l(t('Workflow'), 'admin/config/workflow/workflow');
+  if ($workflow) {
+    $bc[] = l($workflow->label(), "admin/config/workflow/workflow/$workflow->wid");
+  }
+  if ($extra) {
+    $bc[] = $extra;
+  }
+  drupal_set_breadcrumb($bc);
+}

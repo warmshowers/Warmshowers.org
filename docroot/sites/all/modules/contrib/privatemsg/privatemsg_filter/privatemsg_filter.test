@@ -1,0 +1,517 @@
+<?php
+
+/**
+ * @file
+ * Contains tests for the privatemsg_filter module.
+ */
+
+/**
+ * Test filters, tags and inbox/sent handling.
+ */
+class PrivatemsgFilterTestCase extends PrivatemsgBaseTestCase {
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Privatemsg Filter functionality.'),
+      'description' => t('Test filters, tags and inbox/sent handling'),
+      'group' => t('Privatemsg'),
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  function setUp() {
+    parent::setUp('privatemsg', 'privatemsg_filter');
+  }
+
+  /**
+   * Test correct handling of read all permissions.
+   */
+  function testInboxSentHandling() {
+    $author    = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'delete privatemsg'));
+    $recipient = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg'));
+
+    // Create new message.
+    $edit = array(
+      'recipient'   => $recipient->name,
+      'subject'     => $this->randomName(20),
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalLogin($author);
+    $this->drupalPost('messages/new', $edit, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $recipient->name)), t('Message sent confirmation displayed'));
+
+    // Validate that the message is not displayed in the inbox of the author
+    // but in the sent list.
+    $this->drupalGet('messages');
+    $this->assertNoText($edit['subject'], t('Thread not displayed in inbox for author.'));
+    $this->drupalGet('messages/sent');
+    $this->assertText($edit['subject'], t('Thread displayed in "Sent messages" for author.'));
+    $this->drupalGet('messages/list');
+    $this->assertText($edit['subject'], t('Thread displayed in "All messages" for author.'));
+
+    // Write a reply as recipient.
+    $this->drupalLogin($recipient);
+    $this->drupalGet('messages');
+    $this->assertText($edit['subject'], t('Thread displayed in inbox for recipient.'));
+    $this->drupalGet('messages/sent');
+    $this->assertNoText($edit['subject'], t('Thread not displayed in "Sent messages" for recipient.'));
+    $this->drupalGet('messages/list');
+    $this->assertText($edit['subject'], t('Thread displayed in "All messages." for recipient.'));
+
+    // Navigate to the new message.
+    $this->clickLink($edit['subject']);
+    $response = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $response, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $author->name)), t('Message sent confirmation displayed'));
+
+    $this->drupalGet('messages/sent');
+    $this->assertText($edit['subject'], t('Thread displayed in "Sent messages" for recipient.'));
+
+    $this->drupalLogin($author);
+    $this->drupalGet('messages');
+    $this->assertText($edit['subject'], t('Thread displayed in inbox for author.'));
+
+    // Test for bug http://drupal.org/node/617648
+    // Delete all messages for author.
+    $delete = array(
+        'list[1]' => 1,
+    );
+    $this->drupalPost(NULL, $delete, t('Delete'));
+    $this->assertNoText($edit['subject'], t('Thread has been deleted for author.'));
+
+    // Write a reply as recipient.
+    $this->drupalLogin($recipient);
+    $this->drupalGet('messages');
+
+    // Navigate to the new message.
+    $this->clickLink($edit['subject']);
+    $response = array(
+      'body[value]' => $this->randomName(100),
+    );
+    $this->drupalPost(NULL, $response, t('Send message'));
+    $this->assertText(t('A message has been sent to @recipients.', array('@recipients' => $author->name)), t('Message sent confirmation displayed'));
+
+    // Check if thread is visible again for author.
+    $this->drupalLogin($author);
+    $this->drupalGet('messages');
+    $this->assertText($edit['subject'], t('Thread displayed again in inbox for author.'));
+
+    // Test archiving of messages.
+    // Delete all messages for author.
+    $archive = array(
+        'list[1]' => 1,
+        'operation' => 'archive',
+    );
+    $this->drupalPost(NULL, $archive, t('Execute'));
+    $this->assertText(t('The messages have been archived.'), t('Confirmation message displayed'));
+    $this->assertNoText($edit['subject'], t('Thread has been removed from inbox.'));
+
+    $this->drupalGet('messages/list');
+    $this->assertText($edit['subject'], t('Thread still displayed in "All messages" list.'));
+
+  }
+}
+
+/**
+ * Test filters, tags and inbox/sent handling.
+ */
+class PrivatemsgTagsTestCase extends PrivatemsgBaseTestCase {
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Privatemsg Tags functionality.'),
+      'description' => t('Test Privatemsg tags use and administration functionality.'),
+      'group' => t('Privatemsg'),
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  function setUp() {
+    parent::setUp('privatemsg', 'privatemsg_filter');
+  }
+
+  /**
+   * Create and update tags on a single thread.
+   */
+  function testFilterFormSingleThread() {
+    $webuser = $this->drupalCreateuser(array('read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags'));
+
+    // Create a new thread through the api.
+    $response = privatemsg_new_thread(array($webuser), $this->randomName(10), $this->randomName(20), array('author' => $webuser));
+    $thread_id = $response['message']->thread_id;
+
+    $tags = array($this->randomName(), $this->randomName(), $this->randomName(), $this->randomName());
+    $edit = array(
+      'tags' => $tags[0] . ', ' . $tags[1],
+    );
+    $this->drupalLogin($webuser);
+    $this->drupalGet('messages/view/' . $thread_id);
+    $this->clickLink(t('Tag this conversation'));
+    $this->drupalPost(NULL, $edit, t('Tag this conversation'));
+    $this->assertText($tags[0], t('Found message tag'));
+    $this->assertText($tags[1], t('Found message tag'));
+
+    // Create a another thread through the api.
+    $response = privatemsg_new_thread(array($webuser), $this->randomName(10), $this->randomName(20), array('author' => $webuser));
+    $thread_id = $response['message']->thread_id;
+
+    $edit = array(
+      'tags' => $tags[1] . ', ' . $tags[2],
+    );
+    $this->drupalGet('messages/view/' . $thread_id);
+    $this->clickLink(t('Tag this conversation'));
+    $this->drupalPost(NULL, $edit, t('Tag this conversation'));
+    $this->assertText($tags[1], t('Found message tag'));
+    $this->assertText($tags[2], t('Found message tag'));
+
+    // Change tags.
+    $edit = array(
+      'tags' => $tags[0],
+    );
+    $this->drupalGet('messages/view/' . $thread_id);
+    $this->clickLink(t('(modify tags)'));
+    $this->drupalPost(NULL, $edit, t('Tag this conversation'));
+    $this->assertText($tags[0], t('Found message tag'));
+    $this->assertNoText($tags[1], t('Tag has been removed.'));
+    $this->assertNoText($tags[2], t('Tag has been removed.'));
+
+  }
+
+  function testTagsAdministration() {
+    // Create users.
+    $admin = $this->drupalCreateuser(array('administer privatemsg settings', 'read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags'));
+    $webuser = $this->drupalCreateuser(array('read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags'));
+
+    // Prepare data.
+    $private = array(
+      'tag' => $this->randomName(10),
+      'public' => FALSE,
+    );
+    $public = array(
+      'tag' => $this->randomName(10),
+      'public' => 1,
+    );
+    $to_edit = array(
+      'tag' => $this->randomName(10),
+      'public' => 1,
+    );
+    $edited_tag = array(
+      'tag' => $this->randomName(10),
+      'public' => FALSE,
+    );
+    $duplicate = $private;
+
+    $this->drupalLogin($admin);
+
+    // Check that the empty message is displayed.
+    $this->drupalGet('admin/config/messaging/privatemsg/tags/list');
+    $this->assertText(t('No tags available.'), t('No tags exist yet.'));
+
+    // Create tags.
+    $this->drupalPost('admin/config/messaging/privatemsg/tags/add', $private, t('Create tag'));
+    $this->assertText(t('Tag created.'));
+    $this->drupalPost('admin/config/messaging/privatemsg/tags/add', $public, t('Create tag'));
+    $this->assertText(t('Tag created.'));
+    $this->drupalPost('admin/config/messaging/privatemsg/tags/add', $to_edit, t('Create tag'));
+    $this->assertText(t('Tag created.'));
+    $this->drupalPost('admin/config/messaging/privatemsg/tags/add', $duplicate, t('Create tag'));
+    $this->assertText(t('Tag already exists, choose a different name.'));
+
+    // Verify that all tags are displayed.
+    $this->drupalGet('admin/config/messaging/privatemsg/tags/list');
+    foreach (array($private, $public, $to_edit) as $tag) {
+      $this->assertText($tag['tag'], t('Tag %tag displayed', array('%tag' => $tag['tag'])));
+    }
+
+    // Verfiy private/public flag.
+    $rows = $this->xpath('//table/tbody/tr');
+    foreach ($rows as $row) {
+      // Index 0 is tag name.
+      if ((string)$row->td[0] == $private['tag']) {
+        // Index 2 is Yes/- flag indicator.
+        $this->assertEqual((string)$row->td[2], '-', t('Private tag does not have public flag.'));
+      }
+      else {
+        $this->assertEqual((string)$row->td[2], t('Yes'), t('Public tag does have public flag.'));
+      }
+      // Extract edit/delete url. Only the part starting with admin/ is needed.
+      if ((string)$row->td[0] == $to_edit['tag']) {
+        $edit_url = substr($row->td[3]->a[0]['href'], strpos($row->td[3]->a[0]['href'], 'admin/'));
+      }
+      if ((string)$row->td[0] == $public['tag']) {
+        $delete_url = drupal_substr($row->td[3]->a[1]['href'], strpos($row->td[3]->a[1]['href'], 'admin/'));
+      }
+    }
+
+    // Edit Tag.
+    $this->drupalGet($edit_url);
+    $this->assertTitle(t('Edit @tag | @site-name', array('@site-name' => variable_get('site_name', 'Drupal'), '@tag' => $to_edit['tag'])), t('Correct title for @tag is set.', array('@tag' => $to_edit['tag'])));
+
+    // With duplicate data.
+    $this->drupalPost(NULL, $duplicate, t('Save tag'));
+    $this->assertText(t('Tag already exists, choose a different name.'));
+
+    // With valid data.
+    $this->drupalPost(NULL, $edited_tag, t('Save tag'));
+    $this->assertText(t('Tag updated.'), t('Tag has been updated'));
+
+    // Verify edited tag.
+    $this->assertNoText($to_edit['tag'], t('Old tag name not found anymore.'));
+    $this->assertText($edited_tag['tag'], t('Tag has been renamed.'));
+    $rows = $this->xpath('//table/tbody/tr');
+    foreach ($rows as $row) {
+      // The new tag name should exist and the public flag should be set to false.
+      if ((string)$row->td[0] == $edited_tag['tag']) {
+        $this->assertEqual((string)$row->td[2], '-', t('Edited tag does not have public flag.'));
+      }
+    }
+
+    // Delete tag.
+    $this->drupalPost($delete_url, array(), t('Delete'));
+    $this->assertText(t('Tag has been deleted'), t('Tag has been deleted'));
+    $this->assertNoText($public['tag'], t('Deleted tag is not displayed anymore.'));
+  }
+
+  /**
+   * Tests if the tagging feature works when a user doesn't have the filter
+   * permission.
+   */
+  function testOnlyTaggingPermission() {
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings', 'write privatemsg', 'read privatemsg'));
+    $webuser = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'tag private messages', 'create private message tags'));
+
+    // Display tag column in thread list.
+    $this->drupalLogin($admin);
+    $this->drupalPost('admin/config/messaging/privatemsg', array('privatemsg_display_fields[tags]' => 'tags'), t('Save configuration'));
+
+    // Create two threads through the API.
+    $response = privatemsg_new_thread(array($webuser), $subject1 = $this->randomName(10), $this->randomName(20), array('author' => $admin));
+    $thread_id1 = $response['message']->thread_id;
+
+    $response = privatemsg_new_thread(array($webuser), $subject2 = $this->randomName(10), $this->randomName(20), array('author' => $admin));
+    $thread_id2 = $response['message']->thread_id;
+
+    // Log in and check that both messages are visible.
+    $this->drupalLogin($webuser);
+    $this->drupalGet('messages');
+    $this->assertText($subject1, t('Message is displayed.'));
+    $this->assertText($subject2, t('Message is displayed.'));
+
+    // Tag first thread.
+    $tag = array(
+      'tag-add' => $this->randomName(5),
+      'list[' . $thread_id1 . ']' => $thread_id1,
+    );
+    $this->drupalPost(NULL, $tag, t('Apply Tag'));
+
+    // Filter by tag, verify that only the first thread is displayed, an
+    // informal message and no filter form.
+    $this->clickLink($tag['tag-add']);
+    $this->assertText(t('Messages tagged with @tags are currently displayed. Click here to remove this filter.', array('@tags' => $tag['tag-add'])), t('Tag filter message displayed.'));
+    $this->assertNoText(t('Filter messages'));
+    $this->assertText($subject1, t('First thread displayed.'));
+    $this->assertNoText($subject2, t('Second thread not displayed.'));
+
+    // Check paging, set threads per page to 1.
+    variable_set('privatemsg_per_page', 1);
+
+    // Go the second page, only the second thread should be visible there.
+    $this->drupalGet('messages');
+    $this->clickLink('2');
+    $this->assertNoText($subject1, t('First thread not displayed.'));
+    $this->assertText($subject2, t('Second thread displayed.'));
+
+    // Only the first thread should be visible on the
+    // first page.
+    $this->clickLink('1');
+    $this->assertText($subject1, t('First thread displayed.'));
+    $this->assertNoText($subject2, t('Second thread not displayed.'));
+
+
+    // Now, filter by tag (which should be visible on this page) and verify
+    // that there is no pager shown.
+    $this->clickLink($tag['tag-add']);
+    $this->assertText(t('Messages tagged with @tags are currently displayed. Click here to remove this filter.', array('@tags' => $tag['tag-add'])), t('Tag filter message displayed.'));
+    $this->assertNoText(t('Filter messages'));
+    $this->assertText($subject1, t('First thread displayed.'));
+    $this->assertNoText($subject2, t('Second thread not displayed.'));
+    $this->assertNoLink('2');
+  }
+
+  function testInboxTagging() {
+    $webuser = $this->drupalCreateuser(array('read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags'));
+    $admin = $this->drupalCreateUser(array('administer privatemsg settings'));
+
+    // Display tag column in thread list.
+    $this->drupalLogin($admin);
+    $this->drupalPost('admin/config/messaging/privatemsg', array('privatemsg_display_fields[tags]' => 'tags'), t('Save configuration'));
+
+    // Create a new thread through the api.
+    $response = privatemsg_new_thread(array($webuser), $subject1 = $this->randomName(10), $this->randomName(20), array('author' => $webuser));
+    $thread_id = $response['message']->thread_id;
+
+    $tag1 = $this->randomName();
+    $tag2 = $this->randomName();
+    $edit = array(
+      'tags' => $tag1 . ', ' . $tag2,
+    );
+    $this->drupalLogin($webuser);
+    $this->drupalGet('messages/view/' . $thread_id);
+    $this->clickLink(t('Tag this conversation'));
+    $this->drupalPost(NULL, $edit, t('Tag this conversation'));
+    $this->assertText($tag1, t('Found message tag'));
+    $this->assertText($tag2, t('Found message tag'));
+
+    // Create another thread.
+    $response = privatemsg_new_thread(array($webuser), $subject2 = $this->randomName(10), $this->randomName(20), array('author' => $webuser));
+    $thread_id2 = $response['message']->thread_id;
+
+    $this->drupalGet('messages');
+    $rows = $this->xpath('//tbody/tr');
+    foreach ($rows as $row) {
+      if ($row->td[2]->a == $subject1) {
+        // The first thread should have both tags. Try both ways as the order
+        // might change.
+        $verify = (($tag1 == $row->td[1]->a[0] && $tag2 == $row->td[1]->a[1]) || ($tag1 == $row->td[1]->a[1] && $tag2 == $row->td[1]->a[0]));
+        $this->assertTrue($verify, t('First thread is correctly tagged.'));
+      }
+      if ($row->td[2]->a == $subject2) {
+        // The second thread should have no tags.
+        $this->assertEqual('', $row->td[1], t('Second thread is not tagged.'));
+      }
+    }
+
+    $add_tag = array(
+      'list[' . $thread_id2 . ']' => 1,
+      'tag-add' => $tag2,
+    );
+    $this->drupalPost(NULL, $add_tag, t('Apply Tag'));
+    $rows = $this->xpath('//tbody/tr');
+    foreach ($rows as $row) {
+      if ($row->td[2]->a == $subject1) {
+        // The first thread should have both tags. Try both ways as the order
+        // might change.
+        $verify = (($tag1 == $row->td[1]->a[0] && $tag2 == $row->td[1]->a[1]) || ($tag1 == $row->td[1]->a[1] && $tag2 == $row->td[1]->a[0]));
+        $this->assertTrue($verify, t('First thread is correctly tagged.'));
+      }
+      if ($row->td[2]->a == $subject2) {
+        // The second thread should have one tag.
+        $this->assertEqual($tag2, $row->td[1]->a, t('Second thread is correctly tagged.'));
+      }
+    }
+
+    $remove_tag = array(
+      'list[' . $thread_id . ']' => 1,
+      'list[' . $thread_id2 . ']' => 1,
+      'tag-remove' => 3,
+    );
+    $this->drupalPost(NULL, $remove_tag, t('Remove Tag'));
+    $rows = $this->xpath('//tbody/tr');
+    foreach ($rows as $row) {
+      if ($row->td[2]->a == $subject1) {
+        // The first thread should have only one tag now.
+        $this->assertEqual($tag1, $row->td[1]->a, t('First thread is correctly tagged.'));
+      }
+      if ($row->td[2]->a == $subject2) {
+        // The second thread should have no tags.
+        $this->assertEqual('', $row->td[1], t('Second thread is not tagged.'));
+      }
+    }
+    $this->assertNoText($tag2, t('Second tag is not displayed anymore.'));
+  }
+}
+
+/**
+ * Test filters, tags and inbox/sent handling.
+ */
+class PrivatemsgFilterWidgetTestCase extends PrivatemsgBaseTestCase {
+  /**
+   * Implements getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Privatemsg filter widget'),
+      'description' => t('Tests the Privatemsg filter widget displayed on message listings'),
+      'group' => t('Privatemsg'),
+    );
+  }
+
+  /**
+   * Implements setUp().
+   */
+  function setUp() {
+    parent::setUp('privatemsg', 'privatemsg_filter');
+  }
+
+  /**
+   * Generic filter widget tests.
+   */
+  function testAuthorSearch() {
+    $user1 = $this->drupalCreateuser(array('read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags', 'filter private messages'));
+    $user2 = $this->drupalCreateuser(array('read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags', 'filter private messages'));
+    $user3 = $this->drupalCreateuser(array('read privatemsg', 'write privatemsg', 'tag private messages', 'create private message tags', 'filter private messages'));
+
+    $this->drupalLogin($user2);
+    $this->drupalGet('messages');
+
+    // Make sure the widget is not displayed when there are no messages.
+    $this->assertNoFieldById('edit-author');
+
+    // Create a new thread from user 1 through the api.
+    $response = privatemsg_new_thread(array($user2), $subject = $this->randomName(10), $body = $this->randomName(20), array('author' => $user1));
+    $thread_id = $response['message']->thread_id;
+
+    $this->drupalGet('messages');
+
+    // Make sure the widget is now displayed and the message is too.
+    $this->assertText($subject);
+    $this->assertFieldById('edit-author');
+
+    // Search for user 3 which will find no results but the widget should still be displayed.
+    $this->drupalPost(NULL, array('author' => $user3->name), t('Filter'));
+    $this->assertNoText($subject);
+    $this->assertFieldById('edit-author', $user3->name . ', ');
+
+    // Reset filter widget.
+    $this->drupalPost(NULL, array(), t('Reset'));
+    $this->assertFieldById('edit-author');
+    $this->assertText($subject);
+
+    // Create a new thread through the api.
+    $response = privatemsg_new_thread(array($user2), $subject2 = $this->randomName(10), $body2 = $this->randomName(20), array('author' => $user3));
+    $thread_id = $response['message']->thread_id;
+
+    // Make sure that the new message is displayed.
+    $this->drupalGet('messages');
+    $this->assertText($subject2);
+
+    // Search for user 1 which should only display his message.
+    $this->drupalPost(NULL, array('author' => $user1->name), t('Filter'));
+    $this->assertText($subject);
+    $this->assertNoText($subject2);
+
+    // Save the filter and access /messages again - The filter should still be
+    // active.
+    $this->drupalPost(NULL, array(), t('Save filter'));
+    $this->drupalGet('messages');
+    $this->assertFieldById('edit-author', $user1->name . ', ');
+    $this->assertText($subject);
+    $this->assertNoText($subject2);
+
+    // Reset filter widget.
+    $this->drupalPost(NULL, array(), t('Reset'));
+    $this->assertFieldById('edit-author');
+    $this->assertText($subject);
+    $this->assertText($subject2);
+  }
+}

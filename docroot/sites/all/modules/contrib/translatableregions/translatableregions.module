@@ -1,0 +1,180 @@
+<?php
+
+/**
+ * @file
+ * Make it possible to machine-translate any element of a page.
+ *
+ * Adapted from translatableregions module by Dave Trainer.
+ */
+
+/**
+ * Implementation of hook_init().
+ *
+ * Add css and javascript for this project if the user has enabled it.
+ */
+function translatableregions_init() {
+  global $user;
+  // Install the javascript if either we have configured to always show
+  // or the user has NOT turned it off.
+  if (variable_get('translatableregions_always_show_translate_buttons', TRUE) || empty($user->data['translatableregions']['hide_translate_button'])) {
+    translatableregions_install_js();
+  }
+}
+
+/**
+ * Implementation of hook_menu.
+ */
+function translatableregions_menu() {
+  $items['admin/config/regional/translatableregions'] = array(
+    'title' => "Translatable Regions",
+    'description' => 'Allows machine translation of portions of a web page defined by CSS selectors',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('translatableregions_admin'),
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_block_info.
+ */
+function translatableregions_block_info() {
+  $blocks['configure-auto-translation']['info'] = t('Configure Auto Translation');
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view for our single block.
+ *
+ *  *
+ * Provides a single block that allows the user to turn on translation helps.
+ *
+ * @param $delta
+ *   The name of the block.
+ * @return
+ */
+function translatableregions_block_view($delta = '') {
+  $block = array();
+  if ($delta == 'configure-auto-translation') {
+    global $user;
+    // Show if the user is logged in and the config item is not set to always show.
+    if ($user->uid > 0 && !variable_get('translatableregions_always_show_translate_buttons', TRUE)) {
+      $block['subject'] = t('Automatic Translation');
+      $block['content'] = drupal_get_form('translatableregions_auto_trans_config');
+    }
+  }
+  return $block;
+}
+
+
+/**
+ * The form that provides configuration of translation.
+ *
+ * This is per-user configuration.
+ */
+function translatableregions_auto_trans_config($form, &$form_state) {
+  global $user;
+  $form['hide_translate_button'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Hide automatic translation button"),
+    '#default_value' => empty($user->data['translatableregions']['hide_translate_button']) ? FALSE : TRUE,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t("Set"),
+  );
+  return $form;
+}
+
+
+function translatableregions_auto_trans_config_submit($form, &$form_state) {
+  global $user;
+  $data['translatableregions']['hide_translate_button'] = $form_state['values']['hide_translate_button'];
+  user_save($user, $data);
+}
+
+
+/**
+ * Admin configuration form for translatableregions.
+ */
+function translatableregions_admin($form, &$form_state) {
+  //TODO: Add what *not* to translate.
+  //TODO: add translation of the entire page?
+  $form['translatableregions_translation_api_key'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Translation API key (Google Translation API v2)'),
+    '#required' => TRUE,
+    '#default_value' => variable_get('translatableregions_translation_api_key', ''),
+    '#description' => t('Your key for the (for-pay) Google Translation API v2 (obtain the API key !link)', array('!link' => l(t('here'), 'http://code.google.com/apis/language/translate/v2/pricing.html'))),
+  );
+  $form['translatableregions_always_show_translate_buttons'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Always show translate buttons"),
+    '#description' => t("The translate buttons can be opt-in, based on a setting saved with the user (and configured with the block provided with this module). But if this checkbox is selected, it will be shown regardless, and the block will be disabled."),
+    '#default_value' => variable_get('translatableregions_always_show_translate_buttons', TRUE),
+  );
+  $form['translatableregions_translate_selectors'] = array(
+    '#type' => 'textarea',
+    '#title' => t('CSS Selector for regions to be translated'),
+    '#description' => t('Enter a valid css selector for the items to be translated. For example, ".node, .comment .content" would enable translation of nodes and comment bodies.'),
+    '#default_value' => variable_get('translatableregions_translate_selectors', '.node, .comment .content'),
+  );
+  $form['translatableregions_auto_translate'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Automatically detect user language and translate."),
+    '#description' => t("If this is checked, the user language will be determined from the \$language variable or from the browser language, and if it is different from the language in which the section is written, will be translated automatically."),
+    '#default_value' => variable_get('translatableregions_auto_translate', FALSE),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Install all the javascript we need to install.
+ *
+ * jquery translate does most of the work, but also load settings.
+ */
+function translatableregions_install_js() {
+  global $user;
+
+  $settings = array(
+    'api_key' => variable_get('translatableregions_translation_api_key', ''),
+    'always_show_translate_buttons' => variable_get('translatableregions_always_show_translate_buttons', TRUE),
+    'hide_translate_button' => !empty($user->data['translatableregions']['hide_translate_button']),
+    'translate_selectors' => variable_get('translatableregions_translate_selectors', '.comment .content'),
+    'auto_translate' => variable_get('translatableregions_auto_translate', FALSE),
+    'browser_language' => translatableregions_language_from_browser(),
+  );
+  drupal_add_js(array('translatableregions' => $settings), "setting");
+}
+
+/**
+ * Implements hook_user_presave().
+ *
+ * Store the translatableregions data into the user->data.
+ */
+function translatableregions_user_presave(&$edit, $account, $category) {
+  // Make sure that our form value 'mymodule_foo' is stored as 'mymodule_bar'.
+  if (isset($edit['translatableregions'])) {
+    $edit['data']['translatableregions'] = $edit['translatableregions'];
+  }
+}
+
+/**
+ * Identify language from the Accept-language HTTP header we got.
+ * this is a much simpler adaptation of language_from_browser() in Drupal's
+ * language.inc.
+ * That one, unfortunately, discards any language that is not configured.
+ */
+function translatableregions_language_from_browser() {
+  // Specified by the user via the browser's Accept Language setting
+  // Samples: "hu, en-us;q=0.66, en;q=0.33", "hu,en-us;q=0.5"
+
+  $language = 'en'; // Default language.
+  if (isset($_SERVER['HTTP_ACCEPT_LANGUAGE'])) {
+    list($language) = explode(",", $_SERVER['HTTP_ACCEPT_LANGUAGE']);
+    $language = preg_replace('/-.*$/', '', $language);  // Replace closing '-' which may be present.
+  }
+  return $language;
+
+}

@@ -1,0 +1,192 @@
+#!/bin/bash
+#
+# Drupal monitoring plugin for Nagios
+#
+# Requires a Drupal module from http://drupal.org/project/nagios
+#
+# Copyright 2009 Khalid Baheyeldin http://2bits.com
+#
+ECHO="/bin/echo"
+GREP="/bin/egrep"
+RM="/bin/rm"
+CP="/bin/cp"
+WGET="/usr/bin/wget"
+SSL=/bin/false
+
+PROGNAME=`basename $0`
+PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+REVISION=`echo '$Revision$' | sed -e 's/[^0-9.]//g'`
+
+temp=`mktemp`
+
+if [[ -e $PROGPATH/utils.sh ]]; then
+  . $PROGPATH/utils.sh
+elif [[ -e /usr/lib/nagios/plugins/utils.sh ]]; then
+  . /usr/lib/nagios/plugins/utils.sh
+else
+  echo 'Could not find nagios utils include file! Set PROGPATH on line 17 of the check_drupal script.'
+  exit 1
+fi
+
+print_usage() {
+  $ECHO "Usage: $PROGNAME -U unique_id [ -H host_name ] [ -P path_to_nagios_status_page ] [ -t time_out_seconds ]"
+  $ECHO "Usage: $PROGNAME --help"
+  $ECHO "Usage: $PROGNAME --version"
+}
+
+print_help() {
+  print_revision $PROGNAME $REVISION
+  $ECHO ""
+  print_usage
+  $ECHO ""
+  $ECHO "Drupal monitoring plugin for Nagios"
+  $ECHO ""
+  support
+}
+
+# Make sure the correct number of command line
+# arguments have been supplied
+if [ $# -lt 1 ]; then
+  print_usage
+  exit $STATE_UNKNOWN
+fi
+
+# Grab the command line arguments
+
+exitstatus=$STATE_WARNING
+
+while test -n "$1"; do
+  case "$1" in
+    --help)
+      print_help
+      exit $STATE_OK
+      ;;
+    -h)
+      print_help
+      exit $STATE_OK
+      ;;
+    --version)
+      print_revision $PROGNAME $REVISION
+      exit $STATE_OK
+      ;;
+    -V)
+      print_revision $PROGNAME $REVISION
+      exit $STATE_OK
+      ;;
+    -H)
+      hostname=$2
+      shift
+      ;;
+    -U)
+      unique_id=$2
+      shift
+      ;;
+    -P)
+      path=$2
+      shift
+      ;;
+    -S)
+      SSL=/bin/true
+      ;;
+    -t) 
+      timeout=$2
+      shift
+      ;;
+    --http-user) 
+      httpuser=$2
+      shift
+      ;;
+    --http-password) 
+      httppassword=$2
+      shift
+      ;;
+    *)
+      $ECHO "Unknown argument: $1"
+      print_usage
+      exit $STATE_UNKNOWN
+  esac
+  shift
+done
+
+# Set a default for hostname
+if [ "$hostname" = "" ]; then
+  hostname=$NAGIOS_HOSTADDRESS
+fi
+
+# Set a default for path
+if [ "$path" = "" ]; then
+  path="nagios"
+fi
+
+# Set the default for timeout
+if [ "$timeout" = "" ]; then
+  timeout=2
+fi
+
+# Set the default for timeout
+if [ "$unique_id" = "" ]; then
+  unique_id="Nagios"
+fi
+
+
+if $SSL; then
+  CMD="$WGET --no-check-certificate -S -T $timeout -O - --http-user=$httpuser --http-password=$httppassword -U $unique_id https://$hostname/$path"
+else
+  CMD="$WGET -S -T $timeout -O - -U $unique_id http://$hostname/$path"
+fi
+
+$CMD > $temp 2>&1
+RC=$?
+
+# When using http authentication wget always waits until it receives a 401 before sending the password. 
+# Therefore the first header should be stripped off
+if [ "$httppassword" != "" ]; then
+  temp2=`mktemp`
+  $GREP -v 'HTTP/1.1 401 Authorization Required' $temp > $temp2
+  $CP $temp2 $temp
+  $RM -f $temp2
+fi
+
+HTTP=`$GREP "HTTP/1" $temp`
+
+if [ "$RC" != 0 ]; then
+  $ECHO "wget error: $RC: when accessing $hostname/$path. HTTP: $HTTP"
+  $RM -f $temp
+  exit $STATE_UNKNOWN
+fi
+
+HTTP_CODE=`$ECHO "$HTTP" | awk '{print $2}'`
+if [ "$HTTP_CODE" != "200" ]; then
+  $ECHO "HTTP returned an error code. HTTP: $HTTP"
+  $RM -f $temp
+  exit $STATE_UNKNOWN
+fi
+
+DATA="`$GREP "nagios=" $temp | sed -e 's/^.*nagios=//g'`"
+
+STATUS=`$ECHO "$DATA" | awk -F, '{print $1}'`
+
+case $STATUS in
+"OK")
+  exitstatus=$STATE_OK
+  ;;
+"WARNING")
+  exitstatus=$STATE_WARNING
+  ;;
+"UNAUTHORIZED")
+  exitstatus=$STATE_CRITICAL
+  ;;
+"CRITICAL")
+  exitstatus=$STATE_CRITICAL
+  ;;
+*)
+  exitstatus=$STATE_UNKNOWN
+  ;;
+esac
+
+# Send the data
+$ECHO "DRUPAL $DATA"
+
+$RM -f $temp
+
+exit $exitstatus

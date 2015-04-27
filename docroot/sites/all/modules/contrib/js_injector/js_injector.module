@@ -1,0 +1,236 @@
+<?php
+
+/**
+ * @file js_injector.module
+ *
+ * Allows administrators to inject JS into the page output based on
+ * configurable rules. Useful for adding simple JS tweaks without modifying
+ * a site's official theme.
+ */
+
+define('JS_INJECTOR_DIRECTORY_URI', 'public://js_injector');
+
+/**
+ * Implements hook_help().
+ */
+function js_injector_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case 'admin/config/development/js-injector' :
+      $output .= '<p>' . t('Use JS injection rules to add small snippets of JS to the page output when specific criteria are met. For example, a simple rule could change the page background color at night or float a particular div to the right on node editing pages.') . '</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function js_injector_permission() {
+  return array(
+    'administer js_injector' => array(
+      'title' => t('Administer JS injector'),
+      'description' => t('Create and delete JS snippets for the site.'),
+      'restrict access' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_ctools_plugin_directory().
+ *
+ * In order for CTools to be able to provide an interface for administering the
+ * configuration presets, we have to expose the preset schema to the Export UI.
+ */
+function js_injector_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools' && $plugin == 'export_ui') {
+    return 'plugins/' . $plugin;
+  }
+}
+
+/**
+ * Implements 'load callback' for js_injector_rule exportables.
+ */
+function js_injector_rule_load($name) {
+  ctools_include('export');
+  $result = ctools_export_load_object('js_injector_rule', 'names', array($name));
+  if (isset($result[$name])) {
+    return $result[$name];
+  }
+}
+
+/**
+ * Implements 'load multiple callback' for js_injector_rule exportables.
+ */
+function js_injector_rule_load_multiple(array $names) {
+  ctools_include('export');
+  $results = ctools_export_load_object('js_injector_rule', 'names', $names);
+  return array_filter($results);
+}
+
+/**
+ * Save a single JS injector rule. This custom save callback is required in
+ * order to write (or update) the JavaScript file on the filesystem
+ */
+function js_injector_rule_save($rule) {
+  $schema = ctools_export_get_schema('js_injector_rule');
+  $export = $schema['export'];
+
+  // objects should have a serial primary key. If not, simply fail to write.
+  if (empty($export['primary key'])) {
+    return FALSE;
+  }
+
+  $key = $export['primary key'];
+  if ($rule->export_type & EXPORT_IN_DATABASE) {
+    // existing record.
+    $update = array($key);
+  }
+  else {
+    // new record.
+    $update = array();
+    $rule->export_type = EXPORT_IN_DATABASE;
+  }
+
+  // rule is passed by reference, and the crid is written into it upon save
+  $success = drupal_write_record('js_injector_rule', $rule, $update);
+  if ($success == FALSE || empty($rule->crid)) {
+    return FALSE;
+  }
+
+  // write the JS file to the filesystem
+  $file_written = file_unmanaged_save_data($rule->js, _js_injector_rule_uri($rule->crid), FILE_EXISTS_REPLACE);
+
+  return ($file_written != FALSE) && is_numeric($rule->crid);
+}
+
+/**
+ * Delete a single JS injector rule. Override is required to clean up the
+ * filesystem
+ */
+function js_injector_rule_delete($rule) {
+  $schema = ctools_export_get_schema('js_injector_rule');
+  $export = $schema['export'];
+
+  // If we were sent an object, get the export key from it. Otherwise
+  // assume we were sent the export key.
+  $value = is_object($rule) ? $rule->{$export['key']} : $rule;
+  db_delete('js_injector_rule')
+    ->condition($export['key'], $value)
+    ->execute();
+
+  // delete the JS file to the filesystem
+  return file_unmanaged_delete(_js_injector_rule_uri($rule->crid));
+}
+
+/**
+ * Implements hook_init().
+ *
+ * Checks to see whether any JS files should be added to the current page,
+ * based on rules configured by the site administrator.
+ */
+function js_injector_init() {
+  // load all the rules
+  ctools_include('export');
+  $rules = ctools_export_load_object('js_injector_rule');
+  foreach ($rules as $name => $rule) {
+    // check if the rule is disabled in the ctools UI, if so skip it
+    if (isset($rule->disabled) && $rule->disabled == TRUE) {
+      continue;
+    }
+
+    // check the page visibility settings
+    if (_js_injector_visibility_pages($rule) == FALSE) {
+      continue;
+    }
+
+    // add the js
+    $code = $rule->inline == 1 ? $rule->js : _js_injector_rule_path($rule->crid);
+    drupal_add_js($code, array(
+      'type' => $rule->inline == 1 ? 'inline' : 'file',
+      'scope' => $rule->position,
+      // this group has the highest weight
+      'group' => JS_THEME,
+      'every_page' => FALSE,
+      // safe guard to ensure inline files are never preprocessed
+      'preprocess' => $rule->inline == 1 ? FALSE : $rule->preprocess,
+      // since we're trying to give the administrator complete control, we'll
+      // move JS that this module has added to a high weight, higher even than
+      // the theme's JS files. Currently the weight is 200 + the crid, which is
+      // currently higher than Bartik's JS.
+      'weight' => 200 + $rule->crid,
+    ));
+  }
+}
+
+/**
+ * Based on visibility setting this function returns TRUE if the JS injector
+ * rule code should be added to the current page and otherwise FALSE.
+ *
+ * Code ported from googleanalytics.module
+ */
+function _js_injector_visibility_pages($rule) {
+  $visibility = $rule->page_visibility;
+  $setting_pages = $rule->page_visibility_pages;
+
+  // Match path if necessary.
+  if (!empty($setting_pages)) {
+    // Convert path to lowercase. This allows comparison of the same path
+    // with different case. Ex: /Page, /page, /PAGE.
+    $pages = drupal_strtolower($setting_pages);
+    if ($visibility < 2) {
+      // Convert the Drupal path to lowercase
+      $path = drupal_strtolower(drupal_get_path_alias($_GET['q']));
+      // Compare the lowercase internal and lowercase path alias (if any).
+      $page_match = drupal_match_path($path, $pages);
+      if ($path != $_GET['q']) {
+        $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+      }
+      // When $visibility has a value of 0, the tracking code is displayed on
+      // all pages except those listed in $pages. When set to 1, it
+      // is displayed only on those pages listed in $pages.
+      $page_match = !($visibility xor $page_match);
+    }
+    elseif (module_exists('php')) {
+      $page_match = php_eval($setting_pages);
+    }
+    else {
+      $page_match = FALSE;
+    }
+  }
+  else {
+    $page_match = TRUE;
+  }
+
+  return $page_match;
+}
+
+/**
+ * Helper function to get file path for a rule.
+ * This will get the path relative to DRUPAL_ROOT,
+ * as in 'sites/default/files/js_injector/js_injector_99.js'.
+ *
+ * @param $crid
+ *   The JS injector rule unique ID
+ */
+function _js_injector_rule_path($crid) {
+  if (!empty($crid)) {
+    $local_path = file_create_url(_js_injector_rule_uri($crid));
+    // Now remove the part before the drupal root.
+    $local_path = preg_replace('/^' . preg_quote($GLOBALS['base_url'], '/') . '\//', '', $local_path);
+    return $local_path;
+  }
+  return NULL;
+}
+
+/**
+ * Return the URI for a crid.
+ *
+ * @param $crid
+ *   The JS injector rule unique ID
+ */
+function _js_injector_rule_uri($crid) {
+  if (!empty($crid)) {
+    return JS_INJECTOR_DIRECTORY_URI . '/js_injector_' . $crid . '.js';
+  }
+}

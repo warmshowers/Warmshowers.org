@@ -1,0 +1,1260 @@
+<?php
+
+/**
+ * @file
+ * Allows you to add a recurring fee to a product/SKU to handle subscription
+ * type services.
+ *
+ * This module includes code for the recurring fee product feature and a default
+ * recurring fee handler.  The default handler simply adds fees to the queue to
+ * be processed on cron runs.
+ * Initial charges, even if they're set to occur in 0 days will not be processed
+ * immediately upon checkout
+ *
+ * Development
+ *   Chris Hood http://univate.com.au
+ */
+
+/**
+ * Shortcuts for defining disabled or default menu items in the recurring info
+ * definitions, rather then needing to specify the whole menu item.
+ *
+ * UC_RECURRING_MENU_DISABLED is included for completeness, menu items are
+ * assumed to be disabled if not included in a recurring definition.
+ *
+ * @see hook_recurring_info()
+ */
+define('UC_RECURRING_MENU_DISABLED', 0);
+define('UC_RECURRING_MENU_DEFAULT', 1);
+
+/**
+ * Recurring fee states.
+ */
+define('UC_RECURRING_FEE_STATUS_ACTIVE', 0);
+define('UC_RECURRING_FEE_STATUS_EXPIRED', 1);
+define('UC_RECURRING_FEE_STATUS_CANCELLED', 2);
+define('UC_RECURRING_FEE_STATUS_SUSPENDED', 3);
+
+/**
+ * Recurring access.
+ */
+define('UC_RECURRING_ACCESS_DENY', 'deny');
+define('UC_RECURRING_ACCESS_ALLOW', 'allow');
+define('UC_RECURRING_ACCESS_IGNORE', NULL);
+
+/**
+ * Unlimited number of intervals.
+ */
+define('UC_RECURRING_UNLIMITED_INTERVALS', -1);
+
+/*******************************************************************************
+ * Drupal Hooks
+ ******************************************************************************/
+
+/**
+ * Implements hook_menu().
+ */
+function uc_recurring_menu() {
+  $items = array();
+
+  $items['admin/store/settings/recurring'] = array(
+    'title' => 'Recurring payments',
+    'description' => 'Edit the recurring payment settings.',
+    'access arguments' => array('administer store'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_recurring_payment_form'),
+    'weight' => 0,
+    'file' => 'uc_recurring.admin.inc',
+  );
+
+  $items['admin/store/orders/recurring'] = array(
+    'title' => 'Recurring fees',
+    'description' => 'View the recurring fees on your orders.',
+    'page callback' => 'uc_recurring_admin',
+    'page arguments' => array(NULL, NULL),
+    'access arguments' => array('administer recurring fees'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 5,
+    'file' => 'uc_recurring.admin.inc',
+  );
+  $items['admin/store/orders/recurring/view/fee/%'] = array(
+    'title' => 'Recurring fees',
+    'description' => 'View a specific recurring fee.',
+    'page callback' => 'uc_recurring_admin',
+    'page arguments' => array(5, 6),
+    'access arguments' => array('administer recurring fees'),
+    'type' => MENU_CALLBACK,
+    'weight' => 5,
+    'file' => 'uc_recurring.admin.inc',
+  );
+  $items['admin/store/orders/recurring/view/order/%'] = array(
+    'title' => 'Recurring fees',
+    'description' => 'View the recurring fees on a specific order.',
+    'page callback' => 'uc_recurring_admin',
+    'page arguments' => array(5, 6),
+    'access arguments' => array('administer recurring fees'),
+    'type' => MENU_CALLBACK,
+    'weight' => 5,
+    'file' => 'uc_recurring.admin.inc',
+  );
+
+  $items['user/%user/recurring-fees'] = array(
+    'title' => 'Recurring fees',
+    'description' => 'View current recurring fees.',
+    'page callback' => 'uc_recurring_user_fees',
+    'page arguments' => array(1),
+    'access callback' => 'uc_recurring_user_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/store/orders/%/recurring'] = array(
+    'title' => 'Recurring fees',
+    'description' => 'Recurring fees associated with this order.',
+    'page callback' => 'uc_recurring_order_information',
+    'page arguments' => array(3),
+    'access arguments' => array('administer recurring fees'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'uc_recurring.admin.inc',
+  );
+
+  // Recurring fee payment methods and gateways can define their own list of
+  // user operations via the same standard menu structure.
+  $info = uc_recurring_get_recurring_info();
+  foreach ($info as $handler => $value) {
+    if (!empty($value['menu'])) {
+      foreach ($value['menu'] as $path => $menu_item) {
+        if ($menu_item != UC_RECURRING_MENU_DISABLED) {
+          if ($menu_item == UC_RECURRING_MENU_DEFAULT) {
+            $menu_item = !empty($info['default']['menu'][$path]) ? $info['default']['menu'][$path] : array();
+          }
+          $default_menu_fields = array(
+            'title' => $path,
+            'page callback' => 'drupal_get_form',
+            'access callback' => 'uc_recurring_user_access',
+            'type' => MENU_CALLBACK,
+            'file path' => drupal_get_path('module', $value['module']),
+          );
+          $admin_path = 'admin/store/orders/recurring/%/' . $path . '/' . $value['fee handler'];
+          $items[$admin_path] = array_merge($default_menu_fields, $menu_item);
+          $items[$admin_path]['page arguments'][] = 4; // Add rfid as an arguments.
+          $items[$admin_path]['page arguments'][] = 6; // Add fee_handler as an arguments.
+
+          $user_path = 'user/%user/recurring/%/' . $path . '/' . $value['fee handler'];
+          $default_menu_fields['access arguments'] = array(1, 3, 4);
+          $items[$user_path] = array_merge($default_menu_fields, $menu_item);
+          $items[$user_path]['page arguments'][] = 3; // Add rfid as an arguments.
+          $items[$user_path]['page arguments'][] = 5; // Add fee_handler as an arguments.
+        }
+      }
+    }
+  }
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function uc_recurring_permission() {
+  return array(
+    'administer recurring fees' => array(
+      'title' => t('administer recurring fees'),
+      'description' => t('TODO Add a description for \'administer recurring fees\''),
+    ),
+    'view own recurring fees' => array(
+      'title' => t('view own recurring fees'),
+      'description' => t('TODO Add a description for \'view own recurring fees\''),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_recurring_theme() {
+  return array(
+    'uc_recurring_user_table' => array(
+      'variables' => array('uid' => NULL),
+    ),
+    'uc_recurring_admin_table' => array(
+      'variables' => array('fees' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_recurring_info().
+ *
+ * Add a default handler.
+ */
+function uc_recurring_recurring_info() {
+  $items['default'] = array(
+    'name' => t('Default handler'),
+    'module' => 'uc_recurring',
+    'fee handler' => 'default',
+    'process callback' => 'uc_recurring_default_handler',
+    'renew callback' => 'uc_recurring_default_handler',
+    'menu' => array(
+      'charge' => array(
+        'title' => 'Charge',
+        'page arguments' => array('uc_recurring_admin_charge_form'),
+        'access callback' => 'user_access',
+        'access arguments' => array('administer recurring fees'),
+        'file' => 'uc_recurring.admin.inc',
+        'file path' => drupal_get_path('module', 'uc_recurring'),
+      ),
+      'edit' => array(
+        'title' => 'Edit',
+        'page arguments' => array('uc_recurring_admin_edit_form'),
+        'access callback' => 'user_access',
+        'access arguments' => array('administer recurring fees'),
+        'file' => 'uc_recurring.admin.inc',
+        'file path' => drupal_get_path('module', 'uc_recurring'),
+      ),
+      'cancel' => array(
+        'title' => 'Cancel',
+        'page arguments' => array('uc_recurring_user_cancel_form'),
+        'file' => 'uc_recurring.pages.inc',
+        'file path' => drupal_get_path('module', 'uc_recurring'),
+      ),
+    ),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ *
+ * On the renewal time of a recurring fee see if the payment method would
+ * like to perform any addition actions.
+ * 
+ * LOCK AGAINST DUPLICATE CALLS OF THIS FUNCTION:
+ * ----------------------------------------------
+ * A lock is set for a default 30sec - this can be overridden by altering the
+ * uc_recurring_cron_timeout variable
+ */
+function uc_recurring_cron() {
+  if (!lock_acquire('uc_recurring_cron', variable_get('uc_recurring_cron_timeout', 30))) {
+    // Don't run the recurring payments while another process has this lock.
+    return FALSE;
+  }
+
+
+  if (variable_get('uc_recurring_trigger_renewals', TRUE)) {
+    $fees = uc_recurring_get_fees_for_renew();
+    if (!empty($fees)) {
+      $fail = $success = 0;
+      foreach ($fees as $fee) {
+        if ($order_id = uc_recurring_renew($fee)) {
+          $success++;
+        }
+        else {
+          // payment attempted but failed
+          $fail++;
+        }
+        if (lock_may_be_available('uc_recurring_cron')) { // exit if the lock has expired
+          break;
+        }
+      }
+      watchdog('uc_recurring', '@success recurring fees processed successfully; @fail failed.', array('@success' => $success, '@fail' => $fail));
+    }
+  }
+  lock_release('uc_recurring_cron');
+
+  $fees = uc_recurring_get_fees_for_expiration();
+  if (!empty($fees)) {
+    foreach ($fees as $fee) {
+      uc_recurring_expire($fee);
+    }
+    watchdog('uc_recurring', '@count recurring fees expired successfully.', array('@count' => count($fees)));
+  }
+}
+
+/**
+ * Implements hook_user_view().
+ */
+function uc_recurring_user_view($account, $view_mode) {
+  // Show only if user is privileged, and there are recurring fees.
+  if (uc_recurring_user_access($account)) {
+    $account->content['summary']['recurring_fees'] = array(
+      '#type' => 'user_profile_item',
+      '#title' => t('Recurring fees'),
+      '#markup' => l('Click here to view your recurring fees', 'user/' . $account->uid . '/recurring-fees'),
+    );
+  }
+}
+
+/**
+ * Display users recurring fees.
+ */
+function uc_recurring_user_fees($user) {
+  return theme('uc_recurring_user_table', array('uid' => $user->uid));
+}
+
+/*******************************************************************************
+ * Ubercart Hooks
+ ******************************************************************************/
+
+/**
+ * Implements hook_uc_order().
+ */
+function uc_recurring_uc_order($op, $order, $arg2) {
+  switch ($op) {
+    case 'delete':
+      $fees = uc_recurring_get_fees($order);
+      foreach ($fees as $fee) {
+        uc_recurring_fee_cancel($fee->rfid, $fee);
+        uc_recurring_fee_user_delete($fee->rfid);
+      }
+      break;
+  }
+}
+
+
+/**
+ * Implements hook_uc_checkout_complete().
+ *
+ * This function is require to complete recurring orders for anonymous
+ * purchases as the uid is not set until the order has completed checkout.
+ */
+function uc_recurring_uc_checkout_complete($order, $account) {
+  $fees = uc_recurring_get_fees($order);
+  foreach ($fees as $fee) {
+    // Check for anonymous users.
+    if ($fee->uid == 0) {
+      $fee->uid = $order->uid;
+      uc_recurring_fee_user_save($fee);
+      $has_rows = (bool) db_query_range('SELECT 1 FROM {uc_payment_receipts} WHERE order_id = :order_id', 0, 1, array(':order_id' => $order->order_id))->fetchField();
+      if ($has_rows) {
+        db_update('uc_payment_receipts')
+          ->fields(array('uid' => $order->uid))
+          ->condition('order_id', $order->order_id)
+          ->execute();
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_uc_message().
+ */
+function uc_recurring_uc_message() {
+  $messages['uc_recurring_renewal_completed_subject'] = t('[store-name]: [fee-title]');
+  $messages['uc_recurring_renewal_completed_message'] = t("[order-first-name] [order-last-name], \n\n[fee-title] has been processed, [order-link], at [store-name].\n\nThanks again, \n\n[store-name]\n[site-slogan]");
+
+  $messages['uc_recurring_renewal_failed_subject'] = t('[store-name]: [fee-title] failed');
+  $messages['uc_recurring_renewal_failed_message'] = t("[order-first-name] [order-last-name], \n\nWe have failed to process [fee-title], at [store-name].\n\nWe will re-attempt to process this fee again on [next-charge]. If your payment details have changed you can update them at [recurring-link].\n\nThanks again, \n\n[store-name]\n[site-slogan]");
+
+  $messages['uc_recurring_renewal_expired_subject'] = t('[store-name]: [fee-title] expired');
+  $messages['uc_recurring_renewal_expired_message'] = t("[order-first-name] [order-last-name], \n\n[fee-title] has expired, [order-link], at [store-name].\n\nYou can purchase a new order from [store-url].\n\nThanks again, \n\n[store-name]\n[site-slogan]");
+
+  return $messages;
+}
+
+/*******************************************************************************
+ * API functions
+ ******************************************************************************/
+
+/**
+ * Process a renewal, either from the cron job or manually from a fee handler.
+ *
+ * @param $fee
+ *   The fee object.
+ * @return
+ *   The new order ID or FALSE if unable to renew fee.
+ */
+function uc_recurring_renew($fee) {
+  global $user;
+  if ($fee->attempts==0) {
+    // create a new order for the renewal
+    $order = uc_recurring_create_renewal_order($fee);
+  } else {
+    // renewal order already created on first charge attempt
+    $order = FALSE;
+    if (isset($fee->data['retry_order_id']) && is_numeric($fee->data['retry_order_id'])) {
+      $order = uc_order_load($fee->data['retry_order_id']);
+    }
+    if ($order==FALSE) {
+      // could not find the last renewal order so create a new one
+      $order = uc_recurring_create_renewal_order($fee);
+    }
+  }
+
+  if (uc_recurring_charge_profile($fee, $order) !== FALSE) {
+    $order = uc_order_load($order->order_id);
+
+    // Set new intervals.
+    uc_recurring_set_intervals($fee);
+    // Add the new order ID to database.
+    $recurring_order = new stdClass();
+    $recurring_order->original_order_id = $fee->order_id;
+    $recurring_order->renewal_order_id = $order->order_id;
+    drupal_write_record('uc_recurring_orders', $recurring_order);
+   
+    if (isset($fee->data['retry_order_id'])) {
+      unset($fee->data['retry_order_id']);
+    }
+
+    // Save the fee object.
+    uc_recurring_fee_user_save($fee);
+
+    uc_recurring_renewal_module_invoke('recurring_renewal_completed', $order, $fee);
+    // @todo - replace with rules
+    //ca_pull_trigger('uc_recurring_renewal_complete', $order, $fee);
+    rules_invoke_event('uc_recurring_renewal_complete', $order, $fee);
+
+    // Return the new order ID.
+    return $order->order_id;
+  }
+  else {
+    // Charging failed.
+    if (!$fee->own_handler) {
+      uc_recurring_process_extensions($fee);
+    }
+    if ($fee->module == 'uc_recurring_product') {
+      $message = t('Error: Recurring fee <a href="@orders-recurring-view">@fee</a> for product @model failed.', array('@orders-recurring-view' => url('admin/store/orders/recurring/view/fee/' . $fee->rfid), '@fee' => $fee->rfid, '@model' => $fee->data['model']));
+    }
+    else {
+      $message = t('Error: Recurring fee <a href="@orders-recurring-view">@fee</a> for order @order_id failed.', array('@orders-recurring-view' => url('admin/store/orders/recurring/view/fee/' . $fee->rfid), '@fee' => $fee->rfid, '@order_id' => $fee->order_id));
+    }
+    // Add comment to both new and original orders.
+    uc_order_comment_save($fee->order_id, $user->uid, $message);
+    uc_order_comment_save($order->order_id, $user->uid, $message);
+    if ($fee->module == 'uc_recurring_product') {
+      watchdog('uc_recurring', 'Failed to capture recurring fee of @amount for product @model on order @order_id.', array('@amount' => $fee->fee_amount, '@model' => $fee->data['model'], '@order_id' => $fee->order_id), WATCHDOG_ERROR, l(t('order !order_id', array('!order_id' => $fee->order_id)), 'admin/store/orders/'. $fee->order_id));
+    }
+    else {
+      watchdog('uc_recurring', 'Failed to capture recurring fee of @amount for order @order_id.', array('@amount' => $fee->fee_amount, '@order_id' => $fee->order_id), WATCHDOG_ERROR, l(t('order !order_id', array('!order_id' => $fee->order_id)), 'admin/store/orders/'. $fee->order_id));
+    }
+ 
+    // check if there will be a retry
+    $extension = uc_recurring_get_extension($fee->pfid, $fee->attempts);
+    if ($extension) {
+      $fee->data['retry_order_id'] = $order->order_id;
+      uc_recurring_fee_user_save($fee);
+    }
+
+    uc_recurring_renewal_module_invoke('recurring_renewal_failed', $order, $fee);
+    // @todo - replace with rules
+    //ca_pull_trigger('uc_recurring_renewal_failed', $order, $fee);
+    rules_invoke_event('uc_recurring_renewal_failed', $order, $fee);
+
+    uc_order_comment_save($fee->order_id, $user->uid, t('New recurring fee failed on order <a href="@store-orders">@order_id</a>.', array('@store-orders' => url('admin/store/orders/' . $order->order_id), '@order_id' => $order->order_id)));
+  }
+  return FALSE;
+}
+
+/**
+ * Create a new order to be renewed via a recurring profile.
+ */
+function uc_recurring_create_renewal_order($fee) {
+  global $user;
+
+  // Clear CC cache so that correct info is loaded (if any)
+  if (module_exists('uc_credit')) {
+    uc_credit_cache('clear');
+  }
+
+  $order = uc_order_load($fee->order_id);
+  $old_id = $order->order_id;
+
+  // Create a new order by cloning the current order and replacing order ID.
+  $new_order = uc_order_new($order->uid, 'post_checkout');
+  $new_id = $new_order->order_id;
+
+  // Add a comment in the new and original order history.
+  uc_order_comment_save($old_id, $user->uid, t('New recurring fee processed, new order is <a href="@store-orders">@order_id</a>.', array('@store-orders' => url('admin/store/orders/'. $new_id), '@order_id' => $new_id)));
+  uc_order_comment_save($new_id, $user->uid, t('Order created as a recurring fee for order <a href="@store-orders">@order_id</a>.', array('@store-orders' => url('admin/store/orders/'. $old_id), '@order_id' => $old_id)));
+
+  $new_order = $order;
+  $new_order->order_id = $new_id;
+  $new_order->created = time();
+  $new_order->order_status = 'processing';
+  // @todo we need a better way of tracking the relationship between orders.
+  $new_order->data['recurring_fee'] = TRUE;
+  $new_order->data['old_order_id'] = $old_id;
+
+  $new_order->products = array();
+
+  // We want the line items to be regenerated.
+  unset($new_order->line_items);
+
+  // Give other modules a chance to modify the new order before processing
+  uc_recurring_renewal_module_invoke('recurring_renewal_pending', $new_order, $fee);
+
+  $new_order->line_items = uc_order_load_line_items($new_order, TRUE);
+
+  uc_order_save($new_order);
+  uc_order_update_status($new_id, 'pending');
+
+  // We load the order to pick up the 'pending' state.
+  $new_order = uc_order_load($new_id);
+
+  return $new_order;
+}
+
+/**
+ * Process a charge on a recurring profile.
+ *
+ * Invokes the renew callback, assumes renewal is successful unless FALSE is
+ * returned.
+ *
+ * @param $fee
+ *   The recurring fee object.
+ * @param $order
+ *   The ubercart order object.
+ * @return
+ *   TRUE if order charged.
+ */
+function uc_recurring_charge_profile(&$fee, &$order = NULL) {
+  if (!isset($order)) {
+    $order = uc_recurring_create_renewal_order($fee);
+  }
+  return uc_recurring_invoke($fee->fee_handler, 'renew callback', array($order, &$fee));
+}
+
+/**
+ * Process a fee expiration.
+ *
+ * @param $fee
+ *   The recurring fee object.
+ */
+function uc_recurring_expire($fee) {
+  $order = uc_order_load($fee->order_id);
+
+  $fee->status = UC_RECURRING_FEE_STATUS_EXPIRED;
+  uc_recurring_fee_user_save($fee);
+
+  // @todo - replace with rules
+  //ca_pull_trigger('uc_recurring_renewal_expired', $order, $fee);
+  rules_invoke_event('uc_recurring_renewal_expired', $order, $fee);
+}
+
+/**
+ * Handle extensions when a recurring payment was unsuccessful.
+ *
+ * @param $fee
+ *   The fee object.
+ */
+function uc_recurring_process_extensions(&$fee) {
+  $extend_seconds = uc_recurring_get_extension($fee->pfid, $fee->attempts);
+  uc_recurring_extend_fee($fee, $extend_seconds);
+}
+
+/**
+ * Handle extensions when a recurring payment was unsuccessful.
+ *
+ * @param $fee
+ *   The fee object.
+ * @param $extend_seconds
+ *   The number of seconds to extend the order by.
+ */
+function uc_recurring_extend_fee(&$fee, $extend_seconds) {
+  $fee->attempts++;
+  $fee->next_charge += $extend_seconds;
+  $fee->data['extension'] = isset($fee->data['extension']) ? $fee->data['extension'] + $extend_seconds : $extend_seconds;
+  if ($extend_seconds <= 0) {
+    $fee->remaining_intervals = 0;
+  }
+  uc_recurring_fee_user_save($fee);
+}
+
+/**
+ * Returns the time to extend for a payment attempt.
+ *
+ * @param $fee_id
+ *   The id of the recurring fee to get extensions.
+ * @param $attempt
+ *   The attempt number to return.
+ */
+function uc_recurring_get_extension($fee_id, $attempt) {
+  $extension = db_query("SELECT * FROM {uc_recurring_extensions} WHERE (pfid = :pfid OR pfid IS NULL) AND rebill_attempt = :rebill_attempt ORDER BY pfid DESC", array(':pfid' => $fee_id, ':rebill_attempt' => $attempt))->fetchObject();
+  $extend_seconds = 0;
+  if ($extension != FALSE) {
+    $extend_seconds = $extension->time_to_extend;
+  }
+  return $extend_seconds;
+}
+
+/**
+ * Retuns a list of all the extensions for a specific recurring fee.
+ *
+ * @param $fee_id
+ *   The id of the recurring fee to get extensions.
+ */
+function uc_recurring_get_extension_list($fee_id = NULL) {
+  if ($fee_id === NULL) {
+    // TODO Please convert this statement to the D7 database API syntax.
+    $result = db_query("SELECT * FROM {uc_recurring_extensions} WHERE pfid IS NULL ORDER BY pfid DESC, rebill_attempt ASC");
+  }
+  else {
+    $result = db_query("SELECT * FROM {uc_recurring_extensions} WHERE (pfid = :pfid OR pfid IS NULL) ORDER BY pfid DESC, rebill_attempt ASC", array(':pfid' => $fee_id));
+  }
+
+  foreach ($result as $extension) {
+    if (!isset($extensions[$extension->rebill_attempt])) {
+      $extensions[$extension->rebill_attempt] = $extension;
+    }
+  }
+  return $extensions;
+}
+
+/**
+ * Save a set of extensions.
+ *
+ * @param $extensions
+ *   String of comma seperated day values to extend the extension.
+ * @param $extend_seconds
+ *   The number of seconds to extend the order by.
+ */
+function uc_recurring_save_extensions($extensions, $fee_id = NULL) {
+  db_delete('uc_recurring_extensions')
+    ->isNull('pfid')
+    ->execute();
+
+  $extend = explode(',', $extensions);
+  $count = 0;
+  foreach ($extend as $days_to_extend) {
+    $seconds = $days_to_extend * (24 * 60 * 60);
+    $id = db_insert('uc_recurring_extensions')
+      ->fields(array(
+        'rebill_attempt' => $count,
+        'time_to_extend' => $seconds,
+      ))
+      ->execute();
+    $count++;
+  }
+  // Last extension set extension to 0 to expire.
+  $id = db_insert('uc_recurring_extensions')
+    ->fields(array(
+      'rebill_attempt' => $count,
+      'time_to_extend' => 0,
+    ))
+    ->execute();
+}
+
+/**
+ * Get the recurring handlers info.
+ *
+ * @return
+ *   Array keyed by the implementing module, and the callback.
+ */
+function uc_recurring_get_recurring_info($key = '', $reset = FALSE) {
+
+  static $data = array();
+
+  if ($reset || ($key && empty($data[$key])) || (!$key && empty($data))) {
+    $data = array();
+    foreach (module_implements('recurring_info') as $module) {
+      if ($result = module_invoke($module, 'recurring_info')) {
+        $data[] = $result;
+      }
+    }
+    // Get uc recurring own implementation. The pattern of the function is
+    // uc_recurring_MODULE-NAME_recurring_info().
+    if ($modules = uc_recurring_includes()) {
+      foreach ($modules as $module) {
+        $func = 'uc_recurring_' . $module . '_recurring_info';
+        if (function_exists($func) && $result = call_user_func($func)) {
+          $data[] = $result;
+        }
+      }
+    }
+
+    // Normalize data array to be keyed by the fee handler name.
+    $data = _uc_recurring_get_recurring_info_handlers($data);
+
+    drupal_alter('recurring_info', $data);
+  }
+
+  if (!empty($key)) {
+    $return = !empty($data[$key]) ? $data[$key] : array();
+  }
+  else {
+    $return = $data;
+  }
+  return $return;
+}
+
+/**
+ * Default a recurring default handler, does nothing except returning TRUE.
+ */
+function uc_recurring_default_handler() {
+  return TRUE;
+}
+
+/**
+ * Checks that a payment method can process recurring fees. This is done by
+ * checking that a recurring fee handler exists for the payment method.
+ *
+ * @param $payment method
+ *   The id of the payment method.
+ * @return
+ *   TRUE is a valid fee handler for this payment method is found.
+ */
+function uc_recurring_payment_method_supported($payment_method) {
+  $info = uc_recurring_get_recurring_info();
+  if (isset($info[$payment_method]['fee handler'])) {
+    return !empty($info[$info[$payment_method]['fee handler']]);
+  }
+  return FALSE;
+}
+
+/**
+ * Include uc recurring own payment gateway implementations.
+ *
+ * @return
+ *   The modules that were included.
+ */
+function uc_recurring_includes() {
+  $return = array();
+  $modules = array('uc_authorizenet', 'uc_cybersource', 'test_gateway', 'uc_credit', 'uc_payment_pack');
+  foreach ($modules as $module) {
+    if (module_exists($module)) {
+      module_load_include('inc', 'uc_recurring', '/includes/uc_recurring.' . $module);
+      $return[] = $module;
+    }
+  }
+  return $return;
+}
+
+/**
+ * Invoke an item type specific function, which will be item types
+ * base appended with _$op. The parameters given in $params will be
+ * passed to this function.
+ *
+ * @param $handler
+ *   The handler from the fee object.
+ * @param $op
+ *   The operation that should be invoked.
+ * @param $params
+ *   The paramaters that should be passed to the handler.
+ */
+function uc_recurring_invoke($handler, $op, $params = array()) {
+  $info = uc_recurring_get_recurring_info($handler);
+  $function = isset($info[$op]) ? $info[$op] : "";
+  if ($function && function_exists($function)) {
+    // Add the op argument to the params, in case the handler will need to use
+    // it to identify the operation it is in.
+    $params[] = $op;
+    return call_user_func_array($function, $params);
+  }
+}
+
+/**
+ * Saves a recurring fee for a user.
+ *
+ * @param $fee
+ *   A fee object.
+ * @return
+ *   The reccuring fee ID of the saved fee.
+ */
+function uc_recurring_fee_user_save($fee) {
+  // Update an existing row.
+  drupal_alter('recurring_fee_user_save', $fee);
+
+  if (!empty($fee->rfid)) {
+    // Update an existing row.
+    drupal_write_record('uc_recurring_users', $fee, array('rfid'));
+  }
+  else {
+    drupal_write_record('uc_recurring_users', $fee);
+  }
+
+  // Allow modules to do things with the full object (always with rfid).
+  module_invoke_all('recurring_fee_user_saved', $fee);
+
+  return $fee->rfid;
+}
+
+/**
+ * Loads a recurring fee from a user.
+ *
+ * @param $rfid
+ *   The recurring fee ID to load.
+ * @return
+ *   The recurring fee object.
+ */
+function uc_recurring_fee_user_load($rfid) {
+  $fee = db_query("SELECT ru.*, u.name FROM {uc_recurring_users} ru JOIN {users} u ON u.uid = ru.uid WHERE rfid = :rfid", array(':rfid' => $rfid))->fetchObject();
+  if ($fee) {
+    $fee->data = unserialize($fee->data);
+
+    // Allow other modules to change the saved data.
+    drupal_alter('recurring_fee_user_load', $fee);
+    return $fee;
+  }
+  return FALSE;
+}
+
+/**
+ * Delete a recurring fee from a user.
+ *
+ * @param $rfid
+ *   The ID of the recurring fee to be removed from the appropriate table.
+ */
+function uc_recurring_fee_user_delete($rfid) {
+  module_invoke_all('recurring_user_delete', $rfid);
+  db_delete('uc_recurring_users')
+    ->condition('rfid', $rfid)
+    ->execute();
+}
+
+/**
+ * Wrapper function to cancel a user's recurring fee.
+ *
+ * Cancellation is done by setting remaining intervals to 0.
+ *
+ * @param $rfid
+ *   The recurring fee's ID.
+ * @param $fee
+ *   Optional; The loaded fee object.
+ */
+function uc_recurring_fee_cancel($rfid, $fee = NULL) {
+  global $user;
+  if (empty($fee)) {
+    $fee = uc_recurring_fee_user_load($rfid);
+  }
+  $remaining = $fee->remaining_intervals;
+  $fee->remaining_intervals = 0;
+  $fee->status = UC_RECURRING_FEE_STATUS_CANCELLED;
+
+  // Add a timestamp to the user cancellation.
+  $fee->data['cancel'] = REQUEST_TIME;
+  uc_recurring_fee_user_save($fee);
+  uc_recurring_invoke($fee->fee_handler, 'cancel callback', array($fee));
+
+  // Add comment about cancellation in the product.
+  uc_order_comment_save($fee->order_id, $user->uid, t('<a href="@user-link">@user</a> cancelled recurring fee <a href="@fee-link">@fee</a>. There were @remaining fee(s) still pending.', array('@user-link' => url('user/' . $user->uid), '@user' => $user->name, '@fee-link' => url('admin/store/orders/recurring/view/fee/' . $rfid), '@fee' => $rfid, '@remaining' => $remaining < 0 ? 'unlimited' : $remaining)));
+
+  // Let other modules act on the canceled fee.
+  module_invoke_all('uc_recurring_cancel', $fee);
+
+  $order = uc_order_load($fee->order_id);
+  // @todo - replace with rules
+  //ca_pull_trigger('uc_recurring_cancel', $order, $fee);
+  rules_invoke_event('uc_recurring_cancel', $order, $fee);
+}
+
+/**
+ * Get an array of recurring fees associated with any product on an order.
+ *
+ * @param $order
+ *   The order object in question.
+ * @param $reset
+ *   TRUE if the fees cache should be reset.
+ * @return
+ *   An array of recurring fee objects containing all their data from the DB.
+ */
+function uc_recurring_get_fees($order, $reset = FALSE) {
+  static $fees = array();
+
+  // New orders will not have any recurring fees to get so get out now.
+  if (empty($order->order_id)) {
+    return array();
+  }
+
+  if ($reset || empty($fees[$order->order_id])) {
+    if (!empty($order->products)) {
+      $products = array();
+      foreach ($order->products as $value) {
+        if (isset($value->order_product_id)) {
+          $products[$value->order_product_id] = $value->order_product_id;
+        }
+      }
+
+      // Because of the way this works if we don't have any products we need to
+      // make sure no fees show up in the results. We can't send an empty array.
+      if (empty($products)) {
+        $products[] = -1;
+      }
+
+      $query = db_select('uc_recurring_users', 'ru');
+      $query->leftjoin('users', 'u', 'u.uid = ru.uid');
+      $result = $query->fields('ru')
+        ->fields('u', array('name'))
+        ->condition('ru.order_product_id', $products, 'IN')
+        ->execute();
+
+      foreach ($result as $fee) {
+        $fee->data = unserialize($fee->data);
+        $fees[$order->order_id][] = $fee;
+      }
+    }
+  }
+  return !empty($fees[$order->order_id]) ? $fees[$order->order_id] : array();
+}
+
+/**
+ * Get all pending fees that should be renewed.
+ */
+function uc_recurring_get_fees_for_renew() {
+  $fees = array();
+  $result = db_query("SELECT * FROM {uc_recurring_users} WHERE remaining_intervals <> :remaining_intervals AND next_charge <= :next_charge AND status = :status AND own_handler = :own_handler ORDER BY order_id DESC", array(':remaining_intervals' => 0, ':next_charge' => REQUEST_TIME, ':status' => UC_RECURRING_FEE_STATUS_ACTIVE, ':own_handler' => 0));
+  foreach ($result as $fee) {
+    $fee->data = unserialize($fee->data);
+    $fees[$fee->rfid] = $fee;
+  }
+  return $fees;
+}
+
+/**
+ * Get all pending fees that should be expired.
+ */
+function uc_recurring_get_fees_for_expiration() {
+  $fees = array();
+  $result = db_query("SELECT * FROM {uc_recurring_users} WHERE remaining_intervals = :remaining_intervals AND next_charge <= :next_charge AND own_handler = :own_handler AND status <> :status ORDER BY order_id DESC", array(':remaining_intervals' => 0, ':next_charge' => REQUEST_TIME, ':own_handler' => 0, ':status' => UC_RECURRING_FEE_STATUS_EXPIRED));
+  foreach ($result as $fee) {
+    $fee->data = unserialize($fee->data);
+    $fees[$fee->rfid] = $fee;
+  }
+  return $fees;
+}
+
+
+/**
+ * Get all fees is the system.
+ */
+function uc_recurring_get_all_fees($pager = FALSE, $order = '') {
+  $fees = array();
+  //$sql = "SELECT ru.*, u.name FROM {uc_recurring_users} ru LEFT JOIN {users} u ON u.uid=ru.uid" . $order;
+  $query = db_select('uc_recurring_users', 'ru');
+  if ($pager) {
+    $query->extend('PagerDefault');
+  }
+
+  // add the order header
+  $query->extend('TableSort')
+    ->orderByHeader($order)
+    ->fields('ru')
+    ->fields('u', array('name'))
+    ->join('users', 'u', 'u.uid = ru.uid');
+
+  $result = $query->execute();
+
+  foreach ($result as $fee) {
+    $fees[$fee->rfid] = $fee;
+    $fee->data = unserialize($fee->data);
+  }
+  return $fees;
+}
+
+/**
+ * Get an array of recurring fees associated with a user.
+ *
+ * @param $order
+ *   The order object in question.
+ * @param $reset
+ *   TRUE if the fees cache should be reset.
+ * @return
+ *   An array of recurring fee objects containing all their data from the DB.
+ */
+function uc_recurring_get_user_fees($uid) {
+  $fees = array();
+  $result = db_query("SELECT * FROM {uc_recurring_users} WHERE uid = :uid AND status <> :status ORDER BY order_id DESC", array(':uid' => $uid, ':status' => UC_RECURRING_FEE_STATUS_EXPIRED));
+  foreach ($result as $fee) {
+    $fees[$fee->rfid] = $fee;
+  }
+  return $fees;
+}
+
+/*******************************************************************************
+ * Callback Functions
+ ******************************************************************************/
+
+/**
+ * Restrict access to recurring fee operations for users.
+ *
+ * @param $account
+ *   The user account being accessed
+ * @param $rfid
+ *   The recurring fee ID.
+ * @param $op
+ *   The user operation, e.g. cancel, edit, update.
+ * @return
+ *   True if user has permission to access menu item.
+ */
+function uc_recurring_user_access($account = NULL, $rfid = NULL, $op = '') {
+  global $user;
+  if (!isset($account)) {
+    return user_access('administer recurring fees');
+  }
+  // Check if user has access to perform action on a certain fee.
+  if (isset($rfid)) {
+    $fee = uc_recurring_fee_user_load($rfid);
+    $access = module_invoke_all('recurring_access', $fee, $op, $account);
+
+    if (in_array(UC_RECURRING_ACCESS_DENY, $access, TRUE)) {
+      return FALSE;
+    }
+    elseif (in_array(UC_RECURRING_ACCESS_ALLOW, $access, TRUE)) {
+      return TRUE;
+    }
+  }
+  return (user_access('administer recurring fees') || (user_access('view own recurring fees') && $user->uid == $account->uid)) && uc_recurring_get_user_fees($account->uid);
+}
+
+/*******************************************************************************
+ * Theme Functions
+ ******************************************************************************/
+
+/**
+ * Displays a table for users to administer their recurring fees.
+ *
+ * TODO: This theme function should receive as an argument the fees to be
+ * included in the table, not simply a user ID. All the logic to load fees
+ * should be taken care of in the function that calls this theme function.
+ */
+function theme_uc_recurring_user_table($variables) {
+  $uid = $variables['uid'];
+  drupal_add_css(drupal_get_path('module', 'uc_recurring') . '/uc_recurring.css');
+
+  // Set up a header array for the table.
+  $header = array(t('Order'), t('Amount'), t('Interval'), t('Next charge'), t('Status'), t('Remaining'), t('Options'));
+
+  $recurring_states = uc_recurring_fee_status_label();
+
+  // Build an array of rows representing the user's fees.
+  $rows = array();
+
+  foreach (uc_recurring_get_user_fees($uid) as $fee) {
+    // Get the user operations links for the current fee.
+    $ops = uc_recurring_get_fee_ops('user', $fee);
+
+    // Add the row to the table for display.
+    $rows[] = array(
+      'data' => array(
+        l($fee->order_id, 'user/' . $uid . '/orders/' . $fee->order_id),
+        theme('uc_price', array('price' => $fee->fee_amount)),
+        array(
+          'data' => check_plain($fee->regular_interval),
+          'nowrap' => 'nowrap',
+        ),
+        format_date($fee->next_charge, 'short'),
+        '<span class="recurring-status-' . intval($fee->status) . '">' . $recurring_states[$fee->status] . '</span>',
+        $fee->remaining_intervals < 0 ? t('Until cancelled') : $fee->remaining_intervals,
+        array(
+          'data' => implode(' | ', $ops),
+          'nowrap' => 'nowrap',
+        ),
+      ),
+    );
+  }
+
+  if (empty($rows)) {
+    $rows[] = array(array(
+        'data' => t('Your account has no recurring fees.'),
+        'colspan' => 7,
+      ));
+  }
+
+  return theme('table', array('header' => $header, 'rows' => $rows));
+}
+
+/**
+ * Displays a table for users to administer their recurring fees.
+ *
+ * TODO: This theme function should receive as an argument the fees to be
+ * included in the table, not simply a user ID. All the logic to load fees
+ * should be taken care of in the function that calls this theme function.
+ */
+function theme_uc_recurring_admin_table($variables) {
+  $fees = $variables['fees'];
+  // Build the table header.
+  $header = array(
+    array(
+      'data' => t('ID'),
+      'field' => 'ru.rfid',
+    ),
+    array(
+      'data' => t('Order'),
+      'field' => 'ru.order_id',
+    ),
+    array(
+      'data' => t('Status'),
+      'field' => 'ru.status',
+    ),
+    array('data' => t('Account')),
+    array(
+      'data' => t('Next'),
+      'field' => 'ru.next_charge',
+      'sort' => 'asc',
+    ),
+    array('data' => t('Amount')),
+    array('data' => t('Interval')),
+    array('data' => t('Left')),
+    array('data' => t('Total')),
+    array('data' => t('Operations')),
+  );
+
+  $recurring_states = uc_recurring_fee_status_label();
+  $rows = array();
+  foreach ($fees as $fee) {
+    if ($fee->remaining_intervals < 0) {
+      $fee_remaining = t('Until cancelled');
+    }
+    elseif ($fee->remaining_intervals == 0) {
+      $fee_remaining = '-';
+    }
+    else {
+      $fee_remaining = $fee->remaining_intervals;
+    }
+
+    // Get the administrator operations links for the current fee.
+    $ops = uc_recurring_get_fee_ops('fee_admin', $fee);
+
+    // Add a row for the current fee to the table.
+    $rows[] = array(
+      l($fee->rfid, 'admin/store/orders/recurring/view/fee/' . $fee->rfid),
+      l($fee->order_id, 'admin/store/orders/' . $fee->order_id),
+      $recurring_states[$fee->status],
+      l($fee->name, 'user/' . $fee->uid),
+      format_date($fee->next_charge, 'short'),
+      $fee->fee_amount != '0.00' ? $fee->fee_amount : t('Same as product price'),
+      //$fee->fee_amount != '0.00' ? theme('uc_price', array('price' => $fee->fee_amount)) : t('Same as product price'),
+      array(
+        'data' => check_plain($fee->regular_interval),
+        'nowrap' => 'nowrap',
+      ),
+      $fee_remaining,
+      $fee->remaining_intervals < 0 ? $fee->charged_intervals : $fee->remaining_intervals + $fee->charged_intervals,
+      array(
+        'data' => implode(' | ', $ops),
+        'nowrap' => 'nowrap',
+      ),
+    );
+  }
+
+  // Add the table and pager to the page output.
+  $output = theme('table', array('header' => $header, 'rows' => $rows));
+  $output .= theme('pager', array('tags' => NULL, 'element' => 0));
+
+  return $output;
+}
+
+/*******************************************************************************
+ * Helper Functions
+ ******************************************************************************/
+
+/**
+ * Returns the human readable labels for defined statuses.
+ *
+ * @param $status
+ *   Optionally specify a status and return only its label.
+ *
+ * @return
+ *   An array of recurring fee status labels or a single label if specified.
+ */
+function uc_recurring_fee_status_label($status = NULL) {
+  // Define the array for defined statuses.
+  $status_labels = array(
+    UC_RECURRING_FEE_STATUS_ACTIVE => t('Active'),
+    UC_RECURRING_FEE_STATUS_EXPIRED => t('Expired'),
+    UC_RECURRING_FEE_STATUS_CANCELLED => t('Cancelled'),
+    UC_RECURRING_FEE_STATUS_SUSPENDED => t('Suspended'),
+  );
+
+  drupal_alter('uc_recurring_status', $status_labels);
+
+  // Return the specific status if specified.
+  if (!is_null($status)) {
+    return isset($status_labels[$status]) ? $status_labels[$status] : FALSE;
+  }
+
+  return $status_labels;
+}
+
+/**
+ * Get the data of the handlers, keyed by the fee handler.
+ *
+ * @param $result
+ *   The raw result returned from invoking hook_uc_recurring_info().
+ *
+ * @see uc_recurring_get_recurring_info()
+ */
+function _uc_recurring_get_recurring_info_handlers($data = array()) {
+  $return = array();
+  foreach ($data as $module) {
+    foreach ($module as $name => $handler) {
+      $return[$name] = $handler;
+    }
+  }
+  return $return;
+}
+
+/**
+ * Provide default options.
+ */
+function uc_recurring_get_fee_ops($context, $fee) {
+  $ops = array();
+  $info = uc_recurring_get_recurring_info($fee->fee_handler);
+  if (!empty($info['menu'])) {
+    foreach ($info['menu'] as $path => $menu) {
+      if ($menu != UC_RECURRING_MENU_DISABLED) {
+        if ($context == 'fee_admin') {
+          $full_path = 'admin/store/orders/recurring/' . $fee->rfid . '/' . $path . '/' . $info['fee handler'];
+        }
+        else {
+          $full_path = 'user/' . $fee->uid . '/recurring/' . $fee->rfid . '/' . $path . '/' . $info['fee handler'];
+        }
+        if (drupal_valid_path($full_path)) {
+          $ops[$path] = l($path, $full_path, array('query' => drupal_get_destination()));
+        }
+      }
+    }
+  }
+  return $ops;
+}
+
+/**
+ * Set the intervals after a successful charge.
+ * @param $fee
+ *   The fee object passed by reference.
+ */
+function uc_recurring_set_intervals(&$fee) {
+  $fee->next_charge = strtotime('+' . $fee->regular_interval, $fee->next_charge);
+  if (!empty($fee->data['extension'])) {
+    $fee->next_charge -= $fee->data['extension'];
+  }
+  if ($fee->remaining_intervals > 0) {
+    $fee->remaining_intervals--;
+  }
+  else {
+    $order = uc_order_load($fee->order_id);
+  }
+  $fee->charged_intervals++;
+  $fee->attempts = 0;
+  $fee->data['extension'] = 0;
+}
+
+/**
+ * Invokes uc_recurring renewal hooks in every module.
+ *
+ * We cannot use module_invoke() for this, because the arguments need to
+ * be passed by reference.
+ * @param $type
+ *   The renewal hook type. Available type recurring_renewal_pending,
+ *     recurring_renewal_completed, recurring_renewal_failed.
+ * @param $order
+ *   The order object.
+ * @param $fee
+ *   The recurring Fee object.
+ */
+function uc_recurring_renewal_module_invoke($type, &$order, &$fee) {
+  foreach (module_list() as $module) {
+    $function = $module .'_'. $type;
+    if (function_exists($function)) {
+      $function($order, $fee);
+    }
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function uc_recurring_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'uc_recurring') . '/views',
+  );
+}

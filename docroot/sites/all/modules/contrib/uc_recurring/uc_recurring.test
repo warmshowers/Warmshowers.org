@@ -1,0 +1,344 @@
+<?php
+
+/**
+ * @file
+ * UC Recurring simpletest
+ */
+
+class ucRecurringTestCase extends UbercartTestCase {
+
+  /**
+   * Add a recurring feature to a product.
+   */
+  function createRecurringFeature($nid, $feature = array()) {
+    $interval_units = array('days', 'months', 'years');
+
+    $defaults = array(
+      'model' => '',
+      'fee_same_product' => FALSE,
+      'fee_amount' => rand(1, 999),
+      'initial_charge_value' => rand(1, 10),
+      'initial_charge_unit' => $interval_units[rand(0, 2)],
+      'regular_interval_value' => rand(1, 10),
+      'regular_interval_unit' => $interval_units[rand(0, 2)],
+      'unlimited_intervals' => FALSE,
+      'number_intervals' => rand(3, 10),
+    );
+
+    $feature = array_merge($defaults, $feature);
+    $this->drupalPost('node/' . $nid . '/edit/features/recurring/add', $feature, t('Save feature'));
+    $this->assertRaw(t('The product feature has been added.'), t('"The product feature has been added." was displayed on the edit features page'));
+
+    return $feature;
+  }
+
+  /**
+   * Create users with recurring permissions.
+   */
+  function createRecurringUsers() {
+    // Create a store administrator user account.
+    $this->user_recurring_admin = $this->drupalCreateUser(array(
+      'administer conditional actions',
+      'administer order workflow',
+      'create orders',
+      'delete orders',
+      'edit orders',
+      'view all orders',
+      'administer product classes',
+      'administer product features',
+      'administer products',
+      'create products',
+      'delete all products',
+      'edit all products',
+      'administer store',
+      'view customers',
+      'view store reports',
+      'administer recurring fees',
+    ));
+    $this->user_recurring_customer = $this->drupalCreateUser(array(
+      'view own orders',
+      'view own recurring fees',
+    ));
+  }
+
+  /**
+   * Returns the last order_id added in the database.
+   */
+  function lastCreatedOrderId() {
+    if ($result = db_query('SELECT max(order_id) FROM {uc_orders}')) {
+      return $result->fetchField();
+    }
+    return -1;
+  }
+
+  /**
+   * place an order for a product with a recurring fee.
+   */
+  function placeOrderWithRecurringFee($product) {
+    $last_order_id = $this->lastCreatedOrderId();
+
+    // create an order
+    $this->drupalPost('node/' . $product->nid, array(), t('Add to cart'));
+    $this->assertRaw($product->title, t('The product name has been displayed on the cart page.'));
+    $this->assertRaw('added to', t('The product name has been displayed on the cart page.'));
+    $this->checkout(array('panes[delivery][delivery_postal_code]' => '12345', 'panes[billing][billing_postal_code]' => '12345'));
+    $this->assertRaw('Your order is complete!', t('"Your order is complete!" appears on the thank you page.'));
+    $order_id = $this->lastCreatedOrderId();
+    if ($order_id > $last_order_id) {
+      return $order_id;
+    }
+    return FALSE;
+  }
+
+  /**
+   * Get a single recurring fee from the order ID.
+   */
+  function getSingleRecurringFeeFromOrder($order_id) {
+    $order = uc_order_load($order_id);
+    $fees = uc_recurring_get_fees($order);
+    $this->assertEqual(count($fees), 1, t('Found 1 recurring fee.'));
+
+    return array_shift($fees);
+  }
+
+  /**
+   * Process a recurring fee.
+   */
+  function processRecurringFee($rfid, $times_to_renew) {
+    $old_fee = uc_recurring_fee_user_load($rfid);
+    $current_order_id = empty($old_fee->data['recurring orders']) ? $old_fee->order_id : max($old_fee->data['recurring orders']);
+
+    // Simulate the order being ready for renewal by changing the "next_charge"
+    // field.
+    // TODO Please review the conversion of this statement to the D7 database API syntax.
+    /* db_query("UPDATE {uc_recurring_users} SET next_charge=%d WHERE rfid=%d", REQUEST_TIME - 1, $rfid) */
+    db_update('uc_recurring_users')
+  ->fields(array(
+    'next_charge' => REQUEST_TIME - 1,
+  ))
+  ->condition('rfid', $rfid)
+  ->execute();
+    // Run cron function.
+    uc_recurring_cron();
+
+    $new_order_id = $this->lastCreatedOrderId();
+
+    if ($old_fee->remaining_intervals == 0) {
+      // There should be no new order.
+      $this->pass(t('Recurring Fee %rfid has expired', array('%rfid' => $rfid)));
+    }
+    else {
+      $this->pass(t('Order %order_id has been created', array('%order_id' => $new_order_id)));
+
+      $fee = uc_recurring_fee_user_load($rfid);
+
+      $this->assertEqual($fee->charged_intervals, $old_fee->charged_intervals + 1, t('Number of intervals been charged is now: %charged.', array('%charged' => $fee->charged_intervals)));
+
+      // Negative intervals means unlimited renewals.
+      if ($old_fee->remaining_intervals < 0) {
+        $this->assertEqual($fee->remaining_intervals, -1, t('Still has unlimited intervals remaining.'));
+      }
+      else {
+        $this->assertEqual($fee->remaining_intervals, $old_fee->remaining_intervals -1, t('%remaining_intervals remaining interval.', array('%remaining_intervals' => $fee->remaining_intervals)));
+
+      }
+
+      if ($times_to_renew > 1) {
+        return $this->processRecurringFee($rfid, $times_to_renew -1);
+      }
+    }
+  }
+}
+
+/**
+ * Test the recurring API.
+ */
+class ucRecurringAPITestCase extends ucRecurringTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => t('API functions'),
+      'description' => t('Setup recurring product and test the actions that can occur on a recurring payment.'),
+      'group' => t('Ubercart recurring fees'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('uc_recurring', 'uc_recurring_product');
+
+    $this->createRecurringUsers();
+  }
+
+  /**
+   * Test customer functions of purchasing an order with recurring product.
+   */
+  function testRecurringOrders() {
+    $this->drupalLogin($this->user_recurring_admin);
+    // create two products with recurring features
+    $product1 = $this->createProduct();
+    $p1_recurring_feature = $this->createRecurringFeature($product1->nid, array('unlimited_intervals' => TRUE));
+    $product2 = $this->createProduct();
+    $p2_recurring_feature = $this->createRecurringFeature($product2->nid);
+    $this->drupalLogout();
+
+    // test logging in as an authenticated user
+    // purchasing an order with a unlimited recurring fee
+    // navigating to
+    $this->pass(t('Testing authenticated checkout.'));
+    $this->drupalLogin($this->user_recurring_customer);
+    $order_id = $this->placeOrderWithRecurringFee($product1);
+    if ($order_id) {
+      $this->assertRaw('Your order is complete! Your order number is ' . $order_id . '.', t('The order id displayed on complete page'));
+
+      // test that as a user can navigate around their account and view the order and recurring fee details
+      $this->clickLink(t('My account'));
+      $this->clickLink(t('Click here to view your recurring fees'));
+      $this->clickLink(t('!order_id', array('!order_id' => $order_id)));
+      $this->assertRaw('Order ' . $order_id, t('Viewing Order in the users account'));
+
+      $fee = $this->getSingleRecurringFeeFromOrder($order_id);
+      $this->processRecurringFee($fee->rfid, 2);
+
+      // cancel order
+      $this->drupalGet('user');
+      $this->clickLink(t('Click here to view your recurring fees'));
+      $this->clickLink(t('cancel'));
+      $this->drupalPost(NULL, array(), t('Yes, I want to cancel the subscription'));
+      $fee = uc_recurring_fee_user_load($fee->rfid);
+      $this->assertEqual($fee->remaining_intervals, 0, t('Recurring order !order_id canceled', array('!order_id' => $order_id)));
+
+      // attempt to renew
+      $last_order_id = $this->lastCreatedOrderId();
+      $this->processRecurringFee($fee->rfid, 1);
+      $this->assertEqual($last_order_id, $this->lastCreatedOrderId(), t('Order did not renew after canceled.'));
+    }
+    $this->drupalLogout();
+
+    $this->pass(t('Testing anonymous checkout.'));
+    $order_id = $this->placeOrderWithRecurringFee($product2);
+    if ($order_id) {
+      $this->pass(t('Order %order_id has been created', array('%order_id' => $order_id)));
+
+      $fee = $this->getSingleRecurringFeeFromOrder($order_id);
+      $this->processRecurringFee($fee->rfid, $p1_recurring_feature['number_intervals'] + 1);
+      // attempt to renew
+      $last_order_id = $this->lastCreatedOrderId();
+      $this->processRecurringFee($fee->rfid, 1);
+      $this->assertEqual($last_order_id, $this->lastCreatedOrderId(), t('Order did not renew after canceled.'));
+    }
+  }
+
+  /**
+   * Test administrator functions.
+   */
+  function testRecurringAdminFunctions() {
+    $this->drupalLogin($this->user_recurring_admin);
+
+    $this->drupalGet('admin/store/orders/recurring');
+    // TODO: check admin settings form
+
+    // create two products with recurring features
+    $product = $this->createProduct();
+    $recurring_feature = $this->createRecurringFeature($product->nid);
+    $this->drupalLogout();
+
+    // create an order
+    $order_id = $this->placeOrderWithRecurringFee($product);
+    if ($order_id) {
+      $order = uc_order_load($order_id);
+      $fees = uc_recurring_get_fees($order);
+      $fee = $fees[0];
+
+      $this->drupalLogin($this->user_recurring_admin);
+
+      // charge fee
+      $this->drupalGet('admin/store/orders/recurring');
+      $this->clickLink(t('charge'));
+      $this->drupalPost(NULL, array(), t('Process Renewal'));
+
+      $this->assertEqual($order_id + 1, $this->lastCreatedOrderId(), t('Order renewed after canceled.'));
+
+      // edit fee
+      $this->drupalGet('admin/store/orders/recurring');
+      $this->clickLink(t('edit'));
+      // TODO: check we can edit fields and that they are updated in db
+
+      // cancel fee
+      $this->drupalGet('admin/store/orders/recurring');
+      $this->clickLink(t('cancel'));
+      $this->drupalPost(NULL, array(), t('Yes, I want to cancel the subscription'));
+
+      // attempt to renew
+      $last_order_id = $this->lastCreatedOrderId();
+      $this->processRecurringFee($fee->rfid, 1);
+      $this->assertEqual($last_order_id, $this->lastCreatedOrderId(), t('Order did not renew after canceled.'));
+
+      $this->drupalLogout();
+    }
+  }
+}
+
+/**
+ * Test payment gateway API functions in uc_recurring.
+ */
+class ucRecurringIntegrationTestCase extends ucRecurringTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => t('Payment integration'),
+      'description' => t('Test the API functionality to trigger recurring payments via a third party module.'),
+      'group' => t('Ubercart recurring fees'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('uc_order', 'uc_recurring', 'uc_recurring_product', 'uc_payment', 'uc_recurring_mock_gateway');
+
+    $this->createRecurringUsers();
+  }
+
+  /**
+   * place an order with the mock gateway payment module
+   */
+  function testRecurringPaymentIntegration() {
+    global $gateway_status;
+    $gateway_status = TRUE;
+
+    $this->drupalLogin($this->user_recurring_admin);
+
+    $checkoutMessage = $this->randomName(20);
+
+    // select mock gateway for payments
+    $settings = array(
+      'uc_recurring_payment_methods[mock_gateway]' => TRUE,
+      'uc_recurring_checkout_message' => $checkoutMessage,
+    );
+    $this->drupalPost('admin/store/settings/payment/edit/recurring', $settings, t('Save configuration'));
+
+    // create products with recurring features
+    $product = $this->createProduct();
+    $recurring_feature = $this->createRecurringFeature($product->nid, array('unlimited_intervals' => TRUE));
+    $this->drupalLogout();
+
+    $order_id = $this->placeOrderWithRecurringFee($product);
+    if ($order_id) {
+      $fee = $this->getSingleRecurringFeeFromOrder($order_id);
+
+      $order = uc_order_load($order_id);
+      $this->assertTrue(uc_payment_balance($order) <= 0, t('Order @order_id payment processed', array('@order_id' => $order_id)));
+
+      // test renewal on successful payment processing
+      $this->processRecurringFee($fee->rfid, 1);
+      $order = uc_order_load($this->lastCreatedOrderId());
+      $this->assertTrue(uc_payment_balance($order) <= 0, t('Order @order_id payment processed', array('@order_id' => $order->order_id)));
+
+      // order should now be completed
+
+      // test renewal on failed payment processing
+      $gateway_status = FALSE;
+      $current_order_id = $this->lastCreatedOrderId();
+      $this->processRecurringFee($fee->rfid, 1);
+      $order = uc_order_load($this->lastCreatedOrderId());
+      $this->assertEqual($order->order_id, $current_order_id, t('No new order created on failed payment'));
+    }
+  }
+}
+

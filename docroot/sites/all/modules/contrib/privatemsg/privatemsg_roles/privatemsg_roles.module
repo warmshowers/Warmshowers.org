@@ -1,0 +1,158 @@
+<?php
+
+/**
+ * @file
+ * Allows to send messages to all members of a role.
+ */
+
+/**
+ * Implements hook_perm().
+ */
+function privatemsg_roles_permission() {
+  return array(
+    'write privatemsg to roles' => array(
+      'title' => t('Write private message to roles'),
+      'description' => t('Allows to write messages to all users which belong to a specific role.'),
+    ),
+    'view roles recipients' => array(
+      'title' => t('View roles recipients'),
+      'description' => t('Ability to view roles recipients and the name of these roles.'),
+    ),
+  );
+}
+
+function privatemsg_roles_theme() {
+  return array(
+    'privatemsg_roles_format' => array(
+      'variables' => array('recipient' => NULL, 'options' => array()),
+    ),
+  );
+}
+
+/**
+ * Implements hook_privatemsg_recipient_type_info().
+ */
+function privatemsg_roles_privatemsg_recipient_type_info() {
+  return array(
+    'role' => array(
+      'name' => t('Role'),
+      'description' => t('Enter the name of a role to write a message to all users which have that role. Example: authenticated user.'),
+      'load' => 'privatemsg_roles_load_multiple',
+      'format' => 'privatemsg_roles_format',
+      'autocomplete' => 'privatemsg_roles_autocomplete',
+      'generate recipients' => 'privatemsg_roles_load_recipients',
+      'count' => 'privatemsg_roles_count_recipients',
+      'write access' => 'write privatemsg to roles',
+      'view access' => 'view roles recipients',
+    ),
+  );
+}
+
+/**
+ * Load a number of roles based on their rid.
+ */
+function privatemsg_roles_load_multiple($rids) {
+  $result = db_query("SELECT name, rid AS recipient FROM {role} WHERE rid IN (:rids)", array(':rids' => $rids));
+
+  $roles = array();
+  foreach ($result as $role) {
+    $role->type = 'role';
+    $roles[privatemsg_recipient_key($role)] = $role;
+  }
+  return $roles;
+}
+
+/**
+ * Format a role to be displayed as a recipient.
+ */
+function theme_privatemsg_roles_format($variables) {
+  $role = $variables['recipient'];
+  $options = $variables['options'];
+  if (!empty($options['plain'])) {
+    $name = $role->name;
+    if (!empty($options['unique'])) {
+      $name .= ' [role]';
+    }
+    return $name;
+  }
+  return t('%role (role)', array('%role' => $role->name));
+}
+
+/**
+ * Loads users with a specific role.
+ */
+function privatemsg_roles_load_recipients($recipient, $limit, $offset) {
+  $rid = isset($recipient->recipient) ? $recipient->recipient : $recipient->rid;
+  if ($rid == DRUPAL_AUTHENTICATED_RID) {
+    $result = db_query_range('SELECT uid FROM {users} WHERE uid > 0 ORDER BY uid ASC', $offset, $limit);
+  }
+  else {
+    $result = db_query_range('SELECT uid FROM {users_roles} WHERE rid = :rid ORDER BY uid ASC', $offset, $limit, array(':rid' => $rid));
+  }
+
+  return $result->fetchCol();
+}
+
+/**
+ * Return the number of users which have a given role.
+ */
+function privatemsg_roles_count_recipients($recipient) {
+  $rid = isset($recipient->recipient) ? $recipient->recipient : $recipient->rid;
+  if ($rid == DRUPAL_AUTHENTICATED_RID) {
+    return db_query('SELECT COUNT(uid) FROM {users}')->fetchField();
+  }
+  else {
+    return db_query('SELECT COUNT(uid) FROM {users_roles} WHERE rid = :rid', array(':rid' => $rid))->fetchField();
+  }
+}
+
+/**
+ * Provides autocomplete suggestions for roles.
+ */
+function privatemsg_roles_autocomplete($fragment, $names, $limit) {
+  $result = _privatemsg_assemble_query(array('autocomplete_roles', 'privatemsg_roles'), $fragment, $names)
+    ->range(0, $limit)
+    ->execute();
+  $roles = array();
+  foreach ($result as $role) {
+    $role->type = 'role';
+    $role->recipient = $role->rid;
+    $roles[privatemsg_recipient_key($role)] = $role;
+  }
+  return $roles;
+}
+
+/**
+ * Implements hook_privatemsg_name_lookup().
+ */
+function privatemsg_roles_privatemsg_name_lookup($string) {
+  // Remove optional role specifier.
+  $string = str_replace(t('[role]'), '', $string);
+  $role = db_query("SELECT *, rid AS recipient FROM {role} WHERE name = :name", array(':name' => trim($string)))->fetchObject();
+  if ($role) {
+    $role->type = 'role';
+    return array(privatemsg_recipient_key($role) => $role);
+  }
+}
+
+/**
+ * Query definition to search for username autocomplete suggestions.
+ *
+ * @param $fragments
+ *   Query fragments array.
+ * @param $search
+ *   Which search string is currently searched for.
+ * @param $names
+ *   Array of names not to be used as suggestions.
+ */
+function privatemsg_roles_sql_autocomplete_roles($search, $names) {
+  $query = db_select('role', 'role')
+    ->fields('role')
+    ->condition('role.name', $search . '%', 'LIKE')
+    ->condition('role.rid', DRUPAL_ANONYMOUS_RID, '<>')
+    ->orderBy('role.name', 'ASC');
+  if (!empty($names)) {
+    $query->condition('role.name', $names, 'NOT IN');
+  }
+  return $query;
+}

@@ -1,0 +1,294 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for the uc_store module.
+ */
+
+/**
+ * Implements hook_requirements().
+ */
+function uc_store_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    $severities = array(
+      'ok' => REQUIREMENT_OK,
+      'warning' => REQUIREMENT_WARNING,
+      'error' => REQUIREMENT_ERROR,
+    );
+
+    module_load_include('inc', 'uc_store', 'uc_store.admin');
+    $results = module_invoke_all('uc_store_status');
+    foreach ($results as $status) {
+      $requirements[] = array(
+        'severity' => isset($severities[$status['status']]) ? $severities[$status['status']] : REQUIREMENT_INFO,
+        'title' => $status['title'],
+        'value' => $status['desc'],
+      );
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_schema().
+ */
+function uc_store_schema() {
+  $schema = array();
+
+  $schema['uc_countries'] = array(
+    'description' => 'Stores country information.',
+    'fields' => array(
+      'country_id' => array(
+        'description' => 'Primary key: numeric ISO country code.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'country_name' => array(
+        'description' => 'The country name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'country_iso_code_2' => array(
+        'description' => 'The two-character ISO country code.',
+        'type' => 'char',
+        'length' => 2,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'country_iso_code_3' => array(
+        'description' => 'The three-character ISO country code.',
+        'type' => 'char',
+        'length' => 3,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'version' => array(
+        'description' => 'The version of the CIF that loaded the country information.',
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'country_name' => array('country_name'),
+    ),
+    'primary key' => array('country_id'),
+  );
+
+  $schema['uc_zones'] = array(
+    'description' => 'Stores state/province information within a country.',
+    'fields' => array(
+      'zone_id' => array(
+        'description' => 'Primary key: the unique zone id.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'zone_country_id' => array(
+        'description' => 'The {uc_countries}.country_id to which this zone belongs.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'zone_code' => array(
+        'description' => 'Standard abbreviation of the zone name.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'zone_name' => array(
+        'description' => 'The zone name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'indexes' => array(
+      'zone_code' => array('zone_code'),
+      'zone_country_id' => array('zone_country_id'),
+    ),
+    'primary key' => array('zone_id'),
+    'foreign keys' => array(
+      'uc_countries' => array(
+        'table' => 'uc_countries',
+        'columns' => array('zone_country_id' => 'country_id'),
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_store_install() {
+  // Set mail handler for all Ubercart modules
+  variable_set('mail_system',
+    array_merge(
+      variable_get('mail_system', array('default-system' => 'DefaultMailSystem')),
+      array(
+        'uc_cart'  => 'UbercartMailSystem',
+        'uc_order' => 'UbercartMailSystem',
+        'uc_file'  => 'UbercartMailSystem',
+        'uc_roles' => 'UbercartMailSystem',
+        'uc_stock' => 'UbercartMailSystem',
+        'uc_store' => 'UbercartMailSystem',
+      )
+    )
+  );
+
+  // Set the default store date format.
+  variable_set('date_format_uc_store', 'm/d/Y');
+
+  // Install United States and Canada by default.
+  $path = drupal_get_path('module', 'uc_store');
+  require_once($path . '/countries/united_states_840_1.cif');
+  require_once($path . '/countries/canada_124_2.cif');
+  united_states_install();
+  canada_install();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_store_uninstall() {
+  db_delete('variable')
+    ->condition(db_or()
+      ->condition('name', 'uc_address_format_%', 'LIKE')
+      ->condition('name', 'uc_currency_%', 'LIKE')
+      ->condition('name', 'uc_store_%', 'LIKE')
+      ->condition('name', 'uc_weight_%', 'LIKE')
+      ->condition('name', 'uc_length_%', 'LIKE')
+      ->condition('name', 'uc_field_%', 'LIKE')
+    )
+    ->execute();
+
+  variable_del('uc_customer_list_address');
+  variable_del('uc_sign_after_amount');
+  variable_del('date_format_uc_store');
+  variable_del('uc_address_fields');
+  variable_del('uc_address_fields_required');
+  variable_del('uc_address_fields_weight');
+  variable_del('uc_footer_message');
+
+  // Unset mail Ubercart hander in variable mail_system
+  $mail_system = variable_get('mail_system', array('default-system' => 'DefaultMailSystem'));
+  unset($mail_system['uc_cart']);
+  unset($mail_system['uc_order']);
+  unset($mail_system['uc_file']);
+  unset($mail_system['uc_roles']);
+  unset($mail_system['uc_stock']);
+  unset($mail_system['uc_store']);
+  variable_set('mail_system', $mail_system);
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function uc_store_update_last_removed() {
+  return 6005;
+}
+
+/*
+ * Removed update 7000.
+ */
+
+/**
+ * Removes uc_price cache table.
+ */
+function uc_store_update_7001() {
+  db_drop_table('cache_uc_price');
+}
+
+/**
+ * Removes unused variable.
+ */
+function uc_store_update_7002() {
+  variable_del('uc_store_admin_page_display');
+}
+
+/**
+ * Removes store footer message hash table.
+ */
+function uc_store_update_7003() {
+  db_drop_table('uc_store_footers');
+}
+
+/**
+ * Installs HTML Mail System for Ubercart.
+ */
+function uc_store_update_7004() {
+  // Set mail handler for all Ubercart modules
+  variable_set('mail_system',
+    array_merge(
+      variable_get('mail_system', array('default-system' => 'DefaultMailSystem')),
+      array(
+        'uc_cart'  => 'UbercartMailSystem',
+        'uc_order' => 'UbercartMailSystem',
+        'uc_file'  => 'UbercartMailSystem',
+        'uc_roles' => 'UbercartMailSystem',
+        'uc_stock' => 'UbercartMailSystem',
+        'uc_store' => 'UbercartMailSystem',
+      )
+    )
+  );
+}
+
+/**
+ * Changes date formatting to use D7 API.
+ */
+function uc_store_update_7005() {
+  variable_set('date_format_uc_store', variable_get('uc_date_format_default', 'm/d/Y'));
+  variable_del('uc_date_format_default');
+}
+
+/**
+ * Deletes user initials variables.
+ */
+function uc_store_update_7006() {
+  db_delete('variable')->condition('name', 'user_initials_%', 'LIKE')->execute();
+}
+
+/**
+ * Ensures Rules and Views are installed.
+ */
+function uc_store_update_7007() {
+  $modules = array('rules', 'views');
+  module_enable($modules);
+
+  foreach ($modules as $module) {
+    if (!module_exists($module)) {
+      throw new DrupalUpdateException(t('Rules and Views are now dependencies of Ubercart, but are not currently available. Please download them to sites/all/modules and run update.php again.'));
+    }
+  }
+}
+
+/**
+ * Deletes unused address field titles.
+ */
+function uc_store_update_7008() {
+  variable_del('uc_field_address');
+  variable_del('uc_field_email');
+  variable_del('uc_field_street');
+}
+
+/**
+ * Rebuilds theme registry to pick up new location of theme functions.
+ *
+ * All theme functions in Ubercart were moved out of the .module files and
+ * into .theme.inc files to reduce code memory footprint.
+ */
+function uc_store_update_7300() {
+  drupal_theme_rebuild();
+}

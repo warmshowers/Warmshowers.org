@@ -1,0 +1,349 @@
+<?php
+
+/**
+ * @file
+ * Privatemsg Quota module
+ */
+
+/**
+ * Implements hook_permission()-
+ */
+function privatemsg_limits_permission() {
+  return array(
+    'bypass recipient message limit' => array(
+      'title' => t('Bypass recipient message limit'),
+      'description' => t("Enables a user to send a message to a recipient even when the recipient's message/conversation maximum limit has already been reached. Without this permission, the message would ordinarily be blocked.")
+    )
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function privatemsg_limits_menu() {
+  $items['admin/config/messaging/privatemsg/limits'] = array(
+    'title'            => 'Limits',
+    'description'      => 'Configure limits',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('privatemsg_limits_admin'),
+    'file'             => 'privatemsg_limits.admin.inc',
+    'access arguments' => array('administer privatemsg settings'),
+    'type'             => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_privatemsg_message_validate().
+ */
+function privatemsg_limits_privatemsg_message_validate($message, $form = FALSE) {
+  $errors = array();
+
+  if (variable_get('privatemsg_limits_recipients_enabled', FALSE)) {
+    $amount = _privatemsg_limits_get_amount('recipients_amount', $message->author);
+    if (!isset($message->thread_id) && $amount > 0 && count($message->recipients) > $amount) {
+      $errors[] = t("You are not allowed to send a message to more than @number recipients.", array('@number' => $amount));
+    }
+  }
+
+  // Only check sending limit if enabled and if this is either not a reply or
+  // messages should be checked and not threads. When the limit object are
+  // threads, users can send an unlimited amount of replies.
+  if (variable_get('privatemsg_limits_send_enabled', FALSE) && (empty($message->thread_id) || variable_get('privatemsg_limits_send_object', 'message') == 'message')) {
+    $amount = _privatemsg_limits_get_amount('send_amount', $message->author);
+    $used = _privatemsg_limits_get_sent($message->author, variable_get('privatemsg_limits_send_timeframe', 3600));
+    if ($amount > 0 && $used >= $amount) {
+      $wait_time = _privatemsg_limits_get_oldest($message->author, variable_get('privatemsg_limits_send_timeframe', 3600));
+      $period = format_interval(variable_get('privatemsg_limits_send_timeframe', 3600));
+      if (variable_get('privatemsg_limits_receive_object', 'message') == 'message') {
+        $errors[] = t("Your message was not sent because you have exceeded your sending limit. You are allowed to send %limit messages every @period. You can send your next message in in @wait_time.", array('@wait_time' => $wait_time, '%limit' => $amount, '@period' => $period));
+      }
+      else {
+        $errors[] = t("Your message was not sent because you have exceeded your sending limit. You are allowed to start %limit conversations every @period. You can start your next conversation in in @wait_time.", array('@wait_time' => $wait_time, '%limit' => $amount, '@period' => $period));
+      }
+    }
+  }
+
+  if (variable_get('privatemsg_limits_receive_enabled', FALSE) && (empty($message->thread_id) || variable_get('privatemsg_limits_receive_object', 'message') == 'message')) {
+    $amount = _privatemsg_limits_get_amount('receive_amount', $message->author);
+    $used = _privatemsg_limits_get_received($message->author);
+
+    if ($amount > 0 && $used >= $amount) {
+      if (variable_get('privatemsg_limits_receive_object', 'message') == 'message') {
+        $errors[] = t("Your message mailbox is currently full. You are allowed a maximum of %limit messages in your mailbox at one time. You won't be able to send or receive new messages until you delete some existing ones.", array('%limit' => $amount));
+      }
+      else {
+        $errors[] = t("Your message mailbox is currently full. You are allowed a maximum of %limit conversations in your mailbox at one time. You won't be able to start or receive new conversations until you delete some existing ones.", array('%limit' => $amount));
+      }
+    }
+  }
+
+  // Blocks message sending if over number of messages per-thread.
+  if (isset($message->thread_id) && variable_get('privatemsg_limits_messages_per_thread', 0) > 0) {
+    // If we're not blocking the message.
+    if (variable_get('privatemsg_limits_messages_per_thread_action', 'create-new') == 'block-message') {
+      $query = "SELECT COUNT(*) FROM {pm_index} WHERE thread_id = :thread_id AND recipient = :recipient AND type IN ('hidden', 'user')";
+      $messages = db_query($query, array(':thread_id' => $message->thread_id, ':recipient' =>  $message->author->uid))->fetchField();
+
+      if ($messages >= variable_get('privatemsg_limits_messages_per_thread', 0)) {
+        // If the number of messages per-thread has been exceeded, block message
+        // from being sent.
+        $errors[] = t("This message cannot be sent because the thread already contains %limit messages (the maximum number of messages permitted per thread). To send this message, please create a new message thread.", array('%limit' => variable_get('privatemsg_limits_messages_per_thread', 0)));
+      }
+    }
+  }
+  if (!empty($errors)) {
+    if ($form) {
+      foreach ($errors as $error) {
+        form_set_error('recipient', $error);
+      }
+    }
+    else {
+      return array('error' => $errors);
+    }
+  }
+}
+
+/**
+ * Implements hook_privatemsg_block_message().
+ */
+function privatemsg_limits_privatemsg_block_message($author, $recipients, $context = array()) {
+  if (variable_get('privatemsg_limits_receive_enabled', FALSE) && (empty($context['thread_id']) || variable_get('privatemsg_limits_receive_object', 'message') == 'message') ) {
+    $blocked = array();
+
+    // Users that have the by-pass permission can send messages even if the
+    // mailbox of the recipient is full.
+    if (user_access('bypass recipient message limit', $author)) {
+      return $blocked;
+    }
+
+    foreach ($recipients as $recipient) {
+      // Only user recipients are supported.
+      if (!isset($recipient->type) || $recipient->type == 'user' || $recipient->type == 'hidden') {
+        $amount = _privatemsg_limits_get_amount('receive_amount', $recipient);
+        $used = _privatemsg_limits_get_received($recipient);
+        if ($amount > 0 && $used >= $amount) {
+          $blocked[] = array(
+            'recipient' => privatemsg_recipient_key($recipient),
+            'message' =>  t("This message cannot be sent to !name because !name's mailbox is full.", array('!name' => theme('username', array('account' => $recipient)))),
+          );
+        }
+      }
+    }
+    return $blocked;
+  }
+}
+
+/**
+ * Implements hook_privatemsg_message_presave_alter().
+ */
+function privatemsg_limits_privatemsg_message_presave_alter($message) {
+  // Put message into new thread if over number of messages per-thread.
+  if (isset($message->thread_id) && variable_get('privatemsg_limits_messages_per_thread', 0) > 0) {
+    // If we're not creating a new thread.
+    if (variable_get('privatemsg_limits_messages_per_thread_action', 'create-new') != 'create-new') {
+      return;
+    }
+
+    $query = "SELECT COUNT(*) FROM {pm_index} WHERE thread_id = :thread_id AND recipient = :recipient AND type IN ('hidden', 'user')";
+    $result = db_query($query, array(':thread_id' => $message->thread_id, ':recipient' => $message->author->uid))->fetchField();
+
+    if ($result >= variable_get('privatemsg_limits_messages_per_thread', 0)) {
+      // If the number of messages per-thread has been exceeded, force message into new thread.
+      unset($message->thread_id);
+      drupal_set_message(t("Your message would have exceeded our %limit messages per conversation limit. As a result, we've created a new conversation for your message.", array('%limit' => variable_get('privatemsg_limits_messages_per_thread', 0))));
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Displays a limit info in the message listing.
+ */
+function privatemsg_limits_form_privatemsg_list_alter(&$form, &$form_state) {
+  global $user;
+  $limit = _privatemsg_limits_get_amount('receive_amount', $form['account']['#value']);
+  if ($limit > 0) {
+    $used = _privatemsg_limits_get_received($form['account']['#value']);
+    if ($used < $limit) {
+      $percent = round(($used / $limit) * 100);
+    }
+    else {
+      $percent = 100;
+      if ($user->uid == $form['account']['#value']->uid) {
+        if (variable_get('privatemsg_limits_receive_object', 'message') == 'message') {
+          $error = t("Your message mailbox is currently full. You are allowed a maximum of %limit messages in your mailbox at one time. You won't be able to send or receive new messages until you delete some existing ones.", array('%limit' => $limit));
+        }
+        else {
+          $error = t("Your message mailbox is currently full. You are allowed a maximum of %limit conversations in your mailbox at one time. You won't be able to start or receive new conversations until you delete some existing ones.", array('%limit' => $limit));
+        }
+      }
+      else {
+        if (variable_get('privatemsg_limits_receive_object', 'message') == 'message') {
+          $error = t("This message mailbox is currently full. !user is allowed a maximum of %limit messages in his mailbox at one time. !user won't be able to send or receive new messages until you delete some existing ones.", array('%limit' => $limit, '!user' => theme('username', array('account' => $form['account']['#value']))));
+        }
+        else {
+          $error = t("This message mailbox is currently full. !user is allowed a maximum of %limit conversations in his mailbox at one time. !user won't be able to start or receive new conversations until you delete some existing ones.", array('%limit' => $limit, '!user' => theme('username', array('account' => $form['account']['#value']))));
+        }
+      }
+      drupal_set_message($error, 'error');
+    }
+    if (variable_get('privatemsg_limits_receive_object', 'message') == 'message') {
+      $message = format_plural($used, 'You are currently using %percent% (@count message) of your %limit messages limit.', 'You are currently using %percent% (@count messages) of your %limit messages limit.', array('%percent' => $percent, '%used' => $used, '%limit' => $limit));
+    }
+    else {
+      $message = format_plural($used, 'You are currently using %percent% (@count conversation) of your %limit conversations limit.', 'You are currently using %percent% (@count conversations) of your %limit conversations limit.', array('%percent' => $percent, '%used' => $used, '%limit' => $limit));
+    }
+    $form['limit'] = array(
+      '#markup' => $message,
+      '#weight' => 15,
+    );
+  }
+}
+
+/**
+ * Loads the oldest message a user has written in the specified timeframe.
+ *
+ * @param $account
+ *   User object
+ * @param $timeframe
+ *   Defines how many seconds back should be considered.
+ */
+function _privatemsg_limits_get_oldest($account, $timeframe) {
+  $query = _privatemsg_assemble_query(array('sent', 'privatemsg_limits'),
+                                      $account, $timeframe);
+  $timestamp = $query
+    ->execute()
+    ->fetchField();
+
+  $wait_time = ($timestamp - (REQUEST_TIME - $timeframe));
+  return format_interval($wait_time, 6);
+}
+
+/**
+ * Loads the maximum value of a threshold value, takes roles into account.
+ *
+ * @param $name
+ *   Unique part of the name.
+ * @param $account
+ *   User object to get the limit for.
+ *
+ * @return
+ *   A specific number or 0 for unlimited.
+ */
+function _privatemsg_limits_get_amount($name, $account) {
+  // Don't limit uid 1.
+  if ($account->uid == 1) {
+    return 0;
+  }
+
+  // $account might not be a fully loaded user account, fetch the roles in that
+  // case.
+  // @todo: Remove once privatemsg_user_load_multiple() is implemented.
+  if (!isset($account->roles)) {
+    $account->roles = array(DRUPAL_AUTHENTICATED_RID => 'authenticated user');
+    $account->roles += db_query('SELECT r.rid, r.name FROM {role} r INNER JOIN {users_roles} ur ON ur.rid = r.rid WHERE ur.uid = :uid', array(':uid' => $account->uid))->fetchAllKeyed();
+  }
+
+  $role_max = 0;
+  foreach ($account->roles as $id => $role) {
+    $new_max = variable_get("privatemsg_limits_{$name}_role_" . $id, NULL);
+    if ($new_max == 'unlimited') {
+      return 0;
+    }
+    if ($new_max > $role_max) {
+      $role_max = $new_max;
+    }
+  }
+  if ($role_max == 0) {
+    return variable_get('privatemsg_limits_' . $name, 0);
+  }
+  return $role_max;
+}
+
+/**
+ * Returns the number of messages/threads a user has written.
+ *
+ * @param user $account   User object
+ * @param int  $timeframe How many seconds back should be considered
+ *
+ * @return int Number of messages/threads
+ */
+function _privatemsg_limits_get_sent($account, $timeframe) {
+  $query = _privatemsg_assemble_query(array('sent', 'privatemsg_limits'),
+                                      $account, $timeframe);
+  return $query
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+}
+
+/**
+ * SQL Function for amount of messages/threads a user has written in a timeframe.
+ *
+ * @param array $fragments Query array
+ * @param user  $account   User object
+ * @param int   $timeframe how many seconds to consider.
+ */
+function privatemsg_limits_sql_sent($account,  $timeframe) {
+  $query = db_select('pm_message', 'pm');
+
+  if (variable_get('privatemsg_limits_send_object', 'message') == 'thread') {
+    $query->addExpression('MAX(pm.timestamp)', 'timestamp');
+    $query->join('pm_index', 'pmi', 'pmi.mid = pm.mid');
+    $query->groupBy('pmi.thread_id');
+  }
+  else {
+    $query->addField('pm', 'timestamp');
+  }
+
+  return $query
+    ->condition('pm.author', $account->uid)
+    ->condition('pm.timestamp', REQUEST_TIME - $timeframe, '>')
+    ->orderBy('timestamp', 'ASC');
+}
+
+/**
+ * Returns the number of messages/threads a user has received.
+ *
+ * @param user $account   User object
+ * @param int  $timeframe How many seconds back should be considered
+ *
+ * @return int Number of messages/threads
+ */
+function _privatemsg_limits_get_received($account) {
+  $query = _privatemsg_assemble_query(array('received', 'privatemsg_limits'),
+                                      $account);
+  return (int)$query
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+}
+
+/**
+ * SQL Function for amount of messages/threads a users has.
+ *
+ * @param array $fragments Query array
+ * @param user  $account   User object
+ * @param int   $timeframe how many seconds to consider.
+ */
+function privatemsg_limits_sql_received($account) {
+  $query = db_select('pm_index', 'pmi');
+  $query->join('pm_message', 'pm', 'pm.mid = pmi.mid');
+  $query->addExpression('MAX(pm.timestamp)', 'timestamp');
+
+  $query
+    ->condition('pmi.recipient', $account->uid)
+    ->condition('pmi.deleted', 0)
+    ->condition('pmi.type', array('hidden', 'user'))
+    ->orderBy('timestamp', 'ASC');
+
+  if (variable_get('privatemsg_limits_receive_object', 'message') == 'thread') {
+    $query->groupBy('pmi.thread_id');
+  }
+  else {
+    $query->groupBy('pmi.mid');
+  }
+  return $query;
+}

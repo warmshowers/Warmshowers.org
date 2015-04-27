@@ -1,0 +1,647 @@
+<?php
+
+/**
+ * @file
+ * Ubercart Catalog module.
+ *
+ * Provides classification and navigation product nodes using taxonomy. When
+ * installed, this module creates a vocabulary named "Product Catalog" and
+ * stores the vocabulary id for future use. The user is responsible for
+ * maintaining the terms in the taxonomy, though the Catalog will find products
+ * not listed in it.
+ */
+
+
+/**
+ * Implements hook_help().
+ */
+function uc_catalog_help($path, $arg) {
+  switch ($path) {
+    case 'admin/store/products/orphans':
+      return '<p>' . t('Orphaned products are products that you have created but not yet assigned to a category in your product catalog. All such products will appear as links below that you can follow to edit the product listings to assign them to categories.') . '</p>';
+
+    case 'admin/store/settings/catalog':
+      if (!module_exists('views_ui')) {
+        return '<p>' . t('<a href="@modules">Enable the Views UI module</a> to edit the catalog display.', array('@modules' => url('admin/modules', array('fragment' => 'edit-modules-views')))) . '</p>';
+      }
+      break;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_catalog_menu() {
+  global $user;
+  $items = array();
+
+  $items['catalog'] = array(
+    'title' => 'Catalog',
+    'page callback' => 'uc_catalog_browse',
+    'access arguments' => array('view catalog'),
+    'type' => MENU_SUGGESTED_ITEM,
+  );
+  $items['admin/store/settings/catalog'] = array(
+    'title' => 'Catalog',
+    'description' => 'Configure the product catalog pages.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uc_catalog_settings_form'),
+    'access arguments' => array('administer catalog'),
+    'file' => 'uc_catalog.admin.inc',
+  );
+  if (module_exists('views_ui')) {
+    $items['admin/store/settings/catalog/edit'] = array(
+      'title' => 'Edit catalog display',
+      'description' => 'Configure the catalog display in Views.',
+      'page callback' => 'drupal_goto',
+      'page arguments' => array('admin/structure/views/view/uc_catalog/edit'),
+      'access callback' => 'user_access',
+      'access arguments' => array('administer views'),
+      'type' => MENU_LOCAL_ACTION,
+    );
+  }
+  $items['admin/store/settings/catalog/repair'] = array(
+    'title' => 'Repair catalog field',
+    'description' => 'Ensures the catalog taxonomy field is attached to product content types.',
+    'page callback' => 'uc_catalog_repair_field',
+    'access arguments' => array('administer catalog'),
+    'file' => 'uc_catalog.admin.inc',
+  );
+  $items['admin/store/products/orphans'] = array(
+    'title' => 'Find orphaned products',
+    'description' => 'Find products that have not been categorized.',
+    'page callback' => 'uc_catalog_orphaned_products',
+    'access arguments' => array('administer catalog'),
+    'weight' => -4,
+    'file' => 'uc_catalog.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function uc_catalog_permission() {
+  return array(
+    'administer catalog' => array(
+      'title' => t('Administer catalog'),
+    ),
+    'view catalog' => array(
+      'title' => t('View catalog'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_image_default_styles().
+ */
+function uc_catalog_image_default_styles() {
+  $styles = array();
+
+  $styles['uc_category'] = array(
+    'effects' => array(
+      array(
+        'name' => 'image_scale',
+        'data' => array(
+          'width' => '100',
+          'height' => '100',
+          'upscale' => 0,
+        ),
+        'weight' => '0',
+      ),
+    ),
+  );
+
+  return $styles;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function uc_catalog_theme() {
+  return array(
+    'uc_catalog_block' => array(
+      'variables' => array('menu_tree' => NULL),
+      'file' => 'uc_catalog.theme.inc',
+    ),
+    'uc_catalog_item' => array(
+      'variables' => array(
+        'here' => NULL,
+        'link' => NULL,
+        'lis' => NULL,
+        'expand' => NULL,
+        'inpath' => NULL,
+        'count_children' => NULL,
+      ),
+      'file' => 'uc_catalog.theme.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function uc_catalog_node_view($node, $view_mode) {
+  static $parents = array();
+
+  if (uc_product_is_product($node->type) && isset($node->taxonomy_catalog)) {
+    if ($view_mode == 'full' && variable_get('uc_catalog_breadcrumb', TRUE)) {
+      $crumbs = array();
+      if (variable_get('site_frontpage', 'node') != 'catalog') {
+        $crumbs[] = l(t('Home'), '');
+      }
+
+      if ($terms = field_get_items('node', $node, 'taxonomy_catalog')) {
+        $crumbs[] = l(t('Catalog'), 'catalog');
+        $used_tids = array();
+
+        foreach ($terms as $term) {
+          if (!isset($parents[$term['tid']])) {
+            $parents[$term['tid']] = taxonomy_get_parents_all($term['tid']);
+          }
+
+          foreach (array_reverse($parents[$term['tid']]) as $parent) {
+            if (!in_array($parent->tid, $used_tids)) {
+              $crumbs[] = l($parent->name, uc_catalog_path($parent));
+              $used_tids[] = $parent->tid;
+            }
+          }
+        }
+      }
+
+      drupal_set_breadcrumb($crumbs);
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_vocabulary_delete().
+ */
+function uc_catalog_taxonomy_vocabulary_delete($vocabulary) {
+  if ($vocabulary->vid == variable_get('uc_catalog_vid', 0)) {
+    variable_del('uc_catalog_vid');
+  }
+}
+
+/**
+ * Implements hook_taxonomy_term_insert().
+ */
+function uc_catalog_taxonomy_term_insert($term) {
+  if (module_exists('pathauto')) {
+    if ($term->name) {
+      module_load_include('inc', 'uc_catalog', 'uc_catalog.pathauto');
+      $count = _uc_catalog_pathauto_alias($term, 'insert');
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_term_update().
+ */
+function uc_catalog_taxonomy_term_update($term) {
+  if (module_exists('pathauto')) {
+    if ($term->name) {
+      module_load_include('inc', 'uc_catalog', 'uc_catalog.pathauto');
+      $count = _uc_catalog_pathauto_alias($term, 'update');
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_term_delete().
+ */
+function uc_catalog_taxonomy_term_delete($term) {
+  path_delete(array('source' => uc_catalog_path($term)));
+}
+
+/**
+ * Implements hook_preprocess_link().
+ *
+ * Rewrites taxonomy term links to point to the catalog.
+ */
+function uc_catalog_preprocess_link(&$vars) {
+  // Link back to the catalog and not the taxonomy term page.
+  if (isset($vars['options']['entity_type']) && $vars['options']['entity_type'] == 'taxonomy_term') {
+    $term = $vars['options']['entity'];
+    if ($term->vid == variable_get('uc_catalog_vid', 0)) {
+      $vars['path'] = uc_catalog_path($term);
+    }
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ *
+ * Displays a menu for navigating the "Product Catalog"
+ */
+function uc_catalog_block_info() {
+  $blocks['catalog'] = array(
+    'info' => t('Catalog'),
+    'cache' => DRUPAL_CACHE_PER_ROLE | DRUPAL_CACHE_PER_PAGE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function uc_catalog_block_view($delta = '') {
+  if ($delta == 'catalog') {
+    $block = array();
+
+    if (user_access('view catalog')) {
+      drupal_add_css(drupal_get_path('module', 'uc_catalog') . '/uc_catalog.css');
+
+      // Get the vocabulary tree information.
+      $vid = variable_get('uc_catalog_vid', 0);
+      $tree = taxonomy_get_tree($vid);
+
+      // Then convert it into an actual tree structure.
+      $seq = 0;
+      $menu_tree = new UcTreeNode();
+      $level = array();
+      $curr_depth = -1;
+
+      foreach ($tree as $knot) {
+        $seq++;
+        $knot->sequence = $seq;
+        $knothole = new UcTreeNode($knot);
+        // Begin at the root of the tree and find the proper place.
+        $menu_tree->add_child($knothole);
+      }
+
+      // Now, create a structured menu, separate from Drupal's menu.
+      $content = theme('uc_catalog_block', array('menu_tree' => $menu_tree));
+
+      $block = array('subject' => t('Catalog'), 'content' => $content);
+    }
+
+    return $block;
+  }
+}
+
+/**
+ * Implements hook_block_configure().
+ *
+ * Builds the settings form used by the catalog block.
+ */
+function uc_catalog_block_configure($delta = '') {
+  if ($delta == 'catalog') {
+    $form['uc_catalog_block_title'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Make the block title a link to the top-level catalog page.'),
+      '#default_value' => variable_get('uc_catalog_block_title', FALSE),
+    );
+    $form['uc_catalog_expand_categories'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Always expand categories.'),
+      '#default_value' => variable_get('uc_catalog_expand_categories', FALSE),
+    );
+    $form['uc_catalog_block_nodecount'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display product counts.'),
+      '#default_value' => variable_get('uc_catalog_block_nodecount', TRUE),
+    );
+
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_block_save().
+ *
+ * Saves the catalog block settings.
+ */
+function uc_catalog_block_save($delta = '', $edit = array()) {
+  if ($delta == 'catalog') {
+    variable_set('uc_catalog_block_title', $edit['uc_catalog_block_title']);
+    variable_set('uc_catalog_expand_categories', $edit['uc_catalog_expand_categories']);
+    variable_set('uc_catalog_block_nodecount', $edit['uc_catalog_block_nodecount']);
+  }
+}
+
+/**
+ * Preprocesses the catalog block output.
+ */
+function uc_catalog_preprocess_block(&$variables) {
+  $block = &$variables['block'];
+  if ($block->module == 'uc_catalog' && $block->delta == 'catalog' && $block->subject && variable_get('uc_catalog_block_title', FALSE)) {
+    $block->subject = l($block->subject, 'catalog');
+  }
+}
+
+/**
+ * Implements hooks_views_api().
+ */
+function uc_catalog_views_api() {
+  return array(
+    'api' => '2.0',
+    'path' => drupal_get_path('module', 'uc_catalog') . '/views',
+  );
+}
+
+/**
+ * Implements hook_uc_store_status().
+ *
+ * Provides status information about the "Product Catalog" and products not
+ * listed in the catalog.
+ */
+function uc_catalog_uc_store_status() {
+  $field = field_info_field('taxonomy_catalog');
+  if (!$field) {
+    return array(array(
+      'status' => 'error',
+      'title' => t('Catalog field'),
+      'desc' => t('The catalog taxonomy reference field is missing. <a href="!url">Click here to create it</a>.', array('!url' => url('admin/store/settings/catalog/repair'))),
+    ));
+  }
+
+  $statuses = array();
+  $cat_id = variable_get('uc_catalog_vid', 0);
+  $catalog = taxonomy_vocabulary_load($cat_id);
+  if ($catalog) {
+    // Don't display a status if the taxonomy_index table has no data.
+    if (variable_get('taxonomy_maintain_index_table', TRUE)) {
+      $statuses[] = array('status' => 'ok', 'title' => t('Catalog vocabulary'),
+        'desc' => t('Vocabulary !name has been identified as the Ubercart catalog.', array('!name' => l($catalog->name, 'admin/structure/taxonomy/' . $catalog->machine_name)))
+      );
+
+      $product_types = uc_product_types();
+      $types = array_intersect($product_types, $field['bundles']['node']);
+      $excluded = 0;
+      $result = db_query("SELECT COUNT(DISTINCT n.nid) FROM {node} n LEFT JOIN {taxonomy_index} ti ON n.nid = ti.nid LEFT JOIN {taxonomy_term_data} td ON ti.tid = td.tid WHERE n.type IN (:types) AND ti.tid IS NULL AND td.vid = :vid", array(':types' => $types, ':vid' => $catalog->vid));
+      if ($excluded = $result->fetchField()) {
+        $description = format_plural($excluded, 'There is 1 product not listed in the catalog.', 'There are @count products not listed in the catalog.')
+          . t('Products are listed by assigning a category from the <a href="!cat_url">Product Catalog</a> vocabulary to them.', array('!cat_url' => url('admin/structure/taxonomy/' . $catalog->machine_name)));
+        $terms = db_query("SELECT COUNT(1) FROM {taxonomy_term_data} WHERE vid = :vid", array(':vid' => $catalog->vid))->fetchField();
+        if ($terms) {
+          $description .= ' ' . l(t('Find orphaned products here.'), 'admin/store/products/orphans');
+        }
+        else {
+          $description .= ' ' . l(t('Add terms for the products to inhabit.'), 'admin/structure/taxonomy/' . $catalog->machine_name . '/add/term');
+        }
+        $statuses[] = array(
+          'status' => 'warning',
+          'title' => t('Unlisted products'),
+          'desc' => $description,
+        );
+      }
+    }
+  }
+  else {
+    $statuses[] = array(
+      'status' => 'error',
+      'title' => t('Catalog vocabulary'),
+      'desc' => t('No vocabulary has been recognized as the Ubercart catalog. Choose one on <a href="!admin_catalog">this page</a> or add one on the <a href="!admin_vocab">taxonomy admin page</a> first, if needed.', array('!admin_catalog' => url('admin/store/settings/catalog'), '!admin_vocab' => url('admin/structure/taxonomy'))),
+    );
+  }
+
+  return $statuses;
+}
+
+/**
+ * Implements hook_uc_product_class().
+ *
+ * Adds product node types to the catalog vocabulary as they are created.
+ */
+function uc_catalog_uc_product_class($type, $op) {
+  if ($op == 'insert') {
+    uc_catalog_add_node_type($type);
+  }
+}
+
+/**
+ * Shows the catalog page of the given category.
+ */
+function uc_catalog_browse($tid = 0) {
+  $build = array();
+  if ($terms = views_get_view('uc_catalog_terms')) {
+    $build['terms'] = array(
+      '#markup' => $terms->preview('default', array($tid)),
+    );
+  }
+  if ($products = views_get_view('uc_catalog')) {
+    $display = variable_get('uc_catalog_display', 'catalog');
+    // Force the breadcrumb path to this page.
+    $products->override_path = 'catalog';
+    $build['products'] = array(
+      '#markup' => $products->execute_display($display, array($tid)),
+    );
+  }
+
+  return $build;
+}
+
+/**
+ * Emulates Drupal's menu system, but based around the catalog taxonomy.
+ *
+ * @param $branch
+ *   A treeNode object. Determines if the URL points to itself, or possibly one
+ *   of its children, if present. If the URL points to itself or one of its
+ *   products, it displays its name and expands to show its children, otherwise
+ *   displays a link and a count of the products in it. If the URL points to
+ *   one of its children, it still displays a link and product count, but must
+ *   still be expanded. Otherwise, it is collapsed and a link.
+ *
+ * @return
+ *   An array whose first element is true if the treeNode is in hierarchy of
+ *   the URL path. The second element is the HTML of the list item of itself
+ *   and its children.
+ */
+function _uc_catalog_navigation($branch) {
+  static $terms;
+  static $breadcrumb;
+  static $types;
+
+  if (empty($types)) {
+    $types = uc_product_types();
+  }
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', $types)
+    ->propertyCondition('status', 1) // Don't include unpublished products.
+    ->fieldCondition('taxonomy_catalog', 'tid', $branch->tid)
+    ->count();
+  $num = $query->execute();
+
+
+  $branch_path = uc_catalog_path($branch);
+  if (!isset($breadcrumb)) {
+    $breadcrumb = drupal_get_breadcrumb();
+  }
+  $vid = variable_get('uc_catalog_vid', 0);
+  if ($_GET['q'] ==  $branch_path) {
+    // The URL points to this term.
+    $here = TRUE;
+  }
+  else {
+    $here = FALSE;
+  }
+  if (!isset($terms)) {
+    $node = menu_get_object('node', 1);
+    $terms = array();
+    if ($node && $field_data = field_get_items('node', $node, 'taxonomy_catalog')) {
+      foreach ($field_data as $term) {
+        $terms[$term['tid']] = $term['tid'];
+      }
+    }
+  }
+  // Determine whether to expand menu item.
+  if ((arg(0) == 'node' && array_key_exists($branch->tid, $terms))) {
+    $inpath = FALSE;
+    foreach ($breadcrumb as $link) {
+      if (strpos(urldecode($link), drupal_get_path_alias($branch_path)) !== FALSE) {
+        $inpath = TRUE;
+      }
+    }
+  }
+  else {
+    $inpath = $here;
+  }
+
+  $lis = array();
+  $expand = variable_get('uc_catalog_expand_categories', FALSE);
+  if ($expand || count($branch->children)) {
+    foreach ($branch->children as $twig) {
+      // Expand if children are in the menu path. Capture their output.
+      list($child_in_path, $lis[], $child_num) = _uc_catalog_navigation($twig);
+      $num += $child_num;
+      if ($child_in_path) {
+        $inpath = $child_in_path;
+      }
+    }
+  }
+
+  // No nodes in category or descendants. Not in path and display nothing.
+  if (!$num) {
+    return array(FALSE, '', 0);
+  }
+
+  // Checks to see if node counts are desired in navigation.
+  $num_text = '';
+  if (variable_get('uc_catalog_block_nodecount', TRUE)) {
+    $num_text = ' (' . $num . ')';
+  }
+  $link = l($branch->name . $num_text, $branch_path);
+
+  $output = theme('uc_catalog_item', array(
+    'here' => $here,
+    'link' => $link,
+    'lis' => $lis,
+    'expand' => $expand,
+    'inpath' => $inpath,
+    'count_children' => count($branch->children),
+  ));
+
+  // Tell parent category your status, and pass on output.
+  return array($inpath, $output, $num);
+}
+
+/**
+ * Creates paths to the catalog from taxonomy term.
+ */
+function uc_catalog_path($term) {
+  return 'catalog/' . $term->tid;
+}
+
+/**
+ * Adds a catalog taxonomy reference field to the specified node type.
+ */
+function uc_catalog_add_node_type($type) {
+  $vid = variable_get('uc_catalog_vid', 0);
+  if (!$vid) {
+    $vid = db_query("SELECT vid FROM {taxonomy_vocabulary} WHERE machine_name = 'catalog'")->fetchField();
+    if (!$vid) {
+      $vocabulary = new stdClass();
+      $vocabulary->name = t('Catalog');
+      $vocabulary->description = '';
+      $vocabulary->hierarchy = 1;
+      $vocabulary->module = 'uc_catalog';
+      $vocabulary->machine_name = 'catalog';
+
+      taxonomy_vocabulary_save($vocabulary);
+      $vid = $vocabulary->vid;
+    }
+
+    variable_set('uc_catalog_vid', $vid);
+  }
+
+  $vocabulary = taxonomy_vocabulary_load($vid);
+  $field = field_info_field('taxonomy_catalog');
+  if (!$field) {
+    $field = array(
+      'field_name' => 'taxonomy_catalog',
+      'type' => 'taxonomy_term_reference',
+      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+      'settings' => array(
+        'allowed_values' => array(
+          array(
+            'vocabulary' => $vocabulary->machine_name,
+            'parent' => 0,
+          ),
+        ),
+      ),
+    );
+
+    field_create_field($field);
+  }
+
+  $instance = field_info_instance('node', 'taxonomy_catalog', $type);
+  if (!$instance) {
+    $instance = array(
+      'field_name' => 'taxonomy_catalog',
+      'entity_type' => 'node',
+      'bundle' => $type,
+      'label' => t('Catalog'),
+    );
+
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Sets up a default image field on the Catalog vocabulary.
+ */
+function uc_catalog_add_image_field() {
+  $field = field_info_field('uc_catalog_image');
+
+  if (!$field) {
+    $field = array(
+      'field_name' => 'uc_catalog_image',
+      'type' => 'image',
+    );
+
+    field_create_field($field);
+  }
+
+  $instance = field_info_instance('taxonomy_term', 'uc_catalog_image', 'catalog');
+
+  // Only add the instance if it doesn't exist. Don't overwrite any changes.
+  if (!$instance) {
+    $label = t('Image');
+    $instance = array(
+      'field_name' => 'uc_catalog_image',
+      'entity_type' => 'taxonomy_term',
+      'bundle' => 'catalog',
+      'label' => $label,
+      'widget' => array(
+        'type' => 'image_image',
+      ),
+      'display' => array(
+        'full' => array(
+          'label' => 'hidden',
+          'type' => 'image',
+          'settings' => array(
+            'image_link' => 'content',
+            'image_style' => 'uc_category',
+          ),
+        ),
+      ),
+    );
+
+    field_create_instance($instance);
+  }
+}

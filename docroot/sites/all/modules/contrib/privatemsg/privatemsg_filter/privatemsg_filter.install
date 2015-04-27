@@ -1,0 +1,189 @@
+<?php
+
+/**
+ * @file
+ * install file for privatemsg_filter
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function privatemsg_filter_schema() {
+  $schema = array();
+
+  $schema['pm_tags'] = array(
+    'description'       => '{pm_tags} holds the names of tags and their id.',
+    'fields'        => array(
+      'tag_id'    => array(
+        'description'   => 'Tag ID',
+        'type'          => 'serial',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'tag'     => array(
+        'description'   => 'The name of the tag',
+        'type'          => 'varchar',
+        'length'        => 255,
+        'not null'      => TRUE,
+      ),
+      'public'    => array(
+        'description'   => 'Defines if a tag is public (visible for all users)',
+        'type'          => 'int',
+        'unsigned'      => TRUE,
+        'size'          => 'tiny',
+        'default'       => 0,
+      ),
+      'hidden' => array(
+        'type'          => 'int',
+        'description'   => 'Defines if a tag should not be displayed and is usually automatically managed',
+        'unsigned'      => TRUE,
+        'size'          => 'tiny',
+        'default'       => 0,
+      )
+    ),
+    'primary key'     => array('tag_id'),
+    'indexes'     => array(
+      'tag_list'    => array('tag_id', 'tag', 'public'),
+    ),
+  );
+
+  $schema['pm_tags_index'] = array(
+    'description'       => '{pm_tags_index} holds mapping information between tags, threads the users.',
+    'fields'        => array(
+      'tag_id'    => array(
+        'description'   => 'Tag ID',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'uid'    => array(
+        'description'   => 'ID of the user',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+      'thread_id'    => array(
+        'description'   => 'id of the thread',
+        'type'          => 'int',
+        'not null'      => TRUE,
+        'unsigned'      => TRUE,
+      ),
+    ),
+    'primary key'     => array('tag_id', 'uid', 'thread_id'),
+    'indexes'         => array(
+     'thread_tags'      => array('uid', 'thread_id'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function privatemsg_filter_uninstall() {
+  variable_del('privatemsg_filter_searchbody');
+  variable_del('privatemsg_filter_tagfield_weight');
+  variable_del('privatemsg_filter_default_list');
+  variable_del('privatemsg_filter_inbox_tag');
+}
+
+/**
+ * Implements hook_enable().
+ */
+function privatemsg_filter_enable() {
+  if (!($tag_id = variable_get('privatemsg_filter_inbox_tag', '')) || db_query('SELECT 1 FROM {pm_tags} WHERE tag_id = :tag_id', array(':tag_id' => $tag_id))->fetchField()) {
+    $tag_id = db_insert('pm_tags')
+      ->fields(array(
+        'tag' => 'Inbox',
+        'hidden' => 1,
+      ))
+      ->execute();
+    variable_set('privatemsg_filter_inbox_tag', $tag_id);
+  }
+  drupal_set_message(t('Visit <a href="!rebuild_url">Rebuild Inbox</a> to tag existing messages to show up in the inbox.', array('!rebuild_url' => url('admin/config/messaging/privatemsg/tags/rebuild'))));
+}
+
+
+/**
+ * Add hidden flag and create inbox tag.
+ */
+function privatemsg_filter_update_7000() {
+  if (!db_field_exists('pm_tags', 'hidden')) {
+    db_add_field('pm_tags', 'hidden', array(
+      'description'   => 'Defines if a tag should not be displayed and is usually automatically managed',
+      'type'          => 'int',
+      'unsigned'      => TRUE,
+      'size'          => 'tiny',
+      'default'       => 0,
+    ));
+  }
+
+  if (!($tag_id = variable_get('privatemsg_filter_inbox_tag', '')) || (!db_query('SELECT 1 FROM {pm_tags} WHERE tag_id = :tag_id', array(':tag_id' => $tag_id))->fetchField())) {
+    $tag_id = db_insert('pm_tags')
+      ->fields(array(
+        'tag' => 'Inbox',
+        'hidden' => 1,
+      ))
+      ->execute();
+    variable_set('privatemsg_filter_inbox_tag', $tag_id);
+  }
+}
+
+/**
+ * Add inbox tag to existing inbox messages.
+ */
+function privatemsg_filter_update_7001(&$sandbox) {
+  // First run, initialize sandbox.
+  if (!isset($sandbox['current_thread_id'])) {
+    // If the sandbox is not initialized, check if there are any threads tagged
+    // with the inbox tag. If yes, the update did already run.
+    if (db_query_range('SELECT 1 FROM {pm_tags_index} WHERE tag_id = :tag_id', 0, 1, array(':tag_id' => variable_get('privatemsg_filter_inbox_tag', 0)))->fetchField()) {
+      return;
+    }
+
+    $sandbox['current_thread_id'] = 0;
+    // Assume that the thread ids are distributed more or less equally over the
+    // whole data set. This allows us to calculate the approximate progress.
+    $sandbox['max'] = db_query('SELECT MAX(thread_id) FROM {pm_index}')->fetchField();
+  }
+
+  // There is no way to know if this update is run before or after
+  // privatemsg_update_update_6201() which renames uid to recipient.
+  $uid_column = 'uid';
+  if (db_field_exists('pm_index', 'recipient')) {
+    $uid_column = 'recipient';
+  }
+
+  // Fetch the 10 next thread_ids.
+  $result = db_query_range('SELECT DISTINCT thread_id FROM {pm_index} WHERE thread_id > :thread_id ORDER BY thread_id ASC', 0, 20, array('thread_id' => $sandbox['current_thread_id']));
+  $threads = $result->fetchCol();
+  $inbox_tag = variable_get('privatemsg_filter_inbox_tag', '');
+  if (!empty($threads)) {
+    // By limiting this slow query (having condition with 2 depending subqueries)
+    // on a specific set of threads, this allows us to process the slow having
+    // part on a relatively small subset of pm_index that can be selected based on
+    // the thread_id index.
+    $sql = 'SELECT pmi.thread_id, pmi.' . $uid_column . ' AS uid FROM {pm_index} pmi WHERE thread_id IN (:threads)  GROUP BY pmi.thread_id, pmi.' . $uid_column . ' HAVING ((SELECT pmf.author FROM {pm_message} pmf WHERE pmf.mid = pmi.thread_id) = pmi.' . $uid_column . ' AND COUNT(pmi.thread_id) > 1) OR (SELECT COUNT(*) FROM {pm_message} pmf INNER JOIN {pm_index} pmif ON (pmf.mid = pmif.mid) WHERE pmif.thread_id = pmi.thread_id AND pmf.author <> pmi.' . $uid_column . ') > 0';
+    $result = db_query($sql, array(':threads' => $threads));
+    foreach ($result as $row) {
+      // Make sure that we don't add a tag to a thread twice,
+      // only insert if there is no such tag yet.
+      // We duplicate privatemsg_filter_add_tags() here in case
+      // privatemsg_filter.module is disabled and therefore not loaded.
+      $exists = db_query('SELECT 1 FROM {pm_tags_index} WHERE tag_id = :tag_id AND (uid = :uid AND thread_id = :thread_id)', array(':tag_id' => $inbox_tag, ':uid' => $row->uid, ':thread_id' => $row->thread_id))->fetchField();
+      if (!$exists) {
+        db_insert('pm_tags_index')
+          ->fields(array(
+            'tag_id' => $inbox_tag,
+            'uid' => $row->uid,
+            'thread_id' => $row->thread_id,
+          ))
+          ->execute();
+      }
+    }
+    $sandbox['current_thread_id'] = max($threads);
+  }
+  // Set #finished based on sandbox.
+  $sandbox['#finished'] = empty($sandbox['max']) ? 1 : ($sandbox['current_thread_id'] / $sandbox['max']);
+}

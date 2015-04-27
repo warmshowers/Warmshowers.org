@@ -1,0 +1,283 @@
+<?php
+
+/**
+ *
+ * This module allows the site admin to set advanced front page settings.
+ *
+ * This version is for Drupal 7. Earlier versions can be found at http://drupal.org/project/front.
+ *
+ * This module version was developed by timhilliard and various members of the drupal community.
+ *
+ * If you have any ideas/patches or requests, please post them at http://drupal.org/project/issues/front.
+ *
+ */
+
+/**
+ * Implements hook_help().
+ */
+function front_page_help($section) {
+  switch ($section) {
+    case 'admin/config/front/settings':
+      return t('<p>Setup custom front pages for your site.</p>');
+    case 'admin/config/front/arrange':
+      return t('<p>Arrange the order in which roles will be checked for custom front page settings. Roles will be processed from top to bottom. To enable other roles you must first enable them in the !link.</p>', array('!link' => l(t('Settings tab'), 'admin/config/front/settings')));
+    case 'admin/config/front/home-links':
+      return t('<p>If a HOME link is set, the &lt;front&gt; placeholder will be replaced with this value instead of the standard front page.</p>');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function front_page_menu() {
+  // Front page settings.
+  $items['admin/config/front'] = array(
+   'title' => 'Front Page',
+   'description' => 'Configure front page.',
+   'position' => 'right',
+   'weight' => -15,
+   'page callback' => 'system_admin_menu_block_page',
+   'access arguments' => array('administer front page'),
+   'file' => 'system.admin.inc',
+   'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/front/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Administer custom front page settings.',
+    'weight' => 0,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('front_page_admin'),
+    'access arguments' => array('administer front page'),
+    'type' => MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
+    'file' => 'front_page.admin.inc',
+  );
+  $items['admin/config/front/arrange'] = array(
+    'title' => 'Arrange',
+    'description' => 'Ability to re-arrange what order front page roles are processed.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('front_page_admin_arrange_form'),
+    'access arguments' => array('administer front page'),
+    'type' => MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
+    'file' => 'front_page.admin.inc',
+    'weight' => 1,
+  );
+  $items['admin/config/front/home-links'] = array(
+    'title' => 'Home links',
+    'description' => 'Allows you to change the location of the &lt;front&gt; placeholder.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('front_page_admin_home_links'),
+    'access arguments' => array('administer front page'),
+    'type' => MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
+    'file' => 'front_page.admin.inc',
+    'weight' => 2,
+  );
+  $items['front_page'] = array(
+    'title' => '',
+    'page callback' => 'front_page',
+    'access callback' => TRUE,
+    'type' => MENU_SUGGESTED_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function front_page_permission() {
+  return array(
+    'administer front page' => array(
+      'title' => t('Administer front page'),
+      'description' => t('Allow users to make changes to the front page settings.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function front_page_init() {
+  // Make sure front page module is not run when using cli (drush).
+  // Make sur front page module does not run when installing Drupal either.
+  if (drupal_is_cli() || drupal_installation_attempted()) {
+    return;
+  }
+  // Don't run when site is in maintenance mode
+  if (variable_get('maintenance_mode', 0)) {
+    return;
+  }
+  // Ignore non index.php requests (like cron)
+  if (!empty($_SERVER['SCRIPT_FILENAME']) && realpath(DRUPAL_ROOT . '/index.php') != realpath($_SERVER['SCRIPT_FILENAME'])) {
+    return;
+  }
+
+  global $_front_page, $conf;
+
+  // let administrator know that there is a config error.
+  if (variable_get('site_frontpage', '') == 'front_page' && user_access('administer menu')) {
+    drupal_set_message(t('There is a configuration error. The home page should not be set to the path "front_page". Please change this !link', array('!link' => l(t('here'), 'admin/config/system/site-information'))), 'error');
+  }
+
+  if (variable_get('front_page_enable', 0) && drupal_is_front_page()) {
+    $_front_page = front_page_get_by_role();
+  }
+
+  if (user_access('administer menu') && preg_match('@^front_page/preview/([0-9]+)$@', $_GET['q'], $match)) {
+    $_front_page = front_page_get_by_rid($match[1]);
+  }
+
+  if ($_front_page) {
+    switch ($_front_page['mode']) {
+      case 'themed':
+      case 'full':
+        $_GET['q'] = 'front_page';
+        // need to set variable site_frontpage to current path so that it thinks it is the front page.
+        $conf['site_frontpage'] = $_GET['q'];
+        break;
+
+      case 'redirect':
+        $url = front_page_parse_url($_front_page['data']);
+        drupal_goto($url['path'], $url['options']);
+        break;
+
+      case 'alias':
+        $url = front_page_parse_url($_front_page['data']);
+        $_GET['q'] = drupal_get_normal_path($url['path']);
+        // need to set variable site_frontpage to current path so that it thinks it is the front page.
+        $conf['site_frontpage'] = $_GET['q'];
+        break;
+    }
+
+    // turn caching off for this page as it is dependant on role.
+    $GLOBALS['conf']['cache'] = FALSE;
+  }
+}
+
+/**
+ * Function to handle the display of the front page themed and full types.
+ */
+function front_page() {
+  // $_front_page variable should already have been loaded in front_page_init() function.
+  global $_front_page;
+
+  if ($_front_page) {
+    switch ($_front_page['mode']) {
+      case 'themed':
+        return check_markup($_front_page['data'], $_front_page['filter_format']);
+
+      case 'full':
+        print check_markup($_front_page['data'], $_front_page['filter_format']);
+        exit;
+    }
+  }
+
+  // set page not found as there was no themed or full option set for the front page.
+  drupal_not_found();
+  exit;
+}
+
+/**
+ * Function to parse a full URL including GET variables and fragment
+ * to an array ready for drupal_goto(), url(), or l() functions.
+ */
+function front_page_parse_url($path) {
+  $url['path'] = $path;
+  $url['options'] = array();
+  if (preg_match('@^(?P<path>[^?#]+)(\?(?P<query>[^#]*))?(#(?P<fragment>.*))?$@', $path, $match)) {
+    $url['path'] = $match['path'];
+    if (!empty($match['query'])) {
+      foreach (explode('&', $match['query']) as $query_part) {
+        list($key, $value) = explode('=', $query_part);
+        $url['options']['query'][$key] = $value;
+      }
+    }
+    if (!empty($match['fragment'])) {
+      $url['options']['fragment'] = $match['fragment'];
+    }
+  }
+  return $url;
+}
+
+/**
+ * Function to return the first role enabled in front page, ordered by weight.
+ */
+function front_page_get_by_role($index = 0, $number = 1) {
+  global $user;
+  $result = db_select('front_page', 'fp')
+          ->fields('fp')
+          ->condition('rid', array_keys($user->roles))
+          ->condition('mode', '', '<>')
+          ->orderBy('weight', 'ASC')
+          ->orderBy('rid', 'DESC')
+          ->range($index, $number)
+          ->execute()
+          ->fetchAssoc();
+  return $result;
+}
+
+/**
+ * Function to return the first role enabled in front page, ordered by weight.
+ */
+function front_page_get_by_rid($rid) {
+  $result = db_select('front_page', 'fp')
+          ->fields('fp')
+          ->condition('rid', $rid)
+          ->condition('mode', '', '<>')
+          ->execute()
+          ->fetchAssoc();
+  return $result;
+}
+
+/**
+ * Function to return all the roles in front page, ordered by weight.
+ */
+function front_page_get_all() {
+  global $user;
+  $result = db_select('front_page', 'fp')
+          ->fields('fp')
+          ->orderBy('weight', 'ASC')
+          ->orderBy('rid', 'DESC')
+          ->execute()
+          ->fetchAllAssoc('rid', PDO::FETCH_ASSOC);
+  return $result;
+}
+
+/**
+ * Implements hook_page_url_outbound_alter().
+ *
+ * This alters anything parsed through the url() function to replace the <front> string
+ *  with an alternative string instead of the site_frontpage setting.
+ */
+function front_page_url_outbound_alter(&$path, &$options, &$original_path) {
+  // check if path is set to 'front_page' as this is our virtual home
+  // page and doesn't work properly unless used from home page.
+  if ($path == 'front_page') {
+    $original_path = $path = '';
+  }
+  $newpath = variable_get('front_page_home_link_path', '');
+  if (($path == '<front>' || empty($path)) && !empty($newpath)) {
+    $original_path = $path = $newpath;
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function front_page_theme() {
+  return array(
+    'front_page_admin_arrange_form' => array(
+      'file' => 'front_page.admin.inc',
+      'render element' => 'form',
+    ),
+  );
+}
+
+/**
+ * Implements hook_user_role_delete().
+ */
+function front_page_user_role_delete($role) {
+  // Delete Front configuration for the role being deleted.
+  db_delete('front_page')
+    ->condition('rid', $role->rid)
+    ->execute();
+}

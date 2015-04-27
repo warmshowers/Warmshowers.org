@@ -1,0 +1,618 @@
+<?php
+
+/**
+ * @file
+ *   Allows users to add links to their social network profiles.
+ */
+
+require_once 'follow.inc';
+
+/**
+ * Implements hook_help().
+ */
+function follow_help($path, $arg) {
+  switch ($path) {
+    case 'user/%/follow':
+    case 'admin/config/services/follow':
+      return t('Please copy and paste the url for your public profile or page for each service you would like to display in the block. Links need to match the domain of the service in question. If you want to hide the title of the links, enter "&lt;none&gt;" in the customized name.');
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function follow_menu() {
+  $items = array();
+
+  // Generates CSS files if they don't already exist. WARNING: if clean URLs are
+  // disabled, CSS will always be served through the menu system, requiring a
+  // full drupal bootstrap. If clean URLs are enabled and the CSS file already
+  // exists, Drupal will be bypassed.
+  $items[_follow_css_get_path()] = array(
+    'title' => 'Generate Follow CSS',
+    'page callback' => 'follow_css',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/services/follow'] = array(
+    'title' => 'Follow',
+    'description' => 'Configure the site-wide web service follow links.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('follow_links_form'),
+    'access arguments' => array('edit site follow links'),
+  );
+
+  $items['user/%/follow'] = array(
+    'title' => 'Follow',
+    'description' => 'Update the associated web service follow links.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('follow_links_form', 1),
+    'access callback' => 'follow_links_user_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback for user follow links editing.
+ */
+function follow_links_user_access($uid) {
+  return ((($GLOBALS['user']->uid == $uid) && user_access('edit own follow links')) || user_access('edit any user follow links')) && $uid > 0;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function follow_permission() {
+  return array(
+    'edit own follow links' => array(
+      'title' => t('Edit own follow links'),
+      'description' => t(''),
+    ),
+    'edit site follow links' => array(
+      'title' => t('Edit the site-wide follow links'),
+      'description' => t(''),
+    ),
+    'edit any user follow links' => array(
+      'title' => t("Edit any user's follow links"),
+      'description' => t(''),
+    ),
+    'administer follow' => array(
+      'title' => t('Administer follow'),
+      'description' => t(''),
+    ),
+    'change follow link titles' => array(
+      'title' => t('Change link titles'),
+      'description' => t('Allows changing the text that appears in the follow links.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function follow_theme() {
+  $items = array();
+
+  $items['follow_links_form'] = array(
+    'render element' => 'form',
+  );
+  $items['follow_links'] = array(
+    'variables' => array(
+      'links' => array(),
+      'networks' => array(),
+      'alignment' => NULL,
+      // The type of the links, 'user' or 'site'.
+      'type' => NULL,
+    ),
+  );
+  $items['follow_link'] = array(
+    'variables' => array('link' => NULL, 'title' => NULL),
+  );
+  $items['follow_css'] = array(
+    'variables' => array(
+      'icon_style_name' => NULL,
+      'icon_style' => array(),
+      'icon_path' => NULL,
+      'selector_prefix' => '',
+      'css_overrides' => '',
+    ),
+    'template' => 'follow-css',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function follow_preprocess_page(&$variables) {
+  // Expose the site follow links as a variable to the page template.
+  if ($links = follow_links_load()) {
+    $args = array(
+      'links' => $links,
+      'networks' => follow_networks_load(),
+      'alignment' => variable_get('follow_site_alignment', 'vertical'),
+      'type' => 'site',
+    );
+    $variables['follow_site'] = theme('follow_links', $args);
+  }
+}
+
+/**
+ * Implements hook_preprocess_follow_css().
+ */
+function template_preprocess_follow_css(&$variables) {
+  // Allow for template overrides based on style name.
+  $variables['theme_hook_suggestions'][] = 'follow-css__' . $variables['icon_style_name'];
+
+  // Load up the style array.
+  if ($style = follow_get_icon_style($variables['icon_style_name'])) {
+    $variables['icon_style'] = $style;
+  }
+
+  // Normalize the selector prefix to have a single space at the end.
+  if (!empty($variables['selector_prefix'])) {
+    $variables['selector_prefix'] = rtrim($variables['selector_prefix']) . ' ';
+  }
+
+  // Set up the icon path.
+  if (empty($variables['icon_path'])) {
+    $variables['icon_path'] = _follow_style_icon_path($style);
+  }
+
+  // Convert the CSS overrides into a string.
+  if (empty($variables['css_overrides']) && !empty($style['css-overrides'])) {
+    $css_overrides = $variables['selector_prefix'] . "a.follow-link {\n";
+    foreach ($style['css-overrides'] as $line) {
+      $css_overrides .= "  $line\n";
+    }
+    $variables['css_overrides'] = $css_overrides . "}\n";
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function follow_block_info() {
+  $blocks['site'] = array(
+    'info' => t('Follow Site'),
+    // We need to cache per role so the edit/configure links display only if user
+    // has access.
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+
+  $blocks['user'] = array(
+    'info' => t('Follow User'),
+    // Here we need to cache per user so the edit link only shows for the associated
+    // account.
+    'cache' => DRUPAL_CACHE_PER_USER,
+  );
+
+  return $blocks;
+}
+
+
+/**
+ * Implements hook_block_configure().
+ */
+function follow_block_configure($delta = '') {
+  switch($delta) {
+    case 'site':
+      $form['follow_title'] = array(
+        '#type' => 'radios',
+        '#title' => t('Default block title'),
+        '#default_value' => variable_get('follow_site_block_title', FOLLOW_NAME),
+        '#options' => array(
+          FOLLOW_NAME => t('Follow @name on', array('@name' => variable_get('site_name', 'Drupal'))),
+          FOLLOW_ME => t('Follow me on'),
+          FOLLOW_US => t('Follow us on'),
+        ),
+      );
+      $form['follow_user'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('User pages'),
+        '#description' => t('Should this block display on user profile pages?'),
+        '#default_value' => variable_get('follow_site_block_user', TRUE),
+      );
+      break;
+
+    case 'user':
+      $form['follow_title'] = array(
+        '#type' => 'radios',
+        '#title' => t('Default block title'),
+        '#default_value' => variable_get('follow_user_block_title', FOLLOW_NAME),
+        '#options' => array(
+          FOLLOW_NAME => t('Follow [username] on'),
+          FOLLOW_ME => t('Follow me on'),
+        ),
+      );
+      break;
+  }
+
+  // Allow changing which icon style to use on the global service links.
+  $form['follow_alignment'] = array(
+    '#type' => 'select',
+    '#title' => t('Alignment'),
+    '#options' => array(
+      'vertical' => t('Vertical'),
+      'horizontal' => t('Horizontal'),
+    ),
+    '#description' => t('Whether the icons are to appear horizontally beside each other, or one after another in a list.'),
+    '#default_value' => variable_get("follow_{$delta}_alignment", 'vertical'),
+  );
+
+  // Allow changing which icon style to use on the global service links.
+  $form['follow_icon_style'] = array(
+    '#type' => 'select',
+    '#title' => t('Icon Style'),
+    '#options' => follow_icon_style_options(),
+    '#description' => t('How the Follow icons should appear.'),
+    '#default_value' => variable_get("follow_{$delta}_icon_style", 'small'),
+  );
+  return $form;
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function follow_block_save($delta = '', $edit = array()) {
+  variable_set("follow_{$delta}_block_title", $edit['follow_title']);
+  if ($delta == 'site') {
+    variable_set('follow_site_block_user', $edit['follow_user']);
+  }
+  variable_set("follow_{$delta}_alignment", $edit['follow_alignment']);
+  variable_set("follow_{$delta}_icon_style", $edit['follow_icon_style']);
+  // Reset the CSS in case the styles changed.
+  follow_save_css(TRUE);
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function follow_block_view($delta = '') {
+  $type = $delta;
+  switch ($delta) {
+    case 'site':
+      if (($content = _follow_block_content($type))
+          && (variable_get('follow_site_block_user', TRUE) || !(arg(0) == 'user' && is_numeric(arg(1))))) {
+        return array(
+          'subject' => _follow_block_subject(),
+          'content' => $content,
+        );
+      }
+      break;
+    case 'user':
+      $uid = arg(1);
+      if (arg(0) == 'user' && is_numeric($uid) && ($content = _follow_block_content($type, $uid))) {
+        return array(
+          'subject' => _follow_block_subject($uid),
+          'content' => $content,
+        );
+      }
+      break;
+  }
+}
+
+/**
+ * Helper function to build the block title.
+ *
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ */
+function _follow_block_subject($uid = 0) {
+  return follow_link_title($uid) .':';
+}
+
+/**
+ * Helper function to build the block content display.
+ *
+ * @param string $alignment
+ *   The alignment of the icons, vertical or horizontal.
+ * @param string $style
+ *   The style of the icons, small, large, etc.
+ * @param $uid
+ *   The uid of the user account. Defaults to the site form, $uid = 0.
+ * @return array
+ *   A renderable array of follow links.
+ */
+function _follow_block_content($type, $uid = 0) {
+  $element = array();
+
+  if ($links = follow_links_load($uid)) {
+    $element = _follow_links_element($links,
+      follow_networks_load($uid),
+      $type
+    );
+  }
+
+  return $element;
+}
+
+/**
+ * Menu callback to generate Follow module CSS.
+ */
+function follow_css() {
+  if ($destination = follow_save_css()) {
+    file_transfer($destination, array('Content-Type' => 'text/css', 'Content-Length' => filesize($destination)));
+  }
+  else {
+    watchdog('follow', 'Unable to generate the Follow CSS located at %path.', array('%path' => $destination));
+    drupal_add_http_header('Status', '500 Internal Server Error');
+    print t('Error generating CSS.');
+    drupal_exit();
+  }
+}
+
+/**
+ * Theme function to output a list of links.
+ *
+ * @param $links
+ *   An array of follow link objects.
+ * @param $networks
+ *   An array of network names, keys are machine names, values are visible titles.
+ * @param $alignment
+ *   A string depicting whether the icons should be displayed in a "horizontal"
+ *   or "vertical" list.
+ *
+ * @ingroup themeable
+ */
+function theme_follow_links($variables) {
+  $element = _follow_links_element($variables['links'],
+    $variables['networks'],
+    $variables['type'],
+    $variables['alignment']
+  );
+  return render($element);
+}
+
+/**
+ * Theme function to print an individual link.
+ *
+ * @param $link
+ *   A follow link object.
+ * @param $title
+ *   The translated title of the social network.
+ *
+ * @ingroup themable
+ */
+function theme_follow_link($variables) {
+  $link = $variables['link'];
+  $title = $variables['title'];
+  $classes = array();
+  $classes[] = 'follow-link';
+  $classes[] = "follow-link-{$link->name}";
+  $classes[] = $link->uid ? 'follow-link-user' : 'follow-link-site';
+  $attributes = array(
+    'class' => $classes,
+    'title' => follow_link_title($link->uid) .' '. $title,
+  );
+  // Clean up the blank titles.
+  if ($title == '<none>') {
+    $title = '';
+  }
+  $link->options['attributes'] = $attributes;
+  return l($title, $link->path, $link->options) . "\n";
+}
+
+/**
+ * Implements hook_contextual_links_view_alter().
+ *
+ * @param $element
+ *   A renderable array representing the contextual links.
+ * @param $items
+ *   An associative array containing the original contextual link items, as
+ *   generated by menu_contextual_links(), which were used to build
+ *   $element['#links'].
+ */
+function follow_contextual_links_view_alter(&$element, $items) {
+  // Add the Follow configuration links to both of the Follow blocks.
+  $block = isset($element['#element']['#block']) ? $element['#element']['#block'] : NULL;
+  if (is_object($block) && $block->module == 'follow') {
+    $uid = arg(1);
+
+    if ($block->delta == 'site' && user_access('edit site follow links')) {
+      $element['#links']['follow-edit'] = array(
+        'title' => t('Edit Follow links'),
+        'href' => 'admin/config/services/follow',
+        'query' => drupal_get_destination(),
+        'attributes' => array(
+          'title' => t('Configure the site-wide web service follow links.'),
+        ),
+      );
+    }
+    elseif ($block->delta == 'user' && follow_links_user_access($uid)) {
+      $element['#links']['follow-edit'] = array(
+        'title' => t('Edit Follow links'),
+        'href' => 'user/' . $uid . '/follow',
+        'query' => drupal_get_destination(),
+        'attributes' => array(
+          'title' => t('Update the associated web service follow links.'),
+        ),
+      );
+    }
+  }
+}
+
+/**
+ * The form for editing follow links.
+ *
+ * @param $form_state
+ *   A keyed array containing the current state of the form.
+ * @param $uid
+ *   The uid of the user account.  Defaults to the site form, $uid = 0.
+ *
+ * @ingroup forms
+ */
+function follow_links_form($form, &$form_state, $uid = 0) {
+  $form = array();
+
+  $form['uid'] = array('#type' => 'hidden', '#value' => $uid);
+  $form['follow_links']['#tree'] = TRUE;
+
+  // List all the available links.
+  $links = follow_links_load($uid);
+  $networks = follow_networks_load($uid, TRUE);
+
+  // Put all our existing links at the top, sorted by weight.
+  if (is_array($links)) {
+    foreach ($links as $name => $link) {
+      $title = $networks[$name]['title'];
+      $form['follow_links'][$name] = _follow_links_form_link($link, $title, $uid);
+      // Unset this specific network so we don't add the same one again below.
+      unset($networks[$name]);
+    }
+  }
+  // Now add all the empty ones.
+  foreach ($networks as $name => $info) {
+    $link = new stdClass();
+    $link->name = $name;
+    $form['follow_links'][$name] = _follow_links_form_link($link, $info['title'], $uid);
+  }
+
+  $form['submit'] = array('#type' => 'submit', '#value' => t('Submit'));
+
+  return $form;
+}
+
+/**
+ * Helper function to create an individual link form element.
+ */
+function _follow_links_form_link($link, $title, $uid) {
+  $elements = array();
+
+  $elements['name'] = array(
+    '#markup' => $title,
+  );
+  if (isset($link->lid)) {
+    $elements['lid'] = array(
+      '#type' => 'hidden',
+      '#value' =>  $link->lid,
+    );
+    $elements['weight'] = array(
+      '#type' => 'weight',
+      '#default_value' => $link->weight,
+    );
+  }
+  $elements['url'] = array(
+    '#type' => 'textfield',
+    '#follow_network' => $link->name,
+    '#follow_uid' => $uid,
+    '#default_value' => isset($link->url) ? $link->url : '',
+    '#element_validate' => array('follow_url_validate'),
+  );
+  // Provide the title of the link only if the link URL is there and the user
+  // has the appropriate access.
+  $elements['title'] = array(
+    '#type' => 'textfield',
+    '#default_value' => isset($link->title) ? $link->title : '',
+    '#size' => 15,
+    '#access' => user_access('change follow link titles') && !empty($link->url),
+  );
+
+  return $elements;
+}
+
+/**
+ * Submit handler for the follow_links_form.
+ */
+function follow_links_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $links = $values['follow_links'];
+
+  foreach($links as $name => $link) {
+    $link = (object) $link;
+    $link->url = trim($link->url);
+
+    // Check to see if there's actually a link
+    if (empty($link->url)) {
+      // If there's an lid, delete the link.
+      if (isset($link->lid)) {
+        follow_link_delete($link->lid);
+      }
+      // Continue to the next link.
+      continue;
+    }
+    // Otherwise save the link.
+    else {
+      $link->uid = $values['uid'];
+      $link->name = $name;
+      follow_link_save($link);
+    }
+  }
+}
+
+/**
+ * Theme the drag-and-drop form.
+ *
+ * Arranges records in a table, and adds the css and js for draggable sorting.
+ *
+ * @ingroup themeable
+ * @ingroup forms
+ */
+function theme_follow_links_form($variables) {
+  $form = $variables['form'];
+  $rows = array();
+  $disabled_rows = array();
+
+  foreach (element_children($form['follow_links']) as $key) {
+    $row = array();
+
+    if (isset($form['follow_links'][$key]['weight'])) {
+      $row[] = drupal_render($form['follow_links'][$key]['lid']) . drupal_render($form['follow_links'][$key]['name']);
+      $row[] = drupal_render($form['follow_links'][$key]['url']);
+      if (user_access('change follow link titles')) {
+        $row[] = drupal_render($form['follow_links'][$key]['title']);
+      }
+
+      // Now, render the weight row.
+      $form['follow_links'][$key]['weight']['#attributes']['class'][] = 'follow-links-weight';
+      $row[] = drupal_render($form['follow_links'][$key]['weight']);
+
+      // Add the new row to our collection of rows, and give it the 'draggable' class.
+      $rows[] = array(
+        'data' => $row,
+        'class' => array('draggable'),
+      );
+    }
+    else {
+      $disabled_rows[] = array(drupal_render($form['follow_links'][$key]['name']), drupal_render($form['follow_links'][$key]['url']));
+    }
+  }
+
+  // Render a list of header titles, and our array of rows, into a table.
+  $header = array(t('Name'), t('URL'));
+  if (user_access('change follow link titles')) {
+    $header[] = t('Customized Name');
+  }
+  $header[] = t('Weight');
+  $disabled_header = array(t('Name'), t('URL'));
+
+  $output = '';
+  if (count($rows)) {
+    $output .= theme('table', array('header' => $header, 'rows' => $rows, 'attributes' => array('id' => 'follow-links-weighted-form')));
+  }
+  if (count($disabled_rows)) {
+    $output .= theme('table', array('header' => $disabled_header, 'rows' => $disabled_rows));
+  }
+  $output .= drupal_render_children($form);
+
+  drupal_add_tabledrag('follow-links-weighted-form', 'order', 'self', 'follow-links-weight');
+
+  return $output;
+}
+
+/**
+ * Implements hook_admin_paths().
+ *
+ * Have the Follow links for the user pop up in the Overlay.
+ */
+function follow_admin_paths() {
+  $paths = array(
+    'user/*/follow' => TRUE,
+  );
+  return $paths;
+}
