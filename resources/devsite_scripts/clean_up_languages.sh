@@ -1,7 +1,7 @@
 #!/bin/bash
 
-webroot=~/workspace/warmshowers/docroot
-devsite_host=warmshowers.dev
+webroot=~/workspace/wsupg/docroot
+devsite_host=wsupg.dev
 # If the English language version of the site has www on it, put "www." here.
 # Otherwise www. will be deleted from the language URLs.
 www_prefix=""

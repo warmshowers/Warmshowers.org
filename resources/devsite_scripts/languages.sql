@@ -1,8 +1,8 @@
--- MySQL dump 10.14  Distrib 5.5.31-MariaDB, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.15  Distrib 10.0.15-MariaDB, for osx10.10 (x86_64)
 --
--- Host: localhost    Database: warmshowers_org
+-- Host: localhost    Database: wsupg
 -- ------------------------------------------------------
--- Server version	5.5.31-MariaDB-1~precise-log
+-- Server version	10.0.15-MariaDB
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -29,11 +29,11 @@ CREATE TABLE `languages` (
   `direction` int(11) NOT NULL DEFAULT '0',
   `enabled` int(11) NOT NULL DEFAULT '0',
   `plurals` int(11) NOT NULL DEFAULT '0',
-  `formula` varchar(128) NOT NULL DEFAULT '',
+  `formula` varchar(255) NOT NULL DEFAULT '' COMMENT 'Plural formula in PHP code to evaluate to get plural indexes.',
   `domain` varchar(128) NOT NULL DEFAULT '',
   `prefix` varchar(128) NOT NULL DEFAULT '',
   `weight` int(11) NOT NULL DEFAULT '0',
-  `javascript` varchar(32) NOT NULL DEFAULT '',
+  `javascript` varchar(64) NOT NULL DEFAULT '',
   PRIMARY KEY (`language`),
   KEY `list` (`weight`,`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -46,7 +46,7 @@ CREATE TABLE `languages` (
 LOCK TABLES `languages` WRITE;
 /*!40000 ALTER TABLE `languages` DISABLE KEYS */;
 set autocommit=0;
-INSERT INTO `languages` VALUES ('cs','Czech','Čeština',0,1,3,'(((($n%10)==1)&&(($n%100)!=11))?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','https://cs.warmshowers.org','',7,'21f90f7fca158778c0e92f8edecdf83c'),('de','German','Deutsch',0,1,2,'($n!=1)','https://de.warmshowers.org','',3,'1d515b450691547e71dc2942f7ec69f9'),('en','English','English',0,0,0,'','','en',0,''),('en-working','English','English',0,1,2,'($n!=1)','https://www.warmshowers.org','',0,''),('es','Spanish','Español',0,1,2,'($n!=1)','https://es.warmshowers.org','',2,'a38591995154108eb67902912ca42c9c'),('fa','Persian','فارسی',1,1,2,'($n!=1)','https://fa.warmshowers.org','',9,'c5f5c97d14b4cbd73db330b433b466de'),('fr','French','Français',0,1,2,'($n!=1)','https://fr.warmshowers.org','',1,'4a2906aaaabf9cc9de87a947ff88b50a'),('it','Italian','Italiano',0,1,2,'($n!=1)','https://it.warmshowers.org','',4,'41f37f538d177ba3be405e79c59c4238'),('ja','Japanese','日本語',0,1,2,'($n!=1)','https://ja.warmshowers.org','',9,'ed9b9e3716d1e643cb08832281f46363'),('pl','Polish','Polski',0,1,3,'(($n==1)?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','https://pl.warmshowers.org','',7,'ae7b3aab6d9a165b91a05a60fcf9faf4'),('pt-br','Portuguese','Português',0,1,2,'($n!=1)','https://pt.warmshowers.org','',5,'1f9962a177895eb8224a1893a5d47641'),('ro','Romanian','Română',0,0,3,'(($n==1)?(0):((($n==0)||((($n%100)>0)&&(($n%100)<20)))?(1):2))','https://ro.warmshowers.org','',9,'6180d9fe2be14466649e757858478c41'),('ru','Russian','Русский',0,1,3,'(((($n%10)==1)&&(($n%100)!=11))?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','https://ru.warmshowers.org','',9,'15e0c7d1a589ff4ce89b35b879e9af03'),('sr','Serbian','Српски',0,1,3,'(((($n%10)==1)&&(($n%100)!=11))?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','https://rs.warmshowers.org','',9,'0f6583f999c1e557a90150f4e394b2ef'),('sv','Swedish','Svenska',0,1,2,'($n!=1)','https://sv.warmshowers.org','',8,'0388c33ba79fab7c0870f856fa4fcd54'),('tr','Turkish','Türkçe',0,1,0,'','https://tr.warmshowers.org','',10,'a0b14fcaf2dadadb703d17d2604a41fb'),('zh-hans','Chinese, Simplified','简体中文',0,1,2,'($n!=1)','https://cn.warmshowers.org','',8,'483fe9062b8bc96f70aa06c968407d4a');
+INSERT INTO `languages` VALUES ('cs','Czech','Čeština',0,1,3,'(((($n%10)==1)&&(($n%100)!=11))?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','http://cs.warmshowers.org','',7,'21f90f7fca158778c0e92f8edecdf83c'),('de','German','Deutsch',0,1,2,'($n!=1)','http://de.warmshowers.org','',3,'1d515b450691547e71dc2942f7ec69f9'),('en','English','English',0,0,0,'','','en',0,''),('en-working','English','English',0,1,2,'($n!=1)','http://warmshowers.org','',0,''),('es','Spanish','Español',0,1,2,'($n!=1)','http://es.warmshowers.org','',2,'96867a3ab790447e9e858acf902a59cf'),('fa','Persian','فارسی',1,1,2,'($n!=1)','http://fa.warmshowers.org','',9,'c5f5c97d14b4cbd73db330b433b466de'),('fr','French','Français',0,1,2,'($n>1)','http://fr.warmshowers.org','',1,'95a4e24fdecb203835d0ca96e874f7ce'),('it','Italian','Italiano',0,1,2,'($n!=1)','http://it.warmshowers.org','',4,'41f37f538d177ba3be405e79c59c4238'),('ja','Japanese','日本語',0,1,2,'($n!=1)','http://ja.warmshowers.org','',9,'ed9b9e3716d1e643cb08832281f46363'),('pl','Polish','Polski',0,1,3,'(($n==1)?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','http://pl.warmshowers.org','',7,'ae7b3aab6d9a165b91a05a60fcf9faf4'),('pt-br','Portuguese','Português',0,1,2,'($n!=1)','http://pt.warmshowers.org','',5,'1f9962a177895eb8224a1893a5d47641'),('ro','Romanian','Română',0,0,3,'(($n==1)?(0):((($n==0)||((($n%100)>0)&&(($n%100)<20)))?(1):2))','http://ro.warmshowers.org','',9,'6180d9fe2be14466649e757858478c41'),('ru','Russian','Русский',0,1,3,'(((($n%10)==1)&&(($n%100)!=11))?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','http://ru.warmshowers.org','',9,'15e0c7d1a589ff4ce89b35b879e9af03'),('sr','Serbian','Српски',0,1,3,'(((($n%10)==1)&&(($n%100)!=11))?(0):((((($n%10)>=2)&&(($n%10)<=4))&&((($n%100)<10)||(($n%100)>=20)))?(1):2))','http://rs.warmshowers.org','',9,'0f6583f999c1e557a90150f4e394b2ef'),('sv','Swedish','Svenska',0,1,2,'($n!=1)','http://sv.warmshowers.org','',8,'0388c33ba79fab7c0870f856fa4fcd54'),('tr','Turkish','Türkçe',0,1,0,'','http://tr.warmshowers.org','',10,'a0b14fcaf2dadadb703d17d2604a41fb'),('zh-hans','Chinese, Simplified','简体中文',0,1,2,'($n!=1)','http://cn.warmshowers.org','',8,'483fe9062b8bc96f70aa06c968407d4a');
 /*!40000 ALTER TABLE `languages` ENABLE KEYS */;
 UNLOCK TABLES;
 commit;
@@ -60,4 +60,4 @@ commit;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-12-27 14:49:23
+-- Dump completed on 2015-04-27 15:13:42
