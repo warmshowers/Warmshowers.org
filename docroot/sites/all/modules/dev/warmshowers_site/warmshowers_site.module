@@ -1,0 +1,660 @@
+<?php
+/**
+ * @file
+ * Site helpers for warmshowers.org
+ *
+ */
+
+
+/**
+ * Implements hook_menu().
+ *
+ * @return array
+ */
+function warmshowers_site_menu() {
+  // This page is simply to let an auth user view what the unauth user will see.
+  $items['frontpage'] = array(
+    'title' => 'Warm Showers',
+    'page callback' => 'warmshowers_site_front_page',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+  $items['mandrill_incoming_status'] = array(
+    'page callback' => 'warmshowers_site_mandrill_incoming_status_page',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  // Provide access to unanswered messages
+  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
+  $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
+  $items[$url_prefix . '/unanswered'] = array(
+    'title' => 'Unanswered Requests',
+    'page callback' => 'warmshowers_site_unanswered_messages',
+    'page arguments' => array($url_prefix_user_arg_position),
+    'access callback' => 'privatemsg_menu_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 30,
+  );
+
+  return $items;
+}
+
+/**
+ * Return empty content for our front page so it doesn't have to render real content.
+ *
+ * @return string
+ */
+function warmshowers_site_front_page() {
+  return '';
+}
+
+// Alter the user-to-user contact form to (by default) copy the sender
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function warmshowers_site_form_contact_mail_user_alter(&$form, $form_state) {
+  $form['copy']['#default_value'] = TRUE;
+}
+
+// Alter contact form mail with userful info for admin
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function warmshowers_site_mail_alter($message) {
+  switch ($message['id']) {
+
+    case 'contact_page_mail':
+      $account = NULL;
+      if ($GLOBALS['user']->uid != 0) {
+        $account = &$GLOBALS['user'];
+      }
+      else {
+        $account = array_shift(user_load_multiple(array(), array('mail' => $message['params']['mail'])));
+      }
+      if (!empty($account)) {
+        $created = format_date($account->created, 'long', '', 'MDT');
+        $languages = language_list();
+        $domain = $languages[$account->language]->domain;
+        $validate_link = "{$domain}/toboggan/revalidate/{$account->uid}";
+        $mandrill_link = "https://mandrillapp.com/activity/?q=" . urlencode($account->mail);
+        if (empty($account->roles[2])) {
+          $status = "NOT Validated (<a href='{$validate_link}'>Resend validation link</a>";
+        }
+        else {
+          $status = "Validated";
+        }
+        $suffix = <<<EOT
+---<br/>
+From: <a href="https://www.warmshowers.org/user/{$account->uid}">{$account->fullname}</a> ({$account->name})
+Status when email sent: {$status}
+Edit: https://www.warmshowers.org/user/{$account->uid}/edit
+Mandrill Link: {$mandrill_link}
+Account created: $created
+<b><a href="https://www.warmshowers.org/user/{$account->uid}/admin_details">Current status link</a></b>
+EOT;
+      }
+      else {
+        $suffix = "<br/>---<br/>From unregistered user";
+      }
+
+      if (is_array($message['body'])) {
+        $message['body'][] = $suffix;
+      }
+      else {
+        $message['body'] .= $suffix;
+      }
+      return;
+
+      // Make the
+    case 'uc_order_action-mail':
+      if ($message['params']['template'] == 'admin') {
+        $message['headers']['Reply-To'] = '<' . $message['params']['replacements']['order']->primary_email . '>';
+      }
+      return;
+  }
+}
+
+/**
+ * Alter user register form
+ *
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_user_register_alter(&$form, &$form_state) {
+  if (!empty($form['force_password_change'])) {
+
+    // Seems to be a bug that the force_password_change module presents
+    // A checkbox to brand new users asking if they want their password
+    // changed on initial login.
+    unset($form['force_password_change']);
+  }
+}
+
+/**
+ * Alter user profile form.
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_user_profile_form_alter(&$form, &$form_state) {
+  // On submit of user form, go to view instead of staying on edit.
+  if (empty($form['submit']['#submit'])) {
+    // First make sure we have all the submit handlers from the form
+    $form['submit']['#submit'] = $form['#submit'];
+    // And now add our own, which only does the $form_state['redirect']
+    $form['submit']['#submit'][] = 'warmshowers_site_user_profile_form_submit';
+  }
+
+  // Hide the comment_notify user-page settings, and make the default be
+  // always send updates.
+  $form['comment_notify_settings']['#access'] = FALSE;
+  $form['comment_notify_settings']['node_notify_mailalert']['#type'] = 'value';
+  $form['comment_notify_settings']['node_notify_mailalert']['#value'] = TRUE;
+
+  $form['comment_notify_settings']['comment_notify_mailalert']['#type'] = 'value';
+  $form['comment_notify_settings']['comment_notify_mailalert']['#value'] = TRUE;
+
+  // Hide the option to turn off or otherwise configure privatemsg.
+  $form['privatemsg']['#access'] = FALSE;
+  // Hide the option to configure htmlmail
+  $form['htmlmail']['#access'] = FALSE;
+
+}
+
+/**
+ * Submit handler for form alter of user profile form.
+ *
+ * After saving, go to the user profile page which was being edited.
+ */
+function warmshowers_site_user_profile_form_submit($form, &$form_state) {
+  $account = array_shift(user_load_multiple(array(), array('name' => $form_state['values']['name'])));
+  if ($account) {
+    $form_state['redirect'] =   'user/' . $account->uid;
+  }
+}
+
+/**
+ * Implements hook_form_alter() to change the crazy handling in user_delete module().
+ * We don't want people to have any choice but to delete it all.
+ */
+function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
+
+  switch ($form_id) {
+    case 'user_confirm_delete':
+      _warmshowers_site_alter_user_delete($form, $form_state, $form_id);
+      break;
+
+      // Use a translatable name for button instead of just "Delete".
+    case 'user_profile_form':
+      if (!empty($form['delete'])) {
+        $form['delete']['#value'] = t("Delete Account");
+      }
+      break;
+
+      // Get rid of the input filter stuff on comment.
+      // Also change comment notification default values.
+    case 'comment_form':
+      $form['comment_filter']['format']['#access'] = FALSE;
+
+      $form['notify_settings']['notify']['#default_value'] = TRUE;
+      $form['notify_settings']['notify_type']['#default_value'] = 2;
+
+      break;
+
+      // Provide a default expiration for forum nodes. Depends on scheduler module.
+    case 'forum_node_form':
+      if (isset($form['scheduler_settings']['unpublish_on']) && empty($form['scheduler_settings']['unpublish_on']['#default_value'])) {
+        $form['scheduler_settings']['unpublish_on']['#default_value'] = date('Y-m-d H:m:s', REQUEST_TIME + variable_get('warmshowers_site_forum_expiration', 31536000));
+      }
+      break;
+
+      // Privileged users must be able to save with html. Who?
+      // This is a questionable removal as it could allow translators to
+      // insert even PHP or javascript which would be destructive.
+    case 'locale_translate_edit_form':
+      unset($form['#validate']);
+      $form['#validate'] = array('warmshowers_site_translate_edit_form_validate');
+      break;
+
+      // Prevent users from changing the to:, as we want them to access this using
+      // the button, and want them to access no more than one member.
+    case 'privatemsg_new':
+      $form['recipient']['#type'] = 'hidden';
+
+      $recipients_title = t("(No recipient specified)");
+      if (is_numeric(arg(4)) && ($target_account = user_load(arg(4)))) {
+        $recipients_title = $target_account->fullname;
+      }
+      $form['description'] = array(
+        '#type' => 'item',
+        '#title' => t('Write new message to %recipient', array('%recipient' => $recipients_title)),
+        '#weight' => -99,
+      );
+      break;
+
+      // Prevent altering the member and clean up presentation of it.
+    case 'trust_referral_node_form':
+      $form['#after_build'][] = 'warmshowers_site_alter_feedback_member';
+      if (!user_access('administer users')) {
+        $form['field_member_i_trust'][0]['#prefix'] = '<div style="display:none">';
+        $form['field_member_i_trust'][0]['#suffix'] = '</div>';
+      }
+      break;
+  }
+}
+
+/**
+ * Add specific instructions of username; this can be done only after
+ * the prepopulate module has done its alteration so we know the member.
+ *
+ * @param $form
+ * @param $form_state
+ * @return mixed
+ */
+function warmshowers_site_alter_feedback_member($form, &$form_state) {
+  $username = $form['field_member_i_trust'][0]['#default_value']['uid']['uid'];
+  if (!empty($username)) {
+    $account = array_shift(user_load_multiple(array(), array('name' => $username)));
+  }
+  if ($account) {
+    $form['field_rating']['value']['#title'] = t('Overall experience with %fullname', array('%fullname' => $account->fullname));
+  }
+
+  return $form;
+}
+
+/**
+ * This is added here to allow unvalidated saves for translators for just some
+ * lids, which can be added to the variable if needed.
+ *
+ *
+ *
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_translate_edit_form_validate($form, &$form_state) {
+  // By default, only allow the PM notification email
+  $items_allowed = variable_get('warmshowers_site_allowed_skip_html', array(58861));
+
+  if (in_array($form['lid']['#value'], $items_allowed)) {
+    return;
+  }
+
+  // Continues on with copied i18nstrings_translate_edit_form_validate()
+  $context = $form_state['values']['i18nstrings_context'];
+  if (empty($context->format)) {
+    // If not input format use regular validation for all strings
+    $copy_state = $form_state;
+    $copy_state['values']['textgroup'] = 'default';
+    locale_translate_edit_form_validate($form, $copy_state);
+  }
+  elseif (!filter_access($context->format)) {
+    form_set_error('translations', t('You are not allowed to translate or edit texts with this input format.'));
+  }
+}
+
+/**
+ * Form handling for user delete is dependent on who is doing it and what they
+ * want to do. Since it's a little complicated, factored out into this function.
+ *
+ * What we want to do is provide one option for the admin (keep content or not,
+ * based on whether it's a spammer or not) and no options for the user. Their
+ * content will be retained.
+ *
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function _warmshowers_site_alter_user_delete(&$form, &$form_state, $form_id) {
+  $acting_user = $GLOBALS['user'];
+  $account_to_delete = $form['_account']['#value'];
+
+  // If they are deleting themselves, then don't offer any options, but keep
+  // the stuff they have posted.
+  if ($acting_user->uid == $account_to_delete->uid) {
+    $form['user_delete_action'] = array(
+      '#type' => 'value',
+      '#value' => 'user_delete_reassign',
+    );
+    $form['description']['#value'] = t('The user account %account will be deleted, but feedback and other postings will be retained.', array('%account' => $account_to_delete->name));
+  }
+
+  //Else if admin is deleting a user, hide the "block" options and allow either
+  // a spammer approach or non-spammer approach.
+  else if (user_access('administer users')) {
+    $form['user_delete_action']['#default_value'] = 'user_delete_delete';
+    unset($form['user_delete_action']['#options']['user_delete_block'], $form['user_delete_action']['#options']['user_delete_block_unpublish']);
+  }
+  $form['actions']['submit']['#value'] = t('Delete user account "@account"', array('@account' => $account_to_delete->name));
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function warmshowers_site_block_info() {
+  if (TRUE) {
+    $blocks['warmshowers_site_social_links'] = array(
+      'info' => t('[warmshowers_site] Social Links'),
+      'cache' => BLOCK_CACHE_GLOBAL,
+    );
+    return $blocks;
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function warmshowers_site_block_view($delta) {
+  if (TRUE) {
+    switch ($delta) {
+      case 'warmshowers_site_social_links':
+        $block['subject'] = '';
+        $block['content'] = theme('warmshowers_site_social_links');
+        return $block;
+    }
+  }
+}
+
+/**
+ * Implements hook_block().
+ *
+ * @param string $op
+ * @param int $delta
+ * @param array $edit
+ * @return array|string
+ */
+function warmshowers_site_block_OLD($op = 'list', $delta = 0, $edit = array()) { }
+
+/**
+ * Implements hook_theme().
+ */
+function warmshowers_site_theme() {
+  $template_path = drupal_get_path('module', 'warmshowers_site') . '/templates';
+  $items = array(
+    'warmshowers_site_social_links' => array(
+      'path' => $template_path,
+      'template' => 'warmshowers_site_social_links_block',
+    ),
+  );
+  return $items;
+}
+
+
+/**
+ * Implements hook_menu_alter().
+ *
+ * Change the permissions for tracker display.
+ */
+function warmshowers_site_menu_alter(&$items) {
+  // Change some items on user menu to no longer be MENU_LOCAL_TASK
+  $removals = array('user/%user/track', 'user/%user/contact', 'user/%user/location', 'user/%/scheduler', 'user/%user/orders', 'user/%user/recurring-fees');
+  foreach ($removals as $path) {
+    if (!empty($items[$path])) {
+      $items[$path]['type'] = MENU_NORMAL_ITEM;
+    }
+  }
+  $items['user/%user/view']['title'] = 'Profile';
+
+  // We don't want the node river of news page out there.
+  unset($items['node']);
+
+  // Stop using contact form for member contact, and use privatemsg
+  // instead
+  $items['user/%user/contact'] = array(
+    'title' => 'Contact',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('warmshowers_site_contact_mail_user', 1),
+    'type' => MENU_CALLBACK,
+    'access callback' => '_contact_user_tab_access',
+    'access arguments' => array(1),
+  );
+
+  // Remove the "write new message" pm submenu
+  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
+  $items[$url_prefix . '/new']['type'] = MENU_CALLBACK;
+//  $items[$url_prefix . '/unanswered']['title'] = 'Unanswered Messages';
+
+}
+
+
+/**
+ * Replaces the contact module's form with our own, which just submits
+ * to privatemsg.
+ *
+ * @param $form_state
+ * @param $recipient
+ * @return mixed
+ */
+function warmshowers_site_contact_mail_user(&$form_state, $recipient) {
+  global $user;
+  $form['#token'] = $user->name . $user->mail;
+  $form['recipient'] = array(
+    '#type' => 'value',
+    '#value' => $recipient,
+  );
+  $form['from'] = array(
+    '#type' => 'item',
+    '#title' => t('From'),
+    '#value' => theme('username', array('account' => $user)) . ' &lt;' . check_plain($user->mail) . '&gt;',
+  );
+  $form['to'] = array(
+    '#type' => 'item',
+    '#title' => t('To'),
+    '#value' => theme('username', array('account' => $recipient)),
+  );
+  $form['subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#maxlength' => 50,
+    '#required' => TRUE,
+  );
+  $form['message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Message'),
+    '#rows' => 15,
+    '#required' => TRUE,
+  );
+  $form['copy'] = array(
+    '#type' => 'hidden', // Hide from regular UI, but apps might still use it.
+    '#title' => t('Send yourself a copy.'),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Send e-mail'),
+  );
+  return $form;
+}
+
+/**
+ * Process the personal contact page wrapper.
+ */
+function warmshowers_site_contact_mail_user_submit($form, &$form_state) {
+  global $user, $language;
+
+  $account = $form_state['values']['recipient'];
+  $account->type = 'user';
+  $account->recipient = $account->uid;
+
+  $result = privatemsg_new_thread(array($account), $form_state['values']['subject'], $form_state['values']['message']);
+
+  drupal_set_message(t('The message has been sent.'));
+
+  // Back to the requested users profile page.
+  $form_state['redirect'] = "user/$account->uid";
+}
+
+/**
+ * Implements hook_services_resources_alter().
+ *
+ * We provide our own login service so that we can allow either username or
+ * email address for the username.
+ *
+ * @param $resources
+ * @param $endpoint
+ */
+function warmshowers_site_services_resources_alter(&$resources, $endpoint) {
+  $resources['user']['actions']['login'] = array(
+    'help' => 'Login a user for a new session - allows email address as username',
+    'callback' => 'warmshowers_site_user_resource_login',
+    'file' => array(
+      'type' => 'module',
+      'module' => 'warmshowers_site',
+    ),
+    'args' => array(
+      array(
+        'name' => 'username',
+        'type' => 'string',
+        'description' => 'A valid username or associated email address',
+        'source' => array('data' => 'username'),
+        'optional' => FALSE,
+      ),
+      array(
+        'name' => 'password',
+        'type' => 'string',
+        'description' => 'A valid password',
+        'source' => array('data' => 'password'),
+        'optional' => FALSE,
+      ),
+    ),
+    'access callback' => 'services_access_menu',
+  );
+
+}
+
+
+/**
+ * Login a user using the specified credentials.
+ *
+ * Copied from user_resource.inc: _user_resource_login(), but with addition
+ * of allowing the email address as username.
+ *
+ * Note this will transfer a plaintext password.
+ *
+ * @param $username
+ *   Username to be logged in.
+ * @param $password
+ *   Password, must be plain text and not hashed.
+ *
+ * @return
+ *   A valid session object.
+ */
+function warmshowers_site_user_resource_login($username, $password) {
+  global $user;
+
+  if ($user->uid) {
+    // user is already logged in
+    return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
+  }
+
+  // Handle the case where they have provided an email address. From logintoboggan.
+  $name_from_email = db_query("SELECT name FROM {users} WHERE LOWER(mail) = :LOWER(mail)", array(':LOWER(mail)' => LOWER('%s'), '' => $username))->fetchField();
+  if (!empty($name_from_email)) {
+    $username = $name_from_email;
+  }
+
+  $username($username, $password);
+
+  if (isset($user->uid) && $user->uid) {
+    // Regenerate the session ID to prevent against session fixation attacks.
+    sess_regenerate();
+
+    $return = new stdClass();
+    $return->sessid = session_id();
+    $return->session_name = session_name();
+
+    services_remove_user_data($user);
+
+    $return->user = $user;
+
+    return $return;
+  }
+  session_destroy();
+  return services_error(t('Wrong username or password.'), 401);
+}
+
+
+/**
+ * Implements hook_preprocess_node() as a poor man's access control().
+ * We never want the anon user (google) to access feedback nodes in any way.
+ * So just return 404 in that case.
+ *
+ * This could have been done with content_access, but it seems like such a
+ * waste to add access control.
+ *
+ * @param $variables
+ */
+function warmshowers_site_preprocess_node(&$variables) {
+  if ( !$GLOBALS['user']->uid && $variables['node']->type == 'trust_referral') {
+    drupal_not_found();
+    exit();
+  }
+}
+
+
+/**
+ * Simple page intended for nagios consumption; determine how long since
+ * last mandrill incoming.
+ */
+function warmshowers_site_mandrill_incoming_status_page() {
+  $elapsed = REQUEST_TIME - variable_get('mandrill_incoming_last_success_timestamp', 0);
+  if ($elapsed > variable_get('warmshowers_site_mandrill_incoming_threshhold', 7200)) {
+    $output =  t("Mandrill Incoming Is Stale, last received=%date", array('%date' => format_date(variable_get('mandrill_incoming_last_success_timestamp', 0))));
+  }
+  else {
+    $output = t("Mandrill OK,last received=%date", array('%date' => format_date(variable_get('mandrill_incoming_last_success_timestamp', 0))));
+  }
+  print $output;
+  exit(0);
+}
+
+/**
+ * Provide a list of messages which haven't been answered
+ *
+ * @param $account
+ * @return mixed
+ */
+function warmshowers_site_unanswered_messages($account) {
+  $url_prefix = preg_replace('/%user/', $account->uid, variable_get('privatemsg_url_prefix', 'messages'));
+
+  $period = REQUEST_TIME - variable_get('wsuser_privatemsg_responsiveness_period', 31536000);
+  $uid = $account->uid;
+
+  $query = '
+  SELECT DISTINCT(thread_id), pm.subject, pm.author, pi.deleted, DATE(FROM_UNIXTIME(pm.timestamp)) AS timestamp
+    FROM pm_index pi, pm_message pm
+    WHERE pi.recipient = %d AND pi.thread_id = pi.mid
+    AND pi.mid=pm.mid
+    AND pm.timestamp > %d
+    AND pi.thread_id NOT IN
+      (SELECT thread_id FROM pm_index pmsi INNER JOIN pm_message pm ON pm.mid = pmsi.mid WHERE pmsi.thread_id=pi.thread_id AND pm.author = %d)
+    ORDER by pi.thread_id
+  ';
+  $result = db_query($query, array($uid, $period, $uid));
+
+  $data = array();
+
+  $header = array(t('Subject'), t('From'), t('Date'));
+  while ($row = db_fetch_array($result)) {
+    if (empty($row['deleted'])) {
+      $row['subject'] = l($row['subject'], $url_prefix . '/view/' . $row['thread_id']);
+    }
+    else {
+      $row['subject'] .= ' (' . t('Message was deleted') . ')';
+    }
+    $sender = user_load($row['author']);
+    $row['author'] = theme('username', array('account' => $sender));
+    unset($row['thread_id'], $row['deleted']);
+    $data[] = $row;
+  }
+  if (count($data)) {
+    $output = t('You can still reply to these messages to improve your responsiveness rating. Sorry, you cannot reply to messages you already deleted.');
+    $output .= theme('table', array('header' => $header, 'rows' => $data));
+  }
+  else {
+    $output = t('You have no unanswered requests.');
+  }
+  return $output;
+
+}

@@ -1,0 +1,284 @@
+<?php
+
+// $Id: locationservices.module 505 2009-05-24 18:55:09Z rfay $
+/**
+ * @file
+ * Administrative helpers for warmshowers.org - mostly reports
+ *
+ */
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function locationservices_permission() {
+  return array(
+    'view administrative reports' => array(
+      'title' => t('view administrative reports'),
+      'description' => t('TODO Add a description for \'view administrative reports\''),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function locationservices_menu() {
+  $items = array();
+
+  $items['location_country_locator_service'] = array(
+    'title' => "Get lat/lon from countrycode",
+    'page callback' => 'location_country_locator_service',
+    'access arguments' => array('access content'), // TODO: Revisit this perm
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['location_autocomplete'] = array(
+    'title' => "Location Autocomplete backend function",
+    'page callback' => 'location_autocomplete',
+    'access arguments' => array('access content'), // TODO: Revisit this perm
+    'type' => MENU_CALLBACK,
+  );
+
+
+
+  return $items;
+}
+
+function location_country_position_from_country($country) {
+  // This query uses user_location_countries to get the centers of the countries
+  $result = db_query("SELECT l.country country_code, l.description country, latitude, longitude, area
+  	FROM {user_location_countries} l, {geonames_countryinfo} g
+  	WHERE l.country = :l.country and l.country = :l.country", array(':l.country' => $country, ':l.country' => iso_alpha2));
+
+  // This one uses the country capital from the geonames db
+  // 	$result = db_query("select i.name country, latitude, longitude, area
+  // 				from {geonames} g, {geonames_countryinfo} i
+  // 				where country_code='%s' and feature_code='pplc'
+  // 				and country_code=iso_alpha2", $country);
+
+  $item = db_fetch_object($result);
+  if (!$item) {
+    return null;
+  }
+  $item->defaultzoom = min(round(12 -log($item->area / 1000, 4)), 8);
+
+  // A few countries are huge and really need some help with the zoom.
+  $zoom_overrides = variable_get('locationservices_zoom_overrides', array(
+    'us' => 6,
+    'ca' => 5,
+    'ru' => 3,
+    'cn' => 4,
+  ));
+
+  if (!empty($zoom_overrides[$item->country_code])) {
+    $item->defaultzoom = $zoom_overrides[$item->country_code];
+  }
+
+  return $item;
+}
+
+function location_country_locator_service($country) {
+  $res = location_country_position_from_country($country);
+  print drupal_json_encode($res);
+  exit();
+}
+
+
+
+/**
+ * Used by the autocomplete on the main map page to look up city locations
+ * for a given country. Searches for matches in declining order of population
+ * @param $country_code
+ * 	ISO country code
+ * @param $string
+ * 	The partial name of the city
+ * @return unknown_type
+ */
+function location_autocomplete($country_code, $string) {
+  $limit = 15; // Max items we'll return
+  $cities = array();
+  $result = null;
+
+  $result = db_query_range("SELECT DISTINCT g.name cityname, a.name AS provname, g.country_code,
+  		latitude, longitude, g.admin1_code, g.feature_code
+  	FROM {geonames} AS g
+  	  LEFT JOIN {geonames_adm1} AS a
+  	  ON (g.country_code = a.country_code AND g.admin1_code = a.adm1_code)
+  	WHERE g.country_code = :g.country_code
+  		AND g.ansiname LIKE('%s%%')
+  		AND g.feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls', 'adm1', 'adm2')
+  		AND (g.population > :(g.population or g.feature_code = :g.feature_code OR (g.cc2 = :(g.cc2 AND g.feature_code = :g.feature_code))
+  		ORDER BY (feature_code = :(feature_code OR (g.cc2 = :(g.cc2 AND feature_code = :feature_code)) DESC, g.population DESC", array(':g.country_code' => $country_code, ':(g.population' => 1000, ':g.feature_code' => 'adm1', ':(g.cc2' => 'gb', ':g.feature_code' => 'adm2', ':(feature_code' => 'adm1', ':(g.cc2' => 'gb', ':feature_code' => 'adm2', '' => $string));
+
+  while ($city = db_fetch_array($result)) {
+
+    if ($city['feature_code'] == 'ADM1') { // Treat state capital as center of a state
+      $place = $city['provname'] . " (state/province)";
+    }
+    else {
+      $place =  $city['cityname'] . ", " . $city['provname'];
+    }
+    $latlon = $city['latitude'] . "|" . $city['longitude'];
+
+    // In D6 we need all the data in the value part, so make it 3 parts: Name|Lat|Lon
+    $cities[$place . "|" . $latlon] = $place;
+  }
+  print drupal_json_encode($cities);
+  exit();
+}
+
+
+/**
+ * Query to find out what country is associated with IP address of browser
+ *
+ * @return
+ *   Country code (ISO 3166-2) lower case, or null
+ */
+function user_location_get_browser_country() {
+
+  $ip = ip_address();
+  // Allow testing of this in dev environment
+//  if ($ip == '127.0.0.1') {
+//    static $debug_browser_ip;
+//    if (!$debug_browser_ip) {
+//      $test_ips = array(
+//        'us' => '76.227.18.25',
+//        'fi' => '62.236.106.181',
+//        'uk' => '212.100.232.194',
+//        'nl' => '212.61.151.243',
+//        'cn' => '58.14.0.1',
+//      );
+//      $key = array_rand($test_ips);
+//      $debug_browser_ip = $test_ips[$key];
+//      drupal_set_message("Debug: Using browser country $key, bogus IP=$debug_browser_ip");
+//    }
+//    $ip = $debug_browser_ip;
+//  }
+  if (function_exists('smart_ip_get_location')) {
+    if ($location = smart_ip_get_location($ip)) {
+      return strtolower($location['country_code']);
+    }
+    else {
+      return null;
+    }
+  }
+}
+
+function location_get_browser_location() {
+  $ip = ip_address();
+  // Allow testing of this in dev environment
+//  if ($ip == '127.0.0.1') {
+//    static $debug_browser_ip;
+//    if (!$debug_browser_ip) {
+//      $test_ips = array(
+//        'us' => '98.127.108.197',
+//        'fi' => '62.236.106.181',
+//        'uk' => '212.100.232.194',
+//        'nl' => '212.61.151.243',
+//        'cn' => '58.14.0.1',
+//      );
+//      $key = array_rand($test_ips);
+//      $debug_browser_ip = $test_ips[$key];
+//      drupal_set_message("Debug: Using browser country $key, bogus IP=$debug_browser_ip");
+//    }
+//    $ip = $debug_browser_ip;
+//  }
+
+  // Default location if we can't get anything else
+  $location_ary =  array(
+    'country_code' => 'us',
+    'latitude' => 39.0639,
+    'longitude' => -108.5507,
+  );
+
+  if (function_exists('smart_ip_get_location') && ($smartip_location = smart_ip_get_location($ip)) && !empty($smartip_location['latitude']) ) {
+    $location_ary = $smartip_location;
+  }
+  $location = (object) $location_ary;
+  $location->defaultzoom = variable_get('wsmap_default_zoom', 8);
+  return $location;
+}
+
+
+/**
+ * Return array of supported countries (ISOCOde=>countryname)
+ *
+ * @return array of countries
+ */
+function _user_location_supported_countries() {
+  static $supported_countries = array();
+
+  // If this function has already been called this request, we can avoid a DB hit.
+  if (!empty($supported_countries)) {
+    return $supported_countries;
+  }
+
+  // Try first to load from cache, it's much faster than the scan below.
+  $cache = cache_get('user_location:supported-countries');
+  if (!empty($cache)) {
+    $supported_countries = $cache->data; //D6 change from unserialize($cache->data);
+  }
+  else {
+    // '<ISO two-letter code>' => '<English name for country>'
+    $sql = 'select lcase(country) country, description from {user_location_countries} order by description';
+    $sqlresult = db_query($sql);
+    while ($rec = db_fetch_object($sqlresult)) {
+      $supported_countries[$rec->country] = $rec->description;
+    }
+
+    if (count($supported_countries)) {
+      cache_set('user_location:supported-countries', $supported_countries);
+    }
+  }
+
+  return $supported_countries;
+}
+
+/**
+ * Return a list of provinces for the selected country
+ *
+ * @param unknown_type $country
+ * @return unknown
+ */
+function _user_location_provincelist($country) {
+  return _user_location_get_provincecode_to_province_map($country);
+
+}
+
+
+
+
+/**
+ * Return array of provinces for given country
+ *
+ * @param unknown_type $country
+ * @return array of provinces (CODE=>Name)
+ */
+function _user_location_get_provincecode_to_province_map($country = "us") {
+  $provinces = array();
+
+  $cachename = "user_location:provinces:$country";
+  // Try first to load from cache, it's much faster than the scan below.
+  $cache = cache_get($cachename);
+  if (!empty($cache)) {
+    $provinces = $cache->data; //Russo D6 removed unserialized
+  }
+  else {
+    $sql = 'select lcase(province) province, description from {user_location_provinces} where country = "%s"';
+    $sqlresult = db_query($sql, $country);
+
+    while ($rec = db_fetch_object($sqlresult)) {
+      $provinces[$rec->province] = $rec->description;
+    }
+
+    if (count($provinces)) {
+      cache_set($cachename, $provinces);
+    }
+  }
+
+  return $provinces;
+
+
+}
+

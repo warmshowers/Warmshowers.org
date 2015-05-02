@@ -1,0 +1,268 @@
+<?php
+
+/**
+ * @file
+ * Service for sending contact requests.
+ */
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function ws_services_services_resources() {
+  $resources = array(
+    'hosts' => array(
+      'actions' => array(
+        'by_location' => array(
+          //'file' => array('type' => 'inc', 'module' => 'ws_services', 'name' => 'contact_resource'),
+          'callback' => '_ws_services_hosts_by_location',
+          'args' => array(
+            array(
+              'name' => 'minlat',
+              'type' => 'float',
+              'description' => t('Minimum latitude'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'maxlat',
+              'type' => 'float',
+              'description' => t('Maximum latitude.'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'minlon',
+              'type' => 'float',
+              'description' => t('Minimum longitude'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'maxlon',
+              'type' => 'float',
+              'description' => t('Maximum longitude.'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'centerlat',
+              'type' => 'float',
+              'description' => t('Center longitude'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'centerlon',
+              'type' => 'float',
+              'description' => t('Center longitude.'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'limit',
+              'type' => 'int',
+              'description' => t('Max number of items to return.'),
+              'source' => 'data',
+              'optional' => TRUE,
+              'default value' => 200,
+            ),
+          ),
+          'return' => 'array',
+          'help' => t('Returns array of members within the specified coordinates.'),
+          'access arguments' => array('access user profiles'),
+        ),
+        'by_keyword' => array(
+          'callback' => '_ws_services_hosts_by_keyword',
+          'args' => array(
+            array(
+              'name' => 'keyword',
+              'type' => 'string',
+              'description' => t('Keyword'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'offset',
+              'type' => 'int',
+              'description' => t("Starting offset within results"),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'limit',
+              'type' => 'int',
+              'description' => t('Max number of results to return.'),
+              'source' => 'data',
+            ),
+          ),
+          'return' => 'array',
+          'help' => t('Returns array of members matching keyword.'),
+          'access arguments' => array('access user profiles'),
+        ),
+      ),
+    ),
+    'user_contact' => array(
+      'actions' => array(
+        'contact' => array(
+          //'file' => array('type' => 'inc', 'module' => 'ws_services', 'name' => 'contact_resource'),
+          'callback' => '_ws_services_contact_resource',
+          'args' => array(
+            array(
+              'name' => 'uid',
+              'type' => 'int',
+              'description' => t('The uid of the account to be contacted'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'subject',
+              'type' => 'string',
+              'description' => t('The message subject.'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'message',
+              'type' => 'string',
+              'description' => t('A message body.'),
+              'source' => 'data',
+            ),
+            array(
+              'name' => 'copy',
+              'type' => 'bool',
+              'description' => t('Set to true if the sending member should receive a copy.'),
+              'optional' => TRUE,
+              'default value' => TRUE,
+              'source' => 'data',
+            ),
+          ),
+          'return' => 'bool',
+          'help' => t('Returns TRUE if the message sending was a success.'),
+          'access arguments' => array('access user profiles'),
+        ),
+      ),
+    ),
+  );
+  return $resources;
+}
+
+/**
+ * Perform a user contact
+ *
+ * @param $username
+ * @param $subject
+ * @param $message
+ * @param bool $copy
+ * @return bool|mixed
+ */
+function _ws_services_contact_resource($data) {
+
+  // Load the required includes for drupal_execute
+  module_load_include('inc', 'contact', 'contact.pages');
+
+  // Set up form_state
+  $form_state = array();
+  $form_state['values'] = $data;
+  // TODO Convert "user_load" to "user_load_multiple" if "$data['uid']" is other than a uid.
+  // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
+  // Example: array_shift(user_load_multiple(array(), $data['uid']))
+  $account = user_load($data['uid']);
+
+  if (empty($account)) {
+    return services_error(t("Can't send mail to nonexistent user id %d", $data['uid']), 406);
+  }
+
+  if (!flood_is_allowed('contact', variable_get('contact_hourly_threshold', 3))) {
+    $message = t('You cannot contact more than %number users per hour. Please try again later.', array('%number' => variable_get('contact_hourly_threshold', 3)));
+    return services_error($message, 406);
+  }
+
+  // This variable was used to determine what form gets submitted for this service
+  // It should no longer be necessary, and when the apps have switched
+  // over completely to doing the private messaging, it will be completely
+  // irrelevant.
+  $form_id = variable_get('ws_services_contact_mail_user_form', 'warmshowers_site_contact_mail_user');
+  $ret = drupal_form_submit($form_id, $form_state, $account);
+
+  if ($errors = form_get_errors()) {
+    return services_error(implode(" ", $errors), 406, array('form_errors' => $errors));
+  }
+  return array(
+    'status' => TRUE,
+    'message' => 'The contact was sent',
+  );
+}
+
+
+/**
+ * Utility function to provide search by location service
+ *
+ * @param $data
+ *   - Array with minlat, maxlat, minlon, maxlon bounding area
+ *
+ * @return array
+ *   - Array of hosts within the bounding area
+ */
+function _ws_services_hosts_by_location($data) {
+  $hosts = wsmap_get_hosts_by_location($data['minlat'], $data['maxlat'], $data['minlon'], $data['maxlon'], $data['centerlat'], $data['centerlon'], $data['limit']);
+  return $hosts;
+}
+
+/**
+ * Search hosts by keyword, which can be town, fullname, email, username
+ *
+ * @param $data
+ *   Array of args including:
+ *    - keyword
+ *    - offset within search results
+ *    - limit (max number to return)
+ *
+ * @return
+ *   Array of user accounts
+ */
+function _ws_services_hosts_by_keyword($data) {
+  $keyword = trim($data['keyword']);
+  $offset = !empty($data['offset']) ? $data['offset'] : 0;
+  $limit = !empty($data['limit']) ? $data['limit'] : variable_get('ws_services_keyword_results_limit', 50);
+
+  $base_query =
+    "FROM {users} u, {wsuser} w, {user_location} l
+            WHERE u.uid = w.uid
+            AND u.uid=l.oid
+            AND status > 0
+            AND !w.isstale AND !w.isunreachable
+            AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
+            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name LIKE '%%%s%%'
+            OR l.city LIKE '%%%s%%'
+            OR u.mail = '%s%%') ";
+
+  $query = "SELECT * " . $base_query . " ORDER BY w.notcurrentlyavailable ASC";
+  $count_query = "SELECT COUNT(*) " . $base_query;
+  // TODO Please convert this statement to the D7 database API syntax.
+  $avail_results_count = db_query($count_query, $keyword, $keyword, $keyword, $keyword)->fetchField();
+
+  // TODO Please convert this statement to the D7 database API syntax.
+  $result = db_query_range($query, $keyword, $keyword, $keyword, $keyword);
+
+  $accounts = array();
+  while ($row = db_fetch_array($result)) {
+    unset($row['pass'], $row['mail'], $row['data'], $row['init']);
+    $accounts[$row['uid']] = $row;
+  }
+  return array(
+    'status' => array(
+      'delivered' => count($accounts),
+      'totalresults' => $avail_results_count,
+      'status' => 'complete',
+    ),
+    'query_data' => array(
+      'sql' => $query,
+      'keyword' => $keyword,
+      'offset' => $offset,
+      'limit' => $limit,
+    ),
+    'accounts' => $accounts,
+  );
+
+  return $accounts;
+}
+
+/**
+ * Remove inappropriate info from user object retrieved by services.
+ *
+ * @param $account
+ */
+function ws_services_services_account_object_alter(&$account) {
+  unset($account->data, $account->roles, $account->contact, $account->tinymce_status);
+}
