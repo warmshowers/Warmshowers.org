@@ -26,7 +26,6 @@ function wsuser_permission() {
 
 /**
  * Implements hook_menu().
- * TODO: Add special permissions for full download
  */
 function wsuser_menu() {
   global $user;
@@ -116,7 +115,6 @@ function wsuser_menu() {
 /**
  * Implements hook_theme().
  * Defines the email_addr and email_link theme functions
- *
  */
 function wsuser_theme() {
   $template_path = drupal_get_path('module', 'wsuser') . '/templates';
@@ -187,51 +185,131 @@ function theme_linkbuttons($variables) {
 }
 
 /**
- * Implements hook_token_values().
- * Provide tokens for replacement by token module
+ * Implements hook_tokens().
  * @param $type
- * @param $object
+ *   As in type of 'user'
+ * @param $tokens
+ *   Array of tokens to be replaced
+ * @param $data
+ *   Associative array of data objects to be replaced
  * @param $options
- * @return unknown_type
+ *   An associative array of options for token replacement; see token_replace() for possible values.
+ * @return array
  */
-function wsuser_token_values($type, $object = NULL, $options = array()) {
-  if (!empty($object->uid) && ($type == 'user' || $type == 'global')) {
-    $account = user_load($object->uid);
-    $tokens['fullname']      = $account->fullname;
-    $tokens['about_me']      = $account->comments;
-    $tokens['source'] = $account->source;
-    $tokens['country'] = $account->country;
-    $tokens['province'] = $account->province;
-    $tokens['city'] = $account->city;
-    $tokens['notcurrentlyavailable'] = $account->notcurrentlyavailable;
-    $tokens['howdidyouhear'] = $account->howdidyouhear;
-    $tokens['validate_url'] = wsuser_eml_validate_url($account);
-    $tokens['login_url'] = wsuser_pass_reset_url($account);
-    $tokens['email_opt_out'] = $account->email_opt_out;
-    $tokens['hide_donation_status'] = $account->hide_donation_status;
+function wsuser_tokens($type, $tokens, $data = array(), $options = array()) {
 
-    return $tokens;
+  $url_options = array('absolute' => TRUE);
+  if (isset($options['language'])) {
+    $url_options['language'] = $options['language'];
+    $language_code = $options['language']->language;
+  }
+  else {
+    $language_code = NULL;
+  }
+  $sanitize = !empty($options['sanitize']);
+
+  $replacements = array();
+
+  if ($type == 'user' && !empty($data['user'])) {
+    $account = user_load($data['user']->uid);
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'fullname':
+          $replacements[$original] = $sanitize ? check_plain($account->fullname) : $account->fullname;
+          break;
+        case 'about_me':
+          $replacements[$original] = $sanitize ? check_plain($account->comments) : $account->comments;
+          break;
+        case 'notcurrentlyavailable':
+          $replacements[$original] = $account->notcurrentlyavailable;
+          break;
+        case 'validate_url':
+          $replacements[$original] = wsuser_eml_validate_url($account);
+          break;
+        case 'login_url':
+          $replacements[$original] = wsuser_pass_reset_url($account);
+          break;
+        case 'email_opt_out':
+          $replacements[$original] = $account->email_opt_out;
+          break;
+        case 'hide_donation_status':
+          $replacements[$original] = $account->hide_donation_status;
+          break;
+
+        // TODO: source, country, province, city are user_location, not wsuser - should move there
+        case 'source':
+          $replacements[$original] = $account->source;
+          break;
+        case 'country':
+          $replacements[$original] = $sanitize ? check_plain($account->country) : $account->country;
+          break;
+        case 'province':
+          $replacements[$original] = $sanitize ? check_plain($account->province) : $account->province;
+          break;
+        case 'city':
+          $replacements[$original] = $sanitize ? check_plain($account->city) : $account->city;
+          break;
+
+      }
+
+    return $replacements;
   }
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Implements hook_token_list()
  */
 function wsuser_token_list($type = 'all') {
-  if ($type == 'user' || $type == 'all') {
-    $tokens['user']['fullname']      = t("The user's fullname");
-    $tokens['user']['about_me']      = t("The 'about me' from user's profile");
-    $tokens['user']['source'] =  t("Geocoding accuracy of location info");
-    $tokens['user']['country'] = t("User's country");
-    $tokens['user']['province'] = t("User's province");
-    $tokens['user']['city'] = t("User's city");
-    $tokens['user']['notcurrentlyavailable'] = t("User's availability status");
-    $tokens['user']['howdidyouhear'] = t("How did you hear about WarmShowers.org?");
-    $tokens['user']['validate_url'] = t('Validation URL (logintoboggan)');
-    $tokens['user']['login_url'] = t('One-time login URL/Password reset URL');
-    $tokens['user']['email_opt_out'] = t('Email opt-out');
-    $tokens['user']['hide_donation_status'] = t('Hide donation status');
+  if ($type == 'user') {
+    $tokens['user']['fullname'] = array(
+      'name' => t('Full name'),
+      'description' => t("The user's fullname"),
+    );
+    $tokens['user']['about_me'] = array(
+      'name' => 'About me',
+      'description' => t("The 'about me' from user's profile"),
+    );
+    $tokens['user']['notcurrentlyavailable'] = array(
+      'name' => t('Not Currently Available'),
+      'description' => t("User's availability status")
+    );
+    $tokens['user']['howdidyouhear'] = array(
+      'name' => t('How Did You Hear'),
+      'description' => t("How did you hear about WarmShowers.org?")
+    );
+    $tokens['user']['validate_url'] = array(
+      'name' => t('Validation URL'),
+      'description' => t('Validation URL (logintoboggan)')
+    );
+    $tokens['user']['login_url'] = array(
+      'name' => t('One-time Login URL'),
+      'description' => t('One-time login URL/Password reset URL')
+    );
+    $tokens['user']['email_opt_out'] = array(
+      'name' => t('Email Opt Out'),
+      'description' => t('Email opt-out')
+    );
+    $tokens['user']['hide_donation_status'] = array(
+      'name' => t('Hide donation status'),
+      'description' => t('Hide donation status')
+    );
+
+    // TODO: Country, province, city are actually functions of user_location and should be in its token implementation
+    $tokens['user']['source'] =  array(
+      'name' => t('Geocoding accuracy'),
+      'description' => t("Geocoding accuracy of location info"),
+    );
+    $tokens['user']['country'] = array(
+      'name' => t('Country'),
+      'description' => t("User's country")
+    );
+    $tokens['user']['province'] = array(
+      'name' => t('Province'),
+      'description' => t("User's province")
+    );
+    $tokens['user']['city'] = array(
+      'name' => 'xxx',
+      'description' => t("User's city");
 
     return $tokens;
   }
