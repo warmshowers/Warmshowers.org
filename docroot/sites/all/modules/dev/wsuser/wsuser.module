@@ -1,13 +1,9 @@
 <?php
-// $Id: wsuser.module 545 2009-09-20 00:15:26Z rfay $
 /**
  * @file
  * Adds warmshowers.org fields to the User registration and display
  * Many miscellaneous services like user searches and reports
  */
-
-
-module_load_include('inc', 'user_location', 'earth');
 
 
 /**
@@ -19,7 +15,7 @@ function wsuser_permission() {
     "full member lists" => array(
       'title' => t("Access Full Member Lists"),
       'description' => t('TODO Add a description for "full member lists"'),
-    ), // Allow them to use the member listing function
+    ),
   );
 }
 
@@ -624,10 +620,6 @@ function wsuser_menu_alter(&$items) {
   $items['search/node/%menu_tail']['title'] = t("site content");
   unset($items['search/node/%menu_tail']['title callback']);
   unset($items['search/node/%menu_tail']['title arguments']);
-
-  // Override reset password menu so we can change the timeout
-  $items['user/reset/%/%/%']['page arguments'] = array('wsuser_user_pass_reset', 2, 3, 4);
-  unset($items['user/reset/%/%/%']['file']);
 
 }
 
@@ -2963,75 +2955,6 @@ function _wsuser_process_users_that_become_available() {
   }
 }
 
-
-/**
- * Menu callback; process one time login link and redirects to the user page on success.
- *
- * Copied from user_pass_reset() in order to change the timeout
- *
- * This is not required in drupal 7 and beyond, which provide this capability.
- * @see https://www.drupal.org/node/246029
- */
-function wsuser_user_pass_reset(&$form_state, $uid, $timestamp, $hashed_pass, $action = NULL) {
-  global $user;
-
-  // Check if the user is already logged in. The back button is often the culprit here.
-  if ($user->uid) {
-    drupal_set_message(t('You have already used this one-time login link. It is not necessary to use this link to login anymore. You are already logged in.'));
-    drupal_goto();
-  }
-  else {
-    // Time out, in seconds, until login URL expires
-    $timeout = variable_get('wsuser_user_pass_reset_url_timeout', 864000); // Default to 10 days
-    $current = REQUEST_TIME;
-    // Some redundant checks for extra security ?
-    if ($timestamp < $current && $account = array_shift(user_load_multiple(array($uid), array('status' => 1))) ) {
-      // Deny one-time login to blocked accounts.
-      if (drupal_is_denied('user', $account->name) || drupal_is_denied('mail', $account->mail)) {
-        drupal_set_message(t('You have tried to use a one-time login for an account which has been blocked.'), 'error');
-        drupal_goto();
-      }
-
-      // No time out for first time login.
-      if ($account->login && $current - $timestamp > $timeout) {
-        drupal_set_message(t('You have tried to use a one-time login link that has expired. Please request a new one using the form below.'));
-        drupal_goto('user/password');
-      }
-      else if ($account->uid && $timestamp > $account->login && $timestamp < $current && $hashed_pass == user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid)) {
-        // First stage is a confirmation form, then login
-        if ($action == 'login') {
-          watchdog('user', 'User %name used one-time login link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp));
-          // Set the new user.
-          $user = $account;
-          // user_authenticate_finalize() also updates the login timestamp of the
-          // user, which invalidates further use of the one-time login link.
-          user_authenticate_finalize($form_state['values']);
-          drupal_set_message(t('You have just used your one-time login link. It is no longer necessary to use this link to login. Please change your password.'));
-          drupal_goto('user/' . $user->uid . '/edit');
-        }
-        else {
-          $form['message'] = array('#value' => t('<p>This is a one-time login for %user_name and will expire on %expiration_date.</p><p>Click on this button to login to the site and change your password.</p>', array('%user_name' => $account->name, '%expiration_date' => format_date($timestamp + $timeout))));
-          $form['help'] = array('#value' => '<p>' . t('This login can be used only once.') . '</p>');
-          $form['submit'] = array(
-            '#type' => 'submit',
-            '#value' => t('Log in'),
-          );
-          $form['#action'] = url("user/reset/$uid/$timestamp/$hashed_pass/login");
-          return $form;
-        }
-      }
-      else {
-        drupal_set_message(t('You have tried to use a one-time login link which has either been used or is no longer valid. Please request a new one using the form below.'));
-        drupal_goto('user/password');
-      }
-    }
-    else {
-      // Deny access, no more clues.
-      // Everything will be in the watchdog's URL for the administrator to check.
-      drupal_access_denied();
-    }
-  }
-}
 
 /**
  * Returns the roles that indicate paid membership
