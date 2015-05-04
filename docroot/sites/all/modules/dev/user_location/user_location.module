@@ -1,9 +1,9 @@
 <?php
 
-require_once DRUPAL_ROOT . '/' . "earth.inc";
+module_load_include('inc', 'user_location', 'earth');
 
 function wsuser_source_to_description($source) {
-  static $source_desc = array(
+  $source_desc = array(
     1 => t("User-specified"),
     2 => t("Nearly Exact, from Address Data"),
     3 => t("Postal code lookup"),
@@ -122,6 +122,7 @@ function user_location_theme() {
   return $items;
 
 }
+
 /**
  * Determine whether user has access to set location on map
  * @return unknown_type
@@ -289,6 +290,7 @@ function user_location_views_data() {
   return $data;
 
 }
+
 /**
  * Admin settings form
  *
@@ -309,15 +311,15 @@ function user_location_admin_settings($form, &$form_state) {
  * Implements hook_user_load() to add user_location values to user object
  */
 function user_location_user_load(&$accounts) {
-    $result = db_query('SELECT * FROM {user_location} WHERE uid = in (:uids)', array(':uids' => array_keys($accounts)), array('fetch' => PDO::FETCH_OBJ));
-    foreach ($result as $row) {
-      foreach ($row as $key => $value) {
-        if ($key == 'country' || $key == 'province') {
-          $value = strtolower($value);
-        } // Force all lower case
-        $accounts[$row->uid]->$key = $value;
-      }
+  $result = db_query('SELECT * FROM {user_location} WHERE uid = in (:uids)', array(':uids' => array_keys($accounts)), array('fetch' => PDO::FETCH_OBJ));
+  foreach ($result as $row) {
+    foreach ($row as $key => $value) {
+      if ($key == 'country' || $key == 'province') {
+        $value = strtolower($value);
+      } // Force all lower case
+      $accounts[$row->uid]->$key = $value;
     }
+  }
 }
 
 /**
@@ -334,7 +336,6 @@ function _user_location_profile_validate($form, &$form_state) {
 }
 
 
-
 /**
  * Implements hook_user_insert() to insert user_location values into db
  *
@@ -347,7 +348,13 @@ function user_location_user_insert(&$edit, &$account, $category) {
   // Only do geocoding if the country is provided in $edit
   // And if source is not user-located
   if (array_key_exists('country', $edit) && $account->source != 1) {
-    $location_keys = array('street', 'city', 'province', 'country', 'postal_code');
+    $location_keys = array(
+      'street',
+      'city',
+      'province',
+      'country',
+      'postal_code'
+    );
     $location = array();
     foreach ($location_keys as $key) {
       $location[$key] = array_key_exists($key, $edit) ? $edit[$key] : $account->$key;
@@ -369,44 +376,12 @@ function user_location_user_insert(&$edit, &$account, $category) {
     }
   }
 
-  $placeholders = "%d,";
-  $valuenames = "oid,";
-  $fieldlist_values = array();
-  foreach (array_keys(_user_location_fieldlist()) as $item) {
-    // Create the parts of the insert statement
-    if (!array_key_exists($item, $edit)) {
-      continue;
-    }
-    $placeholders .= "'%s',";
-    $valuenames .= "$item ,";
-    $fieldlist_values[] = $edit[$item];
-
-    // Create the alternate update statement
-    $updatestmt .= "$item='%s',";
-
-    // We're supposed to set the edit field empty when we've saved it
-    $edit[$item] = NULL;
-  }
-
-
-  $query = "
-    insert into {user_location} ($valuenames) values ( $placeholders )
-    ON DUPLICATE KEY UPDATE  $updatestmt";
-  $values = array_merge(array($account->uid), $fieldlist_values, $fieldlist_values);
-  // TODO Please convert this statement to the D7 database API syntax.
-  $sqlresult = db_query($query, $values);
-  if ($sqlresult == FALSE) {
-    watchdog('user_location', "Failed to save user data for user @uid. Query=@query", array('@uid' => $account->uid, '@query' => $query), WATCHDOG_ERROR, "user/{$account->uid}");
-    drupal_set_message(t("Sorry - your data was not saved. Please let the administrator know about this message"), 'error');
-  }
-
-
   $fields = array();
 
   foreach (array_keys(_user_location_fieldlist()) as $key) {
     if (array_key_exists($key, $edit)) {
       $fields[$key] = $edit[$key];
-       $edit[$key] = NULL;  // Required by hook_user so it knows the field has been done
+      $edit[$key] = NULL;  // Required by hook_user so it knows the field has been done
     }
   }
   if (!empty($fields)) {
@@ -450,11 +425,13 @@ function _user_location_form_defaults($edit, $user) {
       $defaults[$field] = $edit[$field];
     }
   }
-  else if ($user->country) {
-    foreach ($fields as $field => $value) {
-      $defaults[$field] = $user->$field;
-    }
+  else {
+    if ($user->country) {
+      foreach ($fields as $field => $value) {
+        $defaults[$field] = $user->$field;
+      }
 
+    }
   }
   if (!$defaults['country']) {
     $defaults['country'] = user_location_get_browser_country();
@@ -477,7 +454,7 @@ function user_location_form_user_profile_form_alter(&$form, &$form_state) {
 
   $defaults = _user_location_form_defaults($form_state['values'], $form_state['values']['account']);
 
-  $countrylist =  array();
+  $countrylist = array();
   $countrylist[''] = t('Select Country...');
   $countrylist['XX'] = t('NOT LISTED');
   $countrylist = array_merge($countrylist, _user_location_supported_countries());
@@ -596,18 +573,26 @@ function _user_location_geocode($location = array()) {
   if (isset($location['country']) && trim($location['country']) != '') {
 
     // Try google with all the info
-    if ($google_result = location_google_geocoder($location) ) {
+    if ($google_result = _user_location_google_geocoder($location)) {
       $account = array_shift(user_load_multiple(array(), array('name' => $location['name'])));
       watchdog('geocode', "Google accuracy=%accuracy for !link, details=<pre>@details</pre>",
-        array('%accuracy' => $google_result['source'], '!link' => l($location['name'], "user/{$account->uid}"), '@details' => print_r($google_result, TRUE)));
+        array(
+          '%accuracy' => $google_result['source'],
+          '!link' => l($location['name'], "user/{$account->uid}"),
+          '@details' => print_r($google_result, TRUE)
+        ));
       return $google_result; // has additional accuracy and status values
     }
 
     // Try geonames web service with zip
 //    if (strlen($location['postal_code']) && $geonames_postal_code_result = location_geonames_geocoder($location )) {
-    $geonames_result = location_geonames_geocoder($location);
+    $geonames_result = _user_location_geonames_geocoder($location);
     if ($geonames_result) {
-      watchdog('geocode', "Geonames accuracy=%source result for user=%name details=%details", array('%source' => $geonames_result['source'], '%name' => $location['name'], '%details' => drupal_json_encode($geonames_result)));
+      watchdog('geocode', "Geonames accuracy=%source result for user=%name details=%details", array(
+        '%source' => $geonames_result['source'],
+        '%name' => $location['name'],
+        '%details' => drupal_json_encode($geonames_result)
+      ));
 
       return $geonames_result;
     }
@@ -615,21 +600,32 @@ function _user_location_geocode($location = array()) {
     $stripped_location = $location;
     $stripped_location['postal_code'] = '';
     $stripped_location['street'] = '';
-    if ($google_result = location_google_geocoder($stripped_location) ) {
+    if ($google_result = _user_location_google_geocoder($stripped_location)) {
       watchdog('geocode', "Google stripped accuracy=%accuracy result for user=%user, details=%details",
-      array('accuracy' => $google_result['source'], '%user' => $location['name'], '%details' => drupal_json_encode($google_result)));
+        array(
+          'accuracy' => $google_result['source'],
+          '%user' => $location['name'],
+          '%details' => drupal_json_encode($google_result)
+        ));
 
       return $google_result;
     }
 
     if ($db_result = _user_location_geocode_from_db($location)) {
-      watchdog('geocode', "Database accuracy=%accuracy for user %user, details=%details", array('%user' => $location['name'], '%accuracy' => $db_result['source'], '%details' => drupal_json_encode($db_result)));
+      watchdog('geocode', "Database accuracy=%accuracy for user %user, details=%details", array(
+        '%user' => $location['name'],
+        '%accuracy' => $db_result['source'],
+        '%details' => drupal_json_encode($db_result)
+      ));
       return $db_result;
     }
 
     // If all that fails, try getting the middle of the country from ip_country
     if ($result = _user_location_get_country_center($location)) {
-      watchdog('geocode', "Country center result for user %user details=%details", array('user' => $location['name'], 'details' => drupal_json_encode($result)));
+      watchdog('geocode', "Country center result for user %user details=%details", array(
+        'user' => $location['name'],
+        'details' => drupal_json_encode($result)
+      ));
       return $result;
     }
 
@@ -660,28 +656,42 @@ function _user_location_geocode_from_db($location) {
 
   // Try geonames database with city/province/country
   $row = db_query(
-  	 "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
+    "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
   	 FROM {geonames} g, {geonames_adm1} a
   	 WHERE g.country_code = :country
   	 AND a.country_code=g.country_code and g.admin1_code=a.adm1_code
   	 AND feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls')
   	 AND (g.ansiname = :city or g.name = :city)
   	 AND a.name = :province",
-    array(':country' => $location['country'], ':city' => $location['city'], ':province' => $provinces[$location['province']]))
-  ->fetchField();
+    array(
+      ':country' => $location['country'],
+      ':city' => $location['city'],
+      ':province' => $provinces[$location['province']]
+    ))
+    ->fetchField();
   if (!empty($row)) {
-    return array('latitude' => $row->latitude, 'longitude' => $row->longitude, 'city' => $row->city, 'province' => $location['province'], 'country' => $location['country'], 'source' => 5); /* source=5 means geocoded from city/provi/country */
+    return array(
+      'latitude' => $row->latitude,
+      'longitude' => $row->longitude,
+      'city' => $row->city,
+      'province' => $location['province'],
+      'country' => $location['country'],
+      'source' => 5
+    ); /* source=5 means geocoded from city/provi/country */
   }
 
   // Try geonames with country/province to just get the province center
   $row = db_query(
-  	 "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
+    "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
   	 FROM {geonames} g, {geonames_adm1} a
   	 WHERE g.country_code = :country
   	 AND a.country_code=g.country_code and g.admin1_code=a.adm1_code
   	 AND feature_code = 'adm1'
   	 AND a.name = :province",
-    array(':country' => $location['country'], ':province' => $provinces[$location['province']]))->fetchField();
+    array(
+      ':country' => $location['country'],
+      ':province' => $provinces[$location['province']]
+    ))->fetchField();
   if (!empty($row)) {
     $location['latitude'] = $row->latitude;
     $location['longitude'] = $row->longitude;
@@ -697,12 +707,13 @@ function _user_location_geocode_from_db($location) {
 /**
  * Get the country center from user_location_countries db
  *
- * @param unknown_type $location
+ * @param  $location
  * @return unknown
  */
 function _user_location_get_country_center($location = array()) {
-  $res = db_query("select * from {user_location_countries} where country='%s'", $location['country']);
-  if ($row = db_fetch_object($res)) {
+  $row = db_query("SELECT * FROM {user_location_countries} WHERE country = :country",
+    array(':country' => $location['country']))->fetchField();
+  if (!empty($row)) {
     return array(
       'latitude' => $row->latitude,
       'longitude' => $row->longitude,
@@ -713,10 +724,7 @@ function _user_location_get_country_center($location = array()) {
   return NULL;
 
 
-
 }
-
-
 
 
 /**
@@ -742,12 +750,13 @@ function _user_location_get_country_center($location = array()) {
  *    "Enough information" means that there is either
  *    (a valid 'street' AND valid 'postal_code') OR (valid 'street' AND valid 'city' AND valid 'province')
  */
-function location_google_geocoder($location = array()) {
+function _user_location_google_geocoder($location = array()) {
+  $addr = "";
   $province_codes = _user_location_get_provincecode_to_province_map($location['country']);
   $key = variable_get("user_location_google_server_key", "AIzaSyBYKjW2BxXDonq2M5F6sCyrArRXRt-BrLk");
 
   $baseurl = "https://maps.googleapis.com/maps/api/geocode/json?";
-  if (!empty($location['street']) ) {
+  if (!empty($location['street'])) {
     $addr .= urlencode($location['street']) . ",";
   }
   $addr .= urlencode($location['city']) . ",";
@@ -767,13 +776,22 @@ function location_google_geocoder($location = array()) {
   $results = drupal_http_request($fullurl);
 
   if ($results->code != 200) {
-    watchdog('geocode', "Google geocoder failed with code=@code, fullurl=%fullurl, results=%results", array('@code' => $results->code, '%fullurl' => $fullurl, '%results' => print_r($results, TRUE)), WATCHDOG_ERROR);
+    watchdog('geocode', "Google geocoder failed with code=@code, fullurl=%fullurl, results=%results", array(
+      '@code' => $results->code,
+      '%fullurl' => $fullurl,
+      '%results' => print_r($results, TRUE)
+    ), WATCHDOG_ERROR);
     return NULL;
   }
   $geocoded = json_decode($results->data);
 
   if ($geocoded->status != "OK") {
-    watchdog('geocode', "Google geocoder failed with status=@status, fullurl=%fullurl, geocoding results=%results, geocoding  data=%data", array('@status' => $geocoded->status, '%fullurl' => $fullurl, '%results' => print_r($geocoded, TRUE), '%data' => print_r($results, TRUE)), WATCHDOG_ERROR);
+    watchdog('geocode', "Google geocoder failed with status=@status, fullurl=%fullurl, geocoding results=%results, geocoding  data=%data", array(
+      '@status' => $geocoded->status,
+      '%fullurl' => $fullurl,
+      '%results' => print_r($geocoded, TRUE),
+      '%data' => print_r($results, TRUE)
+    ), WATCHDOG_ERROR);
     return NULL;
   }
 
@@ -784,7 +802,7 @@ function location_google_geocoder($location = array()) {
 //    $location_type = $geo1->geometry->location_type;
     $geocoded_type = $geo1->types[0];
     $lat = $geo1->geometry->location->lat;
-    $long  = $geo1->geometry->location->lng;
+    $long = $geo1->geometry->location->lng;
   }
   if (isset($lat) && isset($long)) {
     // Accept any level of sublocality
@@ -833,18 +851,26 @@ function location_google_geocoder($location = array()) {
       case 'postal_town':
         $source = 3;
         break;
-        // Other things like 'country' are mostly useless, so give a 7.
+      // Other things like 'country' are mostly useless, so give a 7.
       default:
         $source = 7;
         break;
     }
 
-    return array('latitude' => $lat, 'longitude' => $long, 'bounding_box_diagonal' => $bounding_box_diagonal, 'source' => $source, 'geocoding_source' => 'google_geocoder', 'google_accuracy' => $accuracy, 'google_query' => $fullquery, 'google_results' => $results);
+    return array(
+      'latitude' => $lat,
+      'longitude' => $long,
+      'bounding_box_diagonal' => $bounding_box_diagonal,
+      'source' => $source,
+      'geocoding_source' => 'google_geocoder',
+      'google_accuracy' => $source,
+      'google_query' => $fullurl,
+      'google_results' => $results
+    );
   }
 
   return NULL;
 }
-
 
 
 /**
@@ -864,7 +890,7 @@ function location_google_geocoder($location = array()) {
  *      'longitude' => approximate longitude of the center of the postal code's area
  *
  */
-function location_geonames_geocoder($location = array()) {
+function _user_location_geonames_geocoder($location = array()) {
   if (!strlen($location['postal_code'])) {
     return NULL;
   }
@@ -881,7 +907,10 @@ function location_geonames_geocoder($location = array()) {
   $result = drupal_http_request($fullurl);
 
   if ($result->code != 200) {
-    watchdog('geocode', "Geonames.org geocode failed for %fullurl, details=%details", array('%fullurl' => $fullurl, '%details' => drupal_json_encode($result)), WATCHDOG_WARNING);
+    watchdog('geocode', "Geonames.org geocode failed for %fullurl, details=%details", array(
+      '%fullurl' => $fullurl,
+      '%details' => drupal_json_encode($result)
+    ), WATCHDOG_WARNING);
     return NULL;
   }
 
@@ -893,6 +922,7 @@ function location_geonames_geocoder($location = array()) {
 
   $params = array();
   $level = array();
+  $id = 0;
   foreach ($vals as $xml_elem) {
     if ($xml_elem['tag'] == 'TOTALRESULTSCOUNT' && $xml_elem['value'] == 0) { // No results returned
       return NULL;
@@ -942,7 +972,7 @@ function location_geonames_geocoder($location = array()) {
  *
  *
  */
-function location_latlon_placename_geonames($location = array()) {
+function _user_location_latlon_placename_geonames($location = array()) {
 
   $location_string = '';
   if (!isset($location['country'])) {
@@ -953,8 +983,8 @@ function location_latlon_placename_geonames($location = array()) {
   $provname = $province_names[$location['province']];
 
   $location_string = 'country=' . $location['country']
-  . "&name_equals=" . urlencode($location['city']) .
-                                "&fclass=P";
+    . "&name_equals=" . urlencode($location['city']) .
+    "&fclass=P";
   // $location_string .= '&maxRows=1' ;
   $location_string .= '&style=full';
   //if (!empty($location['province'])) {
@@ -974,6 +1004,7 @@ function location_latlon_placename_geonames($location = array()) {
 
   $params = array();
   $level = array();
+  $id = 0;
   foreach ($vals as $xml_elem) {
     if ($xml_elem['type'] == 'open') {
       if (array_key_exists('attributes', $xml_elem)) {
@@ -1016,11 +1047,7 @@ function location_latlon_placename_geonames($location = array()) {
   return $res;
 
 
-
 }
-
-
-
 
 
 /***************  Map set location ***********************/
@@ -1050,11 +1077,13 @@ function _user_location_map_set_lat_long($account) {
   );
   drupal_add_js($settings, array('type' => 'setting', 'scope' => JS_DEFAULT));
 
-  $output = theme('user_location_setlocation', array('account' => $account, 'sources' => $sources));
+  $output = theme('user_location_setlocation', array(
+    'account' => $account,
+    'sources' => $sources
+  ));
   $output .= drupal_get_form("user_location_set_map_location", $account);
   return $output;
 }
-
 
 
 /**
@@ -1122,8 +1151,7 @@ function user_location_set_map_location_submit($form, &$form_state) {
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Validation function for map location form
  */
 function user_location_set_map_location_validate($form, &$form_state) {
   $lat = $form_state['values']['latitude'];
@@ -1143,8 +1171,7 @@ function user_location_set_map_location_validate($form, &$form_state) {
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * submit function for map location form
  */
 function user_location_reset_location_submit($form, &$form_state) {
   $uid = $form_state['values']['uid'];
@@ -1180,8 +1207,7 @@ function user_location_reset_location_submit($form, &$form_state) {
 
 /*** Utility functions ***/
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Convert distance to km
  */
 function user_location_convert_distance_to_meters($distance, $distance_unit = 'km') {
   if (!is_numeric($distance)) {
@@ -1211,22 +1237,12 @@ function user_location_convert_distance_to_meters($distance, $distance_unit = 'k
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Convert meters to miles
  */
 function user_location_meters_to_miles_km($meters, $distance_unit) {
-  return array('scalar' => round($meters / (($distance_unit == 'km') ? 1000.0 : 1609.347), 1), 'distance_unit' => $distance_unit);
+  return array(
+    'scalar' => round($meters / (($distance_unit == 'km') ? 1000.0 : 1609.347), 1),
+    'distance_unit' => $distance_unit
+  );
 
 }
-
-
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function user_location_user_is_current($named_user) {
-  global $user;
-  return ($user->uid == $named_user->uid);
-}
-
-
