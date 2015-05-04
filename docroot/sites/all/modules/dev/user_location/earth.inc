@@ -1,6 +1,5 @@
 <?php
 
-// $Id: earth.inc 505 2009-05-24 18:55:09Z rfay $
 // Trigonometry for calculating geographical distances.
 // All function arguments and return values measure distances in metres
 // and angles in degrees.  The ellipsoid model is from the WGS-84 datum.
@@ -148,6 +147,4 @@ function earth_latitude_range($longitude, $latitude, $distance) {
   }
   return array(rad2deg($minlat), rad2deg($maxlat));
 }
-
-?>
 
