@@ -63,12 +63,6 @@ function wsuser_menu() {
     'access arguments' => array('access user profiles'),
     'weight' => 9,
   );
-  $items['user/%user/recommend'] = array(
-    'title' => 'Recommend',
-    'page callback' => 'wsuser_recommend_redirect',
-    'page arguments' => array(1),
-    'access arguments' => array('access user profiles'),
-  );
   $items['user/%user/admin_details'] = array(
     'title' => 'Admin details',
     'page callback' => 'wsuser_admin_details_page',
@@ -1583,26 +1577,27 @@ function wsuser_member_search_form($form, &$form_state) {
 function wsuser_member_search_form_list_validate($form, &$form_state) {
   $city = $form_state['values']['city'];
   $country = $form_state['values']['country'];
-  // If city is populated and
+
   if (!empty($country) && !empty($city)) {
     list($placename, $latitude, $longitude) = preg_split('/\|/', $form_state['values']['city']);
     if (!is_numeric($latitude) || !is_numeric($longitude)) {
-      $result = db_query_range("SELECT distinct g.name cityname, a.name provname, g.country_code,
+      $result = db_query_range('
+          SELECT DISTINCT g.name cityname, a.name provname, g.country_code,
   		     latitude, longitude, g.admin1_code, g.feature_code
-  	       FROM {geonames} g,{geonames_adm1} a
-  	       WHERE g.country_code = :g.country_code
-  		     AND g.ansiname LIKE('%s%%') AND feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls', 'adm1', 'adm2')
-  		     AND g.country_code = :g.country_code AND g.admin1_code = :g.admin1_code
-  		     AND (population > :(population OR feature_code = :feature_code)
-  		     ORDER BY (feature_code = :feature_code) DESC, g.population DESC", array(
-        ':g.country_code' => $country,
-        ':g.country_code' => a . country_code,
-        ':g.admin1_code' => a . adm1_code,
-        ':(population' => 100,
-        ':feature_code' => 'adm1',
-        ':(feature_code' => 'adm1',
-        '' => $city
-      ));
+  	       FROM {geonames} g, {geonames_adm1} a
+  	       WHERE g.country_code = :country
+  		     AND g.ansiname LIKE :name_pattern
+  		     AND feature_code IN ("ppl", "ppla", "ppla2", "ppla3", "ppla4", "pplc", "pplf", "ppls", "adm1", "adm2")
+  		     AND g.country_code = :country_code
+  		     AND g.admin1_code = a.adm1_code
+  		     AND (population > :min_population OR feature_code = "adm1")
+  		     ORDER BY (feature_code = :feature_code) DESC, g.population DESC',
+        0, 1,  // We only want one result here for validation
+        array(
+          ':country' => $country,
+          ':min_population' => 100,
+          ':name_pattern' => db_like($city) . '%',
+        ));
       if ($result && $location = db_fetch_array($result)) {
         $latitude = $location['latitude'];
         $longitude = $location['longitude'];
@@ -1696,9 +1691,6 @@ function wsuser_preprocess(&$variables, $key) {
   if ($arg1 != 'user' || !is_numeric($uid)) {
     return;
   }
-  // TODO Convert "user_load" to "user_load_multiple" if "$uid" is other than a uid.
-  // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
-  // Example: array_shift(user_load_multiple(array(), $uid))
   $account = user_load($uid);
 
   $provincemap = _user_location_get_provincecode_to_province_map($account->country);
@@ -1824,30 +1816,11 @@ function wsuser_count_user_references($uid) {
   $field = content_fields('field_member_i_trust');
   $db_info = content_database_info($field);
   $table = $db_info['table'];
-  $query = "SELECT COUNT(*) FROM {node} n, {$table} refs WHERE refs.field_member_i_trust_uid = %d AND n.nid = refs.nid AND n.vid = refs.vid";
-  // TODO Please convert this statement to the D7 database API syntax.
-  $count = db_query($query, $uid)->fetchField();
+  $query = "SELECT COUNT(*) FROM {node} n, {$table} refs WHERE refs.field_member_i_trust_uid = :uid AND n.nid = refs.nid AND n.vid = refs.vid";
+  $count = db_query($query, array(':uid' => $uid))->fetchField();
   return $count;
 }
 
-/**
- * Redirect to recommend a user.
- *
- * This is shorthand for node/add/trust-referral; also allows that to be replace
- * with a different technique someday.
- *
- * @param $account
- *   account of member to recommend.
- */
-function wsuser_recommend_redirect($account) {
-  // TODO
-  array('edit[field_member_i_trust][0][uid][uid]' => $account->name) needs to be an array
-    of keys and values instead of a string .
-  drupal_goto('node/add/trust-referral', array(
-    'query' =>
-      array('edit[field_member_i_trust][0][uid][uid]' => $account->name)
-  ));
-}
 
 /**
  * Simple admin detail page, for admin info only.
@@ -1904,15 +1877,10 @@ function wsuser_country_counts() {
 
   // Total user counts
   $totalusers = db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
-    WHERE u.uid = :u.uid AND u.uid > :u.uid AND u.status AND ! :AND AND ! :AND", array(
-    ':u.uid' => w . uid,
-    ':u.uid' => 1
-  ));
+    WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale")->fetchField();
   $totalhosts = db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
-    WHERE u.uid = :u.uid AND u.uid > :u.uid AND u.status AND ! :AND AND ! :AND AND ! :AND", array(
-    ':u.uid' => w . uid,
-    ':u.uid' => 1
-  ));
+    WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale AND !notcurrentlyavailable")->fetchField();
+
 
   $output .= '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array(
       '%totalusers' => number_format($totalusers),
@@ -1948,6 +1916,7 @@ function wsuser_country_counts() {
       'field' => 'percent',
     ),
   );
+
 
   $res = pager_query("SELECT g.continent, COUNT(*) members, ROUND((COUNT(*) * 100)/@total, 1) AS percent FROM {users} u, {wsuser} w, {user_location} l, {geonames_countryinfo} g WHERE u.uid = l.oid AND u.uid = w.uid AND l.country=g.iso_alpha2 AND u.status  GROUP BY g.continent " . tablesort_sql($header), 30);
   $data = array();
