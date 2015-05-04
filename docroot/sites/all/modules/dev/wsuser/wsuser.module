@@ -2025,10 +2025,6 @@ function _wsuser_send_notavailable_reminders($job) {
  *
  * @return mixed
  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
 function wsuser_configuration($form, &$form_state) {
   $form = array();
   $form['wsuser_reminder_email'] = array(
@@ -2113,14 +2109,16 @@ function wsuser_configuration_send_test_email($form, &$form_state) {
 function wsuser_send_test_reminder_email($uid = 1) {
   $now = REQUEST_TIME;
 
-  $result = db_query('SELECT u.mail, u.language, u.uid
+  $result = db_query(
+    'SELECT u.mail, u.language, u.uid
     FROM {users} u, {wsuser} ws
-    WHERE u.uid = :u.uid
-    AND u.uid = :u.uid', array(':u.uid' => ws . uid, ':u.uid' => $uid));
+    WHERE u.uid = ws.uid
+    AND u.uid = :uid',
+    array(':uid' => $uid), array('fetch' => PDO::FETCH_OBJ)) ;
 
   $queue = DrupalQueue::get('wsuser_process_notavailable_reminders');
 
-  while ($row = db_fetch_object($result)) {
+  foreach ($result as $row) {
 
     $job = array(
       'description' => t('Send marked as not available reminder email to @mail',
@@ -2160,28 +2158,22 @@ function _wsuser_process_users_that_become_available() {
   $now = REQUEST_TIME;
 
   // Select for notification all unavailable users that set a 'become available' date that has passed.
-  $result = db_query('SELECT u.mail, u.language, u.uid, u.name, ws.fullname
+  $result = db_query(
+    'SELECT u.mail, u.language, u.uid, u.name, ws.fullname
     FROM {users} u, {wsuser} ws
-    WHERE u.uid = :u.uid
-    AND ws.notcurrentlyavailable = :ws.notcurrentlyavailable
+    WHERE u.uid = ws.uid
+    AND ws.notcurrentlyavailable = 1
     AND ws.becomeavailable IS NOT NULL
-    AND ws.becomeavailable <> :ws.becomeavailable
-    AND ws.becomeavailable < :ws.becomeavailable', array(
-    ':u.uid' => ws . uid,
-    ':ws.notcurrentlyavailable' => 1,
-    ':ws.becomeavailable' => 0,
-    ':ws.becomeavailable' => $now
-  ));
+    AND ws.becomeavailable <> 0
+    AND ws.becomeavailable < :now',
+    array(':now' => $now), array('fetch' => PDO::FETCH_OBJ));
+  );
+
 
   // Update these users to available to host and notify them via email.
   $languages = language_list();
-  while ($row = db_fetch_object($result)) {
+  foreach ($result as $row) {
     // Update user to available to host.
-    // TODO Please review the conversion of this statement to the D7 database API syntax.
-    /* db_query(
-     'UPDATE {wsuser}
-     SET notcurrentlyavailable = 0
-     WHERE uid = %d', $row->uid) */
     db_update('wsuser')
       ->fields(array(
         'notcurrentlyavailable' => 0,
@@ -2190,9 +2182,6 @@ function _wsuser_process_users_that_become_available() {
       ->execute();
 
     // Notify user via email that they are now marked as available to host.
-    // TODO Convert "user_load" to "user_load_multiple" if "$row->uid" is other than a uid.
-    // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
-    // Example: array_shift(user_load_multiple(array(), $row->uid))
     drupal_mail('wsuser', 'become_available_notification', $row->mail, $languages[$row->language], array('account' => user_load($row->uid)));
     watchdog('wsuser', 'Set username @user (@fullname) to available and sent notification to @mail', array(
       '@user' => $row->name,
@@ -2244,8 +2233,7 @@ function wsuser_is_current_donor_member($account) {
 }
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Return true if has current "membership" but is one of the free ones
  */
 function wsuser_is_nondonor_member($account) {
   $unpaid_roles = array_intersect(array_keys($account->roles), array_keys(wsuser_unpaid_roles()));
@@ -2271,24 +2259,6 @@ function wsuser_highest_donation_level($account) {
 }
 
 /**
- * Return expiration of stated role
- *
- * @param $account
- * @param $rid
- * @return bool
- */
-function wsuser_uc_role_expiration($account, $rid) {
-  $expires = db_query("SELECT expiration FROM {uc_roles_expirations} WHERE uid = :uid AND rid = :rid AND expiration > :expiration", array(
-    ':uid' => array(
-      $account->uid,
-      $rid,
-      REQUEST_TIME
-    )
-  ))->fetchField();
-  return $expires;
-}
-
-/**
  * Implements hook_order to catch the payment receipt and update donortools().
  *
  * @param $op
@@ -2300,9 +2270,6 @@ function wsuser_order($op, $order, $new_status) {
     $fund_id = "45650";
     $donation_type_id = "3838";
     $source_id = "32597";
-    // TODO Convert "user_load" to "user_load_multiple" if "$order->uid" is other than a uid.
-    // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
-    // Example: array_shift(user_load_multiple(array(), $order->uid))
     $account = user_load($order->uid);
     $order_comment_list = uc_order_comments_load($order->order_id);
     $amount_in_cents = $order->order_total * 100;
