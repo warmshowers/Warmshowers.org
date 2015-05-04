@@ -5,6 +5,8 @@
  * Many miscellaneous services like user searches and reports
  */
 
+// This is included since hook_search() uses geographic info. Probably WRONG.
+module_load_include('inc', 'user_location', 'earth');
 
 /**
  *
@@ -149,7 +151,10 @@ function theme_linkbutton($variables) {
   $link = $variables['link'];
   $classes = !empty($link['classes']) ? $link['classes'] : '';
   $classes .= " linkbutton rounded";
-  print l($link['title'], $link['href'], array('options' => array('absolute' => FALSE), 'attributes' => array('class' => $classes)));
+  print l($link['title'], $link['href'], array(
+    'options' => array('absolute' => FALSE),
+    'attributes' => array('class' => $classes)
+  ));
 }
 
 /**
@@ -234,7 +239,8 @@ function wsuser_tokens($type, $tokens, $data = array(), $options = array()) {
 
       }
 
-    return $replacements;
+      return $replacements;
+    }
   }
 }
 
@@ -277,7 +283,7 @@ function wsuser_token_list($type = 'all') {
     );
 
     // TODO: Country, province, city are actually functions of user_location and should be in its token implementation
-    $tokens['user']['source'] =  array(
+    $tokens['user']['source'] = array(
       'name' => t('Geocoding accuracy'),
       'description' => t("Geocoding accuracy of location info"),
     );
@@ -296,6 +302,7 @@ function wsuser_token_list($type = 'all') {
     return $tokens;
   }
 }
+
 /**
  * Implements hook_action_info().
  */
@@ -345,9 +352,9 @@ function wsuser_mail($key, &$message, $params) {
       $message['body'][] = strtr(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, _user_mail_text('register_no_approval_required_body')), $variables);
       break;
 
-      // Availability reminders and notifications. Assumes the variable will be properly set!
-      // That makes this inaccessible to translators, unfortunately. Yuckie.
-      // And it will require a UI to update.
+    // Availability reminders and notifications. Assumes the variable will be properly set!
+    // That makes this inaccessible to translators, unfortunately. Yuckie.
+    // And it will require a UI to update.
     case 'notavailable_reminder':
       $message['subject'] .= token_replace(i18n_variable_get('wsuser_notavailable_reminder_subject', $langcode, 'Your Warmshowers account is still marked unavailable'), array('user' => $params['account']));
       $message['body'][] = token_replace(i18n_variable_get('wsuser_notavailable_reminder_body', $langcode, 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'), array('user' => $params['account']));
@@ -386,7 +393,8 @@ function wsuser_views_data() {
   );
   $data['wsuser']['notcurrentlyavailable'] = array(
     'title' => t('Not Currently Available'),
-    'help' => t("Set to TRUE if member not currently hosting."), // The help that appears on the UI,
+    'help' => t("Set to TRUE if member not currently hosting."),
+    // The help that appears on the UI,
     'field' => array(
       'handler' => 'views_handler_field_boolean',
       'click sortable' => TRUE,
@@ -566,18 +574,22 @@ function wsuser_views_data() {
  */
 function wsuser_form_alter(&$form, &$form_state, $form_id) {
 
-  if ($form_id == 'search_form' ) {
+  if ($form_id == 'search_form') {
     if (strstr($form['#action'], '/search/wsuser')) {
       $form['basic']['#title'] = t('Enter member names or cities');
       $form['basic']['#description'] = t('Search for members by a part of their name (like "Martinez", for example) or by the town they live in. A special case allows search by distance, with latitude and longitude separated by pipe symbols (|)');
     }
-    else if (strstr($form['#action'], '/search/user')) {
-      $form['basic']['#title'] = t('Search by username or partial username');
-      $form['basic']['#description'] = t('Search for members by a part of their username (like "randyfay", for example).');
-    }
-    else if (strstr($form['#action'], '/search/node')) {
-      $form['basic']['#title'] = t('Enter your keywords to search site content (postings, forums, etc.)');
-      $form['basic']['#description'] = t('Search for content on the website ("Frequently Asked Questions", for example).');
+    else {
+      if (strstr($form['#action'], '/search/user')) {
+        $form['basic']['#title'] = t('Search by username or partial username');
+        $form['basic']['#description'] = t('Search for members by a part of their username (like "randyfay", for example).');
+      }
+      else {
+        if (strstr($form['#action'], '/search/node')) {
+          $form['basic']['#title'] = t('Enter your keywords to search site content (postings, forums, etc.)');
+          $form['basic']['#description'] = t('Search for content on the website ("Frequently Asked Questions", for example).');
+        }
+      }
     }
 
   }
@@ -624,102 +636,110 @@ function wsuser_menu_alter(&$items) {
 }
 
 /**
- * Implements hook_search().
+ * Implements hook_search_info()
+ *
+ * @return array
  */
-function wsuser_search($op = 'search', $keys = NULL) {
-  switch ($op) {
-    case 'name':
-      if (user_access('access user profiles')) {
-        return t('member names and cities');
-      }
-      break;
-    case 'search':
-      if (user_access('access user profiles')) {
-        $find = array();
-        // Replace wildcards with MySQL/PostgreSQL wildcards.
-        $keys = preg_replace('!\*+!', '%', $keys);
-        // If this search provides lat/lon, then do the search based on location only.
-        list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
+function wsuser_search_info() {
+  return array(
+    'title' => 'Warmshowers User',
+    'path' => 'wsuser',
+  );
+}
 
-        // The role restriction removes pre-authorized, members, but user admins should be able to see them
-        $AND = (user_access('administer users')) ? '' : 'AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)';
+/**
+ * Implments hook_search_access()
+ *
+ * @return bool
+ */
+function wsuser_search_access() {
+  return user_access('access user profiles');
+}
 
-        if (is_numeric($latitude) && is_numeric($longitude)) {
-          // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
-          // No guarantee expressed or implied, and no testing around 0 latitude.
-          $sql = "
-            SELECT SQRT(POW(69.1 * (l.latitude - %f), 2) + POW(69.1 * (%f - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
+/**
+ * Implements hook_search_execute().
+ */
+function wsuser_search_execute($keys = NULL, $conditions = NULL) {
+  $find = array();
+  // Replace wildcards with MySQL/PostgreSQL wildcards.
+  $keys = preg_replace('!\*+!', '%', $keys);
+  // If this search provides lat/lon, then do the search based on location only.
+  list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
+
+  // TODO: Allow admins to search for pre-authorized users
+  // The role restriction removes pre-authorized, members, but user admins should be able to see them
+//  $AND = (user_access('administer users')) ? '' : 'AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)';
+
+  // TODO: Implement pager-based location-based searching
+  if (is_numeric($latitude) && is_numeric($longitude)) {
+    // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
+    // No guarantee expressed or implied, and no testing around 0 latitude.
+    $sql = "
+            SELECT SQRT(POW(69.1 * (l.latitude - :lat), 2) + POW(69.1 * (:lng - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
             FROM {users} u, {wsuser} w, {user_location} l
             WHERE u.uid = w.uid
             AND u.uid=l.oid
-            AND status > 0
-            " .
-            $AND . "
+            AND u.status > 0
             ORDER BY distance";
-          // Limit page to 50 results and to 100 total results
-          $result = pager_query($sql, 50, 0, "SELECT 100", $latitude, $longitude);
+    $result = db_query_range($sql, 0, 100, array(':lat' => $latitude, ':lng' => $longitude), array('fetch' => PDO::FETCH_OBJ));
+  }
 
-        }
-        // Otherwise, just use the keys in the search, including wildcards.
-        else {
-          $sql = "
+  // Otherwise, just use the keys in the search, including wildcards.
+  else {
+    $sql = "
             SELECT * FROM {users} u, {wsuser} w, {user_location} l
             WHERE u.uid = w.uid
             AND u.uid=l.oid
             AND status > 0
-            " .
-            $AND . "
-            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name like '%%%s%%'
-            OR l.city like '%%%s%%' OR u.mail LIKE '%s%%')";
-          $count_query = "
-            SELECT COUNT(*) FROM {users} u, {wsuser} w, {user_location} l
-            WHERE u.uid = w.uid
-            AND u.uid=l.oid
-            AND status > 0
-            " .
-            $AND . "
-            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name like '%%%s%%'
-            OR l.city like '%%%s%%' OR u.mail LIKE '%s%%')";
-          $result = pager_query($sql, 50, 0, $count_query, $keys, $keys, $keys, $keys);
-        }
+            AND (LOWER(w.fullname) LIKE '%%:keys%%' OR u.name like '%%:keys%%'
+            OR l.city like '%%:keys%%' OR u.mail LIKE ':keys%%')";
 
-        $countrylist = _user_location_supported_countries();
-        while ($account = db_fetch_object($result)) {
-          $location = $account->city . ", $account->province, " . $countrylist[$account->country];
-          $find[$account->uid] = array();
-          if (!empty($account->distance)) {
-            $find[$account->uid]['distance'] = number_format($account->distance * 1.609344, 0) . '/' .
-              number_format($account->distance, 0);
-          }
+//    $count_query = "
+//            SELECT COUNT(*) FROM {users} u, {wsuser} w, {user_location} l
+//            WHERE u.uid = w.uid
+//            AND u.uid=l.oid
+//            AND status > 0
+//            AND (LOWER(w.fullname) LIKE '%%:fullname%%' OR u.name like '%%:username%%'
+//            OR l.city like '%%:city%%' OR u.mail LIKE ':email%%')";
 
-          $fullname = l($account->fullname, 'user/' . $account->uid);
-          $location = l($location, "maponly/{$account->uid}/8", array(
-            'query' => array(
-              'width' => '90%',
-              'height' => '90%',
-              'iframe' => 'true',
-            ),
-            'attributes' => array('class' => 'colorbox-load'),
-          ));
+    $result = db_query_range($sql, 0, 100, array(':keys' => $keys), array('fetch' => PDO::FETCH_OBJ));
 
-          $comments = $account->comments;
-          $max_comment_length = 200;
-          $comments = wsuser_string_truncate($comments, $max_comment_length);
-          $available = $account->notcurrentlyavailable ? t('Not currently available') : t('Available for hosting');
-          $comments = " " . check_markup("({$available}) " . $comments);
+//    $result = pager_query($sql, 50, 0, $count_query, $keys, $keys, $keys, $keys);
+  }
+
+  $countrylist = _user_location_supported_countries();
+  foreach ($result as $account) {
+    $location = $account->city . ", $account->province, " . $countrylist[$account->country];
+    $find[$account->uid] = array();
+    if (!empty($account->distance)) {
+      $find[$account->uid]['distance'] = number_format($account->distance * 1.609344, 0) . '/' .
+        number_format($account->distance, 0);
+    }
+
+    $fullname = l($account->fullname, 'user/' . $account->uid);
+    $location = l($location, "maponly/{$account->uid}/8", array(
+      'query' => array(
+        'width' => '90%',
+        'height' => '90%',
+        'iframe' => 'true',
+      ),
+      'attributes' => array('class' => 'colorbox-load'),
+    ));
+
+    $comments = $account->comments;
+    $max_comment_length = 200;
+    $comments = wsuser_string_truncate($comments, $max_comment_length);
+    $available = $account->notcurrentlyavailable ? t('Not currently available') : t('Available for hosting');
+    $comments = " " . check_markup("({$available}) " . $comments);
 
 
-          $find[$account->uid] += array(
-            'fullname' => $fullname . ' (' . t('Location') . ': ' . $location . ')',
-            'comments' => $comments,
-          );
-
-        }
-        return $find;
-      }
-      break;
+    $find[$account->uid] += array(
+      'fullname' => $fullname . ' (' . t('Location') . ': ' . $location . ')',
+      'comments' => $comments,
+    );
 
   }
+  return $find;
 }
 
 /**
@@ -799,7 +819,7 @@ function _show_distance_results($latitude, $longitude, $search_miles) {
 		and not w.notcurrentlyavailable and u.status>0 and " . $sqlwhere;
 
   $res = pager_query($sql, $itemsPerPage, 0, $count_sql, $latrange[0], $latrange[1],
-		$lonrange[0], $lonrange[1]);
+    $lonrange[0], $lonrange[1]);
 
 
   // TODO Please convert this statement to the D7 database API syntax.
@@ -839,7 +859,15 @@ function _show_distance_results($latitude, $longitude, $search_miles) {
   else {
     // TODO Please change this theme call to use an associative array for the $variables parameter.
     $search_results = '<dl class="search-results">' . theme('box', $search_results_message, $search_results) . '</dl>';
-    $search_results .= theme('pager', array('tags' => NULL, 'element' => 0, 'parameters' => array('search_lat' => $latitude, 'search_long' => $longitude, 'search_miles' => $search_miles)));
+    $search_results .= theme('pager', array(
+      'tags' => NULL,
+      'element' => 0,
+      'parameters' => array(
+        'search_lat' => $latitude,
+        'search_long' => $longitude,
+        'search_miles' => $search_miles
+      )
+    ));
   }
 
 
@@ -1102,16 +1130,18 @@ function wsuser_form_defaults($edit, $user) {
       }
     }
   }
-  else if ($user->fullname) {
-    foreach ($fields as $field => $value) {
-      $defaults[$field] = $user->$field;
-      if ($field == 'becomeavailable') {
-        list($x, $x, $x, $x, $day, $month, $year) = localtime($user->becomeavailable);
-        $defaults['becomeavailable'] = array(
-          'year' => $year,
-          'month' => $month + 1,
-          'day' => $day,
-        );
+  else {
+    if ($user->fullname) {
+      foreach ($fields as $field => $value) {
+        $defaults[$field] = $user->$field;
+        if ($field == 'becomeavailable') {
+          list($x, $x, $x, $x, $day, $month, $year) = localtime($user->becomeavailable);
+          $defaults['becomeavailable'] = array(
+            'year' => $year,
+            'month' => $month + 1,
+            'day' => $day,
+          );
+        }
       }
     }
   }
@@ -1194,11 +1224,13 @@ function wsuser_save(&$edit, &$account) {
   }
   // Otherwise, if they're switching from not available, set this as the beginning
   // of the availability cycle, and unset the other stuff.
-  else if (array_key_exists('notcurrentlyavailable', $edit) && empty($edit['notcurrentlyavailable']) && (!empty($account->notcurrentlyavailable) || !isset($account->notcurrentlyavailable))) {
-    $edit['set_available_timestamp'] = REQUEST_TIME;
-    $edit['set_unavailable_timestamp'] = 0;
-    $edit['last_unavailability_pester'] = 0;
-    drupal_set_message(t('You have unchecked "Not Currently Available" so your location will be shown on the map and you may receive guest requests.'));
+  else {
+    if (array_key_exists('notcurrentlyavailable', $edit) && empty($edit['notcurrentlyavailable']) && (!empty($account->notcurrentlyavailable) || !isset($account->notcurrentlyavailable))) {
+      $edit['set_available_timestamp'] = REQUEST_TIME;
+      $edit['set_unavailable_timestamp'] = 0;
+      $edit['last_unavailability_pester'] = 0;
+      drupal_set_message(t('You have unchecked "Not Currently Available" so your location will be shown on the map and you may receive guest requests.'));
+    }
   }
 
   $wsuser_fields = wsuser_fieldlist();
@@ -1223,7 +1255,7 @@ function wsuser_save(&$edit, &$account) {
   if (!empty($queryvalues)) {
     $queryvalues = array_merge(array($account->uid), $queryvalues);
     $updatetext = rtrim($updatetext, ',');
-    $query = 'INSERT INTO {wsuser} (' . implode(',', $insert_fieldname_ary) . ') VALUES (' . implode(',', $insert_placeholder_ary) .  ')';
+    $query = 'INSERT INTO {wsuser} (' . implode(',', $insert_fieldname_ary) . ') VALUES (' . implode(',', $insert_placeholder_ary) . ')';
     $query .= ' ON DUPLICATE KEY UPDATE ' . $updatetext;
 
     // Provide doubled queryvalues because both insert and update will use it.
@@ -1275,7 +1307,6 @@ function wsuser_view_item($item, $description) {
   }
   return $output;
 }
-
 
 
 /**
@@ -1445,7 +1476,8 @@ function wsuser_user_login(&$edit, $account) {
 /**
  * Implements hook_user().
  */
-function wsuser_user_OLD($type, &$edit, &$account, $category = NULL) { }
+function wsuser_user_OLD($type, &$edit, &$account, $category = NULL) {
+}
 
 
 /**
@@ -1455,7 +1487,7 @@ function wsuser_user_OLD($type, &$edit, &$account, $category = NULL) { }
 function theme_wsuser_wsuser($user, $fields = array()) {
   // TODO: Should this theme wsuser_wsuser be declared in hook_theme()?
 
-  $output  = "<div class=\"wsuser\">\n";
+  $output = "<div class=\"wsuser\">\n";
   $output .= theme('user_picture', array('account' => $user));
   $output .= ' <div class="name">' . format_name($user) . "</div>\n";
 
@@ -1555,7 +1587,8 @@ function wsuser_block_view($delta) {
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
  */
-function wsuser_block_OLD($op = 'list', $delta = 0, $edit = array()) { }
+function wsuser_block_OLD($op = 'list', $delta = 0, $edit = array()) {
+}
 
 /*
  * Preprocess function for hook_wsuser_member_block().
@@ -1585,7 +1618,6 @@ function template_preprocess_wsuser_member_welcome_block(&$vars) {
     ),
   );
 }
-
 
 
 /**
@@ -1721,6 +1753,7 @@ function theme_email_addr($variables) {
   $mail = explode("@", $str);
   return $mail[0] . " at " . $mail[1];
 }
+
 /**
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
@@ -1754,7 +1787,7 @@ function ahah_get_provinces_profile() {
   $provincelist[""] = t('Select Province');
   $provincelist['XX'] = t('NOT LISTED');
   $provincelist += _user_location_get_provincecode_to_province_map($_REQUEST['country']);
-  $formElement  = array(
+  $formElement = array(
     '#title' => t('State/Province'),
     '#type' => 'select',
     '#options' => $provincelist,
@@ -1772,7 +1805,7 @@ function ahah_get_provinces_member_list() {
   $default['all'] = 'All';
   $provlist = _user_location_get_provincecode_to_province_map($_REQUEST['country']);
   $provincelist = array_merge($default, $provlist);
-  $form['province']  = array(
+  $form['province'] = array(
     '#title' => t('State/Province'),
     '#type' => 'select',
     '#options' => $provincelist,
@@ -1785,6 +1818,7 @@ function ahah_get_provinces_member_list() {
   echo drupal_json_encode(array('data' => $output, 'status' => TRUE));
   exit();
 }
+
 /*
  * This function takes in the form additions via Ajax and rerenders the form using so that Drupal can validate it.
  *
@@ -1874,7 +1908,10 @@ function wsuser_resend_validation_link_action($object, $context) {
 
   if (in_array('pre-authorized', $account->roles) && module_exists('logintoboggan')) {
     drupal_mail('wsuser', 'logintoboggan_resend_validation', $account->mail, $language, $params);
-    watchdog('logintoboggan', 'A validation email has been sent to %account in language %language', array('%account' => $account->name, '%language' => $account->language));
+    watchdog('logintoboggan', 'A validation email has been sent to %account in language %language', array(
+      '%account' => $account->name,
+      '%language' => $account->language
+    ));
   }
 }
 
@@ -1891,7 +1928,10 @@ function wsuser_eml_validate_url($account) {
   $language = $languages[$account->language];
 
   $timestamp = REQUEST_TIME;
-  return url("user/validate/$account->uid/$timestamp/" . logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail, $account -uid), array('absolute' => TRUE, 'language' => $language));
+  return url("user/validate/$account->uid/$timestamp/" . logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail, $account - uid), array(
+    'absolute' => TRUE,
+    'language' => $language
+  ));
 }
 
 /**
@@ -1906,7 +1946,10 @@ function wsuser_pass_reset_url($account) {
   $language = $languages[$account->language];
 
   $timestamp = REQUEST_TIME;
-  return url("user/reset/$account->uid/$timestamp/" . user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid), array('absolute' => TRUE, 'language' => $language));
+  return url("user/reset/$account->uid/$timestamp/" . user_pass_rehash($account->pass, $timestamp, $account->login, $account->uid), array(
+    'absolute' => TRUE,
+    'language' => $language
+  ));
 }
 
 
@@ -1919,7 +1962,11 @@ function wsuser_member_autocomplete($string = '') {
   $max = 20;
 
   if ($string) {
-    $result = db_query_range("SELECT name, fullname FROM {users} u, {wsuser} w WHERE (LOWER(name) LIKE LOWER('%s%%') OR LOWER(fullname) LIKE LOWER('%s%%')) AND u.uid = :u.uid", array(':u.uid' => w . uid, '' => $string, '' => $string));
+    $result = db_query_range("SELECT name, fullname FROM {users} u, {wsuser} w WHERE (LOWER(name) LIKE LOWER('%s%%') OR LOWER(fullname) LIKE LOWER('%s%%')) AND u.uid = :u.uid", array(
+      ':u.uid' => w . uid,
+      '' => $string,
+      '' => $string
+    ));
     while ($user = db_fetch_object($result)) {
       $matches[$user->fullname . ' [username:' . $user->name . ']'] = '<div class="reference-autocomplete">' . check_markup($user->fullname) . '</div>';
     }
@@ -2107,7 +2154,15 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
   		     AND g.ansiname LIKE('%s%%') AND feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls', 'adm1', 'adm2')
   		     AND g.country_code = :g.country_code AND g.admin1_code = :g.admin1_code
   		     AND (population > :(population OR feature_code = :feature_code)
-  		     ORDER BY (feature_code = :feature_code) DESC, g.population DESC", array(':g.country_code' => $country, ':g.country_code' => a . country_code, ':g.admin1_code' => a . adm1_code, ':(population' => 100, ':feature_code' => 'adm1', ':(feature_code' => 'adm1', '' => $city));
+  		     ORDER BY (feature_code = :feature_code) DESC, g.population DESC", array(
+        ':g.country_code' => $country,
+        ':g.country_code' => a . country_code,
+        ':g.admin1_code' => a . adm1_code,
+        ':(population' => 100,
+        ':feature_code' => 'adm1',
+        ':(feature_code' => 'adm1',
+        '' => $city
+      ));
       if ($result && $location = db_fetch_array($result)) {
         $latitude = $location['latitude'];
         $longitude = $location['longitude'];
@@ -2116,9 +2171,11 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
       }
     }
   }
-  else if (!empty($country)) {
-    $location = location_country_position_from_country($country);
-    $form_state['values']['city'] = "$location->country|$location->latitude|$location->longitude";
+  else {
+    if (!empty($country)) {
+      $location = location_country_position_from_country($country);
+      $form_state['values']['city'] = "$location->country|$location->latitude|$location->longitude";
+    }
   }
 
 }
@@ -2133,7 +2190,7 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
 function wsuser_member_search_form_list_submit($form, &$form_state) {
   if (!empty($form_state['values']['city'])) {
     list($place, $lat, $lon) =
-    $form_state['redirect'] = 'search/wsuser/' . $form_state['values']['city'];
+      $form_state['redirect'] = 'search/wsuser/' . $form_state['values']['city'];
   }
 }
 
@@ -2186,7 +2243,13 @@ function wsuser_country_change_ahah() {
  * @return mixed
  */
 function wsuser_preprocess(&$variables, $key) {
-  if (!in_array($key, array('user_profile', 'wsuser_member_contact_location', 'wsuser_member_actions', 'wsuser_member_donate'))) {
+  if (!in_array($key, array(
+    'user_profile',
+    'wsuser_member_contact_location',
+    'wsuser_member_actions',
+    'wsuser_member_donate'
+  ))
+  ) {
     return;
   }
   list($arg1, $uid) = arg();
@@ -2299,8 +2362,8 @@ function wsuser_preprocess(&$variables, $key) {
   }
 
   module_load_include('inc', 'ctools', 'includes/menu');
-  $variables['menu_primary_local_tasks'] = '<ul class="links">' .  ctools_menu_primary_local_tasks() . '</ul>';
-  list($variables['pm_responsiveness'], $variables['pm_requests'], $variables['pm_responses'],   $variables['pm_start_date'], $variables['pm_responsiveness_over_full_period']) = wsuser_privatemsg_responsiveness($account);
+  $variables['menu_primary_local_tasks'] = '<ul class="links">' . ctools_menu_primary_local_tasks() . '</ul>';
+  list($variables['pm_responsiveness'], $variables['pm_requests'], $variables['pm_responses'], $variables['pm_start_date'], $variables['pm_responsiveness_over_full_period']) = wsuser_privatemsg_responsiveness($account);
   $variables['pm_start_date'] = date('Y-m-d', $variables['pm_start_date']);
 
   if ($key == 'user_profile') {
@@ -2338,9 +2401,12 @@ function wsuser_count_user_references($uid) {
  */
 function wsuser_recommend_redirect($account) {
   // TODO
-    array('edit[field_member_i_trust][0][uid][uid]' => $account->name) needs to be an array of keys and values instead of a string.
-  drupal_goto('node/add/trust-referral', array('query' =>
-    array('edit[field_member_i_trust][0][uid][uid]' => $account->name)));
+  array('edit[field_member_i_trust][0][uid][uid]' => $account->name) needs to be an array
+    of keys and values instead of a string .
+  drupal_goto('node/add/trust-referral', array(
+    'query' =>
+      array('edit[field_member_i_trust][0][uid][uid]' => $account->name)
+  ));
 }
 
 /**
@@ -2398,11 +2464,20 @@ function wsuser_country_counts() {
 
   // Total user counts
   $totalusers = db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
-    WHERE u.uid = :u.uid AND u.uid > :u.uid AND u.status AND ! :AND AND ! :AND", array(':u.uid' => w . uid, ':u.uid' => 1));
+    WHERE u.uid = :u.uid AND u.uid > :u.uid AND u.status AND ! :AND AND ! :AND", array(
+    ':u.uid' => w . uid,
+    ':u.uid' => 1
+  ));
   $totalhosts = db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
-    WHERE u.uid = :u.uid AND u.uid > :u.uid AND u.status AND ! :AND AND ! :AND AND ! :AND", array(':u.uid' => w . uid, ':u.uid' => 1));
+    WHERE u.uid = :u.uid AND u.uid > :u.uid AND u.status AND ! :AND AND ! :AND AND ! :AND", array(
+    ':u.uid' => w . uid,
+    ':u.uid' => 1
+  ));
 
-  $output .= '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array('%totalusers' => number_format($totalusers), '%totalhosts' => number_format($totalhosts))) . '</h3>';
+  $output .= '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array(
+      '%totalusers' => number_format($totalusers),
+      '%totalhosts' => number_format($totalhosts)
+    )) . '</h3>';
   $output .= '<p>' . t('Click the headers to change sort order.') . '</p>';
 
   // Members by continent
@@ -2413,7 +2488,7 @@ function wsuser_country_counts() {
   $continents = array(
     'AF' => t('Africa'),
     'SA' => t('South America') . '&nbsp;&nbsp;',
-    'NA' => t('North America')  . '&nbsp;&nbsp;',
+    'NA' => t('North America') . '&nbsp;&nbsp;',
     'EU' => t('Europe'),
     'OC' => t('Oceania'),
     'AS' => t('Asia'),
@@ -2534,7 +2609,7 @@ function wsuser_country_counts() {
 
 
   // Global responsiveness stats (by year)? With explanation why starting in Sept 2013
-  $output .= "<h3 id='responsiveness'>" . t('Responsiveness to private messages/hosting requests') . '</h3>'  . '<p>' . t('This could not be calculated before September 2013, when private messages started going through the site.') . '</p>';
+  $output .= "<h3 id='responsiveness'>" . t('Responsiveness to private messages/hosting requests') . '</h3>' . '<p>' . t('This could not be calculated before September 2013, when private messages started going through the site.') . '</p>';
   $header = array(
     array(
       'data' => t('Year'),
@@ -2668,10 +2743,21 @@ function wsuser_privatemsg_responsiveness($account) {
 
   $calculated_over_full_year = ($period != $account->created);
 
-  $received = db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = :pm.mid AND pi.mid = :pi.mid AND pm.author <> :pm.author AND pi.recipient = :pi.recipient AND pi.deleted <> :pi.deleted AND pm.timestamp > :pm.timestamp', array(':pm.mid' => pi . mid, ':pi.mid' => pi . thread_id, ':pm.author' => array($uid, $uid, $period), ':pi.recipient' => 1))->fetchField();
+  $received = db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = :pm.mid AND pi.mid = :pi.mid AND pm.author <> :pm.author AND pi.recipient = :pi.recipient AND pi.deleted <> :pi.deleted AND pm.timestamp > :pm.timestamp', array(
+    ':pm.mid' => pi . mid,
+    ':pi.mid' => pi . thread_id,
+    ':pm.author' => array($uid, $uid, $period),
+    ':pi.recipient' => 1
+  ))->fetchField();
 
   if (empty($received)) {
-    $result[$uid] = array(t('N/A'), 0, 0, $period, $calculated_over_full_year);
+    $result[$uid] = array(
+      t('N/A'),
+      0,
+      0,
+      $period,
+      $calculated_over_full_year
+    );
   }
   else {
     // Use magic value of pi.deleted == 1 to indicate that a message should not be counted. This lets us exclude problem
@@ -2684,7 +2770,13 @@ function wsuser_privatemsg_responsiveness($account) {
          WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND pi.deleted <> 1 AND pm.timestamp > %d)
       ', array($uid, $uid, $uid, $period))->fetchField();
     $responsiveness = number_format(100 * $responded / $received);
-    $result[$uid] = array($received ? $responsiveness . '%' : t('N/A'), $received, $responded, $period, $calculated_over_full_year);
+    $result[$uid] = array(
+      $received ? $responsiveness . '%' : t('N/A'),
+      $received,
+      $responded,
+      $period,
+      $calculated_over_full_year
+    );
   }
   return $result[$uid];
 }
@@ -2733,7 +2825,14 @@ function _wsuser_queue_notavailable_reminders() {
       AND ws.notcurrentlyavailable = :ws.notcurrentlyavailable
       AND (ws.becomeavailable = :(ws.becomeavailable OR ws.becomeavailable IS NULL)
       AND (ws.last_unavailability_pester IS NULL OR (ws.last_unavailability_pester + %d < :%d))
-      LIMIT %d', array(':u.uid' => ws . uid, ':ws.notcurrentlyavailable' => 1, ':(ws.becomeavailable' => 0, ':%d' => $period, '' => $now, '' => $limit));
+      LIMIT %d', array(
+    ':u.uid' => ws . uid,
+    ':ws.notcurrentlyavailable' => 1,
+    ':(ws.becomeavailable' => 0,
+    ':%d' => $period,
+    '' => $now,
+    '' => $limit
+  ));
 
   $queue = DrupalQueue::get('wsuser_process_notavailable_reminders');
 
@@ -2744,7 +2843,10 @@ function _wsuser_queue_notavailable_reminders() {
       'arguments' => array($row),
     );
     $queue->createItem($job);
-    watchdog('wsuser_pester', 'Sent unavailable_pester to %mail, last_unavailability_pester=%pester', array('%mail' => $row->mail, '%pester' => date('c', $row->last_unavailability_pester)));
+    watchdog('wsuser_pester', 'Sent unavailable_pester to %mail, last_unavailability_pester=%pester', array(
+      '%mail' => $row->mail,
+      '%pester' => date('c', $row->last_unavailability_pester)
+    ));
 
     // Update the wsuser now to make sure we don't hit this member again.
     // TODO Please review the conversion of this statement to the D7 database API syntax.
@@ -2753,11 +2855,11 @@ function _wsuser_queue_notavailable_reminders() {
      SET last_unavailability_pester = %d
      WHERE uid = %d', $now, $row->uid) */
     db_update('wsuser')
-  ->fields(array(
-    'last_unavailability_pester' => $now,
-  ))
-  ->condition('uid', $row->uid)
-  ->execute();
+      ->fields(array(
+        'last_unavailability_pester' => $now,
+      ))
+      ->condition('uid', $row->uid)
+      ->execute();
   }
 }
 
@@ -2867,7 +2969,10 @@ function wsuser_configuration_send_test_email($form, &$form_state) {
   // Example: array_shift(user_load_multiple(array(), $GLOBALS['user']->uid))
   $account = user_load($GLOBALS['user']->uid);
   wsuser_send_test_reminder_email($account->uid);
-  drupal_set_message(t('Sent test reminder email to uid @uid username=@username', array('@uid' => $account->uid, '@username' => $account->name)));
+  drupal_set_message(t('Sent test reminder email to uid @uid username=@username', array(
+    '@uid' => $account->uid,
+    '@username' => $account->name
+  )));
 }
 
 /**
@@ -2911,7 +3016,10 @@ function wsuser_configuration_send_test_become_available_email($form, $form_stat
   $account = user_load($GLOBALS['user']->uid);
   $languages = language_list();
   drupal_mail('wsuser', 'become_available_notification', $account->mail, $languages[$account->language], array('account' => $account));
-  drupal_set_message(t('Sent become_available_email to uid @uid (@username)', array('@uid' => $account->uid, '@username' => $account->name)));
+  drupal_set_message(t('Sent become_available_email to uid @uid (@username)', array(
+    '@uid' => $account->uid,
+    '@username' => $account->name
+  )));
 }
 
 
@@ -2928,7 +3036,12 @@ function _wsuser_process_users_that_become_available() {
     AND ws.notcurrentlyavailable = :ws.notcurrentlyavailable
     AND ws.becomeavailable IS NOT NULL
     AND ws.becomeavailable <> :ws.becomeavailable
-    AND ws.becomeavailable < :ws.becomeavailable', array(':u.uid' => ws . uid, ':ws.notcurrentlyavailable' => 1, ':ws.becomeavailable' => 0, ':ws.becomeavailable' => $now));
+    AND ws.becomeavailable < :ws.becomeavailable', array(
+    ':u.uid' => ws . uid,
+    ':ws.notcurrentlyavailable' => 1,
+    ':ws.becomeavailable' => 0,
+    ':ws.becomeavailable' => $now
+  ));
 
   // Update these users to available to host and notify them via email.
   $languages = language_list();
@@ -2940,18 +3053,22 @@ function _wsuser_process_users_that_become_available() {
      SET notcurrentlyavailable = 0
      WHERE uid = %d', $row->uid) */
     db_update('wsuser')
-  ->fields(array(
-    'notcurrentlyavailable' =>  0,
-  ))
-  ->condition('uid', $row->uid)
-  ->execute();
+      ->fields(array(
+        'notcurrentlyavailable' => 0,
+      ))
+      ->condition('uid', $row->uid)
+      ->execute();
 
     // Notify user via email that they are now marked as available to host.
     // TODO Convert "user_load" to "user_load_multiple" if "$row->uid" is other than a uid.
     // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
     // Example: array_shift(user_load_multiple(array(), $row->uid))
     drupal_mail('wsuser', 'become_available_notification', $row->mail, $languages[$row->language], array('account' => user_load($row->uid)));
-    watchdog('wsuser', 'Set username @user (@fullname) to available and sent notification to @mail', array('@user' => $row->name, '@fullname' => $row->fullname, '@mail' => $row->mail), WATCHDOG_NOTICE, "https://www.warmshowers.org/user/{$row->uid}");
+    watchdog('wsuser', 'Set username @user (@fullname) to available and sent notification to @mail', array(
+      '@user' => $row->name,
+      '@fullname' => $row->fullname,
+      '@mail' => $row->mail
+    ), WATCHDOG_NOTICE, "https://www.warmshowers.org/user/{$row->uid}");
   }
 }
 
@@ -2981,6 +3098,7 @@ function wsuser_unpaid_roles() {
   ));
   return $unpaid_roles;
 }
+
 /**
  * Return TRUE if current paid-up member
  *
@@ -3030,7 +3148,13 @@ function wsuser_highest_donation_level($account) {
  * @return bool
  */
 function wsuser_uc_role_expiration($account, $rid) {
-  $expires = db_query("SELECT expiration FROM {uc_roles_expirations} WHERE uid = :uid AND rid = :rid AND expiration > :expiration", array(':uid' => array($account->uid, $rid, REQUEST_TIME)))->fetchField();
+  $expires = db_query("SELECT expiration FROM {uc_roles_expirations} WHERE uid = :uid AND rid = :rid AND expiration > :expiration", array(
+    ':uid' => array(
+      $account->uid,
+      $rid,
+      REQUEST_TIME
+    )
+  ))->fetchField();
   return $expires;
 }
 
@@ -3079,9 +3203,10 @@ Order: https://www.warmshowers.org/admin/store/orders/{$order->order_id}
     // Make sure fullname is utf-8
     $fullname = $account->fullname;
     $fullname = ucwords(mb_strtolower($fullname, 'UTF-8'));
-    $fullname = iconv(mb_detect_encoding($fullname, mb_detect_order(), true), "UTF-8", $fullname);
+    $fullname = iconv(mb_detect_encoding($fullname, mb_detect_order(), TRUE), "UTF-8", $fullname);
     // Then make sure each word is capitalized, to avoid the Donortools bug with parsing
-    $donortools_info = array('donation' => array(
+    $donortools_info = array(
+      'donation' => array(
         'amount_in_cents' => $amount_in_cents,
         'memo' => $comments,
         'received_on' => date('Y-m-d'),
@@ -3100,12 +3225,21 @@ Order: https://www.warmshowers.org/admin/store/orders/{$order->order_id}
             'memo' => "",
           ),
         ),
-      ));
+      )
+    );
     $json = json_encode($donortools_info);
     $url = variable_get('wsuser_donortools_url', 'https://randy@randyfay.com:ddt4qXiOA31f@warmshowers.donortools.com/donations.json');
-    $result = drupal_http_request($url, array('headers' => array('Content-type' => 'application/json'), 'method' => 'POST', 'data' => $json, '' => 12));
+    $result = drupal_http_request($url, array(
+      'headers' => array('Content-type' => 'application/json'),
+      'method' => 'POST',
+      'data' => $json,
+      '' => 12
+    ));
     if ($result->code != "201") {
-      watchdog('wsuser', "Donortools update failure order=!order, !result", array('!order' => $order->order_id, '!result' => print_r($result, TRUE)), WATCHDOG_ERROR);
+      watchdog('wsuser', "Donortools update failure order=!order, !result", array(
+        '!order' => $order->order_id,
+        '!result' => print_r($result, TRUE)
+      ), WATCHDOG_ERROR);
     }
     $current = variable_get('donations_thermometer_amount', 1000);
     variable_set('donations_thermometer_amount', $current + $order->order_total);
