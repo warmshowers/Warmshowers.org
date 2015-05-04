@@ -1959,24 +1959,19 @@ function _wsuser_queue_notavailable_reminders() {
   // This is actually aimed only at existing current members who are set to notcurrentlyavailable
   // Theoretically they will all eventually set a becomeavailable date, even
   // far in the future.
-  $result = db_query('SELECT u.mail, u.language, u.uid, ws.last_unavailability_pester
+  $result = db_query_range(
+    'SELECT u.mail, u.language, u.uid, ws.last_unavailability_pester
       FROM {users} u, {wsuser} ws
-      WHERE u.uid = :u.uid
-      AND ws.notcurrentlyavailable = :ws.notcurrentlyavailable
-      AND (ws.becomeavailable = :(ws.becomeavailable OR ws.becomeavailable IS NULL)
-      AND (ws.last_unavailability_pester IS NULL OR (ws.last_unavailability_pester + %d < :%d))
-      LIMIT %d', array(
-    ':u.uid' => ws . uid,
-    ':ws.notcurrentlyavailable' => 1,
-    ':(ws.becomeavailable' => 0,
-    ':%d' => $period,
-    '' => $now,
-    '' => $limit
-  ));
+      WHERE u.uid = ws.uid
+      AND ws.notcurrentlyavailable = 1
+      AND (ws.becomeavailable = 0 OR ws.becomeavailable IS NULL)
+      AND (ws.last_unavailability_pester IS NULL OR (ws.last_unavailability_pester + :period < :now))',
+    0, $limit,
+  array(':period' => $period, ':now' => $now), array('fetch' => PDO::FETCH_OBJ));
 
   $queue = DrupalQueue::get('wsuser_process_notavailable_reminders');
 
-  while ($row = db_fetch_object($result)) {
+  foreach ($result as $row) {
     $job = array(
       'description' => t('Send notavailable reminder email to @mail',
         array('@mail' => $row->mail)),
@@ -1989,11 +1984,6 @@ function _wsuser_queue_notavailable_reminders() {
     ));
 
     // Update the wsuser now to make sure we don't hit this member again.
-    // TODO Please review the conversion of this statement to the D7 database API syntax.
-    /* db_query(
-     'UPDATE {wsuser}
-     SET last_unavailability_pester = %d
-     WHERE uid = %d', $now, $row->uid) */
     db_update('wsuser')
       ->fields(array(
         'last_unavailability_pester' => $now,
