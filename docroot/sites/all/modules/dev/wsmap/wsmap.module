@@ -6,8 +6,7 @@
 
 
 /**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Implements hook_permission()
  */
 function wsmap_permission() {
   return array(
@@ -49,24 +48,19 @@ function wsmap_menu() {
   return $items;
 }
 
-function user_view_map() {
-  return TRUE;
-}
-
 
 /**
- * Implementation of hook_view().
+ * Display map
  *
- * This is a typical implementation that simply runs the node text through
- * the output filters.
- */
-
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * @param null $uid
+ * @param int $zoom
+ * @return string
+ * @throws \Exception
  */
 function wsmap_view($uid = NULL, $zoom = 0) {
   $wsmap_path = drupal_get_path('module', 'wsmap');
+
+
 
   // JSON not supported in IE6/IE7, so we'll add conditional view of it.
   drupal_add_js($wsmap_path . '/js/json2.js');
@@ -74,22 +68,11 @@ function wsmap_view($uid = NULL, $zoom = 0) {
   drupal_add_js($wsmap_path . '/js/wsmap_map_behaviors.js');
   drupal_add_js($wsmap_path . '/js/markerclusterer/src/markerclusterer.js');
   drupal_add_css($wsmap_path . '/wsmap.css');
-
-  $google_map_location = "https://maps.googleapis.com/maps/api/js?sensor=false&key=" . variable_get('user_location_google_key', '0');
   drupal_add_js('$google_map_location', array('type' => 'external'));
 
   // Determine starting center location and zoom for the map
   if (!($default_location = locationservices_get_browser_location())) {
     $default_location = locationservices_country_position_from_country('us'); // Have to start them somewhere
-  }
-  if (!empty($uid)) {
-    // TODO Convert "user_load" to "user_load_multiple" if "$uid" is other than a uid.
-    // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
-    // Example: array_shift(user_load_multiple(array(), $uid))
-    $account = user_load($uid);
-    $default_location->latitude = $account->latitude;
-    $default_location->longitude = $account->longitude;
-    $default_location->zoom = $zoom;
   }
 
   // Provide settings to the js
@@ -113,18 +96,22 @@ function wsmap_view($uid = NULL, $zoom = 0) {
     ),
   );
 
-  if ($uid) {
-    // TODO Convert "user_load" to "user_load_multiple" if "$uid" is other than a uid.
-    // To return a single user object, wrap "user_load_multiple" with "array_shift" or equivalent.
-    // Example: array_shift(user_load_multiple(array(), $uid))
+  if (!empty($uid)) {
     $account = user_load($uid);
+    $default_location->latitude = $account->latitude;
+    $default_location->longitude = $account->longitude;
+    $default_location->zoom = $zoom;
+
     $js_settings['wsmap']['userInfo'] = array(
       'uid' => $account->uid,
       'latitude' => $account->latitude,
       'longitude' => $account->longitude,
       'zoom' => $account->zoom,
     );
+
   }
+
+
   drupal_add_js($js_settings, array('type' => 'setting', 'scope' => JS_DEFAULT));
 
   return theme('wsmap_view');
@@ -152,39 +139,45 @@ function wsmap_view($uid = NULL, $zoom = 0) {
  */
 function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $centerlat, $centerlon, $limit = 2000) {
 
-  $latlonwhere = "latitude > %f AND latitude < %f AND longitude >%f AND longitude <%f ";
+  $latlonwhere = "latitude > :minlat AND latitude < :maxlat AND longitude > :minlon AND longitude < :maxlon ";
   if ($minlon > $maxlon) { // The case on the 180 degrees longitude (New Zealand)
-    $latlonwhere = "latitude > %f AND latitude < %f AND (longitude < %f OR longitude > %f)";
+    $latlonwhere = "latitude > :minlat AND latitude < :maxlat AND (longitude < :minlon OR longitude > :maxlon)";
   }
 
   $totalsql = "SELECT COUNT(*) count FROM {user_location} l, {wsuser} w, {users} u
     WHERE $latlonwhere
-    AND u.uid = l.oid AND u.uid=w.uid AND u.status>0 AND !w.isunreachable AND !w.isstale
+    AND u.uid = l.oid AND u.uid = w.uid AND u.status > 0
     AND !notcurrentlyavailable
     AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
     ";
-  // TODO Please convert this statement to the D7 database API syntax.
-  $avail_results_count = db_query($totalsql, $minlat, $maxlat, $minlon, $maxlon)->fetchField();
+  $avail_results_count = db_query($totalsql, array(':minlat' => $minlat, ':maxlat' => $maxlat, ':minlon' => $minlon, ':maxlon' => $maxlon))->fetchField();
 
 
   // The subquery on users_roles prevents unvalidated users from showing up.
+//  $sql = "SELECT u.uid, u.created, u.access, u.login, w.fullname name, street, city, province, postal_code, country, latitude, longitude,
+//    source, picture, notcurrentlyavailable,
+//    DEGREES(ACOS(SIN(RADIANS(:centerlat)) * SIN(RADIANS(latitude))+COS(RADIANS(:centerlat)) * COS(RADIANS(latitude)) * COS(RADIANS(:centerlon - longitude)))) * 60 AS distance,
+//    CONCAT(latitude, ',', longitude) AS position
+//    FROM {users} u, {user_location} l, {wsuser} w
+//    WHERE $latlonwhere
+//    AND u.uid = l.oid AND u.uid=w.uid AND u.status>0 AND !w.isunreachable AND !w.isstale
+//    AND !notcurrentlyavailable
+//    AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
+//		ORDER BY distance ASC";
+
   $sql = "SELECT u.uid, u.created, u.access, u.login, w.fullname name, street, city, province, postal_code, country, latitude, longitude,
     source, picture, notcurrentlyavailable,
-    DEGREES(ACOS(SIN(RADIANS(%f)) * SIN(RADIANS(latitude))+COS(RADIANS(%f)) * COS(RADIANS(latitude)) * COS(RADIANS(%f-longitude)))) * 60 AS distance,
+    DEGREES(ACOS(SIN(RADIANS(:centerlat)) * SIN(RADIANS(latitude))+COS(RADIANS(:centerlat)) * COS(RADIANS(latitude)) * COS(RADIANS(:centerlon - longitude)))) * 60 AS distance,
     CONCAT(latitude, ',', longitude) AS position
     FROM {users} u, {user_location} l, {wsuser} w
     WHERE $latlonwhere
-    AND u.uid = l.oid AND u.uid=w.uid AND u.status>0 AND !w.isunreachable AND !w.isstale
+    AND u.uid = l.oid AND u.uid = w.uid AND u.status > 0
     AND !notcurrentlyavailable
     AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
 		ORDER BY distance ASC";
 
   $limit = min($limit, variable_get('wsmap_max_hosts_retrievable', 2000));
-
-  $start = microtime();
-  // TODO Please convert this statement to the D7 database API syntax.
-  $result = db_query_range($sql, $centerlat, $centerlat, $centerlon, $minlat, $maxlat, $minlon, $maxlon);
-  $duration = microtime() - $start;
+  $result = db_query_range($sql, 0, $limit, array(':centerlat' => $centerlat,';centerlong' => $centerlon, ':minlat' => $minlat));
 
   $accounts = array();
   while ($row = db_fetch_array($result)) {
@@ -206,89 +199,12 @@ function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $center
       'minlon' => $minlon,
       'maxlon' => $maxlon,
       'limit' => $limit,
-      'duration' => $duration,
     ),
     'accounts' => $accounts,
   );
 }
 
 
-/******* xml output for ajax request ************/
-// TODO: Delete this when JSON version is deployed. Assuming that the apps
-// don't use it... Check!
-
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function wsmap_xml_hosts() {
-
-  header('Content-Type: text/xml');
-
-  print "<?xml version='1.0' encoding='UTF-8' ?>\n";
-
-  $minlat = (float) $_GET['minlat'];
-  $maxlat = (float) $_GET['maxlat'];
-  $minlon = (float) $_GET['minlon'];
-  $maxlon = (float) $_GET['maxlon'];
-  $centerlat = (float) $_GET['centerlat'];
-  $centerlon = (float) $_GET['centerlon'];
-
-  if (isset($_GET['maxresults'])) {
-    $limit = (int) $_GET['maxresults'];
-  }
-  $limit = min($limit, variable_get('wsmap_max_hosts_retrievable', 2000));
-  $hosts = wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $centerlat, $centerlon, $limit);
-
-  print "<root>\n";
-
-  print "<!-- minlon=$minlon, maxlon=$maxlon, minlat=$minlat, maxlat=$maxlat, centerlat=$centerlat, centerlon=$centerlon-->\n";
-  print "<!-- limit=$limit -->\n";
-  print "<!-- Number of items= {$hosts['status']['totalresults']} -->\n";
-  print "<!-- {$hosts['query_data']['sql']}
-  -->\n";
-
-  print '<status id="status" delivered="' . $hosts['status']['delivered'] . '" totalresults="' . $hosts['status']['totalresults'] . '" status="' . $hosts['status']['status'] . '">' . $hosts['status']['status'];
-  print "</status>";
-
-  print "<hosts>\n";
-
-  $count = 0;
-
-  foreach ($hosts['accounts'] as $row) {
-
-    $count++;
-
-    print "<host\n";
-    print 'u="' . $row['uid'] . '" ';
-    if (user_access('access map detail')) {
-      print 'n="' . xmlentities($row['name']) . '" ';
-      print 's="' . xmlentities($row['street']) . '" ';
-    }
-
-    print 'c="' . xmlentities($row['city']) . '" ';
-    print 'p="' . xmlentities($row['province']) . '" ';
-    print 'z="' . xmlentities($row['postal_code']) . '" ';
-    print 'cnt="' . xmlentities($row['country']) . '" ';
-    print 'la="' . $row['latitude'] . '" ';
-    print 'ln="' . $row['longitude'] . '" ';
-    print 'd="' . $row['distance'] . '" ';
-    print 'a="' . $row['notcurrentlyavailable'] . '" ';
-
-    print " />\n";
-    // if ($maxresults && $count < $totalresults) { $status="incomplete"; break; }
-  }
-  print "</hosts>";
-
-
-  print "</root>";
-  exit;
-}
-
-
-function xmlentities($string) {
-  return str_replace(array('&', '"', "'", '<', '>', '?'), array('&amp;', '&quot;', '&apos;', '&lt;', '&gt;', '&apos;'), $string);
-}
 
 /*
  * Implementation of hook_block()
@@ -336,22 +252,11 @@ function wsmap_block_view($delta) {
   }
 }
 
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function wsmap_block_OLD($op = 'list', $delta = 0, $edit = array()) {
-  // TODO Remaining code in this function needs to be moved to the appropriate new hook function.
-  return $blocks;
-}
 
 /*
- * Implementation of hook_theme()
+ * Implements hook_theme()
  */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
+
 function wsmap_theme() {
   $template_path = drupal_get_path('module', 'wsmap') . '/templates';
   return array(
