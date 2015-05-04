@@ -711,7 +711,7 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
 //    $result = pager_query($sql, 50, 0, $count_query, $keys, $keys, $keys, $keys);
   }
 
-  $countrylist = _user_location_supported_countries();
+  $countrylist = _locationservices_supported_countries();
   foreach ($result as $account) {
     $location = $account->city . ", $account->province, " . $countrylist[$account->country];
     $find[$account->uid] = array();
@@ -773,7 +773,8 @@ function wsuser_search_page($results) {
  * Implements hook_user_load() to add wsuser values to user object
  */
 function wsuser_user_load($accounts) {
-  $result = db_query('SELECT * FROM {wsuser} WHERE uid = in (:uids)', array(':uids' => array_keys($accounts)), array('fetch' => PDO::FETCH_OBJ));
+  $result = db_query('SELECT * FROM {wsuser} WHERE uid IN (:uids)',
+    array(':uids' => array_keys($accounts)), array('fetch' => PDO::FETCH_OBJ));
   foreach ($result as $row) {
     foreach ($row as $key => $value) {
       $accounts[$row->uid]->$key = $value;
@@ -1017,7 +1018,7 @@ function wsuser_user_delete($account) {
  * @param $account
  */
 function wsuser_user_login(&$edit, &$account) {
-  $countries = _user_location_supported_countries();
+  $countries = _locationservices_supported_countries();
 
   if (function_exists('user_location_get_browser_country')) {
     watchdog('user', "$account->name login from " . $countries[user_location_get_browser_country()]);
@@ -1322,7 +1323,7 @@ function template_preprocess_wsuser_member_welcome_block(&$vars) {
 function ahah_get_provinces_profile() {
   $provincelist[""] = t('Select Province');
   $provincelist['XX'] = t('NOT LISTED');
-  $provincelist += _user_location_get_provincecode_to_province_map($_REQUEST['country']);
+  $provincelist += _locationservices_get_provincecode_to_province_map($_REQUEST['country']);
   $formElement = array(
     '#title' => t('State/Province'),
     '#type' => 'select',
@@ -1339,7 +1340,7 @@ function ahah_get_provinces_profile() {
 
 function ahah_get_provinces_member_list() {
   $default['all'] = 'All';
-  $provlist = _user_location_get_provincecode_to_province_map($_REQUEST['country']);
+  $provlist = _locationservices_get_provincecode_to_province_map($_REQUEST['country']);
   $provincelist = array_merge($default, $provlist);
   $form['province'] = array(
     '#title' => t('State/Province'),
@@ -1522,7 +1523,7 @@ function wsuser_member_search_form($form, &$form_state) {
     '#title' => t('Country'),
     '#type' => 'select',
     '#required' => TRUE,
-    '#options' => _user_location_supported_countries(),
+    '#options' => _locationservices_supported_countries(),
     '#default_value' => $country,
     '#ahah' => array(
       'path' => 'wsuser_country_change_ahah',
@@ -1607,7 +1608,7 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
   }
   else {
     if (!empty($country)) {
-      $location = location_country_position_from_country($country);
+      $location = locationservices_country_position_from_country($country);
       $form_state['values']['city'] = "$location->country|$location->latitude|$location->longitude";
     }
   }
@@ -1692,8 +1693,8 @@ function wsuser_preprocess(&$variables, $key) {
   }
   $account = user_load($uid);
 
-  $provincemap = _user_location_get_provincecode_to_province_map($account->country);
-  $countrylist = _user_location_supported_countries();
+  $provincemap = _locationservices_get_provincecode_to_province_map($account->country);
+  $countrylist = _locationservices_supported_countries();
   $countryname = !empty($countrylist[$account->country]) ? $countrylist[$account->country] : t('Unknown');
   $provincename = !empty($provincemap[$account->province]) ? $provincemap[$account->province] : t('Unknown');
 
@@ -1812,8 +1813,10 @@ function wsuser_preprocess(&$variables, $key) {
  * @param $uid
  */
 function wsuser_count_user_references($uid) {
-  $field = content_fields('field_member_i_trust');
-  $db_info = content_database_info($field);
+  $fields = field_info_field_map();
+
+  // TODO: Make this work for 'field_member_i_trust'
+//  $db_info = content_database_info($field);
   $table = $db_info['table'];
   $query = "SELECT COUNT(*) FROM {node} n, {$table} refs WHERE refs.field_member_i_trust_uid = :uid AND n.nid = refs.nid AND n.vid = refs.vid";
   $count = db_query($query, array(':uid' => $uid))->fetchField();
