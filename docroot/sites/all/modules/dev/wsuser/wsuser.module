@@ -1860,272 +1860,7 @@ END;
   return $output;
 }
 
-
-/**
- * Provide member counts page.
- *
- * @return string
- */
-function wsuser_country_counts() {
-
-  $cache_key = 'wsuser_country_counts_html_' . $_GET['sort'] . $_GET['order'] . $GLOBALS['language']->language;
-  $cached = cache_get($cache_key);
-  if (!empty($cached->data)) {
-    return $cached->data;
-  }
-  $output = "";
-
-  // Total user counts
-  $totalusers = db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
-    WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale")->fetchField();
-  $totalhosts = db_query("SELECT COUNT(*) numusers FROM {users} u,{wsuser} w
-    WHERE u.uid = w.uid AND u.uid>1 AND u.status AND !isunreachable AND !isstale AND !notcurrentlyavailable")->fetchField();
-
-
-  $output .= '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array(
-      '%totalusers' => number_format($totalusers),
-      '%totalhosts' => number_format($totalhosts)
-    )) . '</h3>';
-  $output .= '<p>' . t('Click the headers to change sort order.') . '</p>';
-
-  // Members by continent
-  $output .= '<h3 id="continent">' . t('Members by Continent') . '</h3>';
-
-  db_query("SET @total=(SELECT  COUNT(*) from {users} u JOIN {wsuser} w ON u.uid=w.uid WHERE u.status)");
-
-  $continents = array(
-    'AF' => t('Africa'),
-    'SA' => t('South America') . '&nbsp;&nbsp;',
-    'NA' => t('North America') . '&nbsp;&nbsp;',
-    'EU' => t('Europe'),
-    'OC' => t('Oceania'),
-    'AS' => t('Asia'),
-  );
-  $header = array(
-    array(
-      'data' => t('Continent'),
-      'field' => 'continent',
-      'sort' => 'asc',
-    ),
-    array(
-      'data' => t('Members On Continent'),
-      'field' => 'members',
-    ),
-    array(
-      'data' => t('Percent'),
-      'field' => 'percent',
-    ),
-  );
-
-
-  $res = pager_query("SELECT g.continent, COUNT(*) members, ROUND((COUNT(*) * 100)/@total, 1) AS percent FROM {users} u, {wsuser} w, {user_location} l, {geonames_countryinfo} g WHERE u.uid = l.oid AND u.uid = w.uid AND l.country=g.iso_alpha2 AND u.status  GROUP BY g.continent " . tablesort_sql($header), 30);
-  $data = array();
-  while ($row = db_fetch_array($res)) {
-    $row['continent'] = $continents[$row['continent']];
-    $row['members'] = number_format($row['members']);
-    $data[] = array_values($row);
-  }
-  $output .= theme('table', array('header' => $header, 'rows' => $data));
-
-  $output .= "<br/><br/>";
-
-  // Members by country
-  $output .= '<h3 id="country">' . t('Members by country') . '</h3>';
-
-  $header = array(
-    array(
-      'data' => t('Country Name'),
-      'field' => 'name',
-      'sort' => 'asc',
-    ),
-    array(
-      'data' => t('Country Code') . '&nbsp;&nbsp;',
-      'field' => 'country',
-    ),
-    array(
-      'data' => t('Members In Country'),
-      'field' => 'members',
-    ),
-  );
-  $data = array();
-
-  $sql = "SELECT g.name, l.country country, COUNT(*) members from {users} u, {wsuser} w, {user_location} l, geonames_countryinfo g WHERE u.uid = l.oid AND u.uid = w.uid AND l.country=g.iso_alpha2 AND u.status GROUP BY g.continent, g.name " . tablesort_sql($header);
-  $res = pager_query($sql, 200);
-
-  while ($row = db_fetch_array($res)) {
-    $row['continent'] = $continents[$row['continent']];
-    $row['members'] = number_format($row['members']);
-    $data[] = array_values($row);
-
-  }
-  $output .= theme('table', array('header' => $header, 'rows' => $data));
-
-  $output .= "<br/><br/>";
-
-  // Growth by Year Joined
-  $output .= "<h3 id='growth'>" . t('Growth by year joined') . '</h3>' . '<p>' . t('This actually only shows those who joined who are still members.') . '</p>';
-
-  $header = array(
-    array(
-      'data' => t('Year'),
-      'field' => 'year',
-      'sort' => 'asc',
-    ),
-    array(
-      'data' => t('Members joined'),
-      'field' => 'members',
-    ),
-  );
-  $data = array();
-
-  // TODO Please convert this statement to the D7 database API syntax.
-  $res = db_query("SELECT YEAR(from_unixtime(created)) year, COUNT(*) members FROM {users} WHERE created <> 0 GROUP BY year " . tablesort_sql($header));
-
-  while ($row = db_fetch_array($res)) {
-    $row['members'] = number_format($row['members']);
-    $data[] = array_values($row);
-  }
-  $output .= theme('table', array('header' => $header, 'rows' => $data));
-
-
-  $output .= "<br/><br/>";
-
-  // Membership by primary language
-  $output .= "<h3 id='language'>" . t('Primary languages of members') . '</h3>';
-  $header = array(
-    array(
-      'data' => t('Language'),
-      'field' => 'name',
-    ),
-    array(
-      'data' => t('Member Count'),
-      'field' => 'count',
-      sort => 'desc',
-    ),
-  );
-  $data = array();
-
-
-  // TODO Please convert this statement to the D7 database API syntax.
-  $res = db_query("SELECT l.name, COUNT(*) count FROM {users} u, {languages} l WHERE u.language=l.language GROUP BY u.language " . tablesort_sql($header));
-  while ($row = db_fetch_array($res)) {
-    $data[] = array_values($row);
-  }
-  $output .= theme('table', array('header' => $header, 'rows' => $data));
-
-
-  $output .= "<br/><br/>";
-
-
-  // Global responsiveness stats (by year)? With explanation why starting in Sept 2013
-  $output .= "<h3 id='responsiveness'>" . t('Responsiveness to private messages/hosting requests') . '</h3>' . '<p>' . t('This could not be calculated before September 2013, when private messages started going through the site.') . '</p>';
-  $header = array(
-    array(
-      'data' => t('Year'),
-      'field' => 'year',
-    ),
-    array(
-      'data' => t('Message Threads (Hosting Requests)'),
-      'field' => 'count',
-    ),
-    array(
-      'data' => t('Percent answered'),
-      'field' => 'responsive',
-    ),
-  );
-  $data = array();
-
-  // Note that this query isn't bad, but it depends on is_new, which is cleared
-  // if the member *views* the message online, but doesn't respond.
-  // TODO Please convert this statement to the D7 database API syntax.
-  $res = db_query("
-    SELECT YEAR(FROM_UNIXTIME(pm.timestamp)) year, COUNT(*) count, 100 - 100*SUM(pi.is_new)/COUNT(*) AS responsive
-      FROM {pm_index} pi, {pm_message} pm
-      WHERE pm.mid=pi.mid AND pi.mid=pi.thread_id AND pi.recipient <> pm.author
-      AND pm.timestamp > UNIX_TIMESTAMP('2013-09-01')
-      GROUP BY year
-" . tablesort_sql($header));
-
-  while ($row = db_fetch_array($res)) {
-    $row['responsive'] = number_format($row['responsive'], 1);
-    $row['count'] = number_format($row['count']);
-    $data[] = array_values($row);
-  }
-  $output .= theme('table', array('header' => $header, 'rows' => $data));
-
-
-  // Positive and negative feedback numbers by year
-  $output .= "<h3 id='feedback'>" . t('Positive and Negative Feedback') . '</h3>';
-  $header = array(
-    array(
-      'data' => t('Year'),
-      'field' => 'year',
-    ),
-    array(
-      'data' => t('Positive'),
-      'field' => 'positive_feedback_count',
-    ),
-    array(
-      'data' => t('Pct Positive'),
-      'field' => 'positive_percent',
-    ),
-    array(
-      'data' => t('Neutral'),
-      'field' => 'neutral_feedback_count',
-    ),
-    array(
-      'data' => t('Pct Neutral'),
-      'field' => 'neutral_percent',
-    ),
-    array(
-      'data' => t('Negative'),
-      'field' => 'negative_feedback_count',
-    ),
-    array(
-      'data' => t('Pct Negative'),
-      'field' => 'negative_percent',
-    ),
-    array(
-      'data' => t('Feedback for hosts'),
-      'field' => 'host_feedback_count',
-    ),
-    array(
-      'data' => t('Feedback for guests'),
-      'field' => 'guest_feedback_count',
-    ),
-  );
-  $data = array();
-
-  // TODO Please convert this statement to the D7 database API syntax.
-  $res = db_query("
-  SELECT YEAR(field_hosting_date_value) year,
-    COUNT(IF(tr.field_rating_value = 'Positive', 1, NULL)) AS positive_feedback_count,
-    COUNT(IF(tr.field_rating_value = 'Positive', 1, NULL))/COUNT(*)*100 AS positive_percent,
-    COUNT(IF(tr.field_rating_value = 'Neutral', 1, NULL)) AS neutral_feedback_count,
-    COUNT(IF(tr.field_rating_value = 'Neutral', 1, NULL))/COUNT(*)*100 AS neutral_percent,
-    COUNT(IF(tr.field_rating_value = 'Negative', 1, NULL)) AS negative_feedback_count,
-    COUNT(IF(tr.field_rating_value = 'Negative', 1, NULL))/COUNT(*)*100 AS negative_percent,
-    COUNT(IF(tr.field_guest_or_host_value = 'host', 1, NULL)) as host_feedback_count,
-    COUNT(IF(tr.field_guest_or_host_value = 'guest', 1, NULL)) as guest_feedback_count
-
-    FROM node n, users u, content_type_trust_referral tr, user_location l
-    WHERE n.nid=tr.nid AND n.vid=tr.vid AND u.uid=field_member_i_trust_uid AND u.uid=l.oid AND field_hosting_date_value IS NOT NULL
-    GROUP BY year
-  " . tablesort_sql($header));
-
-  while ($row = db_fetch_array($res)) {
-    $row['positive_percent'] = number_format($row['positive_percent'], 2);
-    $row['neutral_percent'] = number_format($row['neutral_percent'], 2);
-    $row['negative_percent'] = number_format($row['negative_percent'], 2);
-
-    $data[] = array_values($row);
-  }
-  $output .= theme('table', array('header' => $header, 'rows' => $data));
-
-  cache_set($cache_key, $output, 'cache', REQUEST_TIME + 86400); // Expire after 1 day
-  return $output;
-
-}
+// TODO: Re-implement country_counts page
 
 /**
  * Calculate responsiveness to privatemsgs (initial privatemsg) for a user.
@@ -2152,12 +1887,7 @@ function wsuser_privatemsg_responsiveness($account) {
 
   $calculated_over_full_year = ($period != $account->created);
 
-  $received = db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = :pm.mid AND pi.mid = :pi.mid AND pm.author <> :pm.author AND pi.recipient = :pi.recipient AND pi.deleted <> :pi.deleted AND pm.timestamp > :pm.timestamp', array(
-    ':pm.mid' => pi . mid,
-    ':pi.mid' => pi . thread_id,
-    ':pm.author' => array($uid, $uid, $period),
-    ':pi.recipient' => 1
-  ))->fetchField();
+  $received = db_query('SELECT COUNT(DISTINCT(thread_id)) FROM {pm_index} pi, {pm_message} pm WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> :uid AND pi.recipient = :uid AND pi.deleted <> 1 AND pm.timestamp > :period', array(':uid' => $uid, ':period' => $period))->fetchField();
 
   if (empty($received)) {
     $result[$uid] = array(
@@ -2176,8 +1906,13 @@ function wsuser_privatemsg_responsiveness($account) {
       WHERE pm.author = %d AND pi.thread_id IN
         (SELECT DISTINCT(thread_id)
          FROM {pm_index} pi, {pm_message} pm
-         WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id AND pm.author <> %d AND pi.recipient=%d AND pi.deleted <> 1 AND pm.timestamp > %d)
-      ', array($uid, $uid, $uid, $period))->fetchField();
+         WHERE pm.mid = pi.mid AND pi.mid = pi.thread_id
+         AND pm.author <> :uid
+         AND pi.recipient = :uid
+         AND pi.deleted <> 1
+         AND pm.timestamp > :period)
+      ', array(':uid' => $uid, ':period' => $period))->fetchField();
+
     $responsiveness = number_format(100 * $responded / $received);
     $result[$uid] = array(
       $received ? $responsiveness . '%' : t('N/A'),
@@ -2191,11 +1926,7 @@ function wsuser_privatemsg_responsiveness($account) {
 }
 
 /*
- * Implementation of hook_cron()
- */
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
+ * Implements hook_cron()
  */
 function wsuser_cron() {
   _wsuser_process_users_that_become_available();
