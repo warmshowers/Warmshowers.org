@@ -728,7 +728,7 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
 
     $comments = $account->comments;
     $max_comment_length = 200;
-    $comments = wsuser_string_truncate($comments, $max_comment_length);
+    $comments = truncate_utf8($comments, $max_comment_length);
     $available = $account->notcurrentlyavailable ? t('Not currently available') : t('Available for hosting');
     $comments = " " . check_markup("({$available}) " . $comments);
 
@@ -743,174 +743,27 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
 }
 
 /**
- * Truncate a string to a given length on a word boundary.
- * Shamelessly stolen from
- * http://stackoverflow.com/questions/79960/how-to-truncate-a-string-in-php-to-the-word-closest-to-a-certain-number-of-chara
+ * Implements hook_search_page().
  *
- * @param $string
- *   String to truncate
- * @param $desired_width
- *   Max length
- * @return string
- *   Truncated string, with ... if it was truncated.
+ * @param results
+ *   Array of results (keyed by uid) with member info.
+ * @return array
+ *   Renderable array.
  */
-function wsuser_string_truncate($string, $desired_width) {
+function wsuser_search_page($results) {
+  $output['prefix']['#markup'] = '<ol class="search-results">';
 
-  if (strlen($string) > $desired_width) {
-    $string = wordwrap($string, $desired_width, '|');
-    $string = substr($string, 0, strpos($string, "|"));
-
-    $string .= '...';
+  foreach ($results as $entry) {
+    $output[] = array(
+      '#theme' => 'search_result',
+      '#result' => $entry,
+      '#module' => 'wsuser',
+    );
   }
-  return $string;
-}
+  $output['suffix']['#markup'] = '</ol>' . theme('pager');
 
-
-/**
- * Output search page as basic table.
- *
- * @param $rows
- *   Array of rows (keyed by uid) with member info.
- * @return string
- *   Themed output.
- */
-function wsuser_search_page($rows) {
-  $header = array();
-  $key = key($rows);
-  if (!empty($rows[$key]['distance'])) {
-    $header['distance'] = t('Distance (km/mi)');
-  }
-  $header += array(
-    'fullname' => t('Name'),
-    'comments' => t('About Member'),
-  );
-
-
-  $output .= theme('table', array('header' => $header, 'rows' => $rows));
-  $output .= theme('pager', array('tags' => NULL, 'element' => 0));
   return $output;
 }
-
-
-function _show_distance_results($latitude, $longitude, $search_miles) {
-  $itemsPerPage = 25;
-  $countrycodes = _user_location_supported_countries();
-
-  $distance = user_location_convert_distance_to_meters($search_miles, 'mile');
-  $lonrange = earth_longitude_range($longitude, $latitude, $distance);
-
-  $latrange = earth_latitude_range($longitude, $latitude, $distance);
-
-  $distance_sql = earth_distance_sql($longitude, $latitude);
-
-  $sqlwhere = "latitude > %f and latitude < %f and
-					longitude > %f and longitudee < %f";
-
-  $sql = "select  *, w.fullname wname,  $distance_sql  distance
-		from {user_location} l, {users} u, {wsuser} w
-		where   latitude > %f and latitude < %f and	longitude > %f and longitudee < %f
-		and l.oid = wsuser.uid and l.oid=users.uid
-		and not wsuser.notcurrentlyavailable
-		and users.status >0 order by distance asc";
-
-  $count_sql = "select count(*) result_count
-		from {wsuser} w,{users} u,{user_location} l
-		where u.uid=w.uid and u.uid=l.oid
-		and not w.notcurrentlyavailable and u.status>0 and " . $sqlwhere;
-
-  $res = pager_query($sql, $itemsPerPage, 0, $count_sql, $latrange[0], $latrange[1],
-    $lonrange[0], $lonrange[1]);
-
-
-  // TODO Please convert this statement to the D7 database API syntax.
-  $count = db_fetch_object(db_query($count_sql, $latrange[0], $latrange[1], $lonrange[0], $lonrange[1]));
-
-
-  while ($row = db_fetch_object($res)) {
-    $result_location = array(
-      'street' => !empty($row->street) ? $row->street : '',
-      'additional' => !empty($row->additional) ? $row->additional : '',
-      'city' => !empty($row->city) ? $row->city : $postal_codes[$city_index_key]['city'],
-      'province' => !empty($row->province) ? $row->province : $postal_codes[$city_index_key]['province'],
-      'postal_code' => $row->postal_code,
-      'country' => $row->country,
-      'distance' => $row->distance,
-    );
-
-    $provincecodes = _user_location_get_provincecode_to_province_map(strtolower($row->country));
-
-
-    $distance = user_location_meters_to_miles_km($row->distance, 'miles');
-
-    $item = array(
-      'link' => url('user/' . $row->oid),
-      'title' => round($distance['scalar']) . " miles/" . round($distance['scalar'] * 1.609344) . " km : " . $row->wname,
-      'snippet' => $row->city . ", " . $provincecodes[strtolower($row->province)] . ", " . $countrycodes[$row->country],
-    );
-    // TODO Please change this theme call to use an associative array for the $variables parameter.
-    $search_results .= theme('search_item', $item, $item->type);
-
-
-  }
-  if (empty($search_results)) {
-    // TODO Please change this theme call to use an associative array for the $variables parameter.
-    $search_results .= theme('box', t('Your search yielded no results.'), '');
-  }
-  else {
-    // TODO Please change this theme call to use an associative array for the $variables parameter.
-    $search_results = '<dl class="search-results">' . theme('box', $search_results_message, $search_results) . '</dl>';
-    $search_results .= theme('pager', array(
-      'tags' => NULL,
-      'element' => 0,
-      'parameters' => array(
-        'search_lat' => $latitude,
-        'search_long' => $longitude,
-        'search_miles' => $search_miles
-      )
-    ));
-  }
-
-
-  return $search_results;
-
-}
-
-
-function _state_country_results($country, $province) {
-  $itemsPerPage = 25;
-  $countrycodes = _user_location_get_provincecode_to_province_map();
-
-  $query = "select * from {users} u, {user_location} l, {wsuser} w
-		where country = '%s'";
-  if (strlen($province)) {
-    $query .= " and province = '%s'";
-  }
-  $query .= "and not w.notcurrentlyavailable and u.status and u.uid = l.oid and u.uid = w.uid order by country, province, city";
-
-  $res = db_query($query, $country, $province);
-
-  $output .= '<table class="datatable">';
-  $itemlist = "province city fullname street";
-  $items = explode(' ', $itemlist);
-
-  $output .= "<tr>";
-  foreach ($items as $item) {
-    $output .= "<td>" . $item . "</td>";
-  }
-  $output .= "</tr>";
-
-  while ($row = db_fetch_object($res)) {
-    $output .= "<tr>";
-    foreach ($items as $item) {
-      $output .= "<td>" . $row->$item . "</td>";
-    }
-    $output .= "</tr>";
-
-  }
-  $output .= "</table>";
-  return $output;
-}
-
 
 /**
  * @todo Please document this function.
