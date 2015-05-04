@@ -550,12 +550,12 @@ function user_location_current_countries() {
   }
   else {
     // '<ISO two-letter code>' => '<English name for country>'
-    $sql = 'select distinct lcase(l.country) country, description
-			from {user_location_countries} c, {user_location} l, {users} u
-			where l.oid=u.uid and u.status > 0
-			and  c.country = l.country order by description';
-    $sqlresult = db_query($sql);
-    while ($rec = db_fetch_object($sqlresult)) {
+    $sql = 'SELECT DISTINCT LCASE(l.country) country, description
+			FROM {user_location_countries} c, {user_location} l, {users} u
+			WHERE l.oid=u.uid AND u.status > 0
+			AND  c.country = l.country ORDER BY description';
+    $result = db_query($sql, array('fetch' => PDO::FETCH_OBJ));
+    Foreach ($result as $rec) {
       $current_countries[$rec->country] = $rec->description;
     }
 
@@ -566,37 +566,6 @@ function user_location_current_countries() {
 
   return $current_countries;
 }
-
-
-
-
-/**
- * Select province for a given country for activeselect
- *
- * @param unknown_type $parents  Array with single entry - country
- * @return unknown
- */
-function _user_location_getnextlevel($parents) {
-
-  /* the argument $parents is actually an array passed by the calling select */
-  $count = 0;
-  foreach ($parents as $key => $description) {
-    /* they should only be selecting one so we'll only look at the first one */
-    if ($count == 0) {
-      $parentkey = $key;
-    }
-  }
-
-
-  $children = array();
-  $children[''] = t("Select State/Province...");
-  $children['XX'] = t('NOT LISTED');
-  $provincelist = 	_user_location_get_provincecode_to_province_map($parentkey);
-  foreach ($provincelist as $province => $description) {
-    $children[$province] = $description;
-  }
-  return $children;
-} // end of function
 
 
 /*************  Geocoding functions ******************************/
@@ -653,7 +622,7 @@ function _user_location_geocode($location = array()) {
       return $google_result;
     }
 
-    if ($db_result = location_geocode_from_db($location)) {
+    if ($db_result = _user_location_geocode_from_db($location)) {
       watchdog('geocode', "Database accuracy=%accuracy for user %user, details=%details", array('%user' => $location['name'], '%accuracy' => $db_result['source'], '%details' => drupal_json_encode($db_result)));
       return $db_result;
     }
@@ -665,9 +634,6 @@ function _user_location_geocode($location = array()) {
     }
 
   }
-
-
-
   return NULL;
 }
 
@@ -688,60 +654,39 @@ function _user_location_geocode($location = array()) {
  *      'longitude' => approximate longitude of the center of the postal code's area
  *
  */
-function location_geocode_from_db($location = array(), $must_match_province = FALSE) {
-  //watchdog('user', "location_get_postalcode_data_default: location=". print_r($location, true));
+function _user_location_geocode_from_db($location) {
 
   $provinces = _user_location_get_provincecode_to_province_map($location['country']);
 
   // Try geonames database with city/province/country
-  $res = db_query(
+  $row = db_query(
   	 "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
   	 FROM {geonames} g, {geonames_adm1} a
-  	 where g.country_code = '%s'
+  	 WHERE g.country_code = :country
   	 AND a.country_code=g.country_code and g.admin1_code=a.adm1_code
-  	 and feature_code in ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls')
-  	 and (ansiname = '%s' or g.name = '%s') AND a.name = '%s'", $location['country'], $location['city'], $location['city'], $provinces[$location['province']]);
-  if ($row = db_fetch_object($res)) {
-
+  	 AND feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls')
+  	 AND (g.ansiname = :city or g.name = :city)
+  	 AND a.name = :province",
+    array(':country' => $location['country'], ':city' => $location['city'], ':province' => $provinces[$location['province']]))
+  ->fetchField();
+  if (!empty($row)) {
     return array('latitude' => $row->latitude, 'longitude' => $row->longitude, 'city' => $row->city, 'province' => $location['province'], 'country' => $location['country'], 'source' => 5); /* source=5 means geocoded from city/provi/country */
   }
 
   // Try geonames with country/province to just get the province center
-  $res = db_query(
+  $row = db_query(
   	 "SELECT g.name city, a.name province, g.country_code country, latitude, longitude
   	 FROM {geonames} g, {geonames_adm1} a
-  	 where g.country_code = '%s'
+  	 WHERE g.country_code = :country
   	 AND a.country_code=g.country_code and g.admin1_code=a.adm1_code
-  	 and feature_code = 'adm1'
-  	 and a.name = '%s'", $location['country'], $provinces[$location['province']]);
-  if ($row = db_fetch_object($res)) {
+  	 AND feature_code = 'adm1'
+  	 AND a.name = :province",
+    array(':country' => $location['country'], ':province' => $provinces[$location['province']]))->fetchField();
+  if (!empty($row)) {
     $location['latitude'] = $row->latitude;
     $location['longitude'] = $row->longitude;
     $location['source'] = 7;
     return $location;
-  }
-
-
-
-  if (!$must_match_province) {
-    // Try geonames database with just city/country
-    $res = db_query(
-  		"SELECT g.name city, g.country_code country, g.admin1_code, latitude, longitude
-  	 	FROM {geonames} g
-  	 	where g.country_code = '%s'
-  	 	and (ansiname = '%s' or name = '%s')
-  	 	and feature_code in ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls', 'adm1', 'adm2')
-  	 	order by population desc", $location['country'], $location['city'], $location['city']);
-
-    if ($row = db_fetch_object($res)) {
-
-      $location['latitude'] = $row->latitude;
-      $location['longitude'] = $row->longitude;
-      $location['source'] = 6;
-      return $location;
-
-    }
-
   }
 
   return NULL;
