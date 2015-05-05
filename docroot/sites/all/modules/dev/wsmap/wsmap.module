@@ -69,6 +69,8 @@ function wsmap_view($uid = NULL, $zoom = 0) {
   $google_map_location = "https://maps.googleapis.com/maps/api/js?sensor=false&key=" . variable_get('user_location_google_key', '0');
   drupal_add_js($google_map_location, array('type' => 'external'));
 
+  $token = drupal_get_token('services');
+
   // Determine starting center location and zoom for the map
   if (!($default_location = locationservices_get_browser_location())) {
     $default_location = locationservices_country_position_from_country('us'); // Have to start them somewhere
@@ -93,6 +95,7 @@ function wsmap_view($uid = NULL, $zoom = 0) {
       'maxZoom' => intval(variable_get('wsmap_clusterer_max_zoom', 6)),
       'gridSize' => intval(variable_get('wsmap_clusterer_grid_size', 50)),
     ),
+    'token' => $token,
   );
 
   if (!empty($uid)) {
@@ -151,12 +154,18 @@ function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $center
     AND !notcurrentlyavailable
     AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
     ";
-  $avail_results_count = db_query($totalsql, array(
-    ':minlat' => $minlat,
-    ':maxlat' => $maxlat,
-    ':minlon' => $minlon,
-    ':maxlon' => $maxlon
-  ))->fetchField();
+
+  try {
+    $avail_results_count = db_query($totalsql, array(
+      ':minlat' => $minlat,
+      ':maxlat' => $maxlat,
+      ':minlon' => $minlon,
+      ':maxlon' => $maxlon
+    ))->fetchField();
+  } catch (Exception $e) {
+    watchdog_exception('wsmap', $e);
+  }
+
 
 
   // The subquery on users_roles prevents unvalidated users from showing up.
@@ -183,14 +192,22 @@ function wsmap_get_hosts_by_location($minlat, $maxlat, $minlon, $maxlon, $center
 		ORDER BY distance ASC";
 
   $limit = min($limit, variable_get('wsmap_max_hosts_retrievable', 2000));
-  $result = db_query_range($sql, 0, $limit, array(
-    ':centerlat' => $centerlat,
-    ';centerlong' => $centerlon,
-    ':minlat' => $minlat
-  ));
+  try {
+    $result = db_query_range($sql, 0, $limit, array(
+      ':centerlat' => $centerlat,
+      ':centerlon' => $centerlon,
+      ':minlat' => $minlat,
+      ':maxlat' => $maxlat,
+      ':minlon' => $minlon,
+      ':maxlon' => $maxlon,
+    ));
+  } catch (Exception $e) {
+    watchdog_exception('wsmap', $e);
+  }
+
 
   $accounts = array();
-  while ($row = db_fetch_array($result)) {
+  foreach ($result as $row) {
     $accounts[] = $row;
   }
 

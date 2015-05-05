@@ -37,8 +37,6 @@
         us: 4, ca: 5, ru: 3, cn: 4
       };
 
-// Was unable to use Drupal.behaviors here because any AHAH action re-fired
-// the behavior. Yuck.
       $(document).ready(function () {
         wsmap_initialize();
       });
@@ -55,6 +53,7 @@
         defaultLocation = Drupal.settings.wsmap.defaultLocation;
         marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity;
         marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity;
+        token = Drupal.settings.wsmap.token;
 
         // If we have a map-submit (go) button with some information configured,
         // Go to that location, but do not submit.
@@ -108,8 +107,11 @@
 
           $('#wsmap-load-status').html(Drupal.t('Loading...'));
           // Note that the actual limit here is set by the Drupal variable.
-          $.post('/services/rest/hosts/by_location',
-            {
+
+          $.ajax({
+            url: '/services/rest/hosts/by_location',
+            type: 'post',
+            data: {
               minlat: sw.lat(),
               maxlat: ne.lat(),
               minlon: sw.lng(),
@@ -117,7 +119,12 @@
               centerlat: center.lat(),
               centerlon: center.lng(),
               limit: 2000
-            }, function (json) {
+            },
+            headers: {
+              "X-CSRF-Token": token
+            },
+            dataType: 'json',
+            success: function (json) {
               addMarkersToMap(map, json);
 
               if (userInfo) {
@@ -137,12 +144,12 @@
                   infoWindow.open(map);
                 }
               }
-            });
+            }
+          });
         });
       }
 
-      function addMarkersToMap(map, json) {
-        var parsed = JSON.parse(json);
+      function addMarkersToMap(map, parsed) {
 
         for (var i = 0; i < parsed.accounts.length; i++) {
           var host = parsed.accounts[i];
