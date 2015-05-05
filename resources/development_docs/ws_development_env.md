@@ -15,11 +15,14 @@ See especially [Local server setup](https://drupal.org/node/157602)
 If you haven't ever set up a local Drupal environment before, make sure you can
 do that before trying to set up a Warmshowers environment.
 
-A few files will help you here, so do get them before you get far along. You'll
-need:
+You'll need:
 
 * Partially sanitized Warmshowers.org database
-* Settings.php
+* Google maps API key (ask for it)
+
+You may need:
+
+* Stripe dev keys
 
 ### Prerequisites: Apache and Mysql
 
@@ -31,7 +34,7 @@ development mysql databases.
 ### Git fork, checkout, and file configuration
 
 * Using your free github account, fork the Warmshowers.org code by visiting
-https://github.com/rfay/Warmshowers.org and clicking the "fork" button in the
+https://github.com/warmshowers/Warmshowers.org and clicking the "fork" button in the
 upper right. You'll end up with a repository named you/Warmshowers.org
 * Clone your forked repository onto your local machine. I always use the directory
 workspace/warmshowers in my home directory for this:
@@ -61,23 +64,20 @@ gzip -dc ~/Dropbox/ws_private/warmshowers_sanitized_*.sql.gz | mysql warmshowers
 will actually do the job. You could also copy it out to /tmp, gunzip it, and
 load with the mysql tool.
 
-### Editing the settings.php
+### Custom configuration in settings.local.php
 
-If you don't use the same username/password in settings.php, you may need to
-edit those. Edit the sites/default/settings.php as necessary.
+In docroot/sites/default there is a settings.local.php.example. Copy it to 
+settings.local.php and edit as you see fit. Mostly you'll need to change the things
+at the very top.
 
 ### Optionally populate the files directory
 
-The files directory has user pictures and some other random things. A tarball
-of it is available, but it grows seriously over time. A [December 2012 tarball](https://dl.dropboxusercontent.com/u/7350603/Warmshowers/ws_files_dev.20121223.tgz) can be used; it's large.
-The current is also available if you really want it. It's much larger.
-
-If you had downloaded it into /tmp:
-
-```
-cd ~/workspace/warmshowers/docroot
-tar -zxf /tmp/ws_files_dev.20121223.tgz
-```
+The files directory has user pictures and some other random things. In general it's
+way too much work to download and use a files tarball, so we use the excellent
+[stage_file_proxy](https://drupal.org/project/stage_file_proxy) to fill the gap. 
+This module points at Warmshowers.org to get and display pictures from there. 
+It does not work for everything, and at this writing is not working for anything
+in the D7 upgrade.
 
 ### Add hostnames into /etc/hosts
 

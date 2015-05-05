@@ -6,7 +6,7 @@ by the maintainer when they're ready.
 
 The basic idea is:
 
-1. Refresh/update your own environment from the upstream repository (github.com/rfay/Warmshowers.org)
+1. Refresh/update your own environment from the upstream repository (github.com/warmshowers/Warmshowers.org)
 2. Create a new branch for the work you want to do.
 3. When it is ready to share, push the branch to your repository
 4. Create a pull request from your pushed branch
