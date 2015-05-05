@@ -25,6 +25,6 @@
       (<?php print wsuser_source_to_description($account->source); ?>)
     </div>
     <?php print t('Need a converter degrees/minutes/seconds to decimal? !link',
-      array('!link' => l(t('Try this'), 'http://www.fcc.gov/mb/audio/bickel/DDDMMSS-decimal.html'))); ?>
+      array('!link' => l(t('Try this'), 'https://www.fcc.gov/encyclopedia/degrees-minutes-seconds-tofrom-decimal-degrees'))); ?>
   </div>
 
