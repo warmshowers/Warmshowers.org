@@ -7,7 +7,7 @@
  * @see https://drupal.org/node/1728246
  */
 ?>
-<div id="<?php print $block_html_id; ?>" class="<?php print $classes; ?>">
+<div id="<?php print $block_html_id; ?>" class="<?php print $classes; ?>"<?php print $attributes; ?>">
   <div class="block-wrapper clearfix">
     <?php print render($title_prefix); ?>
     <?php if ($title): ?>
