@@ -2,7 +2,7 @@
 
 /**
  * @file
- *  Handle Mandrill incoming webhooks.
+ * Handle Mandrill incoming webhooks.
  */
 
 define(MANDRILL_INCOMING_HANDLED, 1);
@@ -10,9 +10,9 @@ define(MANDRILL_INCOMING_UNHANDLED, 0);
 define(MANDRILL_INCOMING_ERROR, -1);
 
 /**
- * Implements hook_menu() to provide an administrative menu().
+ * Implements hook_menu().
  *
- * @return mixed
+ * Provides an administrative page for Mandrill Incoming.
  */
 function mandrill_incoming_menu() {
   $items['admin/config/services/mandrill_incoming'] = array(
@@ -64,13 +64,13 @@ function mandrill_incoming_services_resources() {
     ),
   );
   return $resources;
-
 }
 
 /**
- * Form providing admin menu options
+ * Form providing admin menu options.
  *
- * @return mixed
+ * @return array
+ *   An array of form elements for the admin page.
  */
 function mandrill_incoming_admin_settings_form($form, &$form_state) {
   $form['mandrill_incoming_canonical_url'] = array(
@@ -93,19 +93,23 @@ function mandrill_incoming_admin_settings_form($form, &$form_state) {
     '#description' => t('If this is not empty, any emails which do not get successfully handled by hook_mandrill_incoming_event() will be forwarded to this email address'),
     '#default_value' => variable_get('mandrill_incoming_failure_forward_email', ''),
   );
-  $form =  system_settings_form($form);
+  $form = system_settings_form($form);
   return $form;
 }
 
 /**
  * Generates a base64-encoded signature for a Mandrill webhook request.
- * Verbatim from http://help.mandrill.com/entries/23704122-Authenticating-webhook-requests
  *
- * @param string $webhook_key the webhook's authentication key
- * @param string $url the webhook url
- * @param array $params the request's POST parameters
+ * @param string $webhook_key
+ *   The webhook's authentication key.
+ * @param string $url
+ *   The webhook url.
+ * @param array $params
+ *   The request's POST parameters.
+ *
+ * @see http://help.mandrill.com/entries/23704122-Authenticating-webhook-requests
  */
-function mandrill_incoming_generate_signature($webhook_key, $url, $params) {
+function mandrill_incoming_generate_signature($webhook_key, $url, array $params) {
   $signed_data = $url;
   ksort($params);
   foreach ($params as $key => $value) {
@@ -117,11 +121,16 @@ function mandrill_incoming_generate_signature($webhook_key, $url, $params) {
 }
 
 /**
- * Process the incoming item. The events array is described at
- * http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-
+ * Process the incoming item.
  *
- * @param $events
+ * The events array is described at http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-
+ *
+ * @param string $events
+ *   A JSON encoded array of events received from Mandrill.
+ *
  * @return array
+ *   Mandrill needs to know if we received the events. We always
+ *   return array('success') to indicate that we've received the data.
  */
 function mandrill_incoming_event($events) {
 
@@ -129,7 +138,7 @@ function mandrill_incoming_event($events) {
   // only one!
   $canonical_url = variable_get('mandrill_incoming_canonical_url', 'https://www.warmshowers.org/services/rest/mandrill_events');
 
-  // Mandrill webhook key corresponding to canonical URL
+  // Mandrill webhook key corresponding to canonical URL.
   $key = variable_get('mandrill_incoming_webhook_key', '');
 
   // This is the simple HEAD access request that mandrill uses to check to
@@ -158,16 +167,23 @@ function mandrill_incoming_event($events) {
 
   foreach ($events as $event) {
 
-    // Each hook implementation receives $event (as described at http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-)
+    // Each hook implementation receives $event (as described at
+    // http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-)
     // and must return
     // - MANDRILL_INCOMING_HANDLED if it handled the message successfully
     // - MANDRILL_INCOMING_UNHANDLED if no error but not handled
-    // - array(MANDRILL_INCOMING_ERROR => $failure_description) if an error occurred processing the message.
+    // - array(MANDRILL_INCOMING_ERROR => $failure_description) if an error
+    //   occurred processing the message.
     $results = module_invoke_all('mandrill_incoming_event', $event);
 
     // If no module handled this event, resend the email to an admin.
     if (!in_array(MANDRILL_INCOMING_HANDLED, $results)) {
-      watchdog('mandrill_incoming', 'Failed to handle incoming email (to=%to, subject=%subject)', array('%to' => print_r($event->msg->to, TRUE), '%subject' => $event->msg->subject), WATCHDOG_WARNING);
+      watchdog('mandrill_incoming', 'Failed to handle incoming email (to=%to, subject=%subject)',
+        array(
+          '%to' => print_r($event->msg->to, TRUE),
+          '%subject' => $event->msg->subject,
+        ),
+        WATCHDOG_WARNING);
 
       $failure_description = "";
       foreach ($results as $item) {
@@ -201,34 +217,16 @@ function mandrill_incoming_event($events) {
     }
   }
 
-  // Return to Mandrill indicating we handled it...
+  // Return to Mandrill indicating we handled the incoming data.
   return array('success');
 }
 
 /**
- * Simple access callback required by the service definition
+ * Simple access callback required by the Service definition.
  *
  * @return bool
+ *   Always return TRUE.
  */
 function mandrill_incoming_access_callback() {
   return TRUE;
-}
-
-/**
- * Implements hook_mandrill_incoming_event().
- *
- * $event format is described at http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-
- *
- * Dummy hook that just logs. Demonstrates hook_mandrill_incoming_event()
- *
- * @param $event
- * @return int
- *   MANDRILL_INCOMING_HANDLED
- *   MANDRILL_INCOMING_UNHANDLED
- *   MANDRILL_INCOMING_ERROR
- */
-function mandrill_incoming_mandrill_incoming_event($event) {
-  $msg = $event->msg;
-  // watchdog('mandrill_incoming', 'Received "inbound" from=%from to=%to subject=%subject', array('%from' => print_r($msg->from_email, TRUE), '%to' => print_r($msg->to, TRUE), '%subject' => $msg->subject));
-  return MANDRILL_INCOMING_UNHANDLED;
 }
