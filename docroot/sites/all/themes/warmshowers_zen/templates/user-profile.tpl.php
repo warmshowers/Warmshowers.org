@@ -65,7 +65,7 @@
     ?></ul>
     </div>
     <div id="profile-tabs">
-      <?php print $menu_primary_local_tasks; ?>
+      <?php print $user_profile['menu_primary_local_tasks']; ?>
     </div>
   </div>
   <div class="content">
