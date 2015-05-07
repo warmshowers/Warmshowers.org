@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Default theme implementation to display a flag link, and a message after the action
@@ -21,10 +20,19 @@
  * - $link_title: The title attribute for the link.
  *
  * - $message_text: The long message to show after a flag action has been carried out.
+ * - $message_classes: A space-separated list of CSS classes that should be applied to
+ *   the message.
  * - $after_flagging: This template is called for the link both before and after being
  *   flagged. If displaying to the user immediately after flagging, this value
  *   will be boolean TRUE. This is usually used in conjunction with immedate
  *   JavaScript-based toggling of flags.
+ * - $needs_wrapping_element: Determines whether the flag displays a wrapping
+ *   HTML DIV element.
+ *
+ * Template suggestions available, listed from the most specific template to
+ * the least. Drupal will use the most specific template it finds:
+ * - flag--name.tpl.php
+ * - flag--link-type.tpl.php
  *
  * NOTE: This template spaces out the <span> tags for clarity only. When doing some
  * advanced theming you may have to remove all the whitespace.
