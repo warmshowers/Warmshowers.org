@@ -199,19 +199,28 @@ function mandrill_incoming_event($events) {
       $failure_forward_email = variable_get('mandrill_incoming_failure_forward_email', '');
       if (!empty($failure_forward_email)) {
         $message = array(
-          'id' => 'mandrill_incoming_failure',
-          'from' => $event->msg->from_email,
+          'id' => 'mandrill_incoming_mandrill_incoming_failure',
           'to' => $failure_forward_email,
           'subject' => "[MANDRILL FAILED: $failure_description]" . preg_replace('/\[mid[:.].*\]/', '', $event->msg->subject),
-          'body' => t('MANDRILL FAILED TO HANDLE: @failure_description', array('@failure_description' => $failure_description)) . "\r\nOriginal Subject:" . $event->msg->subject . "\r\n\r\n" . $event->msg->text . "\r\n\r\n------\r\n" . $event->msg->raw_msg,
+          'body' => array(
+            t('MANDRILL FAILED TO HANDLE: @failure_description', array('@failure_description' => $failure_description)) . "\r\nOriginal Subject:" . $event->msg->subject . "\r\n\r\n" . $event->msg->text . "\r\n\r\n------\r\n" . $event->msg->raw_msg,
+          ),
           'headers' => array(
-            'from' => $event->msg->from_email,
+            'From' => $event->msg->from_email,
+            'Sender' => $event->msg->from_email,
+            'Return-Path' => $event->msg->from_email,
           ),
         );
-        $result = drupal_mail_send($message);
+        $mail_system = drupal_mail_system('mandrill_incoming', 'mandrill_incoming_failure');
+        // The format function must be called before calling the mail function.
+        $message = $mail_system->format($message);
 
-        if (!$result) {
-          watchdog('mandrill_incoming', 'Failed to drupal_mail_send mandrill_incoming bail message', WATCHDOG_ERROR);
+        if (!$mail_system->mail($message)) {
+          // There was an error sending the message.
+          watchdog('mandrill_incoming', 'Failed to drupal_mail_system mandrill_incoming bail message. Message: <pre>%message</pre>',
+            array(
+              '%message' => print_r($message, TRUE),
+            ), WATCHDOG_ERROR);
         }
       }
     }
