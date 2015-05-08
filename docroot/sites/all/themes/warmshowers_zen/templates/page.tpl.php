@@ -126,15 +126,15 @@
     ?>
 
     <?php if ($sidebar_first || $sidebar_second): ?>
-      <aside class="sidebars">
+      <div class="sidebars">
         <?php print $sidebar_first; ?>
         <?php print $sidebar_second; ?>
-      </aside>
+      </div>
     <?php endif; ?>
 
   </div></div><!-- /#main, /#main-wrapper -->
 
-  <?php if ($footer || $secondary_menu): ?>
+  <?php if ($footer): ?>
     <div id="footer" class="<?php print $classes; ?>"><div class="section">
       <h2 class="title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
       <ul class="social">
