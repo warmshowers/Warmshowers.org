@@ -805,7 +805,7 @@ function wsuser_fieldlist() {
       'type' => 'date',
       'title' => t('Will Become Available To Host'),
       'description' => t('If you are permanently unavailable to host, just set this to a date far in the future.'),
-
+      'default' => REQUEST_TIME + 3600 * 24 * variable_get('wsuser_default_becomeavailable_days', 5 * 365),
     ),
     'homephone' => array(
       'type' => 'textfield',
@@ -947,44 +947,44 @@ function wsuser_fieldlist() {
 }
 
 /**
- * Set defaults for wsuser form elements
+ * Set default form values for account form
+ *
+ * @param $form_state_values
+ *   $form_state['values'] from form (if being resubmitted
+ * @param $account
+ *
+ * @return array
  */
-function wsuser_form_defaults($edit, $account) {
+function wsuser_form_defaults($form_state_values, $account) {
   $defaults = array();
   $fields = wsuser_fieldlist();
 
-  // TODO: Surely this can be done more efficiently
-  if ($edit['fullname']) {
-    foreach ($fields as $field => $value) {
-      $defaults[$field] = $edit[$field];
-      if ($field == 'becomeavailable') {
-        if (REQUEST_TIME > $edit['becomeavailable']) {
-          $edit['becomeavailable'] = REQUEST_TIME + 3600 * 24 * 60; // Default to 2 months from now?
-        }
-        list($x, $x, $x, $day, $month, $year) = localtime($edit['becomeavailable']);
-        $defaults['becomeavailable'] = array(
-          'year' => $year + 1900,
-          'month' => $month + 1,
-          'day' => $day,
-        );
-      }
+  foreach ($fields as $field => $value) {
+
+    // Choose the default for the field from
+    // 1) The edit/value
+    // 2) The account default
+    // 3) the default provided in wsuser_fieldlist()
+    // 4) ""
+    $default = !empty($value['default']) ? $value['default'] : "";
+    if (!empty($form_state_values[$field])) {
+      $default = $form_state_values[$field];
+    } else if (!empty($account->$field)) {
+      $default = $account->$field;
+    }
+    $defaults[$field] = $default;
+
+    // Special handling for becomeavailable to turn it into array
+    if ($field == 'becomeavailable') {
+      list($x, $x, $x, $day, $month, $year) = localtime($default);
+      $defaults['becomeavailable'] = array(
+        'year' => $year + 1900,
+        'month' => $month + 1,
+        'day' => $day,
+      );
     }
   }
-  else {
-    if ($account->fullname) {
-      foreach ($fields as $field => $value) {
-        $defaults[$field] = $account->$field;
-        if ($field == 'becomeavailable') {
-          list($x, $x, $x, $x, $day, $month, $year) = localtime($account->becomeavailable);
-          $defaults['becomeavailable'] = array(
-            'year' => $year,
-            'month' => $month + 1,
-            'day' => $day,
-          );
-        }
-      }
-    }
-  }
+
   return $defaults;
 }
 
@@ -994,7 +994,12 @@ function wsuser_form_defaults($edit, $account) {
  *
  */
 function wsuser_user_delete($account) {
+  try {
   db_delete('wsuser')->condition('uid', $account->uid)->execute();
+  } catch (Exception $e) {
+    watchdog_exception('wsuser', $e);
+  }
+
 }
 
 /**
@@ -1995,12 +2000,16 @@ function _wsuser_queue_notavailable_reminders() {
     ));
 
     // Update the wsuser now to make sure we don't hit this member again.
-    db_update('wsuser')
-      ->fields(array(
-        'last_unavailability_pester' => $now,
-      ))
-      ->condition('uid', $row->uid)
-      ->execute();
+    try {
+      db_update('wsuser')
+        ->fields(array(
+          'last_unavailability_pester' => $now,
+        ))
+        ->condition('uid', $row->uid)
+        ->execute();
+    } catch (Exception $e) {
+      watchdog_exception('wsuser', $e);
+    }
   }
 }
 
@@ -2183,12 +2192,17 @@ function _wsuser_process_users_that_become_available() {
   $languages = language_list();
   foreach ($result as $row) {
     // Update user to available to host.
+    try{
     db_update('wsuser')
       ->fields(array(
         'notcurrentlyavailable' => 0,
       ))
       ->condition('uid', $row->uid)
       ->execute();
+    } catch (Exception $e) {
+      watchdog_exception('wsuser', $e);
+    }
+
 
     // Notify user via email that they are now marked as available to host.
     drupal_mail('wsuser', 'become_available_notification', $row->mail, $languages[$row->language], array('account' => user_load($row->uid)));
