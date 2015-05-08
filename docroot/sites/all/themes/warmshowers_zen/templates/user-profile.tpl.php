@@ -40,10 +40,10 @@
       if (!empty($photo_scolding)) {
         print $photo_scolding;
       } else {
-        print theme('user_picture', $account);
+        print print render($user_profile['user_picture']);
       } ?></div>
     <div id="name-title">
-      <h3><?php print render($user_profile['fullname']); ?></h3>
+      <h3><?php print render($fullname); ?></h3>
 
       <ul id="user_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
         $i++;
