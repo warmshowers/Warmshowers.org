@@ -12,7 +12,7 @@ $realm_variables = array();
   $realm_variables['language']['cs'] = array(
   'comment_notify_default_mailtext' => 'Uživateli [comment-subscribed:author:fullname],
 
-Příspěvek !commname je komentován: "!node_title":
+Příspěvek [comment:author:fullname] je komentován: "!node_title":
 
 !commtext
 
@@ -222,7 +222,7 @@ Dobrá, to je vše! Prosím pokračujte dál a vyplňte vaše registrační úda
   'anonymous' => 'Ehemaliges Mitglied',
   'comment_notify_default_mailtext' => 'Guten Tag [comment-subscribed:author:fullname],
 
-!commname hat auf "!node_title" kommentiert:
+[comment:author:fullname] hat auf "!node_title" kommentiert:
 
 !commtext
 
@@ -492,7 +492,7 @@ O.K., das ist alles! Bitte fahren Sie unten mit Ihrer Registrierung fort.
   'anonymous' => 'Former member',
   'comment_notify_default_mailtext' => 'Hi [comment-subscribed:author:fullname],
 
-!commname has commented on: "!node_title":
+[comment:author:fullname] has commented on: "!node_title":
 
 !commtext
 
@@ -796,7 +796,7 @@ OK, that\'s all! Please continue on below and fill in your registration.
   'anonymous' => 'Anonymous',
   'comment_notify_default_mailtext' => 'Hola [comment-subscribed:author:fullname],
 
-!commname ha comentado sobre: "!node_title":
+[comment:author:fullname] ha comentado sobre: "!node_title":
 
 !commtext
 
@@ -1282,7 +1282,7 @@ Warmshowers.org ',
   'anonymous' => 'Anonymous',
   'comment_notify_default_mailtext' => 'Bonjour [comment-subscribed:author:fullname],
 
-!commname a rédigé un commentaire sur : "!node_title":
+[comment:author:fullname] a rédigé un commentaire sur : "!node_title":
 
 !commtext
 
@@ -1997,7 +1997,7 @@ Warm Showersに登録しようとして頂き、大変うれしく思います!
   $realm_variables['language']['pl'] = array(
   'comment_notify_default_mailtext' => 'Witaj [comment-subscribed:author:fullname],
 
-!commname skomentował: "!node_title":
+[comment:author:fullname] skomentował: "!node_title":
 
 !commtext
 
@@ -2455,7 +2455,7 @@ Estamos felizes Nós estamos contentes que você quer  participar dos Chuveiros 
   $realm_variables['language']['ru'] = array(
   'comment_notify_default_mailtext' => 'Здравствуйте, [comment-subscribed:author:fullname],
 
-!commname оставил(а) комментарий к записи: "!node_title":
+[comment:author:fullname] оставил(а) комментарий к записи: "!node_title":
 
 !commtext
 
@@ -2717,7 +2717,7 @@ Warmshowers.org',
   $realm_variables['language']['sr'] = array(
   'comment_notify_default_mailtext' => 'Здраво [comment-subscribed:author:fullname],
 
-!commname је оставио коментар на: "!node_title":
+[comment:author:fullname] је оставио коментар на: "!node_title":
 
 !commtext
 
@@ -2972,7 +2972,7 @@ Warmshowers.org',
   $realm_variables['language']['sv'] = array(
   'comment_notify_default_mailtext' => 'Hej [comment-subscribed:author:fullname],
 
-!commname har kommenterat: "!node_title":
+[comment:author:fullname] har kommenterat: "!node_title":
 
 !commtext
 
@@ -3239,7 +3239,7 @@ Warmshowers.org',
   $realm_variables['language']['zh-hans'] = array(
   'comment_notify_default_mailtext' => '[comment:node:author:fullname]，您好！
 
-!commname 回复了主题： "!node_title":
+[comment:author:fullname] 回复了主题： "!node_title":
 
 !commtext
 
@@ -3310,7 +3310,7 @@ E-mail: %useremail
 ',
   'node_notify_default_mailtext' => '[comment:node:author:fullname]，您好！
 
-!commname 回复了您发表的主题 "!node_title"：
+[comment:author:fullname] 回复了您发表的主题 "!node_title"：
 
 !commtext
 
