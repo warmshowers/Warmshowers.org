@@ -63,10 +63,10 @@ Když obdržíte zprávu "Bohužel nemáte přístup na tuto stránku (error 403
 
 Nemůžete-li tento problém vyřešit, požádejte nás o pomoc; odpovězte na tento e-mail a problém popište.
 ',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Odkaz na jednorázové přihlášení pro uživatele [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Odkaz na jednorázové přihlášení pro uživatele [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -80,8 +80,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Děkujeme, že jste se registroval/registrovala na Warmshowers.org.
@@ -90,7 +90,7 @@ Kliknutím <a href="[user:one-time-login-url]">sem</a> ověříte správnost va�
 
 [user:one-time-login-url]
 
-Po ověření výše uvedeným odkazem se budete moci přihlásit na !login_uri za použití uživatelského jména a hesla, které jste si zvolil/zvolila:
+Po ověření výše uvedeným odkazem se budete moci přihlásit na [site:login-url] za použití uživatelského jména a hesla, které jste si zvolil/zvolila:
 
 Uživatelské jméno [user:name]
 Heslo: heslo, které jste si zvolil/zvolila
@@ -100,11 +100,11 @@ Máte-li další otázky, odpovězte na tento e-mail a my se vám budeme snažit
 Díky,
 
 
-tým -  !site
+tým -  Warmshowers
 
 --Admin use only
 Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Ověřte váš nový účet na Warmshowers.org',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Ověřte váš nový účet na Warmshowers.org',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -174,8 +174,8 @@ Warmshowers.org webmaster
 
 --
 Admin use only:
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Váš účet je aktivován.',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Váš účet je aktivován.',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -198,7 +198,7 @@ Máte-li nějaké otázky, odpovězte prosím na tento e-mail.
 Díky,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] Účet uživatele [user:name] zrušen',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  Účet uživatele [user:name] zrušen',
   'user_picture_guidelines' => 'Rádi bychom viděli <i>vaši fotografii</i>, třeba na kole nebo ve vašem bydlišti. Není to vůbec povinné, ale bylo by to fajn. Náhodný výběr fotografií se rovněž objevuje na hlavní stránce. <i>Jestliže vložíte fotografii a ta se hned neobjeví, použijte funkci “tvrdé obnovy”. (Stiskněte klávesu SHIFT a klikněte na tlačítko Obnovit (REFRESH) ve vašem prohlížeči.)</i>',
   'user_registration_help' => '<h3> Vítejte! Než budete pokračovat, přečtěte si následující informace</h3>
 Těší nás, že se chcete přihlásit do Warm Showers! Vložení informací o vás netrvá dlouho. Poté vám pošleme ověřovací e-mail – musíte kliknout na odkaz v něm uvedený. Ale v současnosti, v miliardách antispamových filtrů, se může stát, že náš e-mail nedostanete, jestliže si nás nepřidáte do vašeho „whitelistu“ (seznam důvěryhodných odesílatelů), a tím by váš účet nikdy nevznikl. Tak tedy…
@@ -217,9 +217,9 @@ Právě teď, před odesláním tohoto formuláře, si přidejte wsl@warmshowers
 <br/><br/>
 Dobrá, to je vše! Prosím pokračujte dál a vyplňte vaše registrační údaje.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Zdravíme, pane/paní/slečno [user:fullname] - <br/><br/>Váš účet u Warmshowers.org, [user], byl automaticky aktualizován, aby vás zobrazoval jako dostupného hostitele, protože prošlo datum které jste zadal/zadala jako konec vaší nedostupnosti. Pokud jste stále "dočasně nedostupný", přihlaste se prosím na Warmshowers.org a aktualizujte váš účet. Můžete se přihlásit návštěvou stránky nebo jednoduše <a href=\'[user:login_url]\'>kliknutím na tento odkaz</a>. Díky!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Odkaz na profil</a><br/><a href=\'[account-edit-url]\'>Aktualizace profilu</a><br/><a href=\'[user:login_url]\'>Přímé přihlášení</a><br/>',
+  'wsuser_become_available_notification_body' => 'Zdravíme, pane/paní/slečno [user:fullname] - <br/><br/>Váš účet u Warmshowers.org, [user:name], byl automaticky aktualizován, aby vás zobrazoval jako dostupného hostitele, protože prošlo datum které jste zadal/zadala jako konec vaší nedostupnosti. Pokud jste stále "dočasně nedostupný", přihlaste se prosím na Warmshowers.org a aktualizujte váš účet. Můžete se přihlásit návštěvou stránky nebo jednoduše <a href=\'[user:login_url]\'>kliknutím na tento odkaz</a>. Díky!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Odkaz na profil</a><br/><a href=\'[account-edit-url]\'>Aktualizace profilu</a><br/><a href=\'[user:login_url]\'>Přímé přihlášení</a><br/>',
   'wsuser_become_available_notification_subject' => 'Nyní jste zařazen do seznamu dostupných hostitelů na Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Zdravíme, pane/paní/slečno [user:fullname], <br/><br/>váš účet u Warmshowers.org, [user], je označen jako "dočasně nedostupný" pro hostitelství. Můžete se prosím přihlásit a nastavit datum, kdy očekáváte váš návrat? Pokud ho neznáte nebo nemůžete přijímat hosty, vložte vzdálené datum, např. 2025-01-01. To můžete kdykoliv změnit. Můžete se přihlásit uživatelským jménem a heslem na <a href=\'https://www.warmshowers.org\'>www.warmshowers.org</a> nebo <a href=\'[user:login_url]\'>kliknout na tento odkaz pro automatické přihlášení.</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Odkaz na profil</a><br/><a href=\'[account-edit-url]\'>Aktualizace profilu</a><br/><a href=\'[user:login_url]\'>Přímé přihlášení</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Zdravíme, pane/paní/slečno [user:fullname], <br/><br/>váš účet u Warmshowers.org, [user:name], je označen jako "dočasně nedostupný" pro hostitelství. Můžete se prosím přihlásit a nastavit datum, kdy očekáváte váš návrat? Pokud ho neznáte nebo nemůžete přijímat hosty, vložte vzdálené datum, např. 2025-01-01. To můžete kdykoliv změnit. Můžete se přihlásit uživatelským jménem a heslem na <a href=\'https://www.warmshowers.org\'>www.warmshowers.org</a> nebo <a href=\'[user:login_url]\'>kliknout na tento odkaz pro automatické přihlášení.</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Odkaz na profil</a><br/><a href=\'[account-edit-url]\'>Aktualizace profilu</a><br/><a href=\'[user:login_url]\'>Přímé přihlášení</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Váš účet u Warmshowers je označen jako "dočasně nedostupný". Aktualizujte prosím datum vašeho návratu. ([user:fullname])',
 );
   $realm_variables['language']['de'] = array(
@@ -228,7 +228,11 @@ Dobrá, to je vše! Prosím pokračujte dál a vyplňte vaše registrační úda
 
 [comment:author:fullname] hat auf "[comment:node:title]" kommentiert:
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
+
 
 Sie können diesen Kommentar <a href="[comment:url]">hiere</a> sehen und bearbeiten (Bitte antworten Sie nicht via Email, da diese nur an die Administratoren der Website geht.)
 
@@ -240,7 +244,7 @@ das Warmshowers.org-Team',
   'contact_form_information' => 'Schreiben Sie uns eine Mail. Wir antworten so schnell wie möglich.
 <p>Sie dürfen uns gerne eine Mail über dieses Formular schreiben.</p>
 
-<p>Falls Sie Hilfe zur Webseite brauchen, <a href="/faq">lesen Sie bitte zuerst die FAQ</a> und konsultieren Sie das <a href="http://de.warmshowers.org/forums/website-help-and-support">Hilfe-Forum</a>, wo Sie Fragen stellen können. Antworten von Mitgliedern können wiederum anderen Mitgliedern Auskunft geben. </p>
+<p>Falls Sie Hilfe zur Webseite brauchen, <a href="https://de.warmshowers.org/faq">lesen Sie bitte zuerst die FAQ</a> und konsultieren Sie das <a href="http://de.warmshowers.org/forums/website-help-and-support">Hilfe-Forum</a>, wo Sie Fragen stellen können. Antworten von Mitgliedern können wiederum anderen Mitgliedern Auskunft geben. </p>
 
 <p>Falls Sie englisch sprechen, hilft es den Administratoren sehr, wenn Sie die Frage auf Englisch stellen können. Danke!</p>',
   'faq_description' => '',
@@ -302,7 +306,11 @@ Mailadresse: %useremail',
 
 Sie haben einen Kommentar auf "[comment:node:title]" erhalten:
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
+
 
 Sie können die Kommentare <a href="[comment:url]">hier sehen</a> (bitte antworten Sie nicht via Email, da diese nur an die Administratoren der Website geht).
 
@@ -337,10 +345,10 @@ Fehlersuche:
 Falls Sie auf "Entschuldigung - Sie haben keinen Zugriff auf diese Seite (Fehler 403)" kommen ist es fast sicher, dass Sie Cookies in Ihrem Browser aktivieren müssen. Sehen Sie sich dazu <a href="http://de.warmshowers.org/content/ich-will-mich-einloggen-aber-bekomme-zugriff-verweigert">diesen Artikel in den FAQ an</a>.
 
 Falls Sie das Problem nicht lösen können, fragen Sie bitte nach Hilfe, indem Sie auf diese Mail antworten.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Einmaliger Login-Link für [user:fullname] ([user:name])',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Einmaliger Login-Link für [user:fullname] ([user:name])',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -354,8 +362,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Danke für die Registrierung auf Warmshowers.org.
@@ -364,7 +372,7 @@ Bitte <a href="[user:one-time-login-url]">klicken Sie hier,</a> um Ihre Mailadre
 
 [user:one-time-login-url]
 
-Nachdem Sie Ihr Konto mit dem obenstehenden Link validiert haben, können Sie sich einloggen in !login_uri mittels dem folgenden Benutzernamen und dem Passwort, das Sie eingegeben haben:
+Nachdem Sie Ihr Konto mit dem obenstehenden Link validiert haben, können Sie sich einloggen in [site:login-url] mittels dem folgenden Benutzernamen und dem Passwort, das Sie eingegeben haben:
 
 Benutzername: [user:name]
 Passwort: Das Passwort, das Sie eingegeben haben
@@ -373,11 +381,11 @@ Falls Sie irgendwelche Fragen haben, können Sie auf diese Mail antworten und wi
 
 Vielen Dank,
 
---  das !site Team
+--  das Warmshowers Team
 
 --Nur für Administratoren:
 Admin (bearbeiten): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Aktivieren Sie Ihr Konto auf Warmshowers.org ([user:name])',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Aktivieren Sie Ihr Konto auf Warmshowers.org ([user:name])',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -445,8 +453,8 @@ Warmshowers.org webmaster
 
 --
 Nur für Administratoren:
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Ihr Konto wurde aktiviert',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Ihr Konto wurde aktiviert',
   'user_mail_status_blocked_body' => 'Hallo [user:name],
 
 Ihr Konto auf www.warmshowers.org wurde gesperrt.
@@ -469,7 +477,7 @@ Falls Sie fragen haben, antworten Sie auf diese Mail.
 Freundliche Grüsse,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] Ihr Kont ([user:name]) wurde gelöscht',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  Ihr Kont ([user:name]) wurde gelöscht',
   'user_picture_guidelines' => 'Wir würden uns über ein Bild von <i>Ihnen</i> freuen, vielleicht eines, wo Sie in Ihrer Gegend Fahrrad fahren. Dies ist natürlich völlig freiwillig aber kann unterhaltsam sein. <i>Falls Sie ein neues Bild hochladen und es nicht sofort angezeigt wird, aktualisieren Sie die Seite in Ihrem Browser.</i>
 ',
   'user_registration_help' => '<h3>Willkommen! Bitte lesen Sie dies, bevor Sie unten fortfahren</h3>
@@ -486,9 +494,9 @@ Wir sind froh, dass Sie sich bei Warmshowers anmelden wollen! In einer Mitnute k
 </ol><br/><br/>
 O.K., das ist alles! Bitte fahren Sie unten mit Ihrer Registrierung fort.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Guten Tag [user:fullname] - <br/><br/>Ihr Warmshowers.org-Konto [user] wurde automatisch aktualisiert, so dass Sie als "zurzeit verfügbar" für Beherbergungen angezeigt werden, da das Datum, an dem Sie angegeben haben wieder verfügbar zu sein, überschritten wurde. Falls Sie immer noch nicht verfügbar sein sollten, loggen Sie sich bitte auf Warmshowers.org ein und aktualisieren Sie Ihre Benutzerdaten. Sie können sich einloggen, indem Sie die Seite besuchen oder <a href=\'[user:login_url]\'>hier klicken</a>. Vielen Dank!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profil-Link</a><br/><a href=\'[account-edit-url]\'>Profil-beareiten-Link</a><br/><a href=\'[user:login_url]\'>Direkter Login-Link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Guten Tag [user:fullname] - <br/><br/>Ihr Warmshowers.org-Konto [user:name] wurde automatisch aktualisiert, so dass Sie als "zurzeit verfügbar" für Beherbergungen angezeigt werden, da das Datum, an dem Sie angegeben haben wieder verfügbar zu sein, überschritten wurde. Falls Sie immer noch nicht verfügbar sein sollten, loggen Sie sich bitte auf Warmshowers.org ein und aktualisieren Sie Ihre Benutzerdaten. Sie können sich einloggen, indem Sie die Seite besuchen oder <a href=\'[user:login_url]\'>hier klicken</a>. Vielen Dank!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profil-Link</a><br/><a href=\'[account-edit-url]\'>Profil-beareiten-Link</a><br/><a href=\'[user:login_url]\'>Direkter Login-Link</a><br/>',
   'wsuser_become_available_notification_subject' => 'Sie sind nur als verfügbar für Beherbungen auf Warmshowers.org eingetragen ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Guten Tag [user:fullname] <br/><br/>Ihr Warmshowers-Konto [user] ist als "zurzeit nicht verfügabar" markiert. Könnten Sie sich bitte einloggen und das Datum eintragen, an dem Sie zurückzukommen gedenken? Falls Sie noch nicht wissen wann Sie wieder verfügbar sein werden, tragen Sie bitte einfach ein weit entferntes Datum wie 2025-01-01 ein. Sie können dies jederzeit ändern. Sie können sich mit ihrem Benutzernamen und Ihrem Passwort auf <a href=\'https://de.warmshowers.org\'>de.warmshowers.org</a> oder <a href=\'[user:login_url]\'>indem Sie hier klicken</a> einloggen.<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profil-Link</a><br/><a href=\'[account-edit-url]\'>Profil bearbeiten</a><br/><a href=\'[user:login_url]\'>Direkter Login-Link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Guten Tag [user:fullname] <br/><br/>Ihr Warmshowers-Konto [user:name] ist als "zurzeit nicht verfügabar" markiert. Könnten Sie sich bitte einloggen und das Datum eintragen, an dem Sie zurückzukommen gedenken? Falls Sie noch nicht wissen wann Sie wieder verfügbar sein werden, tragen Sie bitte einfach ein weit entferntes Datum wie 2025-01-01 ein. Sie können dies jederzeit ändern. Sie können sich mit ihrem Benutzernamen und Ihrem Passwort auf <a href=\'https://de.warmshowers.org\'>de.warmshowers.org</a> oder <a href=\'[user:login_url]\'>indem Sie hier klicken</a> einloggen.<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profil-Link</a><br/><a href=\'[account-edit-url]\'>Profil bearbeiten</a><br/><a href=\'[user:login_url]\'>Direkter Login-Link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Ihr Warmshowers-Konto ist als zurzeit nicht verfügbar markiert. Bitte geben Sie Ihre Rückkehr an  ([user:fullname])',
 );
   $realm_variables['language']['en'] = array();
@@ -507,7 +515,7 @@ You can stop receiving emails when someone replies to this post by <a href="[com
 - Warmshowers.org team',
   'contact_form_information' => '<p>You are welcome to contact us here via email.</p>
 
-<p>If you need help using the site, please <a href="/faq">read the FAQ first</a>, and then please consider reading the <a href="http://www.warmshowers.org/forums/website-help-and-support">Help Forum</a> and posting there where others can help you, and the answer will help others as well.</p>
+<p>If you need help using the site, please <a href="https://www.warmshowers.org/faq">read the FAQ first</a>, and then please consider reading the <a href="http://www.warmshowers.org/forums/website-help-and-support">Help Forum</a> and posting there where others can help you, and the answer will help others as well.</p>
 
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>
 
@@ -639,10 +647,10 @@ Troubleshooting:
 If you get "Sorry - you don\'t have access to that page (error 403)", it almost certainly means you have cookies turned off on your browser.  To get cookies configured correctly please see <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">this article in the FAQ</a>.
 
 If you can\'t solve this problem, please ask for help. Reply to this message and ask for help.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] One-time login link for  [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  One-time login link for  [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -656,8 +664,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Thank you for registering at Warmshowers.org.
@@ -666,7 +674,7 @@ Please <a href="[user:one-time-login-url]">click here</a> to validate your email
 
 [user:one-time-login-url]
 
-After you validate with the link above you will be able to log in to !login_uri using the following username and the password you entered:
+After you validate with the link above you will be able to log in to [site:login-url] using the following username and the password you entered:
 
 username: [user:name]
 password: The password you entered
@@ -676,11 +684,11 @@ If you have any questions, you can reply to this email and we\'ll do our best to
 Thanks,
 
 
---  !site team
+--  Warmshowers team
 
 --Admin use only
 Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Validate your account on Warmshowers.org ([user:name])',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Validate your account on Warmshowers.org ([user:name])',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -750,8 +758,8 @@ Warmshowers.org webmaster
 
 --
 Admin use only:
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Your account has been approved',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Your account has been approved',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -774,7 +782,7 @@ If you have any questions, please reply to this email.
 Thanks,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] account deleted',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] account deleted',
   'user_picture_guidelines' => 'We\'d like a picture of <i>you</i>, perhaps cycling or at your location. This is entirely optional, of course, but can be fun and helps guests or hosts know more about you. Random pictures show on the front page as well. <i>If you upload a new picture and it doesn\'t show up right away, do a shift-refresh on your browser. (Hold down the SHIFT key and click the REFRESH button on your browser.)</i>
 ',
   'user_registration_help' => '<h3>Welcome! Please read this before continuing below</h3>
@@ -785,7 +793,7 @@ Right now, before submitting this form, please add wsl@warmshowers.org to your S
 <li>Please take a look at <a href="https://www.warmshowers.org/faq#t27n4029" target="_blank">the Rules</a> and remember to check them out whenever you are in doubt.</li>
 <li>When you sign up, please remember that it means you\'re planning to offer hospitality, at least someday. This is a reciprocal hospitality site. (If you are on tour or otherwise can\'t offer hospitality right now, you\'ll check the "not currently available" checkbox and then in the future you can uncheck it in your account.)</li>
 <li>Minors (people not of legal age) are not allowed to use the site, so please do not continue if you are a minor.</li>
-<li>Remember that we have a <a href="/faq" target="_blank">Frequently Asked Questions</a> page, which may resolve problems if you have them, and remember to check it if you ever have trouble logging into the site.</li>
+<li>Remember that we have a <a href="https://www.warmshowers.org/faq" target="_blank">Frequently Asked Questions</a> page, which may resolve problems if you have them, and remember to check it if you ever have trouble logging into the site.</li>
 <li>Are you concerned about who can see the information you put here?  The website is constructed such that the information in your profile is not visible to the outside world; only members will be able to view it after they have logged in.  And your email address is always hidden, even from other members.</li>
 <li>Your personal safety is also very important to us.  Please read the <a href="/personal-security">the Personal Security page</a> for more information on this subject.</li>
 <li>Our <a target="_blank" href="/privacy">Privacy Policy</a> reminds you that your member profile is visible only to other members and that only members can contact you.</li>
@@ -794,10 +802,10 @@ Right now, before submitting this form, please add wsl@warmshowers.org to your S
 <br/><br/>
 OK, that\'s all! Please continue on below and fill in your registration.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'You are now listed as available to host on Warmshowers.org ([user:fullname])',
   'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user:name], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://www.warmshowers.org\'>www.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
-  'wsuser_notavailable_reminder_subject' => 'junk [user:fullname]',
+  'wsuser_notavailable_reminder_subject' => 'Your Warmshowers account is marked unavailable. Please update your return date.  ([user:fullname])',
 );
   $realm_variables['language']['es'] = array(
   'anonymous' => 'Anonymous',
@@ -874,10 +882,10 @@ De cualquier manera, te recomendamos utilizar una alternativa a otro navegador d
 Este problema puede causarlo un programa que bloquee las cookies. Por ejemplo, CA Security Center puede bloquear las cookies en todos los navegadores. Intenta como último recurso deshabilitar temporalmente el firewall y el antivirus, para ver si son la causa del problema.
 
 Si no puedes resolver este problema, responde a este mensaje e intentaremos ayudarte.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Enlace de un solo uso para restablecer la contraseña de [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Enlace de un solo uso para restablecer la contraseña de [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -891,8 +899,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => 'Hola [user:name]:
 
 Gracias por registrarte en Warmshowers.org.
@@ -901,7 +909,7 @@ Por favor <a href="[user:one-time-login-url]">click aqui</a> para validar tu dir
 
 [user:one-time-login-url]
 
-Después de hacerlo, podrás acceder a tu cuenta en !login_uri usando los siguientes nombre de usuario y contraseña (que podrás cambiar después):
+Después de hacerlo, podrás acceder a tu cuenta en [site:login-url] usando los siguientes nombre de usuario y contraseña (que podrás cambiar después):
 
 usuario: [user:name]
 
@@ -971,7 +979,7 @@ Administrator use only:
 Su cuenta en www.warmshowers.org ha sido activado y que ahora tienen acceso completo al sitio web. Puede entrar en cualquier momento con el nombre de usuario y contraseña creada durante el registro.
 
 Si usted tiene problemas o preguntas que nos envíe un correo electrónico y haremos nuestro mejor esfuerzo para ayudar.',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Su cuenta ha sido aprobada',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Su cuenta ha sido aprobada',
   'user_mail_status_blocked_body' => 'Hola [user:name]:
 
 Tu cuenta en www.warmshowers.org ha sido bloqueada.
@@ -1012,9 +1020,9 @@ Así que, antes de continuar con tu registro, añade por favor wsl@warmshowers.o
 ¡Esto es todo! Te invitamos pues a continuar con tu registro más abajo.
 <hr/>
 ',
-  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'You are now listed as available to host on Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://es.warmshowers.org\'>es.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user:name], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://es.warmshowers.org\'>es.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Your Warmshowers account is marked unavailable. Please update your return date. ([user:fullname])',
 );
   $realm_variables['language']['fa'] = array(
@@ -1095,7 +1103,7 @@ WarmShowers.org
 
 اگر نتوانستید این مشکل را حل کنید، لطفا ً از ما کمک بخواهید و  این  ایمیل را  Reply  کنید.
 
-[Warmshowers.org] عضویت انجام شد .
+Warmshowers:  عضویت انجام شد .
 خوشامدید[user:name] !
 
 حساب شما در www.warmshowers.or  فعال شده است .
@@ -1113,12 +1121,12 @@ Warmshowers.org webmaster
 
 --
 فقط برای استفاده مدیریت
-!uri
+[user:url]
 ',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] لینک یکبار اجازه یکبار ورود برای [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  لینک یکبار اجازه یکبار ورود برای [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -1132,8 +1140,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 از عضویت شما در
@@ -1152,10 +1160,10 @@ http://fa.warmshowers.org/user
  "reply"
  کردن این ایمیل از ما بپرسید و ما حداکثر سعیمان را برای کمک به شما می کنیم.
 با تشکر،
---!site team
+--Warmshowers team
 -- فقط برای استفاده مدیریت
 مدیریت(ویرایش): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] تایید عضویت شما در Warmshowers.org',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  تایید عضویت شما در Warmshowers.org',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -1224,10 +1232,10 @@ Warmshowers.org webmaster
 
 --
 فقط برای استفاده مدیریت
-!uri
+[user:url]
 ',
-  'user_mail_status_activated_subject' => ' [Warmshowers.org] عضویت انجام شد .',
-  'user_mail_status_blocked_body' => '[Warmshowers.org] حساب شما مسدود شد.
+  'user_mail_status_activated_subject' => ' Warmshowers:  عضویت انجام شد .',
+  'user_mail_status_blocked_body' => 'Warmshowers:  حساب شما مسدود شد.
 سلام [user:name]
 حساب شما  در www.warmshowers.org  مسدود شد.
 هر سئوالی دارید لطفا با پاسخ دادن به همین ایمیل بپرسید
@@ -1241,7 +1249,7 @@ Warmshowers.org webmaster
 فقط برای استفاده مدیریت
 [user:edit-url]
 ',
-  'user_mail_status_blocked_subject' => '[Warmshowers.org] حساب شما مسدود شد.',
+  'user_mail_status_blocked_subject' => 'Warmshowers:  حساب شما مسدود شد.',
   'user_mail_status_deleted_body' => 'حساب شما  در www.warmshowers.org  حذف شده اس ، احتمال زیاد بخاطر درخواست شما و یا به علت نامعتبر بودن  آن.
 هر سئوالی دارید لطفا با پاسخ دادن به همین ایمیل بپرسید
 
@@ -1249,7 +1257,7 @@ Warmshowers.org webmaster
 با تشکر،
 -Randy Fay
 Warmshowers.org ',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] حساب [user:name] حذف گردید.',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  حساب [user:name] حذف گردید.',
   'user_picture_guidelines' => 'ما دوستداریم عکسی از<i> شما</i> داشته باشیم ، احتمالا در حال دوچرخه سواری  و یا در خانه تان.  البته این کاملا ً اختیاری است ،  ولی میتواند سرگرم کننده باشد. زیرا ما در صفحه اول سایت از بین عکسهای اعضا ، عکسهایی را  بطور اتفاقی اتخاب کرده و به نمایش می گذاریم. اگر یک عکس جدید بارگذاری کردید ولی همچنان  عکس قدیمی به نمایش درآمد، یک  shift-refresh   روی مرورگر خود انجام دهید.( کلید  SHIFT  را فشرده نهداشته و همزمان  نمایه REFRESH   را کلیک کنید.) </i>',
   'user_registration_help' => '<h3>خوش آمدید! لطفا ً قبل از ادامه ، مطلب زیر را بخوانید. </h3>
 ما خوشحالیم که شما میخواهید در وارم شاورز عضو شوید! تا دقایقی دیگر ، شما اطلاعات خود را وارد خواهید کرد، و سپس ما یک ایمیل  تاییدی به شما خواهیم فرستاد –  شما باید یک لینک در این ایمیل را کلیک کنید. ولی البته این روزها با وجود میلیونها فیلتر مختلف ، ممکن است ایمیل ما یه صندوق ورودی  ایمیل شما نرود، و در صورتی که این ایمیل به شما نرسد ، نم نویسی و عضویت شما هیچوقت کامل  نمی شود.   مگر اینکه قبلا  آدرس  ایمیل ما را به  عنوان ایمیل  قابل اعتماد ( غیر مزاحم) در لیست سفید وارد کرده باشیدد و یا در دفترچه آدرسها، در ایمیل خود، ثبت کرده باشید.بنابر این...
@@ -1277,7 +1285,7 @@ Warmshowers.org ',
 ',
   'wsuser_become_available_notification_body' => 'سلام [user:fullname], <br/><br/>
  حساب شما در وارمشاورز
-  [user]
+  [user:name]
  بطور اتوماتیک بروز شده تا شمارا بعنوان "در دسترس برای مهمان پذیری" نمایش دهد زیرا بر مبنای زمانی که شما تنظیم کرده بودید اکنون در دسترس هستید.
 اگر همچنان امکان پذیرا شدن مهمان را ندارید لطفا به سایت وارد شده و صفحه شناسنامه یا همان پروفایل خود را بروز کنید.
  شما میتوانید با نام کاربری و کلمه عبور خود از طریق زیر وارد شوید.
@@ -1427,10 +1435,10 @@ Le problème vient généralement du fait que les cookies sont désactivés sur 
     * Assurez-vous d´avoir vidé la mémoire cache: pour IE6 Outils->Options Internet->Delete Files. Dans  Firefox, cliquez sur Outils->Effacer mes traces; cochez "cache" et "sessions identifiées / authentifiées " et cliquez sur "effacer mes traces maintenant".
     * Tout programme qui bloque les cookies peut aussi causer ce problème. Norton peut ainsi, selon les réglages, bloquer les cookies pour tous les programmes. Essayez de désactiver temporairement votre firewall et votre antivirus, pour voir s\'ils sont la cause du problème.
     *Si le problème persiste, demandez de l\'aide. Répondez à cet e-mail et décrivez votre problème.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] E-mail de réinitialisation du mot de passe ([user:name])',
+  'user_mail_password_reset_subject' => 'Warmshowers:  E-mail de réinitialisation du mot de passe ([user:name])',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -1443,8 +1451,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => 'Bonjour [user:name]:
 
 Merci de vous être inscrit à Warmshowers.org
@@ -1520,7 +1528,7 @@ Administrator use only:
 Votre compte à www.warmshowers.org a été activé et que vous avez maintenant un accès complet au site. Vous pouvez vous connecter à tout moment avec le nom d\'utilisateur et mot de passe créés lors de votre inscription.
 
 Si vous avez des problèmes ou des questions envoyez nous un email et nous ferons de notre mieux pour aider.',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Votre compte a été approuvé',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Votre compte a été approuvé',
   'user_mail_status_blocked_body' => 'Hola [user:name]:
 
 Tu cuenta en www.warmshowers.org ha sido bloqueada.
@@ -1564,9 +1572,9 @@ Avant d\'envoyer ce formulaire, veuillez ajouter wsl@warmshowers.org à votre "l
 Voilà ... Vous pouvez maintenant remplir votre formulaire d\'inscription !
 <hr/>
 ',
-  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Votre compte Warmshowers.org, [user], a été automatiquement mis à jour pour signifier que vous étiez disponibles pour accueillir des cyclistes. En effet, la date de retour que vous aviez spécifié pour votre retour est passée. Si vous n\'êtes toujours pas disponibles, merci de vous connecter sur Warmshowers.org et de mettre à jour votre compte. Vous pouvez vous connecter avec votre login et votre mot de passe sur <a href=\'https://fr.warmshowers.org\'>fr.warmshowers.org</a> ou <a href=\'[user:login_url]\'>cliquer sur ce lien</a> pour vous connecter automatiquement.<br/> <br/>Merci!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Votre compte Warmshowers.org, [user:name], a été automatiquement mis à jour pour signifier que vous étiez disponibles pour accueillir des cyclistes. En effet, la date de retour que vous aviez spécifié pour votre retour est passée. Si vous n\'êtes toujours pas disponibles, merci de vous connecter sur Warmshowers.org et de mettre à jour votre compte. Vous pouvez vous connecter avec votre login et votre mot de passe sur <a href=\'https://fr.warmshowers.org\'>fr.warmshowers.org</a> ou <a href=\'[user:login_url]\'>cliquer sur ce lien</a> pour vous connecter automatiquement.<br/> <br/>Merci!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'Vous êtes maintenant "disponibles" sur Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Votre compte warmshowers.org, [user], est marqué "indisponible" pour accueillir des cyclistes. Pouvez vous s\'il vous plaît vous connecter et renseigner la date à laquelle vous pensez être à nouveau disponible? Si vous ne savez pas quand vous rentrez ou quand vous pourrez de nouveau héberger des membres de warmshowers, renseignez simplement une date comme 2025-01-01. Vous pouvez la changer à tout moment. Vous pouvez vous connecter avec votre login et votre mot de passe sur <a href=\'https://fr.warmshowers.org\'>fr.warmshowers.org</a> ou <a href=\'[user:login_url]\'>cliquer sur ce lien pour vous connecter automatiquement</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Votre compte warmshowers.org, [user:name], est marqué "indisponible" pour accueillir des cyclistes. Pouvez vous s\'il vous plaît vous connecter et renseigner la date à laquelle vous pensez être à nouveau disponible? Si vous ne savez pas quand vous rentrez ou quand vous pourrez de nouveau héberger des membres de warmshowers, renseignez simplement une date comme 2025-01-01. Vous pouvez la changer à tout moment. Vous pouvez vous connecter avec votre login et votre mot de passe sur <a href=\'https://fr.warmshowers.org\'>fr.warmshowers.org</a> ou <a href=\'[user:login_url]\'>cliquer sur ce lien pour vous connecter automatiquement</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'french version [user:fullname]',
 );
   $realm_variables['language']['it'] = array(
@@ -1649,10 +1657,10 @@ Risoluzione dei problemi:
 
 Se viene visualizzato il messaggio "Spiacenti – non hai accesso a questa pagina (error 403)", quasi certamente ci sono dei cookies disattivati sul tuo motore di ricerca.  Per configurare i cookies correttamente visita <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">nelle FAQ</a>.
 Se non riesci a risolvere il problema, chiedi aiuto rispondendo a questa email.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Login unico per [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Login unico per [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -1665,8 +1673,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Grazie per aver effettuato la registrazione su Warmshowers.org.
@@ -1675,7 +1683,7 @@ Ti preghiamo <a href="[user:one-time-login-url]">di cliccare qui</a> per registr
 
 [user:one-time-login-url]
 
-Dopo aver convalidato la tua registrazione, sarai autorizzata/o ad effettuare il login su !login_uri usando i seguenti nome utente e password (da te scelti):
+Dopo aver convalidato la tua registrazione, sarai autorizzata/o ad effettuare il login su [site:login-url] usando i seguenti nome utente e password (da te scelti):
 
 nome utente: [user:name]
 password: La password che hai scelto
@@ -1685,11 +1693,11 @@ Se ci sono problemi, rispondi a questa email e faremo del nostro meglio per veni
 Grazie,
 
 
---  !site team
+--  Warmshowers team
 
 --Ad uso esclusivo dell\'amministratore
 Admin (modifica): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Confermare la registrazione su Warmshowers.org ([user:name])',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Confermare la registrazione su Warmshowers.org ([user:name])',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -1758,8 +1766,8 @@ Warmshowers.org webmaster
 
 --
 Ad uso esclusivo dell\'amministratore:
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Il tuo account è stato creato con successo ([user:name])',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Il tuo account è stato creato con successo ([user:name])',
   'user_mail_status_blocked_body' => 'Ciao [user:name],
 
 Il tuo account su www.warmshowers.org è stato bloccato.
@@ -1772,7 +1780,7 @@ Warmshowers.org webmaster
 
 Ad uso dell\'amministratore:
 [user:edit-url]',
-  'user_mail_status_blocked_subject' => '[Warmshowers.org] [user:name] account bloccato',
+  'user_mail_status_blocked_subject' => 'Warmshowers:  [user:name] account bloccato',
   'user_mail_status_deleted_body' => 'Ciao [user:name],
 
 Il tuo account su www.warmshowers.org è stato cancellato, probabilmente come da te richiesto o perchè riconosciuto come invalido o spam.
@@ -1782,7 +1790,7 @@ Se hai delle domande, per favore rispondi a questa email.
 Grazie,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] account cancellato',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] account cancellato',
   'user_picture_guidelines' => 'Inviaci una foto di <i>Te</i>, con la tua bici o a casa tua. Si tratta di una scelta del tutto opzionale ma può rivelarsi divertente. Foto di questo tipo appaiono anche sulla pagina principale. <i>Se carichi una nuova foto e non diventa visibile entro pochi istanti, premi shift-refresh (shift+aggiorna) sul tuo motore di ricerca. (Tieni premuto il pulsante SHIFT e clicca su REFRESH/AGGIORNA.)</i>',
   'user_registration_help' => '<h3>Benvenuta/o! Per favore leggi qui prima di procedere</h3>
 Siamo felici che tu abbia deciso di far parte della comunità Warm Showers! Fra pochi istanti potrai inserire i tuoi dettagli e subito dopo riceverai una email di conferma – dovrai cliccare sul collegamento per attivare il tuo account. Ma attenzione, perchè con tutti i filtri antispam che abbiamo oggigiorno, potresti non ricevere mai questa email se prima non aggiungi Warm Showers alla Lista Bianca nella casella dello spam! Quindi …
@@ -1801,9 +1809,9 @@ Per favore, prima di riempire il formulario, aggiungi l\'indirizzo wsl@warmshowe
 <br/><br/>
 OK, è tutto per ora! Adesso prosegui con la registrazione.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Ciao [user:fullname] - <br/><br/>Il tuo profilo Warmshowers.org, [user], è stato automaticamente aggiornato, dichiarandoti disponibile ad offrire ospitalità ad altri/e utenti, in conformità con la data da te indicata per questo cambiamento. Se ancora non sei disponibile, per favore visita il tuo profilo su Warmshowers.org e aggiornalo con una data diversa. Puoi autenticarti semplicemente andando sul sito o <a href=\'[user:login_url]\'>cliccando su questo link</a>. Grazie!<br/><br/>-Randy Fay<br/>Amministratore di Warmshowers.org <br/>---<br/><a href=\'[user:url]\'>Collegamento al Il mio profilo</a><br/><a href=\'[account-edit-url]\'>Collegamento a Modifica profilo</a><br/><a href=\'[user:login_url]\'>Log in diretto</a><br/>',
+  'wsuser_become_available_notification_body' => 'Ciao [user:fullname] - <br/><br/>Il tuo profilo Warmshowers.org, [user:name], è stato automaticamente aggiornato, dichiarandoti disponibile ad offrire ospitalità ad altri/e utenti, in conformità con la data da te indicata per questo cambiamento. Se ancora non sei disponibile, per favore visita il tuo profilo su Warmshowers.org e aggiornalo con una data diversa. Puoi autenticarti semplicemente andando sul sito o <a href=\'[user:login_url]\'>cliccando su questo link</a>. Grazie!<br/><br/>-Randy Fay<br/>Amministratore di Warmshowers.org <br/>---<br/><a href=\'[user:url]\'>Collegamento al Il mio profilo</a><br/><a href=\'[account-edit-url]\'>Collegamento a Modifica profilo</a><br/><a href=\'[user:login_url]\'>Log in diretto</a><br/>',
   'wsuser_become_available_notification_subject' => 'Sei ora contrassegnato/a come disponibile ad offrire ospitalità su Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Ciao [user:fullname], <br/><br/>Il tuo profilo su warmshowers.org, [user], è contrassegnato come non disponibile ad offrire ospitalità. Per favore accedi al tuo profilo e imposta la data in cui prevedi di ritornare ad esserlo. Se non sei sicura/o quando questo potrà verificarsi, imposta una data molto lontana nel tempo, come il 01-01-2025. Puoi cambiarla in ogni momento. Puoi autenticarti con i tuoi nome utente e password automaticamente, cliccando qui <a href=\'https://it.warmshowers.org\'>it.warmshowers.org</a> o <a href=\'[user:login_url]\'>cliccando qui per il Log in diretto</a><br/><br/>-Randy Fay<br/>Amministratore di Warmshowers.org <br/>---<br/><a href=\'[user:url]\'>Collegamento al Il mio profilo</a><br/><a href=\'[account-edit-url]\'>Collegamento a Modifica profilo</a><br/><a href=\'[user:login_url]\'>Log in diretto</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Ciao [user:fullname], <br/><br/>Il tuo profilo su warmshowers.org, [user:name], è contrassegnato come non disponibile ad offrire ospitalità. Per favore accedi al tuo profilo e imposta la data in cui prevedi di ritornare ad esserlo. Se non sei sicura/o quando questo potrà verificarsi, imposta una data molto lontana nel tempo, come il 01-01-2025. Puoi cambiarla in ogni momento. Puoi autenticarti con i tuoi nome utente e password automaticamente, cliccando qui <a href=\'https://it.warmshowers.org\'>it.warmshowers.org</a> o <a href=\'[user:login_url]\'>cliccando qui per il Log in diretto</a><br/><br/>-Randy Fay<br/>Amministratore di Warmshowers.org <br/>---<br/><a href=\'[user:url]\'>Collegamento al Il mio profilo</a><br/><a href=\'[account-edit-url]\'>Collegamento a Modifica profilo</a><br/><a href=\'[user:login_url]\'>Log in diretto</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'IL tuo profilo su Warmshowers è contrassegnato come non disponibile. Per favore aggiorna la tua data di ritorno. ([user:fullname])',
 );
   $realm_variables['language']['ja'] = array(
@@ -1834,10 +1842,10 @@ OK, è tutto per ora! Adesso prosegui con la registrazione.
 
 If you can\'t solve this problem, please ask for help. Reply to this message in English and ask for help.
 もし、問題を解決できない場合は、このメールに英語で返信して質問して下さい',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] [user:name]さんのためのワンタイムログインのリンク',
+  'user_mail_password_reset_subject' => 'Warmshowers:  [user:name]さんのためのワンタイムログインのリンク',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -1850,8 +1858,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Warmshowers.orgにご登録いただき、ありがとうございます。
@@ -1860,7 +1868,7 @@ Warmshowers.orgにご登録いただき、ありがとうございます。
 
 [user:one-time-login-url]
 
-上のリンクでアカウントを有効化すると、下記のユーザー名と入力されたパスワードで!login_uriにログインできるようになります:
+上のリンクでアカウントを有効化すると、下記のユーザー名と入力されたパスワードで[site:login-url]にログインできるようになります:
 
 ユーザー名: [user:name]
 パスワード: あなたが入力したパスワード
@@ -1871,11 +1879,11 @@ If you have any questions, you can reply to this email in English and we\'ll do 
 ありがとうございます。
 
 
---  !site チーム
+--  Warmshowers チーム
 
 --以下は管理用リンク
 Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Warmshowers.orgのアカウントを有効化する',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Warmshowers.orgのアカウントを有効化する',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -1944,8 +1952,8 @@ Any questions? Just reply to this message in English.
 
 --
 以下は管理用リンク
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] あなたのアカウントは承認されました',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  あなたのアカウントは承認されました',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -1969,10 +1977,10 @@ If you have any questions, please reply to this email in English.
 
 ありがとうございます。
 Warmshowers.orgのRandy Fayより
-[Warmshowers.org] [user:name]さんのアカウントは削除されました
+Warmshowers:  [user:name]さんのアカウントは削除されました
 [user:name]さん、こんにちは。
 ',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name]さんのアカウントは削除されました',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name]さんのアカウントは削除されました',
   'user_picture_guidelines' => '私たちは、あなたが、地元でサイクリングしているような<i>あなた</i>の写真を望んでいます。これは完全に任意のオプションですが、あれば楽しいものです。これはフロントページのランダムな写真にも表示されます。 <i>もし新しい写真をアップロードした場合、すぐには表示されません。ブラウザでシフトキーを押しながら再読み込みのボタンを押してみて下さい。</i>',
   'user_registration_help' => '<h3>ようこそ! 以下を良く読んでからお進みください</h3>
 Warm Showersに登録しようとして頂き、大変うれしく思います!
@@ -2002,9 +2010,9 @@ Warm Showersに登録しようとして頂き、大変うれしく思います!
 これですべてです!
 以下の登録フォームの入力を続けて下さい。
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'You are now listed as available to host on Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://ja.warmshowers.org\'>ja.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user:name], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://ja.warmshowers.org\'>ja.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Your Warmshowers account is marked unavailable. Please update your return date. ([user:fullname])',
 );
   $realm_variables['language']['pl'] = array(
@@ -2116,10 +2124,10 @@ Rozwiązywanie problemów:
 Jeśli wyświetla Ci się „Niestety nie masz dostępu do tej strony (błąd 403)", najprawdopodobniej oznacza to, że masz wyłączoną obsługę plików cookies w przeglądarce.  Aby poprawnie skonfigurować te pliki przeczytaj <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">ten artykuł na stronie FAQ</a>.
 
 Jeśli nie potrafisz rozwiązać tego problemu, poproś o pomoc odpowiadając na tę wiadomość.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Jednorazowy link do logowania dla [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Jednorazowy link do logowania dla [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -2132,8 +2140,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 Dziękujemy za rejestrację na Warmshowers.org.
 
@@ -2141,7 +2149,7 @@ Kliknij <a href="[user:one-time-login-url]">tutaj</a>, aby potwierdzić swój ad
 
 [user:one-time-login-url]
 
-Po potwierdzeniu kliknięciem w link powyżej będziesz mógł się zalogować na !login_uri wykorzystując następujące dane, które podałeś:
+Po potwierdzeniu kliknięciem w link powyżej będziesz mógł się zalogować na [site:login-url] wykorzystując następujące dane, które podałeś:
 
 nazwa użytkownika: [user:name]
 hasło: hasło, które podałeś
@@ -2151,9 +2159,9 @@ Jeśli masz jakiekolwiek pytania, możesz odpowiedzieć na tę wiadomość, a my
 Dziękujemy,
 
 
--- !site team
+-- Warmshowers team
 ',
-  'user_mail_register_no_approval_required_subject' => ' [Warmshowers.org] Weryfikacja konta na Warmshowers.org',
+  'user_mail_register_no_approval_required_subject' => ' Warmshowers:  Weryfikacja konta na Warmshowers.org',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -2222,8 +2230,8 @@ Webmaster Warmshowers.org
 
 --
 Admin use only:
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Twoje konto zostało potwierdzone',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Twoje konto zostało potwierdzone',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -2246,7 +2254,7 @@ Jeśli masz jakiekolwiek pytania, prosimy o odpowiedź na tę wiadomość.
 Dziękujemy,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] konto usunięte',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] konto usunięte',
   'user_picture_guidelines' => 'Chcielibyśmy, abyś dodał <i>swoje</i> zdjęcie, na rowerze albo w domu,  w którym przyjmować będziesz gości. Jest to oczywiście opcja całkowicie dobrowolna, ale naszym zdaniem całkiem przyjemna. Losowe zdjęcia ukazują się także na pierwszej stronie. <i>Jeśli załadowałeś nowe zdjęcie, a nie pojawiło się ono od razu na stronie, odśwież widok w przeglądarce (shift + odśwież). (Naciśnij guzik SHIFT na klawiaturze, a następnie przycisk ODŚWIEŻ w przeglądarce.)</i>',
   'user_registration_help' => '<h3>Witaj! Przeczytaj zanim pójdziesz dalej</h3>
 Cieszymy się, że chcesz dołączyć do społeczności Warm Showers! Za chwilę poprosimy Cię, abyś wprowadził informacje o sobie, a następnie wyślemy Ci e-mail potwierdzający - należy kliknąć w link w mailu.  W dzisiejszych czasach milionów filtrów antyspamowych możesz jednak nie dostać naszej wiadomości, jeśli nie dodasz nas do listy zaufanych odbiorców, a wtedy Twoje konto nigdy nie zostanie stworzone. Więc ....
@@ -2265,9 +2273,9 @@ Teraz, przed wysłaniem tego formularza, dodaj wsl@warmshowers.org do listy zauf
 <br/><br/>
 To wszystko! Prosimy teraz, abyś kontynuował i wypełnił formularz rejestracyjny.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Witaj [user:fullname], <br/><br/>Twoje konto Warmshowers.org - [user], zostało automatycznie uaktualnione i wyświetla teraz informację "Mogę przyjmować gości", ponieważ Twoja data dostępności ustawiona przez Ciebie wcześniej, właśnie minęła. Jeśli nadal nie możesz przyjmować nikogo, zaloguj się na Warmshowers.org i uaktualnij informacje na swoim koncie. Możesz zalogować się, odwiedzając witrynę lub po prostu <a href="[user:login_url]">klikając na ten link</a>. Dziękujemy!<br/><br/>-Randy Fay<br/> Webmaster Warmshowers.org <br/>---<br/><a href="[user:url]">Link do profilu</a><br/><a href="[account-edit-url]">Link do edycji profilu</a><br/><a href="[user:login_url]"> Link do bezpośredniego logowania</a><br/>',
+  'wsuser_become_available_notification_body' => 'Witaj [user:fullname], <br/><br/>Twoje konto Warmshowers.org - [user:name], zostało automatycznie uaktualnione i wyświetla teraz informację "Mogę przyjmować gości", ponieważ Twoja data dostępności ustawiona przez Ciebie wcześniej, właśnie minęła. Jeśli nadal nie możesz przyjmować nikogo, zaloguj się na Warmshowers.org i uaktualnij informacje na swoim koncie. Możesz zalogować się, odwiedzając witrynę lub po prostu <a href="[user:login_url]">klikając na ten link</a>. Dziękujemy!<br/><br/>-Randy Fay<br/> Webmaster Warmshowers.org <br/>---<br/><a href="[user:url]">Link do profilu</a><br/><a href="[account-edit-url]">Link do edycji profilu</a><br/><a href="[user:login_url]"> Link do bezpośredniego logowania</a><br/>',
   'wsuser_become_available_notification_subject' => 'Wyświetlasz się teraz jako dostępny dla gości na Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Witaj [user:fullname], <br/><br/>Twoje konto Warmshowers.org - [user], jest oznaczone jako niedostępne dla gości. Czy możesz się zalogować i ustawić datę swojego spodziewanego powrotu? Jeśli nie znasz jej jeszcze lub wiesz, że dalej nie będziesz mógł nikogo gościć, wpisz po prostu bardzo odległą datę, np. 01.01.2025. Możesz ją zmienić w każdej chwili. Możesz zalogować się przy pomocy swojego konta użytkownika i hasła na <a href="https://pl.warmshowers.org">pl.warmshowers.org</a> lub<a href="[user:login_url]"> kliknąć ten link, aby zalogować się automatycznie</a><br/><br/>-Randy Fay<br/> Webmaster Warmshowers.org <br/>---<br/><a href="[user:url]">Link do profilu</a><br/><a href="[account-edit-url]">Link do edycji profilu</a><br/><a href="[user:login_url]"> Link do bezpośredniego logowania</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Witaj [user:fullname], <br/><br/>Twoje konto Warmshowers.org - [user:name], jest oznaczone jako niedostępne dla gości. Czy możesz się zalogować i ustawić datę swojego spodziewanego powrotu? Jeśli nie znasz jej jeszcze lub wiesz, że dalej nie będziesz mógł nikogo gościć, wpisz po prostu bardzo odległą datę, np. 01.01.2025. Możesz ją zmienić w każdej chwili. Możesz zalogować się przy pomocy swojego konta użytkownika i hasła na <a href="https://pl.warmshowers.org">pl.warmshowers.org</a> lub<a href="[user:login_url]"> kliknąć ten link, aby zalogować się automatycznie</a><br/><br/>-Randy Fay<br/> Webmaster Warmshowers.org <br/>---<br/><a href="[user:url]">Link do profilu</a><br/><a href="[account-edit-url]">Link do edycji profilu</a><br/><a href="[user:login_url]"> Link do bezpośredniego logowania</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Twoje konto na Warmshowers.org wyświetla się jako niedostępne. Prosimy uaktualnić datę powrotu. ([user:fullname])',
 );
   $realm_variables['language']['pt-br'] = array(
@@ -2319,10 +2327,10 @@ Certifique-se de limpar o cache. No Internet Explorer 6 acesse Ferramentas->Opç
 Todo programa que bloqueie cookies causará esse problema. Por exemplo, o CA Security Center pode bloquear cookies de qualquer programa. Tente desabilitar temporariamente seu firewall e anti-vírus para ver se não são eles que causam o problema.
 
 Se não conseguir resolver o problema, peça ajuda. Envie uma mensagem usando o formulário de contato.',
-  'user_mail_password_reset_subject' => '[WarmShowers.org] Link de recuperação de senha para [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Link de recuperação de senha para [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -2335,8 +2343,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Obrigado por se inscrever no WarmShowers.org.
@@ -2345,7 +2353,7 @@ Por favor <a href="[user:one-time-login-url]">clique aqui</a> para validar seu e
 
 [user:one-time-login-url]
 
-Depois de validar sua conta você poderá efetuar login em !login_uri usando o seguinte nome de usuário e senha:
+Depois de validar sua conta você poderá efetuar login em [site:login-url] usando o seguinte nome de usuário e senha:
 
 Nome de usuário: [user:name]
 
@@ -2420,7 +2428,7 @@ webmaster do WarmShowers.org
 
 --
 Somente para Admin:
-!uri',
+[user:url]',
   'user_mail_status_activated_subject' => 'WarmShowers.org: Usuário [user:name] foi aprovado',
   'user_mail_status_blocked_body' => 'Hola [user:name]:
 
@@ -2456,15 +2464,15 @@ Estamos felizes Nós estamos contentes que você quer  participar dos Chuveiros 
   <li>Lembre-se que temos uma página de <a href="http://pt.warmshowers.org/faq" target="_blank">Perguntas Frequentes (FAQ)</a>, que pode tirar suas possíveis dúvidas. Lembre-se de consultá-la tenha problemas ao efetuar login no site.</li>
 </ol>
 <p>Pronto! Por favor, preencha o formulário abaixo com o máximo de detalhes, com atenção especial aos campos obrigatórios (marcados com <span class="form-required" title="Este campo é obrigatório.">*</span>)</p>',
-  'wsuser_become_available_notification_body' => 'Olá [user:fullname] - <br/><br/>A sua conta do Warmshowers.org cujo utilizador/usuário é, [user], foi automaticamente atualizada para "disponível para hospedar" porque a data prevista de retorno que especificou já passou. Se continua indisponível para hospedar ligue-se, pff, a Warmshowers.org e atualize o seu perfil. Pode ligar-se ao site visitando-o ou <a href=\'[user:login_url]\'>clicando neste link</a>. Obrigado!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Olá [user:fullname] - <br/><br/>A sua conta do Warmshowers.org cujo utilizador/usuário é, [user:name], foi automaticamente atualizada para "disponível para hospedar" porque a data prevista de retorno que especificou já passou. Se continua indisponível para hospedar ligue-se, pff, a Warmshowers.org e atualize o seu perfil. Pode ligar-se ao site visitando-o ou <a href=\'[user:login_url]\'>clicando neste link</a>. Obrigado!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'Agora está listado como "disponível para hospedar" em Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Olá [user:fullname], <br/><br/>A sua conta warmshowers.org cujo utilizador/usuário é, [user], está marcado como "não disponível para hospedar". Agradecíamos que se ligasse ao site e no perfil definisse a data que prevê voltar a ter disponibilidade (data de retorno). Se não souber quando vai voltar a ter disponibilidade, coloque uma data longínqua do tipo 2025-01-01. Pode alterá-la sempre que quiser. Ligue-se ao site com o seu utilizador/usuário e palavra passe em  <a href=\'https://pt.warmshowers.org\'>pt.warmshowers.org</a> ou <a href=\'[user:login_url]\'>clique neste link para se ligar automaticamente</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Olá [user:fullname], <br/><br/>A sua conta warmshowers.org cujo utilizador/usuário é, [user:name], está marcado como "não disponível para hospedar". Agradecíamos que se ligasse ao site e no perfil definisse a data que prevê voltar a ter disponibilidade (data de retorno). Se não souber quando vai voltar a ter disponibilidade, coloque uma data longínqua do tipo 2025-01-01. Pode alterá-la sempre que quiser. Ligue-se ao site com o seu utilizador/usuário e palavra passe em  <a href=\'https://pt.warmshowers.org\'>pt.warmshowers.org</a> ou <a href=\'[user:login_url]\'>clique neste link para se ligar automaticamente</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'O seu perfil está marcado como "não disponível para hospedar". Atualize, pff a data prevista de retorno. ([user:fullname])',
 );
   $realm_variables['language']['ro'] = array(
-  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'You are now listed as available to host on Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://ro.warmshowers.org\'>ro.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user:name], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://ro.warmshowers.org\'>ro.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Your Warmshowers account is marked unavailable. Please update your return date. ([user:fullname])',
 );
   $realm_variables['language']['ru'] = array(
@@ -2576,10 +2584,10 @@ WarmShowers.org
 
 Если вы не можете решить проблему, ответьте на письмо с просьбой о помощи.
 ',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Одноразовая ссылка входа для  [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Одноразовая ссылка входа для  [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -2592,8 +2600,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Спасибо за регистрацию на сайте Warmshowers.org.
@@ -2602,7 +2610,7 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 [user:one-time-login-url]
 
-После активации вашего профиля по вышеприведенной ссылке вы сможете войти !login_uri используя ваше имя пользователя и пароль:
+После активации вашего профиля по вышеприведенной ссылке вы сможете войти [site:login-url] используя ваше имя пользователя и пароль:
 
 Имя пользователя: [user:name]
 Пароль: The password you entered
@@ -2612,11 +2620,11 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 Спасибо,
 
 
--- команда !site
+-- команда Warmshowers
 
 --Admin use only
 Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Подтвердите регистрацию на Warmshowers.org',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Подтвердите регистрацию на Warmshowers.org',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -2685,8 +2693,8 @@ Administrator use only:
 
 --
 Admin use only:
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Ваш профиль активирован',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Ваш профиль активирован',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -2709,7 +2717,7 @@ Admin use:
 Спасибо,
 Рэнди Фэй
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] профиль [user:name] удален',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  профиль [user:name] удален',
   'user_picture_guidelines' => 'Мы были бы рады видеть <i>ваше</i> фото. Было бы хорошо - вместе с велосипедом, в ваших краях. Это целиком на ваше усмотрение, но было бы приятно – фотографии пользователей в случайном порядке показываются на стартовой странице. <i>Если вы загружаете новую фотографию и она не отображается, сделайте принудительное обновление страницы (зажмите клавишу SHIFT и нажмите кнопку ОБНОВИТЬ в вашем браузере).</i>',
   'user_registration_help' => '<h3>Добро пожаловать! Пожалуйста, прочитайте вначале этот текст </h3>
 Мы рады, что вы хотите стать участником Warm Showers! Вам необходимо ввести информацию о себе, и далее мы пришлем вам письмо-подтверждение регистрации. Пожалуйста, перейдите по ссылке, которая будет указана в письме. Но, обратите внимание – в наши дни многие письма блокируются спам-фильтрами, и вы можете не увидеть письмо-подтверждение в вашем почтовом ящике, если не добавите заранее наш адрес в «белый список». В этом случае ваша регистрация не будет завершена. Поэтому…
@@ -2728,9 +2736,9 @@ Warmshowers.org',
 <br/><br/>
 Вот и все! Пожалуйста, перейдите к нижеследующему разделу для заполнения формы регистрации.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Здравствуйте, [user:fullname] - <br/><br/>Ваша учетная запись на сайте Warmshowers.org, [user], автоматически переведена в состояние возможности приема гостей, потому что наступила дата, которую вы указывали как дата вашей доступности. Если вы все еще не можете принимать гостей, пожалуйста, войдите на сайт Warmshowers.org под своей учетной записью и обновите информацию. Вы можете войти на сайт по <a href=\'[user:login_url]\'>этой ссылке</a>. Спасибо!<br/><br/>-Рэнди Фэй<br/>Вебмастер Warmshowers.org<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Здравствуйте, [user:fullname] - <br/><br/>Ваша учетная запись на сайте Warmshowers.org, [user:name], автоматически переведена в состояние возможности приема гостей, потому что наступила дата, которую вы указывали как дата вашей доступности. Если вы все еще не можете принимать гостей, пожалуйста, войдите на сайт Warmshowers.org под своей учетной записью и обновите информацию. Вы можете войти на сайт по <a href=\'[user:login_url]\'>этой ссылке</a>. Спасибо!<br/><br/>-Рэнди Фэй<br/>Вебмастер Warmshowers.org<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'Теперь вы можете принять гостей с Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Здравствуйте, [user:fullname], <br/><br/>Ваша учетная запись на сайте Warmshowers.org, [user], сейчас имеет статус "Не могу принять гостей". Пожалуйста, войдите на сайт и установите дату вашего возвращения. Если вы не знаете когда у вас будет возможность принимать гостей, просто установите дату в будущем, например 2025-01-01. Вы можете изменить ее в любой момент, просто войдите на сайт под своей учетной записью <a href=\'https://ru.warmshowers.org\'>ru.warmshowers.org</a> или <a href=\'[user:login_url]\'>нажмите здесь для перехода на сайт</a><br/><br/>-Рэнди Фэй<br/>Вебмастер Warmshowers.org <br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Здравствуйте, [user:fullname], <br/><br/>Ваша учетная запись на сайте Warmshowers.org, [user:name], сейчас имеет статус "Не могу принять гостей". Пожалуйста, войдите на сайт и установите дату вашего возвращения. Если вы не знаете когда у вас будет возможность принимать гостей, просто установите дату в будущем, например 2025-01-01. Вы можете изменить ее в любой момент, просто войдите на сайт под своей учетной записью <a href=\'https://ru.warmshowers.org\'>ru.warmshowers.org</a> или <a href=\'[user:login_url]\'>нажмите здесь для перехода на сайт</a><br/><br/>-Рэнди Фэй<br/>Вебмастер Warmshowers.org <br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Ваша учетная запись на Warmshowers.org сейчас в режиме "Недоступен". Пожалуйста, обновите дату возвращения. ([user:fullname])',
 );
   $realm_variables['language']['sr'] = array(
@@ -2843,10 +2851,10 @@ WarmShowers.org
 Уколико добијете поруку "Sorry - you don\'t have access to that page (error 403)", можете бити готово сигурни да вам је у интернет претраживачу искључена опција коришћења тзв.  cookies .  Да бисте ову опцију правилно наместили молимо вас да погледате <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged"> овај текст на ту туме у оквиру најчешће постављених питања</a>.
 
 Уколико нисте у могућности да разрешите овај проблем, молимо Вас да затражите помоћ. Тако што ће те одговорити на ову електронску поруку и затражити помоћ.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Једнократна веза за пријављивање на интернет страницу за корисника [user:name]',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Једнократна веза за пријављивање на интернет страницу за корисника [user:name]',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -2859,8 +2867,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Хвала Вам што сте се пријавили на Warmshowers.org.
@@ -2869,17 +2877,17 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 [user:one-time-login-url]
 
-Након што потврдите користећи везу изнад, бићете у могућности да се пријавите на нашу интернете страницу !login_uri користећи корисничко име и лозинку које можете видети у наставку:
+Након што потврдите користећи везу изнад, бићете у могућности да се пријавите на нашу интернете страницу [site:login-url] користећи корисничко име и лозинку које можете видети у наставку:
 
 username: [user:name]
 password: The password you entered
 
 Уколико имате нека питања, можете одговорити на ову електронску поруку, и ми жемо
 
---  !site team
+--  Warmshowers team
 --Само за администраторе
 Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Потврдите ваш налог на Warmshowers.org',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Потврдите ваш налог на Warmshowers.org',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -2946,8 +2954,8 @@ Administrator use only:
 
 --Само за администраторе
 
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Ваш налог је направљен и потврђен',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Ваш налог је направљен и потврђен',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -2969,7 +2977,7 @@ Admin use:
 Хвала,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] налог је обрисан',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] налог је обрисан',
   'user_picture_guidelines' => 'Волели бисмо фотографију на којој сте <i>Ви</i>, најбоље како се возите бициклом у вашој околини. Ово је потпуно добровољно наравно, али може бити забавно. Случајно одабране фотографије се показују на насловној страни наше интернет странице такође. <i>Уколико поставите вашу фотографију и не приказује се одма на начин како треба, потребно је да освежите ваш интернет претраживач. (Држећи тастер SHIFT и притисните REFRESH дугме у вашем претраживачу.)</i>',
   'user_registration_help' => '<h3>Добродошли! Молим Вас да најпре прочитате ово пре него што наставите да читате било шта друго што је у наставку</h3>
 Драго нам је да сте одлучили да се прикључите Warm Showers заједници! За који минут ћемо тражити од Вас да унесете све Ваше податке, након чега ћемо Вам послати електронску поруку за потврду, у којем морате да пратите упутства како би се процес регистрације правилно завршио. Наравно у данашње време, милиони нежељених електронских порука круже светском мрежом свакодневно, тако да постоји могућност да ће и наша електронска порука бити жртва неких од система заштите тако да је потребно да нашу електронску адресу означите као прихватљиву како ваш систем заштите у будућности не би одбијао наше поруке, уколико то не учините постаји могућност да ваш налог на нашој интернет страници остане заувек неактиван, дакле...
@@ -2987,9 +2995,9 @@ Warmshowers.org',
 <br/><br/>
 У реду, то је све. Молим вас наставите даљ и попуните податке за учлањење.
 <hr/>',
-  'wsuser_become_available_notification_body' => 'Здраво [user:fullname] - <br/><br/>Ваш Warmshowers.org налог, [user], је аутоматски освежен и сада је означен као доступан, јер је прошао датум који сте навели као дан када ће те опет бити доступни. Уколико то није случај, и ви још увек нисте у могућности да угостите неког, молимо Вас да се пријавите на интернет страницу Warmshowers.org и да освежите податке у Вашем налогу. Можете се пријавити тако што ће те посетити интернет страницу, или само <a href=\'[user:login_url]\'>пратећи ову везу</a>. Хвала!<br/><br/>-Randy Fay<br/>Уредник Warmshowers.org интернет странице<br/>---<br/><a href=\'[user:url]\'>Веза ка налогу</a><br/><a href=\'[account-edit-url]\'>Веза ка измени налога</a><br/><a href=\'[user:login_url]\'>Непосредна веза ка пријави</a><br/>',
+  'wsuser_become_available_notification_body' => 'Здраво [user:fullname] - <br/><br/>Ваш Warmshowers.org налог, [user:name], је аутоматски освежен и сада је означен као доступан, јер је прошао датум који сте навели као дан када ће те опет бити доступни. Уколико то није случај, и ви још увек нисте у могућности да угостите неког, молимо Вас да се пријавите на интернет страницу Warmshowers.org и да освежите податке у Вашем налогу. Можете се пријавити тако што ће те посетити интернет страницу, или само <a href=\'[user:login_url]\'>пратећи ову везу</a>. Хвала!<br/><br/>-Randy Fay<br/>Уредник Warmshowers.org интернет странице<br/>---<br/><a href=\'[user:url]\'>Веза ка налогу</a><br/><a href=\'[account-edit-url]\'>Веза ка измени налога</a><br/><a href=\'[user:login_url]\'>Непосредна веза ка пријави</a><br/>',
   'wsuser_become_available_notification_subject' => 'Сада сте означени као доступни на Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Здраво [user:fullname], <br/><br/>Ваш warmshowers.org налог, [user], је означен као недоступан. Можете ли се пријавити на интернет страницу и подесити датум вашег повратка? Уколико не знате тачно када се враћате, или ако уопште нисте сигурни да ли ће те бити у прилици да угостите неког, довољно је да поставите неки датум 2025-01-01. То можете променити било када. Можете се пријавити користећи ваше корисничко име и лозинку <a href=\'https://rs.warmshowers.org\'>rs.warmshowers.org</a> или <a href=\'[user:login_url]\'>пратећи ову везу да бисте се аутоматски пријавити</a><br/><br/>-Randy Fay<br/>Уредник Warmshowers.org интернет странице<br/>---<br/><a href=\'[user:url]\'>Веза ка налогу</a><br/><a href=\'[account-edit-url]\'>Веза ка одељку за измену налога</a><br/><a href=\'[user:login_url]\'>Непосредна веза ка пријављивању</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Здраво [user:fullname], <br/><br/>Ваш warmshowers.org налог, [user:name], је означен као недоступан. Можете ли се пријавити на интернет страницу и подесити датум вашег повратка? Уколико не знате тачно када се враћате, или ако уопште нисте сигурни да ли ће те бити у прилици да угостите неког, довољно је да поставите неки датум 2025-01-01. То можете променити било када. Можете се пријавити користећи ваше корисничко име и лозинку <a href=\'https://rs.warmshowers.org\'>rs.warmshowers.org</a> или <a href=\'[user:login_url]\'>пратећи ову везу да бисте се аутоматски пријавити</a><br/><br/>-Randy Fay<br/>Уредник Warmshowers.org интернет странице<br/>---<br/><a href=\'[user:url]\'>Веза ка налогу</a><br/><a href=\'[account-edit-url]\'>Веза ка одељку за измену налога</a><br/><a href=\'[user:login_url]\'>Непосредна веза ка пријављивању</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Ваш Warmshowers налог је означен као неактиван. Молим вас да освежите датум вашег повратка. ([user:fullname])',
 );
   $realm_variables['language']['sv'] = array(
@@ -3106,10 +3114,10 @@ Felsökning:
 Om du kommer till "Ledsen - du har inte tillgång till den här sidan (error 403)", betyder det troligtvis att du har cookies avstängda i din webbläsare. För att göra rätt cookies-inställningar kan du läsa om detta bland våra<a href=”http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged”>Vanliga frågor</a>.
 
 Om ditt problem kvarstår, kan du svara på detta mail så ska vi försöka hjälpa dig.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Länk till engångsinloggning för [user:name] ',
+  'user_mail_password_reset_subject' => 'Warmshowers:  Länk till engångsinloggning för [user:name] ',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -3122,8 +3130,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 Tack för din registrering på Warmshowers.org.
@@ -3145,11 +3153,11 @@ Om du har några frågor kan du svara på detta mail så ska hjälper vi dig på
 Tack,
 
 
--- !site team
+-- Warmshowers team
 
 --Admin use only
 Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a> ',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Bekräfta ditt konto på Warmshowers.org',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers:  Bekräfta ditt konto på Warmshowers.org',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -3223,8 +3231,8 @@ Warmshowers.org
 
 Admin use only:
 
-!uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Ditt konto har godkänts',
+[user:url]',
+  'user_mail_status_activated_subject' => 'Warmshowers:  Ditt konto har godkänts',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -3249,7 +3257,7 @@ Tack,
 Randy Fay
 
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] - konto raderat',
+  'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] - konto raderat',
   'user_picture_guidelines' => 'Vi vill gärna ha en bild på <i>dig</i>, kanske när du cyklar eller är du bor. Det här är så klart helt frivilligt men kan vara roligt. Slumpmässiga bilder visas även på förstasidan. <i>Om du laddar upp en ny bild och den inte visas direkt, testa att uppdatera sidan så ska den dyka upp. (Håll ner skift-tangenten och klicka på R på tangentbordet.)</i>',
   'user_registration_help' => '<h3>Välkommen! Var god läs igenom detta innan du fortsätter.</h3> Tack för att du vill vara en del av Warm Showers! Alldeles strax kommer du att få ange dina uppgifter, därefter kommer vi att skicka ett bekräftelsemail med en länk som du behöver klicka på. För att undvika att vårt mail hamnar i ditt spam-filter är det säkrast att lägga till vår mailadress i din adressbok. Om inte, kanske du inte får mailet vilket betyder att ditt konto inte kan aktiveras. Därför…  <ol><li> Innan du fyller i formuläret, var god lägg till wsl@warmshowers.org i din adressbok. Instruktioner för hur man vanligtvis gör det finns <a href=”/spam_filters" target="_blank">här</a>. Om du inte gör detta, kanske du inte får bekräftelsemailet med ditt lösenord som behövs för att bli registrerad.</li> <li>Läs igenom <a href="/the_rules" target=”_blank">våra regler</a> och kom ihåg att gå tillbaka till dem om du känner dig osäker på något.</li> <li>När du registrerar dig, kom ihåg att det betyder att du planerar att erbjuda ditt värdskap, åtminstone någon gång i framtiden. Glöm inte att det här är en hemsida för ömsesidig gästvänlighet. (Om du är på resande fot eller av annan anledning inte kan vara värd för tillfället kryssar du i ”för tillfället ej tillgänglig”-rutan för att senare kryssa ur rutan vid tillfälle.) </li> <li>Minderåriga är inte tillåtna att använda denna sida, så fortsätt inte om inte har åldern inne.</li> <li>Kom ihåg att vi har en <a href="/faq" target=”_blank">Vanliga frågor</a> sida, som kanske kan svara på eventuella frågor du har. Kom ihåg att leta där först om du någon gång får problem med att logga in på sidan.</li> <li>Är du oroad över vem som kan se informationen du lägger upp? Hemsidan är konstruerad på så vis att din profil enbart kan visas av inloggade medlemmar. Din mailadress är alltid dold, även för de andra medlemmarna.</li> <li>Din personliga säkerhet är väldigt viktig för oss. Läs igenom sidan <a href=”/personal-security">Personlig säkerhet</a> för mer information om ämnet</li> <li>Vår <a target="_blank" href="/privacy">Sekretesspolicy</a> påminner dig om att din profil endast är synlig för andra medlemmar och att bara medlemmar kan kontakta dig via hemsidan.</li> <li>Genom att registrera dig accepterar du våra<a target="_blank" href="/terms">Användarvillkor</a> vilka betonar att <strong>du ensam ansvarar för dina interaktioner med andra Warmshowers-medlemmar.</strong></li> </ol> <br/><br/> Det var allt! Fortsätt nedan för att fullfölja din registrering. <hr/>',
 );
@@ -3259,9 +3267,9 @@ Warmshowers.org',
 <p>If you need help using the site, please <a href="/faq">read the FAQ first</a>, and then please consider reading the <a href="http://www.warmshowers.org/forums/website-help-and-support">Help Forum</a> and posting there where others can help you, and the answer will help others as well.</p>
 
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
-  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'You are now listed as available to host on Warmshowers.org ([user:fullname])',
-  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://tr.warmshowers.org\'>tr.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
+  'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user:name], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://tr.warmshowers.org\'>tr.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_notavailable_reminder_subject' => 'Your Warmshowers account is marked unavailable. Please update your return date. ([user:fullname])',
 );
   $realm_variables['language']['zh-hans'] = array(
@@ -3372,10 +3380,10 @@ WarmShowers.org
 如果您得到“非常抱歉，您没有权限访问此页（403错误）”，这说明您已经关闭了浏览器的Cookies。如何打开浏览器的Cookies，请参阅FAQ页面的<a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">这篇文章</a>。
 
 如果您打开了浏览器的Cookies仍不能解决问题，请直接回复这封邮件寻求我们的帮助。',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] 重置 [user:name] 的密码',
+  'user_mail_password_reset_subject' => 'Warmshowers:  重置 [user:name] 的密码',
   'user_mail_register_admin_created_body' => '[user:name],
 
-A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
+A site administrator at Warmshowers has created an account for you. You may now log in to [site:login-url] using the following username and password:
 
 username: [user:name]
 
@@ -3389,8 +3397,8 @@ This is a one-time login, so it can be used only once.
 After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
---  !site team',
-  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
+--  Warmshowers team',
+  'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  Warmshowers',
   'user_mail_register_no_approval_required_body' => '[user:name],
 
 
@@ -3411,7 +3419,7 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 --仅供管理员使用
 管理员 (编辑): <a href="[user:edit-url]">[user:edit-url]</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org]请验证您在Warmshowers.org的帐号',
+  'user_mail_register_no_approval_required_subject' => 'Warmshowers: 请验证您在Warmshowers.org的帐号',
   'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
@@ -3463,7 +3471,7 @@ Warmshowers.org
 Administrator use only:
 [user:edit-url]',
   'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => '[Warmshowers.org] 您的帐号已被激活
+  'user_mail_status_activated_body' => 'Warmshowers:  您的帐号已被激活
 
 亲爱的 [user:name]：
 
@@ -3478,9 +3486,9 @@ Warmshowers.org 站长
 
 --
 Admin use only:
-!uri
+[user:url]
 ',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] 您的帐号已被激活',
+  'user_mail_status_activated_subject' => 'Warmshowers:  您的帐号已被激活',
   'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
@@ -3503,7 +3511,7 @@ Admin use:
 Randy Fay
 Warmshowers.org
 ',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org]您的账户 [user:name]已经被删除',
+  'user_mail_status_deleted_subject' => 'Warmshowers: 您的账户 [user:name]已经被删除',
   'user_picture_guidelines' => '您可以上传<i>您自己</i>的一张照片，如果是您在当地骑车的有趣照片就最好啦！照片自愿上传，上传的照片也会随机显示在首页上。<i>如果您上传一张新照片后不能马上显示，请Shift+F5强制刷新页面。</i>',
   'user_registration_help' => '<h3>欢迎您的加入！在进行下一步操作之前，请仔细阅读下面的内容</h3>
 我们非常高兴您能加入WarmShowers社区。在您填写完所有内容并且提交后，我们会发送给您一封验证E-mail，此邮件中包含一个验证链接，请点击此链接完成验证。如果不完成验证，您将无法登录使用WarmShowers网站。根据当时的服务器负载和网络情况，邮件一般会在几十秒至十几分钟左右发送给您，如果您没有收到新邮件，请检查您的垃圾邮件箱，如果还是没有，那就是被邮件服务器当作垃圾邮件过滤掉啦……
@@ -3522,9 +3530,9 @@ Warmshowers.org
 </ol>
 <br/><br/>
 以上是注意事项，接下来请继续完成您的注册。<hr/>',
-  'wsuser_become_available_notification_body' => '[user:fullname]，您好！  <br/><br/>因为您之前的设置，您的Warmshowers帐户 [user] 已经被自动标记为您当前可以接待。如果您当前还处于不可接待状态，请登录Warmshowers修改您的设置。可以直接登录网站，或者<a href=\'[user:login_url]\'>点击这里</a>自动登录。非常感谢！<br/><br/>-Randy Fay<br/>Warmshowers管理员<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>直接登录网站</a><br/>',
+  'wsuser_become_available_notification_body' => '[user:fullname]，您好！  <br/><br/>因为您之前的设置，您的Warmshowers帐户 [user:name] 已经被自动标记为您当前可以接待。如果您当前还处于不可接待状态，请登录Warmshowers修改您的设置。可以直接登录网站，或者<a href=\'[user:login_url]\'>点击这里</a>自动登录。非常感谢！<br/><br/>-Randy Fay<br/>Warmshowers管理员<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>直接登录网站</a><br/>',
   'wsuser_become_available_notification_subject' => ' [user:fullname]，您的Warmshowers帐户被标记为当前可以接待。',
-  'wsuser_notavailable_reminder_body' => '您好！[user:fullname]。 <br/><br/>您的warmshowers.org帐户 [user] 已经被标记为当前不可接待。请登录网站设置您的可接待日期。如果您无法确定这个日期，请将其设置为类似于2025-01-01这样的日期。您可以随时修改。您可以点击以下链接使用Warmshowers的账号和密码登录网站<a href=\'https://cn.warmshowers.org\'>cn.warmshowers.org</a>，或者 <a href=\'[user:login_url]\'>点击这里自动登录</a><br/><br/>-Randy Fay<br/>Warmshowers.org管理员<br/>---<br/><a href=\'[user:url]\'>您的档案链接</a><br/><a href=\'[account-edit-url]\'>编辑档案链接</a><br/><a href=\'[user:login_url]\'>直接登录链接</a><br/>',
+  'wsuser_notavailable_reminder_body' => '您好！[user:fullname]。 <br/><br/>您的warmshowers.org帐户 [user:name] 已经被标记为当前不可接待。请登录网站设置您的可接待日期。如果您无法确定这个日期，请将其设置为类似于2025-01-01这样的日期。您可以随时修改。您可以点击以下链接使用Warmshowers的账号和密码登录网站<a href=\'https://cn.warmshowers.org\'>cn.warmshowers.org</a>，或者 <a href=\'[user:login_url]\'>点击这里自动登录</a><br/><br/>-Randy Fay<br/>Warmshowers.org管理员<br/>---<br/><a href=\'[user:url]\'>您的档案链接</a><br/><a href=\'[account-edit-url]\'>编辑档案链接</a><br/><a href=\'[user:login_url]\'>直接登录链接</a><br/>',
   'wsuser_notavailable_reminder_subject' => ' [user:fullname]，您的Warmshowers帐户被标记为当前不可接待，请更新您的可接待日期。 ',
 );
 
