@@ -97,7 +97,8 @@
 
     </div></div><!-- /.section, /#content -->
 
-    <?php if ($main_menu || $navigation): ?>
+<!--    TODO: get conditional statement working again-->
+<!--    --><?php //if ($main_menu || $page['navigation']): ?>
       <div id="navigation"><div class="section clearfix">
         <?php print theme(array('links__system_main_menu'), $main_menu,
           array(
@@ -117,7 +118,7 @@
         <?php print render($page['navigation']); ?>
 
       </div></div><!-- /.section, /#navigation -->
-    <?php endif; ?>
+<!--    --><?php //endif; ?>
 
     <?php
       // Render the sidebars to see if there's anything in them.
@@ -134,7 +135,8 @@
 
   </div></div><!-- /#main, /#main-wrapper -->
 
-  <?php if ($footer): ?>
+<!--    TODO: get conditional statement working again-->
+<!--  --><?php //if ($page['footer']): ?>
     <div id="footer" class="<?php print $classes; ?>"><div class="section">
       <h2 class="title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
       <ul class="social">
@@ -145,7 +147,7 @@
       <?php print render($page['footer']); ?>
 
     </div></div><!-- /.section, /#footer -->
-  <?php endif; ?>
+<!--  --><?php //endif; ?>
 
 </div></div><!-- /#page, /#page-wrapper -->
 
