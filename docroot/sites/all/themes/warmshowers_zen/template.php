@@ -96,10 +96,14 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
   $variables['sample_variable'] = t('Lorem ipsum.');
 
   // Suggest a reasonable image for shares to facebook
+  // @annetee it looks like drupal_add_html_head has changed to expect an
+  // array, so this doesn't show up in the source of the page
   drupal_add_html_head('<meta property="og:image" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />
   <meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />');
 
   // On front page, let users know about the iOS app
+  // @annetee it looks like drupal_add_html_head has changed to expect an
+  // array, so this doesn't show up in the source of the page
   if(drupal_is_front_page()) {
     drupal_add_html_head('<meta name="apple-itunes-app" content="app-id=359056872" />');
   }
@@ -132,6 +136,8 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
   }
   else {
    $variables['authentication_block'] = t("Logged in as !name | !logout",
+   // @annetee $user->fullname variable is not properly loaded by
+   // guessing wsuser custom module, so it's empty
      array('!name' => l($user->fullname, 'user/' . $user->uid), '!logout' => l(t('Log out'),'logout')));
   }
 
@@ -151,6 +157,8 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
  *   A string containing the messages.
  */
 function warmshowers_zen_status_messages($variables) {
+  // @annetee, this probably changed, it looks like messages are
+  // empty so check out the function theme_status_message in D7
   $display = $variables ['display'];
   $output = '';
   foreach (drupal_get_messages($display) as $type => $messages) {
@@ -343,6 +351,8 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
         $preset = is_numeric($preset) ? imagecache_preset($preset) : imagecache_preset_by_name($preset);
       }
       if (empty($preset)) {
+        // @annetee this line is removing the picture that may potentially be there
+        // It's probably because there is no preset and there should be
         $variables['picture'] = $default; //theme('image', $picture, $alt, $alt, '', FALSE);
       }
       else {
