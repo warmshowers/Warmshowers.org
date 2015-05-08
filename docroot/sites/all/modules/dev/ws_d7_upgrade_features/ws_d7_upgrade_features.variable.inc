@@ -12,13 +12,15 @@ $realm_variables = array();
   $realm_variables['language']['cs'] = array(
   'comment_notify_default_mailtext' => 'Uživateli [comment-subscribed:author:fullname],
 
-Příspěvek [comment:author:fullname] je komentován: "!node_title":
+Příspěvek [comment:author:fullname] je komentován: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
+Komentář si můžete prohlédnout a reagovat na něj <a href="[comment:url]">kliknutím sem</a>. (Prosíme neodpovídejte pomocí e-mailu, protože ten obdrží pouze správci webu.)
 
-Komentář si můžete prohlédnout a reagovat na něj <a href="!comment_url">kliknutím sem</a>. (Prosíme neodpovídejte pomocí e-mailu, protože ten obdrží pouze správci webu.)
-
-Zrušit odesílání e-mailů, upozorňujících na komentáře k tomuto příspěvku můžete <a href="!link1">kliknutím sem</a>.
+Zrušit odesílání e-mailů, upozorňujících na komentáře k tomuto příspěvku můžete <a href="[comment-subscribed:unsubscribe-url]">kliknutím sem</a>.
 
 - Tým Warmshowers.org',
   'contact_form_information' => '<p>Můžete nás kontaktovat prostřednictvím e-mailu.</p>
@@ -28,11 +30,13 @@ Zrušit odesílání e-mailů, upozorňujících na komentáře k tomuto přísp
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
   'node_notify_default_mailtext' => 'Milý uživateli jménem [comment:node:author:fullname],
 
-Obdrželi jsme komentář na: "!node_title":
+Obdrželi jsme komentář na: "[comment:node:title]":
 
-!commtext
-
-Komentář si můžete prohlédnout <a href="!comment_url">kliknutím sem</a>.  (Neodpovídejte prosím e-mailem, protože ten obrží pouze správci webu.)
+----
+[comment:title]
+[comment:body]
+----
+Komentář si můžete prohlédnout <a href="[comment:url]">kliknutím sem</a>.  (Neodpovídejte prosím e-mailem, protože ten obrží pouze správci webu.)
 
 Při každé reakci na váš příspěvek bude upozorňován e-mailems.
 
@@ -222,13 +226,13 @@ Dobrá, to je vše! Prosím pokračujte dál a vyplňte vaše registrační úda
   'anonymous' => 'Ehemaliges Mitglied',
   'comment_notify_default_mailtext' => 'Guten Tag [comment-subscribed:author:fullname],
 
-[comment:author:fullname] hat auf "!node_title" kommentiert:
+[comment:author:fullname] hat auf "[comment:node:title]" kommentiert:
 
 !commtext
 
-Sie können diesen Kommentar <a href="!comment_url">hiere</a> sehen und bearbeiten (Bitte antworten Sie nicht via Email, da diese nur an die Administratoren der Website geht.)
+Sie können diesen Kommentar <a href="[comment:url]">hiere</a> sehen und bearbeiten (Bitte antworten Sie nicht via Email, da diese nur an die Administratoren der Website geht.)
 
-Sie können Emailbenachrichtigungen über Antworten auf diesen Post <a href="!link1">hier abbestellen</a>.
+Sie können Emailbenachrichtigungen über Antworten auf diesen Post <a href="[comment-subscribed:unsubscribe-url]">hier abbestellen</a>.
 
 Mit freundlichen Grüssen,
 
@@ -296,11 +300,11 @@ Benutzername: %username
 Mailadresse: %useremail',
   'node_notify_default_mailtext' => 'Guten Tag [comment:node:author:fullname],
 
-Sie haben einen Kommentar auf "!node_title" erhalten:
+Sie haben einen Kommentar auf "[comment:node:title]" erhalten:
 
 !commtext
 
-Sie können die Kommentare <a href="!comment_url">hier sehen</a> (bitte antworten Sie nicht via Email, da diese nur an die Administratoren der Website geht).
+Sie können die Kommentare <a href="[comment:url]">hier sehen</a> (bitte antworten Sie nicht via Email, da diese nur an die Administratoren der Website geht).
 
 Sie werden solche Emails auf alle Antworten auf Ihre Posts erhalten.
 
@@ -492,13 +496,13 @@ O.K., das ist alles! Bitte fahren Sie unten mit Ihrer Registrierung fort.
   'anonymous' => 'Former member',
   'comment_notify_default_mailtext' => 'Hi [comment-subscribed:author:fullname],
 
-[comment:author:fullname] has commented on: "!node_title":
+[comment:author:fullname] has commented on: "[comment:node:title]":
 
-!commtext
+---- [comment:title] [comment:body] ----
 
-You can view and reply to the comment by <a href="!comment_url">clicking here</a>. (Please don\'t respond via email as the email just goes to the site managers.)
+You can view and reply to the comment by <a href="[comment:url]">clicking here</a>. (Please don\'t respond via email as the email just goes to the site managers.)
 
-You can stop receiving emails when someone replies to this post by <a href="!link1">clicking here</a>.
+You can stop receiving emails when someone replies to this post by <a href="[comment-subscribed:unsubscribe-url]">clicking here</a>.
 
 - Warmshowers.org team',
   'contact_form_information' => '<p>You are welcome to contact us here via email.</p>
@@ -565,11 +569,14 @@ Username: %username
 Email: %useremail',
   'node_notify_default_mailtext' => 'Hi [comment:node:author:fullname],
 
-You have received a comment on: "!node_title":
+You have received a comment on: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-You can view the comment by <a href="!comment_url">clicking here</a>.  (Please don\'t respond via email as the email just goes to the site managers.)
+You can view the comment by <a href="[comment:url]">clicking here</a>.  (Please don\'t respond via email as the email just goes to the site managers.)
 
 You will receive emails like this for all replies to your posts.
 
@@ -796,13 +803,16 @@ OK, that\'s all! Please continue on below and fill in your registration.
   'anonymous' => 'Anonymous',
   'comment_notify_default_mailtext' => 'Hola [comment-subscribed:author:fullname],
 
-[comment:author:fullname] ha comentado sobre: "!node_title":
+[comment:author:fullname] ha comentado sobre: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Usted puede ver y contestar por <a href="!comment_url">cliquear aquí</a>. Favor de no responder por correo electrónico porque el correo va solamente a los manageros del sitio.
+Usted puede ver y contestar por <a href="[comment:url]">cliquear aquí</a>. Favor de no responder por correo electrónico porque el correo va solamente a los manageros del sitio.
 
-Usted puede dejar de recibir correos electrónicos de notificación cuando alguién responde a este por <a href="!link1">cliquear aquí</a>.
+Usted puede dejar de recibir correos electrónicos de notificación cuando alguién responde a este por <a href="[comment-subscribed:unsubscribe-url]">cliquear aquí</a>.
 
 - Equipo de Warmshowers.org',
   'contact_form_information' => '<p>Puedes contactar con nosotros aquí.</p>
@@ -810,11 +820,14 @@ Usted puede dejar de recibir correos electrónicos de notificación cuando algui
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
   'node_notify_default_mailtext' => 'Hola [comment:node:author:fullname],
 
-Usted ha recibido un comento en "!node_title":
+Usted ha recibido un comento en "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Se puede ver este comento por <a href="!comment_url">cliquear aquí</a>.  (Favor de no responder por correo electrónico porque el correo va solamente a los manageros del sitio.)
+Se puede ver este comento por <a href="[comment:url]">cliquear aquí</a>.  (Favor de no responder por correo electrónico porque el correo va solamente a los manageros del sitio.)
 
 - Equipo de Warmshowers.org',
   'site_footer' => 'Hospedaje para cicloturistas en todo el mundo<br/>
@@ -1282,13 +1295,16 @@ Warmshowers.org ',
   'anonymous' => 'Anonymous',
   'comment_notify_default_mailtext' => 'Bonjour [comment-subscribed:author:fullname],
 
-[comment:author:fullname] a rédigé un commentaire sur : "!node_title":
+[comment:author:fullname] a rédigé un commentaire sur : "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Pour visualiser le commentaire et y répondre, <a href="!comment_url">cliquez ici</a>. Ne répondez pas à cet e-mail, car la réponse irait au webmaster et non pas à l\'auteur du commentaire.
+Pour visualiser le commentaire et y répondre, <a href="[comment:url]">cliquez ici</a>. Ne répondez pas à cet e-mail, car la réponse irait au webmaster et non pas à l\'auteur du commentaire.
 
-Pour arrêter de recevoir un e-mail à chaque fois que quelqu\'un commente votre post, <a href="!link1">cliquez ici</a>
+Pour arrêter de recevoir un e-mail à chaque fois que quelqu\'un commente votre post, <a href="[comment-subscribed:unsubscribe-url]">cliquez ici</a>
 
 - L\'équipe Warmshowers.org',
   'contact_form_information' => '<p>Vous pouvez bien entendu nous contacter par mail.</p>
@@ -1354,11 +1370,14 @@ Email: %useremail
 ',
   'node_notify_default_mailtext' => 'Bonjour [comment:node:author:fullname],
 
-Vosu avez reçu un commentaire sur: "!node_title":
+Vosu avez reçu un commentaire sur: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Pour visualiser le commentaire et y répondre, <a href="!comment_url">cliquez ici</a>. Ne répondez pas à cet e-mail, car la réponse irait au webmaster et non pas à l\'auteur du commentaire.
+Pour visualiser le commentaire et y répondre, <a href="[comment:url]">cliquez ici</a>. Ne répondez pas à cet e-mail, car la réponse irait au webmaster et non pas à l\'auteur du commentaire.
 
 Vous recevrez un e-mail comme celui-ci à chaque fois que quelqu\'un répond à votre post.
 
@@ -1997,13 +2016,16 @@ Warm Showersに登録しようとして頂き、大変うれしく思います!
   $realm_variables['language']['pl'] = array(
   'comment_notify_default_mailtext' => 'Witaj [comment-subscribed:author:fullname],
 
-[comment:author:fullname] skomentował: "!node_title":
+[comment:author:fullname] skomentował: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Możesz zobaczyć i odpowiedzieć na komentarz, <a href="!comment_url">klikając tutaj</a>. (Prosimy nie odpowiadać za pośrednictwem poczty elektronicznej, ponieważ e-maile te trafiają do zarządzających stroną.)
+Możesz zobaczyć i odpowiedzieć na komentarz, <a href="[comment:url]">klikając tutaj</a>. (Prosimy nie odpowiadać za pośrednictwem poczty elektronicznej, ponieważ e-maile te trafiają do zarządzających stroną.)
 
-Możesz zrezygnować z otrzymywania wiadomości e-mail, gdy ktoś odpowie na ten wpis, <a href="!link1">klikając tutaj</a>.
+Możesz zrezygnować z otrzymywania wiadomości e-mail, gdy ktoś odpowie na ten wpis, <a href="[comment-subscribed:unsubscribe-url]">klikając tutaj</a>.
 
 - Zespół Warmshowers.org
 ',
@@ -2067,11 +2089,14 @@ Nazwa użytkownika: %username
 E-mail: %useremail',
   'node_notify_default_mailtext' => 'Witaj [comment:node:author:fullname],
 
-Otrzymałeś komentarz w sprawie: "!node_title":
+Otrzymałeś komentarz w sprawie: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Możesz zobaczyć ten komentarz, <a href="!comment_url">klikając tutaj</a>.  (Prosimy nie odpowiadać za pośrednictwem poczty elektronicznej, ponieważ e-maile te trafiają do zarządzających stroną.)
+Możesz zobaczyć ten komentarz, <a href="[comment:url]">klikając tutaj</a>.  (Prosimy nie odpowiadać za pośrednictwem poczty elektronicznej, ponieważ e-maile te trafiają do zarządzających stroną.)
 
 Będziesz otrzymywał podobne e-maile informujące o wszystkich odpowiedziach na Twoje wpisy.
 
@@ -2455,13 +2480,16 @@ Estamos felizes Nós estamos contentes que você quer  participar dos Chuveiros 
   $realm_variables['language']['ru'] = array(
   'comment_notify_default_mailtext' => 'Здравствуйте, [comment-subscribed:author:fullname],
 
-[comment:author:fullname] оставил(а) комментарий к записи: "!node_title":
+[comment:author:fullname] оставил(а) комментарий к записи: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Вы можете посмотреть комментарий на сайте и ответить на него <a href="!comment_url">по этой ссылке</a>. (Пожалуйста, не отвечайте на это письмо, поскольку оно придет только к администрации сайта.)
+Вы можете посмотреть комментарий на сайте и ответить на него <a href="[comment:url]">по этой ссылке</a>. (Пожалуйста, не отвечайте на это письмо, поскольку оно придет только к администрации сайта.)
 
-Вы можете отключить функцию информирования о комментариях к этой теме, нажав <a href="!link1">здесь</a>.
+Вы можете отключить функцию информирования о комментариях к этой теме, нажав <a href="[comment-subscribed:unsubscribe-url]">здесь</a>.
 
 - Команда Warmshowers.org',
   'contact_form_information' => '<p>Вы можете связаться с нами по электронной почте.</p>
@@ -2524,11 +2552,14 @@ Username: %username
 Email: %useremail',
   'node_notify_default_mailtext' => 'Здравствуйте, [comment:node:author:fullname],
 
-Вы получили комментарий к записи: "!node_title":
+Вы получили комментарий к записи: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Вы можете посмотреть комментарий на сайте, пройдя по <a href="!comment_url">ссылке</a>.  (Пожалуйста, не отвечайте на это письмо, поскольку оно придет только к администрации сайта.)
+Вы можете посмотреть комментарий на сайте, пройдя по <a href="[comment:url]">ссылке</a>.  (Пожалуйста, не отвечайте на это письмо, поскольку оно придет только к администрации сайта.)
 
 Вы будете получать письма информирующие вас о всех комментариях к вашим записям..
 
@@ -2717,13 +2748,16 @@ Warmshowers.org',
   $realm_variables['language']['sr'] = array(
   'comment_notify_default_mailtext' => 'Здраво [comment-subscribed:author:fullname],
 
-[comment:author:fullname] је оставио коментар на: "!node_title":
+[comment:author:fullname] је оставио коментар на: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Можете прегледати и одговорити на коментар тако што <a href="!comment_url"> пратите ову везу</a>. (Молимо Вас да не одговарате на електронску поруку, јер порука одлази само уредницима интернет странице.)
+Можете прегледати и одговорити на коментар тако што <a href="[comment:url]"> пратите ову везу</a>. (Молимо Вас да не одговарате на електронску поруку, јер порука одлази само уредницима интернет странице.)
 
-Можете да искључите опцију да добијате електронске поруке када неко одговри на ову поруку тако што ће те пратити  <a href="!link1">ову везу</a>.
+Можете да искључите опцију да добијате електронске поруке када неко одговри на ову поруку тако што ће те пратити  <a href="[comment-subscribed:unsubscribe-url]">ову везу</a>.
 
 - Warmshowers.org тим',
   'contact_form_information' => '<p>Слободно нас контактирајте путем електронске поште.</p>
@@ -2787,11 +2821,14 @@ Warmshowers.org webmaster',
 One-time login: [login-one-time]',
   'node_notify_default_mailtext' => 'Здраво [comment:node:author:fullname],
 
-Примили сте коментар на: "!node_title":
+Примили сте коментар на: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Можете видети коментар пратећи <a href="!comment_url">ову везу</a>.  (Молимо Вас да не одговарате на електронску поруку, јер порука одлази само уредницима интернет странице.)
+Можете видети коментар пратећи <a href="[comment:url]">ову везу</a>.  (Молимо Вас да не одговарате на електронску поруку, јер порука одлази само уредницима интернет странице.)
 
 Добијаћете овакве електронске поруке за све одговоре на вашу поруку на форуму.
 
@@ -2972,13 +3009,16 @@ Warmshowers.org',
   $realm_variables['language']['sv'] = array(
   'comment_notify_default_mailtext' => 'Hej [comment-subscribed:author:fullname],
 
-[comment:author:fullname] har kommenterat: "!node_title":
+[comment:author:fullname] har kommenterat: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Du kan visa och svara på kommentaren genom att <a href=”!comment_url">klicka här</a>. (Svara inte på detta mail då det endast når ansvariga för hemsidan.)
+Du kan visa och svara på kommentaren genom att <a href=”[comment:url]">klicka här</a>. (Svara inte på detta mail då det endast når ansvariga för hemsidan.)
 
-Vill du inte längre få ett mail när någon svarar på denna tråd kan du ställa in det genom att <a href=”!link1">klicka här</a>.
+Vill du inte längre få ett mail när någon svarar på denna tråd kan du ställa in det genom att <a href=”[comment-subscribed:unsubscribe-url]">klicka här</a>.
 
 - Warmshowers.org-gruppen',
   'contact_form_information' => '<p>Kontakta oss här via mail.</p>
@@ -3042,11 +3082,14 @@ Username: %username
 Email: %useremail',
   'node_notify_default_mailtext' => 'Hej [comment:node:author:fullname],
 
-Du har fått en kommentar på: "!node_title":
+Du har fått en kommentar på: "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-Du kan visa kommentaren genom att <a href=”!comment_url">klicka här</a>. (Svara inte på detta mail då det endast når ansvariga för hemsidan.)
+Du kan visa kommentaren genom att <a href=”[comment:url]">klicka här</a>. (Svara inte på detta mail då det endast når ansvariga för hemsidan.)
 
 Du kommer att få mail som detta varje gång någon svarar på dina trådar.
 
@@ -3239,13 +3282,16 @@ Warmshowers.org',
   $realm_variables['language']['zh-hans'] = array(
   'comment_notify_default_mailtext' => '[comment:node:author:fullname]，您好！
 
-[comment:author:fullname] 回复了主题： "!node_title":
+[comment:author:fullname] 回复了主题： "[comment:node:title]":
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
-如果您需要查看和回复主题，请<a href="!comment_url">点击这里</a>（请不要回复这封邮件，会发送给网站管理员滴）。
+如果您需要查看和回复主题，请<a href="[comment:url]">点击这里</a>（请不要回复这封邮件，会发送给网站管理员滴）。
 
-如果您不想再收到关于此主题回复的邮件提醒，请<a href="!link1">点击这里</a>。
+如果您不想再收到关于此主题回复的邮件提醒，请<a href="[comment-subscribed:unsubscribe-url]">点击这里</a>。
 
 - Warmshowers.org团队敬上
 ',
@@ -3310,12 +3356,15 @@ E-mail: %useremail
 ',
   'node_notify_default_mailtext' => '[comment:node:author:fullname]，您好！
 
-[comment:author:fullname] 回复了您发表的主题 "!node_title"：
+[comment:author:fullname] 回复了您发表的主题 "[comment:node:title]"：
 
-!commtext
+----
+[comment:title]
+[comment:body]
+----
 
 
-如果您需要查看回复，请<a href="!comment_url">点击这里</a>（请不要回复这封邮件，会发送给网站管理员滴）。
+如果您需要查看回复，请<a href="[comment:url]">点击这里</a>（请不要回复这封邮件，会发送给网站管理员滴）。
 
 -Warmshowers.org团队敬上
 ',
