@@ -41,17 +41,17 @@ Komentář si můžete prohlédnout <a href="[comment:url]">kliknutím sem</a>. 
 Při každé reakci na váš příspěvek bude upozorňován e-mailems.
 
 - Tým Warmshowers',
-  'user_mail_password_reset_body' => 'Milý uživateli jménem !username,
+  'user_mail_password_reset_body' => 'Milý uživateli jménem [user:name],
 
 vy (nebo někdo jiný) jste požadoval jednorázové přihlášení k vašemu účtu na Warmshowers.org. Pokud jste to nebyl vy, tuto zprávu ignorujte.
 
-Klikněte prosím <a href="!login_url">sem pro přihlášení a vymazání vašeho hesla</a>. Nemůžete-li na tento odkaz kliknout, zkopírujte ho a vložte do adresního řádku vašeho prohlížeče:
+Klikněte prosím <a href="[user:one-time-login-url]">sem pro přihlášení a vymazání vašeho hesla</a>. Nemůžete-li na tento odkaz kliknout, zkopírujte ho a vložte do adresního řádku vašeho prohlížeče:
 
-!login_url
+[user:one-time-login-url]
 
 Tento odkaz slouží pro jednorázové přihlášení, odkaz tedy lze použít pouze jednou. Jeho platnost vyprší za 24 hodin a pokud ho nepoužijete, nic se nestane.
 
-Po přihlášení budete přesměrován na <a href="!edit_uri">stránku pro úpravy vašeho profilu</a>, kde můžete změnit své heslo, resp. nastavit nové.
+Po přihlášení budete přesměrován na <a href="[user:edit-url]">stránku pro úpravy vašeho profilu</a>, kde můžete změnit své heslo, resp. nastavit nové.
 
 Díky,
 -Randy Fay a registrační tým
@@ -63,36 +63,36 @@ Když obdržíte zprávu "Bohužel nemáte přístup na tuto stránku (error 403
 
 Nemůžete-li tento problém vyřešit, požádejte nás o pomoc; odpovězte na tento e-mail a problém popište.
 ',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Odkaz na jednorázové přihlášení pro uživatele !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Odkaz na jednorázové přihlášení pro uživatele [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Děkujeme, že jste se registroval/registrovala na Warmshowers.org.
 
-Kliknutím <a href="!login_url">sem</a> ověříte správnost vaší e-mailové adresy a aktivujete tím svůj účet. (Nemůžete-li na odkaz kliknout, zkopírujte ho a vložte do adresního řádku vašeho prohlížeče:
+Kliknutím <a href="[user:one-time-login-url]">sem</a> ověříte správnost vaší e-mailové adresy a aktivujete tím svůj účet. (Nemůžete-li na odkaz kliknout, zkopírujte ho a vložte do adresního řádku vašeho prohlížeče:
 
-!login_url
+[user:one-time-login-url]
 
 Po ověření výše uvedeným odkazem se budete moci přihlásit na !login_uri za použití uživatelského jména a hesla, které jste si zvolil/zvolila:
 
-Uživatelské jméno !username
+Uživatelské jméno [user:name]
 Heslo: heslo, které jste si zvolil/zvolila
 
 Máte-li další otázky, odpovězte na tento e-mail a my se vám budeme snažit pomoci.
@@ -103,9 +103,9 @@ Díky,
 tým -  !site
 
 --Admin use only
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Ověřte váš nový účet na Warmshowers.org',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -134,16 +134,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -154,17 +154,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Vítejte, uživateli !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Vítejte, uživateli [user:name],
 
 Váš účet na www.warmshowers.org byl nyní aktivován.
 
-Můžete se přihlásit svým uživatelským jménem a heslem nebo <a href="!login_url">kliknutím sem</a>.
+Můžete se přihlásit svým uživatelským jménem a heslem nebo <a href="[user:one-time-login-url]">kliknutím sem</a>.
 
 Tento odkaz slouží pro jednorázové přihlášení, takže může být použit pouze jednou.
 
-Po přihlášení budete přesměrován na <a href="!edit_uri">stránku pro úpravy vašeho profilu</a>, kde můžete své heslo případně změnit.
+Po přihlášení budete přesměrován na <a href="[user:edit-url]">stránku pro úpravy vašeho profilu</a>, kde můžete své heslo případně změnit.
 
 Pokud mate nějaké otázky, napište je do odpovědi na tento e-mail.
 
@@ -176,7 +176,7 @@ Warmshowers.org webmaster
 Admin use only:
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Váš účet je aktivován.',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -187,9 +187,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => 'Uživateli !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => 'Uživateli [user:name],
 
 váš účet na www.warmshowers.org byl zrušen, nejspíše na vaši žádost nebo protože byl vadný nebo zneužit ke spamu.
 
@@ -198,7 +198,7 @@ Máte-li nějaké otázky, odpovězte prosím na tento e-mail.
 Díky,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] Účet uživatele !username zrušen',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] Účet uživatele [user:name] zrušen',
   'user_picture_guidelines' => 'Rádi bychom viděli <i>vaši fotografii</i>, třeba na kole nebo ve vašem bydlišti. Není to vůbec povinné, ale bylo by to fajn. Náhodný výběr fotografií se rovněž objevuje na hlavní stránce. <i>Jestliže vložíte fotografii a ta se hned neobjeví, použijte funkci “tvrdé obnovy”. (Stiskněte klávesu SHIFT a klikněte na tlačítko Obnovit (REFRESH) ve vašem prohlížeči.)</i>',
   'user_registration_help' => '<h3> Vítejte! Než budete pokračovat, přečtěte si následující informace</h3>
 Těší nás, že se chcete přihlásit do Warm Showers! Vložení informací o vás netrvá dlouho. Poté vám pošleme ověřovací e-mail – musíte kliknout na odkaz v něm uvedený. Ale v současnosti, v miliardách antispamových filtrů, se může stát, že náš e-mail nedostanete, jestliže si nás nepřidáte do vašeho „whitelistu“ (seznam důvěryhodných odesílatelů), a tím by váš účet nikdy nevznikl. Tak tedy…
@@ -316,17 +316,17 @@ das Warmshowers.org-Team',
   'site_mission' => '<a href="http://de.warmshowers.org">warmshowers.org</a>: Gastfreundschaft für Tourenradfahrer',
   'site_name' => 'Warm Showers',
   'site_slogan' => 'Gastfreundschaft für Tourenradfahrer',
-  'user_mail_password_reset_body' => 'Hallo !username,
+  'user_mail_password_reset_body' => 'Hallo [user:name],
 
 Sie (oder sonst jemand) haben einen einmaligen Login-Link für Ihr Konto auf warmshowers.org angefordert. Falls Sie dies nicht waren, beachten Sie diese Mail als gegenstandslos.
 
-Klicken Sie bitte <a href="!login_url">hier, um sich einzuloggen und das Passwort zurückzusetzen</a>. Falls Sie nicht auf diesen Link nicht öffnen können, kopieren Sie diesen Link und fügen Sie ihn in Ihrem Browser ein:
+Klicken Sie bitte <a href="[user:one-time-login-url]">hier, um sich einzuloggen und das Passwort zurückzusetzen</a>. Falls Sie nicht auf diesen Link nicht öffnen können, kopieren Sie diesen Link und fügen Sie ihn in Ihrem Browser ein:
 
-!login_url
+[user:one-time-login-url]
 
 Dies ist ein einmaliger Login-Link, der (logischerweise) nur einmal gebraucht werden kann. Er läuft nach einem Tag ab, wonach nichts passieren wird, wenn er nicht gebraucht wird.
 
-Nachdem Sie sich eingeloggt haben, werden Sie auf <a href="!edit_uri">Ihre \'\'Profil bearbeiten\'\'-Seite</a> weitergeleitet, damit Sie das Passwort ändern können.
+Nachdem Sie sich eingeloggt haben, werden Sie auf <a href="[user:edit-url]">Ihre \'\'Profil bearbeiten\'\'-Seite</a> weitergeleitet, damit Sie das Passwort ändern können.
 
 Vielen Dank,
 -Randy Fay und das Warmshowers-Team.
@@ -337,36 +337,36 @@ Fehlersuche:
 Falls Sie auf "Entschuldigung - Sie haben keinen Zugriff auf diese Seite (Fehler 403)" kommen ist es fast sicher, dass Sie Cookies in Ihrem Browser aktivieren müssen. Sehen Sie sich dazu <a href="http://de.warmshowers.org/content/ich-will-mich-einloggen-aber-bekomme-zugriff-verweigert">diesen Artikel in den FAQ an</a>.
 
 Falls Sie das Problem nicht lösen können, fragen Sie bitte nach Hilfe, indem Sie auf diese Mail antworten.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Einmaliger Login-Link für !username (!username)',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Einmaliger Login-Link für [user:fullname] ([user:name])',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Danke für die Registrierung auf Warmshowers.org.
 
-Bitte <a href="!login_url">klicken Sie hier,</a> um Ihre Mailadresse zu bestätigen und Ihr Konto zu aktivieren. (Falls Sie nicht auf diesen Link klicken können, fügen Sie bitte diesen Link in Ihren Browser ein:
+Bitte <a href="[user:one-time-login-url]">klicken Sie hier,</a> um Ihre Mailadresse zu bestätigen und Ihr Konto zu aktivieren. (Falls Sie nicht auf diesen Link klicken können, fügen Sie bitte diesen Link in Ihren Browser ein:
 
-!login_url
+[user:one-time-login-url]
 
 Nachdem Sie Ihr Konto mit dem obenstehenden Link validiert haben, können Sie sich einloggen in !login_uri mittels dem folgenden Benutzernamen und dem Passwort, das Sie eingegeben haben:
 
-Benutzername: !username
+Benutzername: [user:name]
 Passwort: Das Passwort, das Sie eingegeben haben
 
 Falls Sie irgendwelche Fragen haben, können Sie auf diese Mail antworten und wir tun unser Bestes, um zu helfen.
@@ -376,9 +376,9 @@ Vielen Dank,
 --  das !site Team
 
 --Nur für Administratoren:
-Admin (bearbeiten): <a href="!edit_uri">!edit_uri</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Aktivieren Sie Ihr Konto auf Warmshowers.org (!username)',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+Admin (bearbeiten): <a href="[user:edit-url]">[user:edit-url]</a>',
+  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Aktivieren Sie Ihr Konto auf Warmshowers.org ([user:name])',
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -407,16 +407,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -427,15 +427,15 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Willkommen !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Willkommen [user:name],
 
 Ihr Konto auf www.warmshowers.org wurde aktiviert.
 
-Sie können sich mit dem Benutzernamen und dem Passwort das Sie bereits haben einloggen oder indem Sie <a href="!login_url">hier</a> klicken.
+Sie können sich mit dem Benutzernamen und dem Passwort das Sie bereits haben einloggen oder indem Sie <a href="[user:one-time-login-url]">hier</a> klicken.
 
-Dies ist ein einmaliger Login-Link. Nachdem Sie sich eingeloggt haben, werden Sie auf die <a href="!edit_uri">\'\'Profil bearbeiten\'\'-Seite</a> weitergeleitet, damit Sie, falls Sie wollen, Ihr Passwort ändern können.
+Dies ist ein einmaliger Login-Link. Nachdem Sie sich eingeloggt haben, werden Sie auf die <a href="[user:edit-url]">\'\'Profil bearbeiten\'\'-Seite</a> weitergeleitet, damit Sie, falls Sie wollen, Ihr Passwort ändern können.
 
 Irgendwelche Fragen? Antworten Sie einfach auf diese Nachricht.
 
@@ -447,7 +447,7 @@ Warmshowers.org webmaster
 Nur für Administratoren:
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Ihr Konto wurde aktiviert',
-  'user_mail_status_blocked_body' => 'Hallo !username,
+  'user_mail_status_blocked_body' => 'Hallo [user:name],
 
 Ihr Konto auf www.warmshowers.org wurde gesperrt.
 
@@ -458,9 +458,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Nur für Administratoren:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: Ihr Konto (!username) wurde gesperrt',
-  'user_mail_status_deleted_body' => 'Hallo !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: Ihr Konto ([user:name]) wurde gesperrt',
+  'user_mail_status_deleted_body' => 'Hallo [user:name],
 
 Ihr Konto auf www.warmshowers.org wurde gelöscht, höchstwahrscheinlich auf Ihren Wunsch oder da es sich um ein ungültiges Spam-Konto handelte.
 
@@ -469,7 +469,7 @@ Falls Sie fragen haben, antworten Sie auf diese Mail.
 Freundliche Grüsse,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] Ihr Kont (!username) wurde gelöscht',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] Ihr Kont ([user:name]) wurde gelöscht',
   'user_picture_guidelines' => 'Wir würden uns über ein Bild von <i>Ihnen</i> freuen, vielleicht eines, wo Sie in Ihrer Gegend Fahrrad fahren. Dies ist natürlich völlig freiwillig aber kann unterhaltsam sein. <i>Falls Sie ein neues Bild hochladen und es nicht sofort angezeigt wird, aktualisieren Sie die Seite in Ihrem Browser.</i>
 ',
   'user_registration_help' => '<h3>Willkommen! Bitte lesen Sie dies, bevor Sie unten fortfahren</h3>
@@ -618,17 +618,17 @@ For your convenience, you are already logged in with your newly created account.
   'uc_roles_default_expiration_title' => '!role_name',
   'uc_store_name' => 'Warmshowers.org Donations',
   'uc_teaser_add_to_cart_text' => 'Give now!',
-  'user_mail_password_reset_body' => 'Hi !username,
+  'user_mail_password_reset_body' => 'Hi [user:name],
 
 You (or someone) requested a one-time login for your account on warmshowers.org. If it wasn\'t you, you can just ignore this message.
 
-Please <a href="!login_url">click here to log in and reset your password</a>. If you can\'t click that link, copy and paste this URL into your browser:
+Please <a href="[user:one-time-login-url]">click here to log in and reset your password</a>. If you can\'t click that link, copy and paste this URL into your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once. It expires after one day and nothing will happen if it\'s not used.
 
-After logging in, you will be redirected to <a href="!edit_uri">your account profile edit page</a> so you can change your password.
+After logging in, you will be redirected to <a href="[user:edit-url]">your account profile edit page</a> so you can change your password.
 
 Thanks,
 -Randy Fay and the registration team
@@ -639,36 +639,36 @@ Troubleshooting:
 If you get "Sorry - you don\'t have access to that page (error 403)", it almost certainly means you have cookies turned off on your browser.  To get cookies configured correctly please see <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">this article in the FAQ</a>.
 
 If you can\'t solve this problem, please ask for help. Reply to this message and ask for help.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] One-time login link for  !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] One-time login link for  [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Thank you for registering at Warmshowers.org.
 
-Please <a href="!login_url">click here</a> to validate your email address and enable your account. (If you can\'t click that link, please copy and paste this link into your browser:
+Please <a href="[user:one-time-login-url]">click here</a> to validate your email address and enable your account. (If you can\'t click that link, please copy and paste this link into your browser:
 
-!login_url
+[user:one-time-login-url]
 
 After you validate with the link above you will be able to log in to !login_uri using the following username and the password you entered:
 
-username: !username
+username: [user:name]
 password: The password you entered
 
 If you have any questions, you can reply to this email and we\'ll do our best to help you out.
@@ -679,9 +679,9 @@ Thanks,
 --  !site team
 
 --Admin use only
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Validate your account on Warmshowers.org (!username)',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
+  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Validate your account on Warmshowers.org ([user:name])',
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -710,16 +710,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -730,17 +730,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Welcome !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Welcome [user:name],
 
 Your account at www.warmshowers.org has been activated.
 
-You can log in with the username and password you already have, or you may now log in by <a href="!login_url">clicking here</a>.
+You can log in with the username and password you already have, or you may now log in by <a href="[user:one-time-login-url]">clicking here</a>.
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to <a href="!edit_uri">your account profile edit page</a> so you can change your password if you want to.
+After logging in, you will be redirected to <a href="[user:edit-url]">your account profile edit page</a> so you can change your password if you want to.
 
 Any questions? Just reply to this message.
 
@@ -752,7 +752,7 @@ Warmshowers.org webmaster
 Admin use only:
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Your account has been approved',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -763,9 +763,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => 'Hello !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been deleted, most likely at your request or as a result of appearing to be an invalid or spammer entry.
 
@@ -774,7 +774,7 @@ If you have any questions, please reply to this email.
 Thanks,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] !username account deleted',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] account deleted',
   'user_picture_guidelines' => 'We\'d like a picture of <i>you</i>, perhaps cycling or at your location. This is entirely optional, of course, but can be fun and helps guests or hosts know more about you. Random pictures show on the front page as well. <i>If you upload a new picture and it doesn\'t show up right away, do a shift-refresh on your browser. (Hold down the SHIFT key and click the REFRESH button on your browser.)</i>
 ',
   'user_registration_help' => '<h3>Welcome! Please read this before continuing below</h3>
@@ -835,15 +835,15 @@ Se puede ver este comento por <a href="[comment:url]">cliquear aquí</a>.  (Favo
   'site_mission' => 'los miembros de <a href="http://es.warmshowers.org">warmshowers.org</a>: hospitalidad entre cicloturistas',
   'site_name' => 'Duchas Calientes (Warm Showers)',
   'site_slogan' => 'Hospitalidad entre cicloturistas',
-  'user_mail_password_reset_body' => 'Hola !username:
+  'user_mail_password_reset_body' => 'Hola [user:name]:
 
 Al parecer has solicitado que se restablezca la contraseña de tu cuenta de Warmshowers.org. Si no fuiste tú, puedes simplemente ignorar este mensaje.
 
-Ahora puedes acceder a tu cuenta <a href="!login_url">haciendo click en este enlace</a>.
+Ahora puedes acceder a tu cuenta <a href="[user:one-time-login-url]">haciendo click en este enlace</a>.
 
 Este acceso funciona solamente una vez y durante un día desde que te lo mandamos. Si no lo usas, no pasará absolutamente nada.
 
-Al acceder a tu cuenta serás redirigido a <a href="!edit_uri">perfil de su cuenta la página de edición</a> para que puedas cambiar tu contraseña.
+Al acceder a tu cuenta serás redirigido a <a href="[user:edit-url]">perfil de su cuenta la página de edición</a> para que puedas cambiar tu contraseña.
 
 Gracias.
 
@@ -874,36 +874,36 @@ De cualquier manera, te recomendamos utilizar una alternativa a otro navegador d
 Este problema puede causarlo un programa que bloquee las cookies. Por ejemplo, CA Security Center puede bloquear las cookies en todos los navegadores. Intenta como último recurso deshabilitar temporalmente el firewall y el antivirus, para ver si son la causa del problema.
 
 Si no puedes resolver este problema, responde a este mensaje e intentaremos ayudarte.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Enlace de un solo uso para restablecer la contraseña de !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Enlace de un solo uso para restablecer la contraseña de [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => 'Hola !username:
+  'user_mail_register_no_approval_required_body' => 'Hola [user:name]:
 
 Gracias por registrarte en Warmshowers.org.
 
-Por favor <a href="!login_url">click aqui</a> para validar tu dirección de correo electrónico y habilitar tu cuenta.
+Por favor <a href="[user:one-time-login-url]">click aqui</a> para validar tu dirección de correo electrónico y habilitar tu cuenta.
 
-!login_url
+[user:one-time-login-url]
 
 Después de hacerlo, podrás acceder a tu cuenta en !login_uri usando los siguientes nombre de usuario y contraseña (que podrás cambiar después):
 
-usuario: !username
+usuario: [user:name]
 
 (Puedes usar tu correo electrónico en vez de nombre de usuario, también.)
 
@@ -913,9 +913,9 @@ Gracias.
 
 Warmshowers.org administración
 
-Uso admin (edit): <a href="!edit_uri">!edit_uri</a>',
-  'user_mail_register_no_approval_required_subject' => 'Valida tu cuenta en Warmshowers.org (!username)',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+Uso admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
+  'user_mail_register_no_approval_required_subject' => 'Valida tu cuenta en Warmshowers.org ([user:name])',
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -944,16 +944,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -964,15 +964,15 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Hola !username
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Hola [user:name]
 
 Su cuenta en www.warmshowers.org ha sido activado y que ahora tienen acceso completo al sitio web. Puede entrar en cualquier momento con el nombre de usuario y contraseña creada durante el registro.
 
 Si usted tiene problemas o preguntas que nos envíe un correo electrónico y haremos nuestro mejor esfuerzo para ayudar.',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Su cuenta ha sido aprobada',
-  'user_mail_status_blocked_body' => 'Hola !username:
+  'user_mail_status_blocked_body' => 'Hola [user:name]:
 
 Tu cuenta en www.warmshowers.org ha sido bloqueada.
 
@@ -983,10 +983,10 @@ Randy Fay.
 Webmaster de Warmshowers.org
 
 Acceso admin:
-!edit_uri
+[user:edit-url]
 ',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: La cuenta !username ha sido bloqueada',
-  'user_mail_status_deleted_body' => 'Hola !username -
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: La cuenta [user:name] ha sido bloqueada',
+  'user_mail_status_deleted_body' => 'Hola [user:name] -
 
 Su cuenta en es.warmshowers.org se ha suprimido.
 
@@ -995,7 +995,7 @@ Si usted tiene alguna pregunta, por favor, responda a este mensaje.
 Gracias,
 Randy Fay
 Webmaster Warmshowers.org',
-  'user_mail_status_deleted_subject' => 'Warmshowers.org: !username cuenta cancelada',
+  'user_mail_status_deleted_subject' => 'Warmshowers.org: [user:name] cuenta cancelada',
   'user_picture_guidelines' => 'Queremos una foto de  <i>ti</i>, tal vez montando en bici o a tu casa. Este is opcional, pero divertido, también. Fotos al azar  aparecen en la página principal. ',
   'user_registration_help' => '<h3>¡Bienvenido! Por favor, lee esto antes de seguir adelante</h3>
 ¡Nos complace tu registro en WarmShowers! Te pedimos un minuto para que rellenes toda tu información. Luego te enviaremos un e-mail con un enlace de validación. Por supuesto que con la cantidad de filtros anti-spam es posible que nuestro correo no te aparezca si no nos añades a tu lista de correos autorizados. Es importante que verifiques que nuestro correo no se ha filtrado.
@@ -1077,13 +1077,13 @@ Search: http://www.warmshowers.org/search/wsuser/%useremail
 Username: %username
 Email: %useremail
 ',
-  'user_mail_password_reset_body' => 'سلام!username
+  'user_mail_password_reset_body' => 'سلام[user:name]
 شما ( یا یک کسی) برای اجازه یکبار ورود به حساب شما در  warmshowers.org  درخواست کرده است.اگر شما درخواست کننده نبوده اید، کافی است فقط این پیغام را ندیده بگیرید.
-لطفا ً  برای بازنویسی کلمه رمزتان <a href="!login_url">اینجا را کلیک کنید </a>، تا بتوانید  کلمه رمزتان را تغییر دهید.
+لطفا ً  برای بازنویسی کلمه رمزتان <a href="[user:one-time-login-url]">اینجا را کلیک کنید </a>، تا بتوانید  کلمه رمزتان را تغییر دهید.
 
-!login_url
+[user:one-time-login-url]
 
-بعد از ورود به سایت ، شما به<a href="!edit_uri"> صفحه ویرایش اطلاعات شخصی </a>  منتقل می شوید. تا بتوانید کلمه رمز خود را تغییر دهید.
+بعد از ورود به سایت ، شما به<a href="[user:edit-url]"> صفحه ویرایش اطلاعات شخصی </a>  منتقل می شوید. تا بتوانید کلمه رمز خود را تغییر دهید.
 با تشکر،
 -Randy Fay and the registration team
 WarmShowers.org
@@ -1096,14 +1096,14 @@ WarmShowers.org
 اگر نتوانستید این مشکل را حل کنید، لطفا ً از ما کمک بخواهید و  این  ایمیل را  Reply  کنید.
 
 [Warmshowers.org] عضویت انجام شد .
-خوشامدید!username !
+خوشامدید[user:name] !
 
 حساب شما در www.warmshowers.or  فعال شده است .
 
-شما می توانید با کلمه کاربری و کلمه رمزی که دارید وارد سایت شوید، و یا می توانید همین حالا با کلیک کردن<a href="!login_url"> اینجا</a>  کلمه رمزتان را تغییر دهید.
+شما می توانید با کلمه کاربری و کلمه رمزی که دارید وارد سایت شوید، و یا می توانید همین حالا با کلیک کردن<a href="[user:one-time-login-url]"> اینجا</a>  کلمه رمزتان را تغییر دهید.
 
 این لینک تنها برای یکبار ورود قابل استفاده است
-بعد از ورود به سایت شما به <a href="!edit_uri">صفحه ویرایش</a>  مشخصات منتقل می شوید و می توانید کلمه رمزتان را تغییر دهید.
+بعد از ورود به سایت شما به <a href="[user:edit-url]">صفحه ویرایش</a>  مشخصات منتقل می شوید و می توانید کلمه رمزتان را تغییر دهید.
 
 سئوالی  هست؟  کافی است  از طریق همین ایمیل  ( و با Reply  کردن ) آنرا بپرسید.
 
@@ -1115,38 +1115,38 @@ Warmshowers.org webmaster
 فقط برای استفاده مدیریت
 !uri
 ',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] لینک یکبار اجازه یکبار ورود برای !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] لینک یکبار اجازه یکبار ورود برای [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 از عضویت شما در
  Warmshowers.org
  متشکریم و بهتون خوشامد میگوییم.
-لطفا برای تایید صحت آدرس ایمیل تان <a href="!login_url">اینجا</a> را کلیک کنید تا حساب شما فعال شود.
+لطفا برای تایید صحت آدرس ایمیل تان <a href="[user:one-time-login-url]">اینجا</a> را کلیک کنید تا حساب شما فعال شود.
 اگر کلیک کردن آن ممکن نشد ، لطفا لینک زیر  را در نوار آدرس مرورگر خود کپی کنید:
-!login_url
+[user:one-time-login-url]
 بعد از تایید شدن از طریق لینک فوق ، شما خواهید توانست با استفاده از کلمه کاربری و کلمه رمز زیر به
 http://fa.warmshowers.org/user
 وارد شوید.
 
-کلمه کاربری: !username
+کلمه کاربری: [user:name]
 کلمه رمز: کلمه رمزی که در فرم وارد کردید
 هر سوالی دارید، می توانید با
  "reply"
@@ -1154,9 +1154,9 @@ http://fa.warmshowers.org/user
 با تشکر،
 --!site team
 -- فقط برای استفاده مدیریت
-مدیریت(ویرایش): <a href="!edit_uri">!edit_uri</a>',
+مدیریت(ویرایش): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] تایید عضویت شما در Warmshowers.org',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -1185,16 +1185,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -1205,16 +1205,16 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'خوشامدید!username !
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'خوشامدید[user:name] !
 
 حساب شما در www.warmshowers.or  فعال شده است .
 
-شما می توانید با کلمه کاربری و کلمه رمزی که دارید وارد سایت شوید، و یا می توانید همین حالا با کلیک کردن<a href="!login_url"> اینجا</a>  کلمه رمزتان را تغییر دهید.
+شما می توانید با کلمه کاربری و کلمه رمزی که دارید وارد سایت شوید، و یا می توانید همین حالا با کلیک کردن<a href="[user:one-time-login-url]"> اینجا</a>  کلمه رمزتان را تغییر دهید.
 
 این لینک تنها برای یکبار ورود قابل استفاده است
-بعد از ورود به سایت شما به <a href="!edit_uri">صفحه ویرایش</a>  مشخصات منتقل می شوید و می توانید کلمه رمزتان را تغییر دهید.
+بعد از ورود به سایت شما به <a href="[user:edit-url]">صفحه ویرایش</a>  مشخصات منتقل می شوید و می توانید کلمه رمزتان را تغییر دهید.
 
 سئوالی  هست؟  کافی است  از طریق همین ایمیل  ( و با Reply  کردن ) آنرا بپرسید.
 
@@ -1228,7 +1228,7 @@ Warmshowers.org webmaster
 ',
   'user_mail_status_activated_subject' => ' [Warmshowers.org] عضویت انجام شد .',
   'user_mail_status_blocked_body' => '[Warmshowers.org] حساب شما مسدود شد.
-سلام !username
+سلام [user:name]
 حساب شما  در www.warmshowers.org  مسدود شد.
 هر سئوالی دارید لطفا با پاسخ دادن به همین ایمیل بپرسید
 
@@ -1239,7 +1239,7 @@ Warmshowers.org webmaster
 
 --
 فقط برای استفاده مدیریت
-!edit_uri
+[user:edit-url]
 ',
   'user_mail_status_blocked_subject' => '[Warmshowers.org] حساب شما مسدود شد.',
   'user_mail_status_deleted_body' => 'حساب شما  در www.warmshowers.org  حذف شده اس ، احتمال زیاد بخاطر درخواست شما و یا به علت نامعتبر بودن  آن.
@@ -1249,7 +1249,7 @@ Warmshowers.org webmaster
 با تشکر،
 -Randy Fay
 Warmshowers.org ',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] حساب !username حذف گردید.',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] حساب [user:name] حذف گردید.',
   'user_picture_guidelines' => 'ما دوستداریم عکسی از<i> شما</i> داشته باشیم ، احتمالا در حال دوچرخه سواری  و یا در خانه تان.  البته این کاملا ً اختیاری است ،  ولی میتواند سرگرم کننده باشد. زیرا ما در صفحه اول سایت از بین عکسهای اعضا ، عکسهایی را  بطور اتفاقی اتخاب کرده و به نمایش می گذاریم. اگر یک عکس جدید بارگذاری کردید ولی همچنان  عکس قدیمی به نمایش درآمد، یک  shift-refresh   روی مرورگر خود انجام دهید.( کلید  SHIFT  را فشرده نهداشته و همزمان  نمایه REFRESH   را کلیک کنید.) </i>',
   'user_registration_help' => '<h3>خوش آمدید! لطفا ً قبل از ادامه ، مطلب زیر را بخوانید. </h3>
 ما خوشحالیم که شما میخواهید در وارم شاورز عضو شوید! تا دقایقی دیگر ، شما اطلاعات خود را وارد خواهید کرد، و سپس ما یک ایمیل  تاییدی به شما خواهیم فرستاد –  شما باید یک لینک در این ایمیل را کلیک کنید. ولی البته این روزها با وجود میلیونها فیلتر مختلف ، ممکن است ایمیل ما یه صندوق ورودی  ایمیل شما نرود، و در صورتی که این ایمیل به شما نرسد ، نم نویسی و عضویت شما هیچوقت کامل  نمی شود.   مگر اینکه قبلا  آدرس  ایمیل ما را به  عنوان ایمیل  قابل اعتماد ( غیر مزاحم) در لیست سفید وارد کرده باشیدد و یا در دفترچه آدرسها، در ایمیل خود، ثبت کرده باشید.بنابر این...
@@ -1388,17 +1388,17 @@ Vous recevrez un e-mail comme celui-ci à chaque fois que quelqu\'un répond à 
   'site_mission' => 'Membres de <a href="http://fr.warmshowers.org">warmshowers.org</a>: hébergement entre cyclo-randonneurs',
   'site_name' => 'Warmshowers.org',
   'site_slogan' => 'Hébergement entre cyclo-randonneurs',
-  'user_mail_password_reset_body' => 'Bonjour !username:
+  'user_mail_password_reset_body' => 'Bonjour [user:name]:
 
 Vous (ou un tiers) avez fait la demande de réinitialisation du mot de passe pour accéder à votre profil warmshowers.org. Si vous n\'êtes pas à l\'origine de cette demande, ignorez simplement ce message.
 
-Vous pouvez maintenant vous identifier <a href="!login_url">en cliquant ici</a>.
+Vous pouvez maintenant vous identifier <a href="[user:one-time-login-url]">en cliquant ici</a>.
 
-!login_url
+[user:one-time-login-url]
 
 Ceci est un lien à usage unique. Sa validité est de 24h, et il ne se passe rien si vous ne l´utilisez pas !
 
-Une fois identifié, vous serez redirigé vers <a href="!edit_uri">à votre profil de compte</a> afin de pouvoir changer votre mot de passe.
+Une fois identifié, vous serez redirigé vers <a href="[user:edit-url]">à votre profil de compte</a> afin de pouvoir changer votre mot de passe.
 
 Merci.
 
@@ -1427,36 +1427,35 @@ Le problème vient généralement du fait que les cookies sont désactivés sur 
     * Assurez-vous d´avoir vidé la mémoire cache: pour IE6 Outils->Options Internet->Delete Files. Dans  Firefox, cliquez sur Outils->Effacer mes traces; cochez "cache" et "sessions identifiées / authentifiées " et cliquez sur "effacer mes traces maintenant".
     * Tout programme qui bloque les cookies peut aussi causer ce problème. Norton peut ainsi, selon les réglages, bloquer les cookies pour tous les programmes. Essayez de désactiver temporairement votre firewall et votre antivirus, pour voir s\'ils sont la cause du problème.
     *Si le problème persiste, demandez de l\'aide. Répondez à cet e-mail et décrivez votre problème.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] E-mail de réinitialisation du mot de passe (!username)',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] E-mail de réinitialisation du mot de passe ([user:name])',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => 'Bonjour !username:
+  'user_mail_register_no_approval_required_body' => 'Bonjour [user:name]:
 
 Merci de vous être inscrit à Warmshowers.org
 
-Veuillez <a href="!login_url">cliquez ici</a> pour valider votre adresse e-mail et votre inscription.
+Veuillez <a href="[user:one-time-login-url]">cliquez ici</a> pour valider votre adresse e-mail et votre inscription.
 
-!login_url
+[user:one-time-login-url]
 
 Après avoir validé votre adresse en utilisant le lien ci-dessus, vous pourrez vous identifier sur le site avec l\'identifiant et le mot de passe suivants :
 
-identifiant: !username
+identifiant: [user:name]
 
 Si vous avez des questions, veuillez répondre à cet e-mail. Nous ferons de notre mieux pour vous aider.
 
@@ -1464,9 +1463,9 @@ Merci
 
 Warmshowers.org l\'administration
 ----
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
-  'user_mail_register_no_approval_required_subject' => 'Validez votre inscription sur Warmshowers.org (!username)',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
+  'user_mail_register_no_approval_required_subject' => 'Validez votre inscription sur Warmshowers.org ([user:name])',
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -1495,16 +1494,15 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -1515,15 +1513,15 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Bonjour !username:
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Bonjour [user:name]:
 
 Votre compte à www.warmshowers.org a été activé et que vous avez maintenant un accès complet au site. Vous pouvez vous connecter à tout moment avec le nom d\'utilisateur et mot de passe créés lors de votre inscription.
 
 Si vous avez des problèmes ou des questions envoyez nous un email et nous ferons de notre mieux pour aider.',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Votre compte a été approuvé',
-  'user_mail_status_blocked_body' => 'Hola !username:
+  'user_mail_status_blocked_body' => 'Hola [user:name]:
 
 Tu cuenta en www.warmshowers.org ha sido bloqueada.
 
@@ -1534,10 +1532,10 @@ Randy Fay.
 Webmaster de Warmshowers.org
 
 Acceso admin:
-!edit_uri
+[user:edit-url]
 ',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: La cuenta !username ha sido bloqueada',
-  'user_mail_status_deleted_body' => 'Bonjour !username
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: La cuenta [user:name] ha sido bloqueada',
+  'user_mail_status_deleted_body' => 'Bonjour [user:name]
 
 Votre compte sur fr.warmshowers.org a été supprimé.
 
@@ -1546,7 +1544,7 @@ Si vous avez des questions, s\'il vous plaît répondez à ce message.
 Merci,
 Randy Fay
 Warmshowers.org webmaster',
-  'user_mail_status_deleted_subject' => 'Warmshowers.org: !username compte supprimé',
+  'user_mail_status_deleted_subject' => 'Warmshowers.org: [user:name] compte supprimé',
   'user_picture_guidelines' => 'Instructions pour les photos:<br>
 Nous aimerions avoir une photo de <i>vous</i>, sur votre vélo ou chez vous. Rien d\'obligatoire, bien sûr, mais cela peut être amusant. Sur la page d\'accueil, vous pouvez voir des photos prises au hasard. <i>Si vous téléchargez une nouvelle photo, et qu\'elle n\'apparait pas immédiatement, il faut rafraîchir votre affichage. (Maintenir la touche Maj enfoncée, et cliquer sur le bouton "actualiser la page courante" de votre navigateur)</i>
 ',
@@ -1631,17 +1629,17 @@ Search: http://www.warmshowers.org/search/wsuser/%useremail
 Username: %username
 Email: %useremail
 ',
-  'user_mail_password_reset_body' => 'Ciao !username,
+  'user_mail_password_reset_body' => 'Ciao [user:name],
 
 Tu (o qualcuno) ha richiesto un login unico per il tuo account su warmshowers.org. Se non hai richiesto questo servizio, ignora questo messaggio.
 
-<a href="!login_url">Per autenticarti e modificare la tua password, per favore clicca qui</a>. Se non è possibile aprire il collegamento, copia e incolla questa URL nel tuo motore di ricerca:
+<a href="[user:one-time-login-url]">Per autenticarti e modificare la tua password, per favore clicca qui</a>. Se non è possibile aprire il collegamento, copia e incolla questa URL nel tuo motore di ricerca:
 
-!login_url
+[user:one-time-login-url]
 
 Questo è un login unico e può essere utilizzato una volta soltanto. Scade automaticamente dopo 24 ore se non utilizzato.
 
-Dopo esserti autenticata/o, sarai reindirizzata/o su <a href="!edit_uri">la tua pagina personale, dove puoi modificare il tuo profilo</a> e dove potrai modificare la tua password.
+Dopo esserti autenticata/o, sarai reindirizzata/o su <a href="[user:edit-url]">la tua pagina personale, dove puoi modificare il tuo profilo</a> e dove potrai modificare la tua password.
 
 Grazie,
 -Randy Fay e il team di registrazione.
@@ -1651,36 +1649,35 @@ Risoluzione dei problemi:
 
 Se viene visualizzato il messaggio "Spiacenti – non hai accesso a questa pagina (error 403)", quasi certamente ci sono dei cookies disattivati sul tuo motore di ricerca.  Per configurare i cookies correttamente visita <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">nelle FAQ</a>.
 Se non riesci a risolvere il problema, chiedi aiuto rispondendo a questa email.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Login unico per !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Login unico per [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Grazie per aver effettuato la registrazione su Warmshowers.org.
 
-Ti preghiamo <a href="!login_url">di cliccare qui</a> per registrare il tuo indirizzo email e abilitare il tuo account. (Se non è possibile aprire il collegamento, copia e incolla l\'indirizzo sul tuo motore di ricerca:
+Ti preghiamo <a href="[user:one-time-login-url]">di cliccare qui</a> per registrare il tuo indirizzo email e abilitare il tuo account. (Se non è possibile aprire il collegamento, copia e incolla l\'indirizzo sul tuo motore di ricerca:
 
-!login_url
+[user:one-time-login-url]
 
 Dopo aver convalidato la tua registrazione, sarai autorizzata/o ad effettuare il login su !login_uri usando i seguenti nome utente e password (da te scelti):
 
-nome utente: !username
+nome utente: [user:name]
 password: La password che hai scelto
 
 Se ci sono problemi, rispondi a questa email e faremo del nostro meglio per venirti incontro.
@@ -1691,9 +1688,9 @@ Grazie,
 --  !site team
 
 --Ad uso esclusivo dell\'amministratore
-Admin (modifica): <a href="!edit_uri">!edit_uri</a>',
-  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Confermare la registrazione su Warmshowers.org (!username)',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+Admin (modifica): <a href="[user:edit-url]">[user:edit-url]</a>',
+  'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Confermare la registrazione su Warmshowers.org ([user:name])',
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -1722,16 +1719,15 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -1742,17 +1738,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Benvenuta/o !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Benvenuta/o [user:name],
 
 Il tuo account su www.warmshowers.org è ora attivo.
 
-Puoi adesso effettuare il login con i tuoi nome utente e password, o attraverso il link <a href="!login_url"></a>.
+Puoi adesso effettuare il login con i tuoi nome utente e password, o attraverso il link <a href="[user:one-time-login-url]"></a>.
 
 Questo è un login unico e può essere utilizzato una volta soltanto.
 
-Dopo esserti autenticata/o, sarai reindirizzata/o su <a href="!edit_uri">la tua pagina personale, dove puoi modificare il tuo profilo</a> e dove puoi cambiare la tua password se lo desideri.
+Dopo esserti autenticata/o, sarai reindirizzata/o su <a href="[user:edit-url]">la tua pagina personale, dove puoi modificare il tuo profilo</a> e dove puoi cambiare la tua password se lo desideri.
 
 Domande? Basta rispondere a questa mail.
 
@@ -1763,8 +1759,8 @@ Warmshowers.org webmaster
 --
 Ad uso esclusivo dell\'amministratore:
 !uri',
-  'user_mail_status_activated_subject' => '[Warmshowers.org] Il tuo account è stato creato con successo (!username)',
-  'user_mail_status_blocked_body' => 'Ciao !username,
+  'user_mail_status_activated_subject' => '[Warmshowers.org] Il tuo account è stato creato con successo ([user:name])',
+  'user_mail_status_blocked_body' => 'Ciao [user:name],
 
 Il tuo account su www.warmshowers.org è stato bloccato.
 
@@ -1775,9 +1771,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Ad uso dell\'amministratore:
-!edit_uri',
-  'user_mail_status_blocked_subject' => '[Warmshowers.org] !username account bloccato',
-  'user_mail_status_deleted_body' => 'Ciao !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => '[Warmshowers.org] [user:name] account bloccato',
+  'user_mail_status_deleted_body' => 'Ciao [user:name],
 
 Il tuo account su www.warmshowers.org è stato cancellato, probabilmente come da te richiesto o perchè riconosciuto come invalido o spam.
 
@@ -1786,7 +1782,7 @@ Se hai delle domande, per favore rispondi a questa email.
 Grazie,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] !username account cancellato',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] account cancellato',
   'user_picture_guidelines' => 'Inviaci una foto di <i>Te</i>, con la tua bici o a casa tua. Si tratta di una scelta del tutto opzionale ma può rivelarsi divertente. Foto di questo tipo appaiono anche sulla pagina principale. <i>Se carichi una nuova foto e non diventa visibile entro pochi istanti, premi shift-refresh (shift+aggiorna) sul tuo motore di ricerca. (Tieni premuto il pulsante SHIFT e clicca su REFRESH/AGGIORNA.)</i>',
   'user_registration_help' => '<h3>Benvenuta/o! Per favore leggi qui prima di procedere</h3>
 Siamo felici che tu abbia deciso di far parte della comunità Warm Showers! Fra pochi istanti potrai inserire i tuoi dettagli e subito dopo riceverai una email di conferma – dovrai cliccare sul collegamento per attivare il tuo account. Ma attenzione, perchè con tutti i filtri antispam che abbiamo oggigiorno, potresti non ricevere mai questa email se prima non aggiungi Warm Showers alla Lista Bianca nella casella dello spam! Quindi …
@@ -1816,17 +1812,17 @@ OK, è tutto per ora! Adesso prosegui con la registrazione.
 <p>もしこのサイトを使うにあたり、ヘルプが必要な場合は、どうか <a href="/faq">よくある質問を最初に</a>ご覧下さい。そして、どうか<a href="http://www.warmshowers.org/forums/website-help-and-support">ヘルプフォーラム</a>を良く読み、投稿してください。他の人の助言が得られるかも知れませんし、その質問への回答が別な人を助ける事にもなります。</p>
 
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
-  'user_mail_password_reset_body' => '!usernameさん、こんにちは。
+  'user_mail_password_reset_body' => '[user:name]さん、こんにちは。
 
 あなた（もしくは誰か）が、あなたのwarmshowers.orgへのワンタイムログインを依頼しました。もし依頼されたのがあなたでない場合は、このメッセージを無視して下さい。
 
-<a href="!login_url">ここをクリックしてログインし、パスワードをリセット</a>して下さい。もしこのリンクをクリックできない場合は、以下のURLをコピーし、ブラウザにペースとして下さい:
+<a href="[user:one-time-login-url]">ここをクリックしてログインし、パスワードをリセット</a>して下さい。もしこのリンクをクリックできない場合は、以下のURLをコピーし、ブラウザにペースとして下さい:
 
-!login_url
+[user:one-time-login-url]
 
 これはワンタイムログインなので一度しか使用できません。このアドレスは一日で期限切れとなり、もし使用されない場合には何も起きません。
 
-ログイン後、あなたは<a href="!edit_uri">あなたのアカウントプロファイル編集ページ</a>にリダイレクトされますので、そこでパスワードを変更できます。
+ログイン後、あなたは<a href="[user:edit-url]">あなたのアカウントプロファイル編集ページ</a>にリダイレクトされますので、そこでパスワードを変更できます。
 
 ありがとうございます。
 
@@ -1838,36 +1834,35 @@ OK, è tutto per ora! Adesso prosegui con la registrazione.
 
 If you can\'t solve this problem, please ask for help. Reply to this message in English and ask for help.
 もし、問題を解決できない場合は、このメールに英語で返信して質問して下さい',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] !usernameさんのためのワンタイムログインのリンク',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] [user:name]さんのためのワンタイムログインのリンク',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Warmshowers.orgにご登録いただき、ありがとうございます。
 
-<a href="!login_url">ここをクリック</a>してあなたのメールアドレスとアカウントを有効化して下さい。（もし上のリンクをクリックできない場合は、以下のリンクをコピーし、ブラウザにペーストして下さい）
+<a href="[user:one-time-login-url]">ここをクリック</a>してあなたのメールアドレスとアカウントを有効化して下さい。（もし上のリンクをクリックできない場合は、以下のリンクをコピーし、ブラウザにペーストして下さい）
 
-!login_url
+[user:one-time-login-url]
 
 上のリンクでアカウントを有効化すると、下記のユーザー名と入力されたパスワードで!login_uriにログインできるようになります:
 
-ユーザー名: !username
+ユーザー名: [user:name]
 パスワード: あなたが入力したパスワード
 
 If you have any questions, you can reply to this email in English and we\'ll do our best to help you out.
@@ -1879,9 +1874,9 @@ If you have any questions, you can reply to this email in English and we\'ll do 
 --  !site チーム
 
 --以下は管理用リンク
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Warmshowers.orgのアカウントを有効化する',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -1910,16 +1905,15 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -1930,17 +1924,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => '!usernameさん、ようこそ。
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => '[user:name]さん、ようこそ。
 
 あなたのwww.warmshowers.orgのアカウントは有効化されました。
 
 あなたはご自身のユーザー名と既にお持ちのパスワードでログインできます。
-あるいは<a href="!login_url">ここをクリック</a>することでもログインが可能です。
+あるいは<a href="[user:one-time-login-url]">ここをクリック</a>することでもログインが可能です。
 （これはワンタイムログインなので、一回だけ使用できます）
 
-ログイン後、あなたは<a href="!edit_uri">アカウントプロファイル編集ページ</a>にリダイレクトされます。そこで必要に応じパスワードを変更できます。
+ログイン後、あなたは<a href="[user:edit-url]">アカウントプロファイル編集ページ</a>にリダイレクトされます。そこで必要に応じパスワードを変更できます。
 
 Any questions? Just reply to this message in English.
 何かご質問があれば、このメールに英語で返信して下さい。
@@ -1952,7 +1946,7 @@ Any questions? Just reply to this message in English.
 以下は管理用リンク
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] あなたのアカウントは承認されました',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -1963,9 +1957,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => '!usernameさん、こんにちは。
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => '[user:name]さん、こんにちは。
 
 あなたのwww.warmshowers.orgのアカウントは削除されました。これは恐らくは
 ご自身の依頼によるものです。（スパムによる不正アクセスの可能性もあります）
@@ -1975,10 +1969,10 @@ If you have any questions, please reply to this email in English.
 
 ありがとうございます。
 Warmshowers.orgのRandy Fayより
-[Warmshowers.org] !usernameさんのアカウントは削除されました
-!usernameさん、こんにちは。
+[Warmshowers.org] [user:name]さんのアカウントは削除されました
+[user:name]さん、こんにちは。
 ',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] !usernameさんのアカウントは削除されました',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name]さんのアカウントは削除されました',
   'user_picture_guidelines' => '私たちは、あなたが、地元でサイクリングしているような<i>あなた</i>の写真を望んでいます。これは完全に任意のオプションですが、あれば楽しいものです。これはフロントページのランダムな写真にも表示されます。 <i>もし新しい写真をアップロードした場合、すぐには表示されません。ブラウザでシフトキーを押しながら再読み込みのボタンを押してみて下さい。</i>',
   'user_registration_help' => '<h3>ようこそ! 以下を良く読んでからお進みください</h3>
 Warm Showersに登録しようとして頂き、大変うれしく思います!
@@ -2101,17 +2095,17 @@ Możesz zobaczyć ten komentarz, <a href="[comment:url]">klikając tutaj</a>.  (
 Będziesz otrzymywał podobne e-maile informujące o wszystkich odpowiedziach na Twoje wpisy.
 
 - Zespół Warmshowers',
-  'user_mail_password_reset_body' => 'Witaj !username,
+  'user_mail_password_reset_body' => 'Witaj [user:name],
 
 Ty (lub ktoś inny) poprosił o wysłanie jednorazowego przypomnienia loginu do konta na warmshowers.org Jeśli nie byłeś to Ty, możesz po prostu zignorować tę wiadomość.
 
-Kliknij <a href="!login_url">tutaj, aby się zalogować i zresetować hasło</a>. Jeśli nie możesz kliknąć w link, skopiuj go i wklej do przeglądarki:
+Kliknij <a href="[user:one-time-login-url]">tutaj, aby się zalogować i zresetować hasło</a>. Jeśli nie możesz kliknąć w link, skopiuj go i wklej do przeglądarki:
 
-!login_url
+[user:one-time-login-url]
 
 Jest to jednorazowy login, może więc być użyty tylko raz. Login wygaśnie po jednym dniu. Możesz go w ogóle nie użyć, nic się wtedy nie stanie.
 
-Po zalogowaniu zostaniesz przeniesiony na <a href="!edit_uri">swoją stronę profilową</a>, abyś mógł zmienić hasło.
+Po zalogowaniu zostaniesz przeniesiony na <a href="[user:edit-url]">swoją stronę profilową</a>, abyś mógł zmienić hasło.
 
 Dziękujemy,
 - Randy Fay i Zespół Rejestracji
@@ -2122,35 +2116,34 @@ Rozwiązywanie problemów:
 Jeśli wyświetla Ci się „Niestety nie masz dostępu do tej strony (błąd 403)", najprawdopodobniej oznacza to, że masz wyłączoną obsługę plików cookies w przeglądarce.  Aby poprawnie skonfigurować te pliki przeczytaj <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">ten artykuł na stronie FAQ</a>.
 
 Jeśli nie potrafisz rozwiązać tego problemu, poproś o pomoc odpowiadając na tę wiadomość.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Jednorazowy link do logowania dla !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Jednorazowy link do logowania dla [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 Dziękujemy za rejestrację na Warmshowers.org.
 
-Kliknij <a href="!login_url">tutaj</a>, aby potwierdzić swój adres e-mail i uaktywnić konto. Jeśli nie możesz kliknąć w link, skopiuj go i wklej do przeglądarki:
+Kliknij <a href="[user:one-time-login-url]">tutaj</a>, aby potwierdzić swój adres e-mail i uaktywnić konto. Jeśli nie możesz kliknąć w link, skopiuj go i wklej do przeglądarki:
 
-!login_url
+[user:one-time-login-url]
 
 Po potwierdzeniu kliknięciem w link powyżej będziesz mógł się zalogować na !login_uri wykorzystując następujące dane, które podałeś:
 
-nazwa użytkownika: !username
+nazwa użytkownika: [user:name]
 hasło: hasło, które podałeś
 
 Jeśli masz jakiekolwiek pytania, możesz odpowiedzieć na tę wiadomość, a my dołożymy wszelkich starań, aby Ci pomóc.
@@ -2161,7 +2154,7 @@ Dziękujemy,
 -- !site team
 ',
   'user_mail_register_no_approval_required_subject' => ' [Warmshowers.org] Weryfikacja konta na Warmshowers.org',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -2190,16 +2183,15 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -2210,17 +2202,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Witaj !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Witaj [user:name],
 
 Twoje konto na www.warmshowers.org zostało aktywowane.
 
-Możesz zalogować się przy użyciu nazwy użytkownika i hasła, które już posiadasz lub możesz zalogować się <a href="!login_url">klikając tutaj</a>.
+Możesz zalogować się przy użyciu nazwy użytkownika i hasła, które już posiadasz lub możesz zalogować się <a href="[user:one-time-login-url]">klikając tutaj</a>.
 
 Jest to jednorazowy login, może więc być użyty tylko raz.
 
-Po zalogowaniu zostaniesz przeniesiony na <a href="!edit_uri">swoją stronę profilową</a>, abyś mógł zmienić hasło jeśli chcesz.
+Po zalogowaniu zostaniesz przeniesiony na <a href="[user:edit-url]">swoją stronę profilową</a>, abyś mógł zmienić hasło jeśli chcesz.
 
 Masz pytania? Po prostu odpowiedz na tę wiadomość.
 
@@ -2232,7 +2224,7 @@ Webmaster Warmshowers.org
 Admin use only:
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Twoje konto zostało potwierdzone',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -2243,9 +2235,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => 'Witaj !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => 'Witaj [user:name],
 
 Twoje konto na www.warmshowers.org zostało usunięte, najprawdopodobniej na Twoją prośbę lub w wyniku podejrzenia, iż jest ono nieprawidłowym kontem bądź spamem.
 
@@ -2254,7 +2246,7 @@ Jeśli masz jakiekolwiek pytania, prosimy o odpowiedź na tę wiadomość.
 Dziękujemy,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] !username konto usunięte',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] konto usunięte',
   'user_picture_guidelines' => 'Chcielibyśmy, abyś dodał <i>swoje</i> zdjęcie, na rowerze albo w domu,  w którym przyjmować będziesz gości. Jest to oczywiście opcja całkowicie dobrowolna, ale naszym zdaniem całkiem przyjemna. Losowe zdjęcia ukazują się także na pierwszej stronie. <i>Jeśli załadowałeś nowe zdjęcie, a nie pojawiło się ono od razu na stronie, odśwież widok w przeglądarce (shift + odśwież). (Naciśnij guzik SHIFT na klawiaturze, a następnie przycisk ODŚWIEŻ w przeglądarce.)</i>',
   'user_registration_help' => '<h3>Witaj! Przeczytaj zanim pójdziesz dalej</h3>
 Cieszymy się, że chcesz dołączyć do społeczności Warm Showers! Za chwilę poprosimy Cię, abyś wprowadził informacje o sobie, a następnie wyślemy Ci e-mail potwierdzający - należy kliknąć w link w mailu.  W dzisiejszych czasach milionów filtrów antyspamowych możesz jednak nie dostać naszej wiadomości, jeśli nie dodasz nas do listy zaufanych odbiorców, a wtedy Twoje konto nigdy nie zostanie stworzone. Więc ....
@@ -2288,15 +2280,15 @@ To wszystko! Prosimy teraz, abyś kontynuował i wypełnił formularz rejestracy
 <a href="/">Início</a>  <a href="/map">Mapa</a>',
   'site_mission' => '<a href="http://pt.warmshowers.org">warmshowers.org</a>: hospitalidade (e banho quente!) para cicloviajantes',
   'site_slogan' => 'Hospitalidade para cicloviajantes',
-  'user_mail_password_reset_body' => 'Olá !username,
+  'user_mail_password_reset_body' => 'Olá [user:name],
 
 Você (ou alguém) solicitou uma nova senha para sua conta no WarmShowers.org. Se não foi você que fez a solicitação, você pode simplesmente ignorar esta mensagem.
 
-Por favor <a href="!login_url">clique aqui para entrar</a> e redefinir sua senha.
+Por favor <a href="[user:one-time-login-url]">clique aqui para entrar</a> e redefinir sua senha.
 
 Este link só poderá ser usado uma vez e expira depois de um dia. Caso você não o use dentro do prazo não há problema, basta solicitar outro no WarmShowers.org
 
-Ao clicar no link e efetuar login, você será redirecionado à <a href="!edit_uri">página de edição de seu cadastro</a> para poder trocar sua senha.
+Ao clicar no link e efetuar login, você será redirecionado à <a href="[user:edit-url]">página de edição de seu cadastro</a> para poder trocar sua senha.
 
 Gratos,
 
@@ -2327,36 +2319,35 @@ Certifique-se de limpar o cache. No Internet Explorer 6 acesse Ferramentas->Opç
 Todo programa que bloqueie cookies causará esse problema. Por exemplo, o CA Security Center pode bloquear cookies de qualquer programa. Tente desabilitar temporariamente seu firewall e anti-vírus para ver se não são eles que causam o problema.
 
 Se não conseguir resolver o problema, peça ajuda. Envie uma mensagem usando o formulário de contato.',
-  'user_mail_password_reset_subject' => '[WarmShowers.org] Link de recuperação de senha para !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[WarmShowers.org] Link de recuperação de senha para [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Obrigado por se inscrever no WarmShowers.org.
 
-Por favor <a href="!login_url">clique aqui</a> para validar seu endereço de e-mail e habilitar sua conta.
+Por favor <a href="[user:one-time-login-url]">clique aqui</a> para validar seu endereço de e-mail e habilitar sua conta.
 
-!login_url
+[user:one-time-login-url]
 
 Depois de validar sua conta você poderá efetuar login em !login_uri usando o seguinte nome de usuário e senha:
 
-Nome de usuário: !username
+Nome de usuário: [user:name]
 
 Se tiver qualquer pergunta, responda este e-mail e faremos o melhor para lhe ajudar.
 
@@ -2365,9 +2356,9 @@ Obrigado,
 Warmshowers.org administração
 
 ----
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => 'Valide sua conta no WarmShowers.org',
-  'user_mail_register_pending_approval_body' => 'Benvindo !username,
+  'user_mail_register_pending_approval_body' => 'Benvindo [user:name],
 
 *** Você deve responder este e-mail para ter acesso ao site! ***
 *** Responda escrevendo algo sobre si mesmo! ***
@@ -2390,16 +2381,15 @@ Randy Fay
 Webmaster do WarmShowers.org
 
 DEPOIS que sua conta for autorizada, efetue login no site com estas informações
-nome de usuário: !username
-senha: !password
+nome de usuário: [user:name]
 
 DEPOIS que sua conta for aprovada, você também poderá efetuar login clicando no seguinte link, ou copiando e colando o mesmo no navegador:
 
-!login_url
+[user:one-time-login-url]
 
 Este é um link de uso único.
 
-Depois de efetuar login, você sempre poderá modificar sua senha e outros detalhes de conta em  !edit_uri
+Depois de efetuar login, você sempre poderá modificar sua senha e outros detalhes de conta em  [user:edit-url]
 
 Não se esqueça de depois de efetuar login, ir à seção "minha conta", na aba "localizar no mapa" e certifique-se que sua localização está mostrada corretamente no mapa. Se tiver problemas, na própria página há instruções de como fazer isso.
 
@@ -2410,17 +2400,17 @@ WarmShowers.org
 
 --
 Somente para Admin:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Informação de conta para  !username no WarmShowers.org - você deve responder e dizer algo sobre si mesmo',
-  'user_mail_status_activated_body' => 'Benvindo !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Informação de conta para  [user:name] no WarmShowers.org - você deve responder e dizer algo sobre si mesmo',
+  'user_mail_status_activated_body' => 'Benvindo [user:name],
 
 Sua conta no www.WarmShowers.org foi ativada.
 
 Efetue login com o seu nome de usuário e senha, você pode entrar clicando neste link ou copiando ecolando no seu navegador:
 
-!login_url
+[user:one-time-login-url]
 
-Este link só pode ser usado uma única vez. Depois de efetuar login, você será redirecionado para !edit_uri , assim você pode modificar sua senha caso queira.
+Este link só pode ser usado uma única vez. Depois de efetuar login, você será redirecionado para [user:edit-url] , assim você pode modificar sua senha caso queira.
 
 Alguma pergunta? Basta responder esta mensagem.
 
@@ -2431,8 +2421,8 @@ webmaster do WarmShowers.org
 --
 Somente para Admin:
 !uri',
-  'user_mail_status_activated_subject' => 'WarmShowers.org: Usuário !username foi aprovado',
-  'user_mail_status_blocked_body' => 'Hola !username:
+  'user_mail_status_activated_subject' => 'WarmShowers.org: Usuário [user:name] foi aprovado',
+  'user_mail_status_blocked_body' => 'Hola [user:name]:
 
 Sua conta no www.WarmShowers.org foi bloqueada.
 
@@ -2442,10 +2432,10 @@ Grato.
 Randy Fay -Webmaster do WarmShowers.org
 
 Somente para Admin:
-!edit_uri
+[user:edit-url]
 ',
-  'user_mail_status_blocked_subject' => 'WarmShowers.org: a conta !username foi bloqueada',
-  'user_mail_status_deleted_body' => 'Olá  !username,
+  'user_mail_status_blocked_subject' => 'WarmShowers.org: a conta [user:name] foi bloqueada',
+  'user_mail_status_deleted_body' => 'Olá  [user:name],
 
 Sua conta no WarmShowers.org foi excluída, provavelmente por sua solicitação ou porque sua inscrição parecer ser inválida ou Spam.
 
@@ -2453,7 +2443,7 @@ Se tiver qualquer dúvida, responda este e-mail.
 
 Gratos,
 Randy Fay - webmaster WarmShowers.org',
-  'user_mail_status_deleted_subject' => 'WarmShowers.org: conta !username excluída',
+  'user_mail_status_deleted_subject' => 'WarmShowers.org: conta [user:name] excluída',
   'user_picture_guidelines' => 'Queremos uma foto com você, seja em sua casa ou pedalando, por exemplo. Carregar a foto é totalmente opcional mas pode ser divertido e dá uma ideia de quem você para os membros que te contatam. Além disso, as fotos de todos os membros aparecem aleatoriamente na página inicial. Se você enviar uma nova foto e ela não aparecer imediatamente, dê o comando de recarregar completamente a página no navegador (Aperte &lt;ctrl&gt;+&lt;F5&gt;)
 ',
   'user_registration_help' => '<h3>Bem vindo! Por favor leia antes de continuar a inscrição</h3>
@@ -2564,17 +2554,17 @@ Email: %useremail',
 Вы будете получать письма информирующие вас о всех комментариях к вашим записям..
 
 - Команда Warmshowers',
-  'user_mail_password_reset_body' => 'Здравствуйте, !username,
+  'user_mail_password_reset_body' => 'Здравствуйте, [user:name],
 
 Вы (или кто-то от вашего имени) запросил одноразовую ссылку для входа в ваш профиль на warmshowers.org. Если это не были вы, просто проигнорируйте данное сообщение.
 
-Если это сделали вы, то, пожалуйста, <a href="!login_url">нажмите здесь для входа и изменения вашего пароля </a>. Если вы не можете перейти по ссылке, пожалуйста, скопируйте и вставьте  в адресную строку вашего браузера следующее:
+Если это сделали вы, то, пожалуйста, <a href="[user:one-time-login-url]">нажмите здесь для входа и изменения вашего пароля </a>. Если вы не можете перейти по ссылке, пожалуйста, скопируйте и вставьте  в адресную строку вашего браузера следующее:
 
-!login_url
+[user:one-time-login-url]
 
 Вход по этой ссылке может быть осуществлен один раз в течение суток после отправления. Если вы не использовали данную ссылку, ничего не произойдет.
 
-После входа вы будете перенаправлены на страницу <a href="!edit_uri">редактирования профиля</a>, где вы сможете изменить пароль.
+После входа вы будете перенаправлены на страницу <a href="[user:edit-url]">редактирования профиля</a>, где вы сможете изменить пароль.
 
 Спасибо,
 -Рэнди Фэй и команда регистрации
@@ -2586,36 +2576,35 @@ WarmShowers.org
 
 Если вы не можете решить проблему, ответьте на письмо с просьбой о помощи.
 ',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Одноразовая ссылка входа для  !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Одноразовая ссылка входа для  [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Спасибо за регистрацию на сайте Warmshowers.org.
 
-Пожалуйста, перейдите по <a href="!login_url">ссылке</a> для подтверждения и активации вашего профиля. Если вы не можете перейти по ссылке, пожалуйста, скопируйте и вставьте  в адресную строку вашего браузера следующее:
+Пожалуйста, перейдите по <a href="[user:one-time-login-url]">ссылке</a> для подтверждения и активации вашего профиля. Если вы не можете перейти по ссылке, пожалуйста, скопируйте и вставьте  в адресную строку вашего браузера следующее:
 
-!login_url
+[user:one-time-login-url]
 
 После активации вашего профиля по вышеприведенной ссылке вы сможете войти !login_uri используя ваше имя пользователя и пароль:
 
-Имя пользователя: !username
+Имя пользователя: [user:name]
 Пароль: The password you entered
 
 Если у вас возникли какие-то вопросы, вы можете ответить на это письмо и мы с радостью поможем вам.
@@ -2626,9 +2615,9 @@ After logging in, you will be redirected to !edit_uri so you can change your pas
 -- команда !site
 
 --Admin use only
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Подтвердите регистрацию на Warmshowers.org',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -2657,16 +2646,15 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -2677,17 +2665,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Добро пожаловать, !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Добро пожаловать, [user:name],
 
 Ваш профиль на сайте www.warmshowers.org активирован.
 
-Вы можете войти на сайт, используя имя пользователя и пароль или же пройдя по этой <a href="!login_url">ссылке</a>.
+Вы можете войти на сайт, используя имя пользователя и пароль или же пройдя по этой <a href="[user:one-time-login-url]">ссылке</a>.
 
 Обратите внимание, что это одноразовая ссылка.
 
-После входа на сайт, вы будете перенаправлены на страницу <a href="!edit_uri">редактирования вашего профиля,</a> где вы сможете при желании изменить ваш пароль.
+После входа на сайт, вы будете перенаправлены на страницу <a href="[user:edit-url]">редактирования вашего профиля,</a> где вы сможете при желании изменить ваш пароль.
 
 Если у вас есть вопросы, можете ответить на это письмо.
 
@@ -2699,7 +2687,7 @@ Administrator use only:
 Admin use only:
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Ваш профиль активирован',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -2710,9 +2698,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => 'Здравствуйте, !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => 'Здравствуйте, [user:name],
 
 Ваш профиль на сайте www.warmshowers.org удален, скорее всего, по вашему запросу или из-за того, что вы не заходили на сайт долгое время.
 
@@ -2721,7 +2709,7 @@ Admin use:
 Спасибо,
 Рэнди Фэй
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] профиль !username удален',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] профиль [user:name] удален',
   'user_picture_guidelines' => 'Мы были бы рады видеть <i>ваше</i> фото. Было бы хорошо - вместе с велосипедом, в ваших краях. Это целиком на ваше усмотрение, но было бы приятно – фотографии пользователей в случайном порядке показываются на стартовой странице. <i>Если вы загружаете новую фотографию и она не отображается, сделайте принудительное обновление страницы (зажмите клавишу SHIFT и нажмите кнопку ОБНОВИТЬ в вашем браузере).</i>',
   'user_registration_help' => '<h3>Добро пожаловать! Пожалуйста, прочитайте вначале этот текст </h3>
 Мы рады, что вы хотите стать участником Warm Showers! Вам необходимо ввести информацию о себе, и далее мы пришлем вам письмо-подтверждение регистрации. Пожалуйста, перейдите по ссылке, которая будет указана в письме. Но, обратите внимание – в наши дни многие письма блокируются спам-фильтрами, и вы можете не увидеть письмо-подтверждение в вашем почтовом ящике, если не добавите заранее наш адрес в «белый список». В этом случае ваша регистрация не будет завершена. Поэтому…
@@ -2833,17 +2821,17 @@ One-time login: [login-one-time]',
 Добијаћете овакве електронске поруке за све одговоре на вашу поруку на форуму.
 
 - Warmshowers тим',
-  'user_mail_password_reset_body' => 'Здраво !username,
+  'user_mail_password_reset_body' => 'Здраво [user:name],
 
 Ви (или неко у ваше име) је затражио једнократну везу за пријаву на ваш налог на интернет страници warmshowers.org. Уколико то нисте били ви, слободно занемарите ову поруку.
 
-Молимо вас  <a href="!login_url">пратите ову везу да бисте се пријавили и променили башу лозинку</a>. Уколико нисте у могућности да пратите везу, препишите вез у и унесите сами директно у ваш интернет претраживач:
+Молимо вас  <a href="[user:one-time-login-url]">пратите ову везу да бисте се пријавили и променили башу лозинку</a>. Уколико нисте у могућности да пратите везу, препишите вез у и унесите сами директно у ваш интернет претраживач:
 
-!login_url
+[user:one-time-login-url]
 
 Ово је једнократна веза за пријављивање, дакле она се може користити само једно. Њено трајање истиче за један дан. Након једног дана престаје важност ове везе, али нема никаквих последица уколико не искористите ову везу.
 
-Након пријављивања, бићете аутоматски преусмерени на <a href="!edit_uri"> страницу за измену ваше личне странице</a> где ћете моћи да измените вашу лозинку.
+Након пријављивања, бићете аутоматски преусмерени на <a href="[user:edit-url]"> страницу за измену ваше личне странице</a> где ћете моћи да измените вашу лозинку.
 
 Хвала,
 -Randy Fay и регистрациони тим
@@ -2855,45 +2843,44 @@ WarmShowers.org
 Уколико добијете поруку "Sorry - you don\'t have access to that page (error 403)", можете бити готово сигурни да вам је у интернет претраживачу искључена опција коришћења тзв.  cookies .  Да бисте ову опцију правилно наместили молимо вас да погледате <a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged"> овај текст на ту туме у оквиру најчешће постављених питања</a>.
 
 Уколико нисте у могућности да разрешите овај проблем, молимо Вас да затражите помоћ. Тако што ће те одговорити на ову електронску поруку и затражити помоћ.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Једнократна веза за пријављивање на интернет страницу за корисника !username',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Једнократна веза за пријављивање на интернет страницу за корисника [user:name]',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Хвала Вам што сте се пријавили на Warmshowers.org.
 
-Молим вас идите не <a href="!login_url">овде</a>  како бисте потврдили вашу електронску адреси и како бисте покренули ваш налог. (Уколико нисте у могућности да продужите пратећи ту везу, молим да је препишете и упишете у ваш претраживач:
+Молим вас идите не <a href="[user:one-time-login-url]">овде</a>  како бисте потврдили вашу електронску адреси и како бисте покренули ваш налог. (Уколико нисте у могућности да продужите пратећи ту везу, молим да је препишете и упишете у ваш претраживач:
 
-!login_url
+[user:one-time-login-url]
 
 Након што потврдите користећи везу изнад, бићете у могућности да се пријавите на нашу интернете страницу !login_uri користећи корисничко име и лозинку које можете видети у наставку:
 
-username: !username
+username: [user:name]
 password: The password you entered
 
 Уколико имате нека питања, можете одговорити на ову електронску поруку, и ми жемо
 
 --  !site team
 --Само за администраторе
-Admin (edit): <a href="!edit_uri">!edit_uri</a>',
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Потврдите ваш налог на Warmshowers.org',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -2922,16 +2909,15 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -2942,15 +2928,15 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Добродошли !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Добродошли [user:name],
 
 Ваш налог на интернет страници www.warmshowers.org је управо активиран.
-Можете се пријавити на интернет страницу коритећи ваше корисничко име и лозинку коју већ поседујете, или се можете пријавити тако што <a href="!login_url">испратити ову везу</a>.
+Можете се пријавити на интернет страницу коритећи ваше корисничко име и лозинку коју већ поседујете, или се можете пријавити тако што <a href="[user:one-time-login-url]">испратити ову везу</a>.
 
 Ово је једнократно пријављивање на интернет страницу, и могуће је користити само једном.
-Након пријављивања, бићете аутоматски преусмерени на <a href="!edit_uri"> страницу за измену ваше личне странице</a> где ћете моћи да измените вашу лозинку уколико желите.
+Након пријављивања, бићете аутоматски преусмерени на <a href="[user:edit-url]"> страницу за измену ваше личне странице</a> где ћете моћи да измените вашу лозинку уколико желите.
 
 Имате било каква питања? Довољно је да одговорите на ову електронску поруку.
 
@@ -2962,7 +2948,7 @@ Administrator use only:
 
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Ваш налог је направљен и потврђен',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -2973,9 +2959,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => 'Здраво !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => 'Здраво [user:name],
 
 Ваш налог на интернет страници www.warmshowers.org је обрисан, највероватније по Вашем захтеву или као последица тога што је постао неважећи, или је кориштен за дистрибуцију штетних порука
 
@@ -2983,7 +2969,7 @@ Admin use:
 Хвала,
 Randy Fay
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] !username налог је обрисан',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] налог је обрисан',
   'user_picture_guidelines' => 'Волели бисмо фотографију на којој сте <i>Ви</i>, најбоље како се возите бициклом у вашој околини. Ово је потпуно добровољно наравно, али може бити забавно. Случајно одабране фотографије се показују на насловној страни наше интернет странице такође. <i>Уколико поставите вашу фотографију и не приказује се одма на начин како треба, потребно је да освежите ваш интернет претраживач. (Држећи тастер SHIFT и притисните REFRESH дугме у вашем претраживачу.)</i>',
   'user_registration_help' => '<h3>Добродошли! Молим Вас да најпре прочитате ово пре него што наставите да читате било шта друго што је у наставку</h3>
 Драго нам је да сте одлучили да се прикључите Warm Showers заједници! За који минут ћемо тражити од Вас да унесете све Ваше податке, након чега ћемо Вам послати електронску поруку за потврду, у којем морате да пратите упутства како би се процес регистрације правилно завршио. Наравно у данашње време, милиони нежељених електронских порука круже светском мрежом свакодневно, тако да постоји могућност да ће и наша електронска порука бити жртва неких од система заштите тако да је потребно да нашу електронску адресу означите као прихватљиву како ваш систем заштите у будућности не би одбијао наше поруке, уколико то не учините постаји могућност да ваш налог на нашој интернет страници остане заувек неактиван, дакле...
@@ -3094,20 +3080,20 @@ Du kan visa kommentaren genom att <a href=”[comment:url]">klicka här</a>. (Sv
 Du kommer att få mail som detta varje gång någon svarar på dina trådar.
 
 - Warmshowers-gruppen',
-  'user_mail_password_reset_body' => 'Hej !username,
+  'user_mail_password_reset_body' => 'Hej [user:name],
 
 Du (eller någon annan) har begärt en engångsinloggning for ditt konto på
 Warmshowers.org. Om det inte var du som gjorde det, kan du ignorera detta mail.
 
-<a href=”!login_url">Klicka här för att logga in och återställa ditt lösenord</a>. Om du inte
+<a href=”[user:one-time-login-url]">Klicka här för att logga in och återställa ditt lösenord</a>. Om du inte
 kan klicka på länken, kan du istället kopiera och klistra in denna URL i din webbläsare:
 
-!login_url
+[user:one-time-login-url]
 
 Det här är en engångsinloggning, som bara kan utnyttjas vid ett tillfälle. Länken går ut
 efter en dag, och skulle den inte användas händer ingenting.
 
-Efter inloggningen kommer du att bli vidarebefordrad till <a href=”!edit_uri”>dina kontoinställningar</a> så att du kan ändra ditt lösenord.
+Efter inloggningen kommer du att bli vidarebefordrad till <a href=”[user:edit-url]”>dina kontoinställningar</a> så att du kan ändra ditt lösenord.
 
 Tack,
 
@@ -3120,39 +3106,38 @@ Felsökning:
 Om du kommer till "Ledsen - du har inte tillgång till den här sidan (error 403)", betyder det troligtvis att du har cookies avstängda i din webbläsare. För att göra rätt cookies-inställningar kan du läsa om detta bland våra<a href=”http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged”>Vanliga frågor</a>.
 
 Om ditt problem kvarstår, kan du svara på detta mail så ska vi försöka hjälpa dig.',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] Länk till engångsinloggning för !username ',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] Länk till engångsinloggning för [user:name] ',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 Tack för din registrering på Warmshowers.org.
 
-<a href=”!login_url">Klicka här</a> för att bekräfta din mailadress och aktivera ditt konto.
+<a href=”[user:one-time-login-url]">Klicka här</a> för att bekräfta din mailadress och aktivera ditt konto.
 (Om du inte kan klicka på länken kan du istället kopiera och klistra in denna länk i din
 webbläsare:
 
-!login_url
+[user:one-time-login-url]
 
 Efter att du bekräftat ditt konto genom länken ovan kommer du att kunna logga in på ditt
 konto med följande användarnamn och lösenord:
 
-användarnamn: !username
+användarnamn: [user:name]
 lösenord: Lösenordet du valde vid registreringen
 
 Om du har några frågor kan du svara på detta mail så ska hjälper vi dig på bästa sätt.
@@ -3163,9 +3148,9 @@ Tack,
 -- !site team
 
 --Admin use only
-Admin (edit): <a href="!edit_uri">!edit_uri</a> ',
+Admin (edit): <a href="[user:edit-url]">[user:edit-url]</a> ',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org] Bekräfta ditt konto på Warmshowers.org',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -3194,16 +3179,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -3214,17 +3199,17 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
-  'user_mail_status_activated_body' => 'Välkommen !username,
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
+  'user_mail_status_activated_body' => 'Välkommen [user:name],
 
 Ditt konto på www.warmshowers.org har blivit aktiverat.
 
-Du kan logga in med ditt befintliga användarnamn och lösenord, eller genom att <a href=”!login_url">klicka här</a>.
+Du kan logga in med ditt befintliga användarnamn och lösenord, eller genom att <a href=”[user:one-time-login-url]">klicka här</a>.
 
 Detta är en engångsinloggning, och kan bara användas vid ett tillfälle.
 
-Efter inloggningen kommer du att vidarebefordras till <a href=”!edit_uri">dina kontoinställningar</a> där du har möjlighet att ändra ditt lösenord.
+Efter inloggningen kommer du att vidarebefordras till <a href=”[user:edit-url]">dina kontoinställningar</a> där du har möjlighet att ändra ditt lösenord.
 
 Några frågor? Svara på detta meddelande så hjälper vi dig.
 
@@ -3240,7 +3225,7 @@ Admin use only:
 
 !uri',
   'user_mail_status_activated_subject' => '[Warmshowers.org] Ditt konto har godkänts',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -3251,9 +3236,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => 'Hej !username,
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => 'Hej [user:name],
 
 Ditt konto på www.warmshowers.org har blivit raderat, troligtvis på din egen begäran eller som till följd av att kontot verkar vara ogiltigt eller skapat som spam.
 
@@ -3264,7 +3249,7 @@ Tack,
 Randy Fay
 
 Warmshowers.org',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org] !username - konto raderat',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org] [user:name] - konto raderat',
   'user_picture_guidelines' => 'Vi vill gärna ha en bild på <i>dig</i>, kanske när du cyklar eller är du bor. Det här är så klart helt frivilligt men kan vara roligt. Slumpmässiga bilder visas även på förstasidan. <i>Om du laddar upp en ny bild och den inte visas direkt, testa att uppdatera sidan så ska den dyka upp. (Håll ner skift-tangenten och klicka på R på tangentbordet.)</i>',
   'user_registration_help' => '<h3>Välkommen! Var god läs igenom detta innan du fortsätter.</h3> Tack för att du vill vara en del av Warm Showers! Alldeles strax kommer du att få ange dina uppgifter, därefter kommer vi att skicka ett bekräftelsemail med en länk som du behöver klicka på. För att undvika att vårt mail hamnar i ditt spam-filter är det säkrast att lägga till vår mailadress i din adressbok. Om inte, kanske du inte får mailet vilket betyder att ditt konto inte kan aktiveras. Därför…  <ol><li> Innan du fyller i formuläret, var god lägg till wsl@warmshowers.org i din adressbok. Instruktioner för hur man vanligtvis gör det finns <a href=”/spam_filters" target="_blank">här</a>. Om du inte gör detta, kanske du inte får bekräftelsemailet med ditt lösenord som behövs för att bli registrerad.</li> <li>Läs igenom <a href="/the_rules" target=”_blank">våra regler</a> och kom ihåg att gå tillbaka till dem om du känner dig osäker på något.</li> <li>När du registrerar dig, kom ihåg att det betyder att du planerar att erbjuda ditt värdskap, åtminstone någon gång i framtiden. Glöm inte att det här är en hemsida för ömsesidig gästvänlighet. (Om du är på resande fot eller av annan anledning inte kan vara värd för tillfället kryssar du i ”för tillfället ej tillgänglig”-rutan för att senare kryssa ur rutan vid tillfälle.) </li> <li>Minderåriga är inte tillåtna att använda denna sida, så fortsätt inte om inte har åldern inne.</li> <li>Kom ihåg att vi har en <a href="/faq" target=”_blank">Vanliga frågor</a> sida, som kanske kan svara på eventuella frågor du har. Kom ihåg att leta där först om du någon gång får problem med att logga in på sidan.</li> <li>Är du oroad över vem som kan se informationen du lägger upp? Hemsidan är konstruerad på så vis att din profil enbart kan visas av inloggade medlemmar. Din mailadress är alltid dold, även för de andra medlemmarna.</li> <li>Din personliga säkerhet är väldigt viktig för oss. Läs igenom sidan <a href=”/personal-security">Personlig säkerhet</a> för mer information om ämnet</li> <li>Vår <a target="_blank" href="/privacy">Sekretesspolicy</a> påminner dig om att din profil endast är synlig för andra medlemmar och att bara medlemmar kan kontakta dig via hemsidan.</li> <li>Genom att registrera dig accepterar du våra<a target="_blank" href="/terms">Användarvillkor</a> vilka betonar att <strong>du ensam ansvarar för dina interaktioner med andra Warmshowers-medlemmar.</strong></li> </ol> <br/><br/> Det var allt! Fortsätt nedan för att fullfölja din registrering. <hr/>',
 );
@@ -3368,15 +3353,15 @@ E-mail: %useremail
 
 -Warmshowers.org团队敬上
 ',
-  'user_mail_password_reset_body' => '!username，您好
+  'user_mail_password_reset_body' => '[user:name]，您好
 
 您（也有可能是其他人）刚刚申请了重置您在WarmShowers网站的登录密码。如果这不是您进行的申请，请忽略这封邮件。
 
-请点击 <a href="!login_url">这里 登录并修改您的密码</a>，如果此链接不能点击，请复制下面的链接到您浏览器的地址栏，并按下回车键。
+请点击 <a href="[user:one-time-login-url]">这里 登录并修改您的密码</a>，如果此链接不能点击，请复制下面的链接到您浏览器的地址栏，并按下回车键。
 
 密码重置的链接是一次性的，24小时后自动过期，如果不点击，密码则不会被修改。
 
-点击链接后，您将会被重新引导至<a href="!edit_uri">编辑您的档案</a> 页面，这时您就能重置您的密码了。
+点击链接后，您将会被重新引导至<a href="[user:edit-url]">编辑您的档案</a> 页面，这时您就能重置您的密码了。
 
 此致 敬礼！
 -Randy Fay 以及注册团队
@@ -3387,37 +3372,37 @@ WarmShowers.org
 如果您得到“非常抱歉，您没有权限访问此页（403错误）”，这说明您已经关闭了浏览器的Cookies。如何打开浏览器的Cookies，请参阅FAQ页面的<a href="http://www.warmshowers.org/content/i-try-log-it-still-says-im-not-logged">这篇文章</a>。
 
 如果您打开了浏览器的Cookies仍不能解决问题，请直接回复这封邮件寻求我们的帮助。',
-  'user_mail_password_reset_subject' => '[Warmshowers.org] 重置 !username 的密码',
-  'user_mail_register_admin_created_body' => '!username,
+  'user_mail_password_reset_subject' => '[Warmshowers.org] 重置 [user:name] 的密码',
+  'user_mail_register_admin_created_body' => '[user:name],
 
 A site administrator at !site has created an account for you. You may now log in to !login_uri using the following username and password:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 You may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you will be redirected to !edit_uri so you can change your password.
+After logging in, you will be redirected to [user:edit-url] so you can change your password.
 
 
 --  !site team',
   'user_mail_register_admin_created_subject' => 'An administrator created an account for you at  !site',
-  'user_mail_register_no_approval_required_body' => '!username,
+  'user_mail_register_no_approval_required_body' => '[user:name],
 
 
 非常感谢您注册 Warmshowers.org
 
-请点击 <a href="!login_url">这里</a>验证您的邮件地址，激活您的帐号（如果此链接不能点击，请复制下面的链接到您浏览器的地址栏，并按下回车键）。
+请点击 <a href="[user:one-time-login-url]">这里</a>验证您的邮件地址，激活您的帐号（如果此链接不能点击，请复制下面的链接到您浏览器的地址栏，并按下回车键）。
 
-!login_url
+[user:one-time-login-url]
 
 在完成验证后，您可以使用下面的用户名登录并且使用WarmShowers了：
 
-用户名: !username
+用户名: [user:name]
 密码: 您在注册时输入的密码
 
 如果您有任何疑问，请直接回复这封邮件，我们将尽最大的努力帮助您！
@@ -3425,9 +3410,9 @@ After logging in, you will be redirected to !edit_uri so you can change your pas
 此致 敬礼！
 
 --仅供管理员使用
-管理员 (编辑): <a href="!edit_uri">!edit_uri</a>',
+管理员 (编辑): <a href="[user:edit-url]">[user:edit-url]</a>',
   'user_mail_register_no_approval_required_subject' => '[Warmshowers.org]请验证您在Warmshowers.org的帐号',
-  'user_mail_register_pending_approval_body' => 'Welcome !username,
+  'user_mail_register_pending_approval_body' => 'Welcome [user:name],
 
 *** You must reply to this email to get access to the site! ***
 *** Please reply saying something about yourself! ***
@@ -3456,16 +3441,16 @@ Warmshowers.org webmaster
 AFTER your account has been authorized (after I receive your response and
 activate your account), your username and password details will be:
 
-username: !username
-password: !password
+username: [user:name]
+
 
 AFTER your account is approved, you may also log in by clicking on this link or copying and pasting it in your browser:
 
-!login_url
+[user:one-time-login-url]
 
 This is a one-time login, so it can be used only once.
 
-After logging in, you can always change your password and other account details at  !edit_uri
+After logging in, you can always change your password and other account details at  [user:edit-url]
 
 Also: After you log in, please go to "my account" and the "map my location" tab and make sure your location shows correctly on the map. There are instructions on that page that will help you set it.
 
@@ -3476,16 +3461,16 @@ Warmshowers.org
 
 --
 Administrator use only:
-!edit_uri',
-  'user_mail_register_pending_approval_subject' => 'Account info for  !username at WarmShowers.org-You must reply and say something about yourself',
+[user:edit-url]',
+  'user_mail_register_pending_approval_subject' => 'Account info for  [user:name] at WarmShowers.org-You must reply and say something about yourself',
   'user_mail_status_activated_body' => '[Warmshowers.org] 您的帐号已被激活
 
-亲爱的 !username：
+亲爱的 [user:name]：
 
 我们很高兴地通知您，您在 www.warmshowers.org的帐号已经被激活。
-您现在可以使用您的用户名和密码登录了，或者您也可以点击<a href="!login_url">这里</a>登录。
+您现在可以使用您的用户名和密码登录了，或者您也可以点击<a href="[user:one-time-login-url]">这里</a>登录。
 这个登录链接只能点击一次，点击一次后失效。
-登录后，您将被引导至 <a href="!edit_uri">档案编辑页面</a>，您可以在这里修改密码。
+登录后，您将被引导至 <a href="[user:edit-url]">档案编辑页面</a>，您可以在这里修改密码。
 还有其他问题吗？可以直接回复邮件提问。
 此致 敬礼！
 -Randy Fay
@@ -3496,7 +3481,7 @@ Admin use only:
 !uri
 ',
   'user_mail_status_activated_subject' => '[Warmshowers.org] 您的帐号已被激活',
-  'user_mail_status_blocked_body' => 'Hello !username,
+  'user_mail_status_blocked_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been blocked.
 
@@ -3507,9 +3492,9 @@ Randy Fay
 Warmshowers.org webmaster
 
 Admin use:
-!edit_uri',
-  'user_mail_status_blocked_subject' => 'Warmshowers.org: !username account blocked',
-  'user_mail_status_deleted_body' => '亲爱的 !username：
+[user:edit-url]',
+  'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_deleted_body' => '亲爱的 [user:name]：
 
 您在www.warmshowers.org的帐号已经被删除，可能是以下的原因导致：您自己申请删除、无效账户、账户被盗或者其他原因。
 如果您有疑问，请回复此邮件。
@@ -3518,7 +3503,7 @@ Admin use:
 Randy Fay
 Warmshowers.org
 ',
-  'user_mail_status_deleted_subject' => '[Warmshowers.org]您的账户 !username已经被删除',
+  'user_mail_status_deleted_subject' => '[Warmshowers.org]您的账户 [user:name]已经被删除',
   'user_picture_guidelines' => '您可以上传<i>您自己</i>的一张照片，如果是您在当地骑车的有趣照片就最好啦！照片自愿上传，上传的照片也会随机显示在首页上。<i>如果您上传一张新照片后不能马上显示，请Shift+F5强制刷新页面。</i>',
   'user_registration_help' => '<h3>欢迎您的加入！在进行下一步操作之前，请仔细阅读下面的内容</h3>
 我们非常高兴您能加入WarmShowers社区。在您填写完所有内容并且提交后，我们会发送给您一封验证E-mail，此邮件中包含一个验证链接，请点击此链接完成验证。如果不完成验证，您将无法登录使用WarmShowers网站。根据当时的服务器负载和网络情况，邮件一般会在几十秒至十几分钟左右发送给您，如果您没有收到新邮件，请检查您的垃圾邮件箱，如果还是没有，那就是被邮件服务器当作垃圾邮件过滤掉啦……
