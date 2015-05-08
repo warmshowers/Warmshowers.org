@@ -76,16 +76,34 @@ function warmshowers_zen_preprocess_maintenance_page(&$variables, $hook) {
  */
 function warmshowers_zen_preprocess_html(&$variables, $hook) {
   // Suggest a reasonable image for shares to facebook
-  // @annetee it looks like drupal_add_html_head has changed to expect an
-  // array, so this doesn't show up in the source of the page
-  drupal_add_html_head('<meta property="og:image" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />
-  <meta property="og:image:secure_url" content="https://www.warmshowers.org/files/ws-icon-v1_0.png" />');
+
+  $ws_image = array(
+    '#tag' => 'meta',
+    '#attributes' => array(
+      'property' => 'og:image',
+      'content' => 'https://www.warmshowers.org/files/ws-icon-v1_0.png',
+    ),
+  );
+  $ws_image_secure = array(
+    '#tag' => 'meta',
+    '#attributes' => array(
+      'property' => 'og:image:secure_url',
+      'content' => 'https://www.warmshowers.org/files/ws-icon-v1_0.png',
+    ),
+  );
+  drupal_add_html_head($ws_image, 'ws-image');
+  drupal_add_html_head($ws_image_secure, 'ws-image-secure');
 
   // On front page, let users know about the iOS app
-  // @annetee it looks like drupal_add_html_head has changed to expect an
-  // array, so this doesn't show up in the source of the page
   if(drupal_is_front_page()) {
-    drupal_add_html_head('<meta name="apple-itunes-app" content="app-id=359056872" />');
+    $ios_app = array(
+      '#tag' => 'meta',
+      '#attributes' => array(
+        'property' => 'al:ios:app_store_id',
+        'content' => '359056872',
+      ),
+    );
+    drupal_add_html_head($ios_app, 'apple-itunes-app');
   }
   $variables['head'] = drupal_get_html_head();
 
@@ -151,7 +169,7 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
  *   A string containing the messages.
  */
 function warmshowers_zen_status_messages($variables) {
-  // @annetee, this probably changed, it looks like messages are
+  // TODO: this probably changed, it looks like messages are
   // empty so check out the function theme_status_message in D7
   $display = $variables ['display'];
   $output = '';
@@ -345,7 +363,7 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
         $preset = is_numeric($preset) ? imagecache_preset($preset) : imagecache_preset_by_name($preset);
       }
       if (empty($preset)) {
-        // @annetee this line is removing the picture that may potentially be there
+        // TODO: this line is removing the picture that may potentially be there
         // It's probably because there is no preset and there should be
         $variables['picture'] = $default; //theme('image', $picture, $alt, $alt, '', FALSE);
       }
