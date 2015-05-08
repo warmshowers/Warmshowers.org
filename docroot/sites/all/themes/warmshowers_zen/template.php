@@ -74,27 +74,7 @@ function warmshowers_zen_preprocess_maintenance_page(&$variables, $hook) {
  * @param $hook
  *   The name of the template being rendered ("html" in this case.)
  */
-/* -- Delete this line if you want to use this function
 function warmshowers_zen_preprocess_html(&$variables, $hook) {
-  $variables['sample_variable'] = t('Lorem ipsum.');
-
-  // The body tag's classes are controlled by the $classes_array variable. To
-  // remove a class from $classes_array, use array_diff().
-  //$variables['classes_array'] = array_diff($variables['classes_array'], array('class-to-remove'));
-}
-// */
-
-/**
- * Override or insert variables into the page templates.
- *
- * @param $variables
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("page" in this case.)
- */
-function warmshowers_zen_preprocess_page(&$variables, $hook) {
-  $variables['sample_variable'] = t('Lorem ipsum.');
-
   // Suggest a reasonable image for shares to facebook
   // @annetee it looks like drupal_add_html_head has changed to expect an
   // array, so this doesn't show up in the source of the page
@@ -120,9 +100,25 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
   $variables['classes_array'][] = 'spg-'.array_pop(explode("/", $_GET['q']));
 
   // Set page-user-profile type if we're on profile page.
-  if ($variables['menu_item']['path'] == 'user/%') {
+  if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
     $variables['classes_array'][] = drupal_html_class('page-user-profile');
   }
+
+  // The body tag's classes are controlled by the $classes_array variable. To
+  // remove a class from $classes_array, use array_diff().
+  //$variables['classes_array'] = array_diff($variables['classes_array'], array('class-to-remove'));
+}
+
+/**
+ * Override or insert variables into the page templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ * @param $hook
+ *   The name of the template being rendered ("page" in this case.)
+ */
+function warmshowers_zen_preprocess_page(&$variables, $hook) {
+  global $user;
 
   // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
   if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
@@ -136,9 +132,7 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
   }
   else {
    $variables['authentication_block'] = t("Logged in as !name | !logout",
-   // @annetee $user->fullname variable is not properly loaded by
-   // guessing wsuser custom module, so it's empty
-     array('!name' => l($user->fullname, 'user/' . $user->uid), '!logout' => l(t('Log out'),'logout')));
+     array('!name' => l($user->data['fullname'], 'user/' . $user->uid), '!logout' => l(t('Log out'),'logout')));
   }
 
 }
