@@ -376,18 +376,6 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
   }
 }
 
-/**
- * Preprocess the classes variable for certain flags
- */
-function warmshowers_zen_preprocess_flag(&$variables) {
-  // Add specific link attributes to our responsive buttons
-  switch (@$variables['flag']->name){
-    case "unresponsive_member":
-    case "responsive_member":
-      $variables['flag_classes'] .= " rounded green lgrounded";
-    default: break;
-  }
-}
 
 
 /**
