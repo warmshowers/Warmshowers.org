@@ -554,56 +554,11 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
 
 
 /**
- * Static Warmshowers (and dev/staging) configuration
+ * Static Warmshowers configuration can go here - things that are the same
+ * on any WS dev/staging/live.
  */
 
-/*
-* This is a collection of variables that can be set up for each language when i18n is enabled.
-* These are the basic ones for Drupal core, but you can add your own here.
-*/
-$conf['i18n_variables'] = array(
-  'faq_title',
-  'faq_description',
-  'site_name',
-  'site_footer',
-  'site_slogan',
-  'site_mission',
-  'anonymous',
-  // Different front page for each language
-  // 'site_frontpage',
-  // Primary and secondary links
-//  'menu_primary_links_source',
-//  'menu_secondary_links_source',
-  // Contact form information
-  'contact_form_information',
-  'user_mail_password_reset_body',
-  'user_mail_password_reset_subject',
-  'user_mail_register_admin_created_body',
-  'user_mail_register_admin_created_subject',
-  'user_mail_register_no_approval_required_body',
-  'user_mail_register_no_approval_required_subject',
-  'user_mail_register_pending_approval_body',
-  'user_mail_register_pending_approval_subject',
-  'user_mail_status_activated_body',
-  'user_mail_status_activated_subject',
-  'user_mail_status_blocked_body',
-  'user_mail_status_blocked_subject',
-  'user_mail_status_deleted_body',
-  'user_mail_status_deleted_subject',
-  'user_picture_guidelines',
-  'user_registration_help',
-  'comment_notify_default_mailtext',
-  'node_notify_default_mailtext',
-  'inactive_user_notify_text',
-  'inactive_user_block_notify_text',
-  'inactive_user_block_warn_text',
-  'inactive_user_delete_notify_text',
-  'inactive_user_delete_warn_text',
-  'wsuser_notavailable_reminder_subject',
-  'wsuser_notavailable_reminder_body',
-  'wsuser_become_available_notification_subject',
-  'wsuser_become_available_notification_body',
-);
+
 
 /**
  * Include a local settings file if it exists.

@@ -36,13 +36,13 @@ if ($is_self) {
         '%expire' => date('Y-m-d', $expire_date)
       )) . "</li>";
 
-    if (menu_valid_path(array('link_path' => "user/{$account->uid}/orders"))) {
+    if (drupal_valid_path("user/{$account->uid}/orders")) {
       print "<li>" . t("View your !history",
           array(
             '!history' => l(t('donation history'), "user/{$account->uid}/orders"),
           )
         ) . "</li>";
-      if (menu_valid_path(array('link_path' => "user/{$account->uid}/recurring-fees"))) {
+      if (drupal_valid_path("user/{$account->uid}/recurring-fees")) {
         print "<li>" . t("View and adjust !recurring",
             array(
               '!recurring' => l(t('recurring donations'), "user/{$account->uid}/recurring-fees")
