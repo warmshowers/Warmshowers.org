@@ -558,7 +558,7 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  * on any WS dev/staging/live.
  */
 
-
+$conf['cron_safe_threshold'] = 0;
 
 /**
  * Include a local settings file if it exists.
