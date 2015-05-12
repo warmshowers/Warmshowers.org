@@ -170,13 +170,18 @@ function warmshowers_site_form_user_register_form_alter(&$form, &$form_state) {
 }
 
 /**
- * Implements hook_form_alter() to change the crazy handling in user_delete module().
- * We don't want people to have any choice but to delete it all.
+ * Implements hook_form_alter().
  */
 function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
-
+  global $user;
+  
   switch ($form_id) {
-
+    case 'user_cancel_confirm_form':
+      // Prepending help text to the user cancel form.
+      if (!user_access('administer users')) {
+        $form['description']['#markup'] = "If you would rather stay but not host members, you can just edit your account and click the <strong>'Not currently available'</strong> checkbox and you won't show up in any map or geographical searches.<br><br>" . $form['description']['#markup'];
+      }
+      break;
     // Get rid of the input filter stuff on comment.
     // Also change comment notification default values.
     // TODO: Check that this works right. Isn't there just a way to turn it off instead?
@@ -221,6 +226,42 @@ function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
         $form['field_member_i_trust'][0]['#prefix'] = '<div style="display:none">';
         $form['field_member_i_trust'][0]['#suffix'] = '</div>';
       }
+      break;
+  }
+}
+
+/**
+ * Implements hook_user_cancel_methods_alter().
+ * Modify the account cancellation methods in relation to the messages displayed
+ * and create a new method for handling spam user accounts.
+ */
+function warmshowers_site_user_cancel_methods_alter(&$methods) {
+  // Remove the unrequired user cancellation methods
+  unset($methods['user_cancel_block']);
+  unset($methods['user_cancel_block_unpublish']);
+  unset($methods['user_cancel_delete']);
+  
+  // Modify the descriptions for the default user cancellation method.
+  $methods['user_cancel_reassign'] = array(
+    'title' => t('DEFAULT: Delete the account and make its content (including feedback) belong to the %anonymous-name user.', array('%anonymous-name' => variable_get('anonymous', t('Anonymous')))),
+    'description' => t('Your account will be removed and all account information deleted. All of your feedback and other postings will remain.'),
+  );
+  // Add a new method to block the user but remove all content.
+  $methods['user_cancel_block_delete'] = array(
+    'title' => t('SPAMMER: Disable the account and delete its content (including feedback).'),
+    'description' => t('Your account will be blocked and you will no longer be able to log in. All of your feedback will be permanently deleted.'),
+  );
+}
+
+/**
+ * Implements hook_user_cancel().
+ */
+function warmshowers_site_user_cancel($edit, $account, $method) {
+  switch ($method) {
+    case 'user_cancel_block_delete':
+      // Invoking all user_delete hooks to remove any entities created by this user
+      // without removing the actual user.
+      module_invoke_all('user_delete', $account);
       break;
   }
 }
@@ -273,45 +314,6 @@ function warmshowers_site_translate_edit_form_validate($form, &$form_state) {
     form_set_error('translations', t('You are not allowed to translate or edit texts with this input format.'));
   }
 }
-
-/**
- * Form handling for user delete is dependent on who is doing it and what they
- * want to do. Since it's a little complicated, factored out into this function.
- * TODO: This is now user cancellation, has to be redone
- *
- * What we want to do is provide one option for the admin (keep content or not,
- * based on whether it's a spammer or not) and no options for the user. Their
- * content will be retained.
- *
- * @param $form
- * @param $form_state
- * @param $form_id
- */
-function _warmshowers_site_alter_user_delete(&$form, &$form_state, $form_id) {
-  $acting_user = $GLOBALS['user'];
-  $account_to_delete = $form['_account']['#value'];
-
-  // If they are deleting themselves, then don't offer any options, but keep
-  // the stuff they have posted.
-  if ($acting_user->uid == $account_to_delete->uid) {
-    $form['user_delete_action'] = array(
-      '#type' => 'value',
-      '#value' => 'user_delete_reassign',
-    );
-    $form['description']['#value'] = t('The user account %account will be deleted, but feedback and other postings will be retained.', array('%account' => $account_to_delete->name));
-  }
-
-  //Else if admin is deleting a user, hide the "block" options and allow either
-  // a spammer approach or non-spammer approach.
-  else {
-    if (user_access('administer users')) {
-      $form['user_delete_action']['#default_value'] = 'user_delete_delete';
-      unset($form['user_delete_action']['#options']['user_delete_block'], $form['user_delete_action']['#options']['user_delete_block_unpublish']);
-    }
-  }
-  $form['actions']['submit']['#value'] = t('Delete user account "@account"', array('@account' => $account_to_delete->name));
-}
-
 
 /**
  * Implements hook_menu_alter().
