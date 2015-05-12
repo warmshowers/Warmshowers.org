@@ -125,6 +125,12 @@ function wsuser_theme() {
     'linkbuttons' => array(
       'variables' => array('links' => NULL),
     ),
+    'wsuser_search_result' => array(
+      'variables' => array('result' => NULL, 'module' => NULL),
+      'path' => $template_path,
+      'template' => 'wsuser-search-result',
+    ),
+
   );
 }
 
@@ -705,28 +711,33 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
   // Replace wildcards with MySQL/PostgreSQL wildcards.
   $keys = preg_replace('!\*+!', '%', $keys);
   // If this search provides lat/lon, then do the search based on location only.
-  list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
 
-  // TODO: Allow admins to search for pre-authorized users
-  // The role restriction removes pre-authorized, members, but user admins should be able to see them
-//  $AND = (user_access('administer users')) ? '' : 'AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)';
+  $list = preg_split('/\|/', $keys);
+  if (count($list) > 2) {
+    list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
 
-  // TODO: Implement pager-based location-based searching
-  if (is_numeric($latitude) && is_numeric($longitude)) {
-    // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
-    // No guarantee expressed or implied, and no testing around 0 latitude.
-    $sql = "
+
+    // TODO: Implement pager-based location-based searching
+    if (is_numeric($latitude) && is_numeric($longitude)) {
+      // Query here is parrotted from http://stackoverflow.com/questions/2234204/latitude-longitude-find-nearest-latitude-longitude-complex-sql-or-complex-calc
+      // No guarantee expressed or implied, and no testing around 0 latitude.
+      $sql = "
             SELECT SQRT(POW(69.1 * (l.latitude - :lat), 2) + POW(69.1 * (:lng - l.longitude) * COS(l.latitude / 57.3), 2)) AS distance, u.*, w.*, l.*
             FROM {users} u, {wsuser} w, {user_location} l
             WHERE u.uid = w.uid
             AND u.uid=l.oid
             AND u.status > 0
             ORDER BY distance";
-    $result = db_query_range($sql, 0, 100, array(
-      ':lat' => $latitude,
-      ':lng' => $longitude
-    ), array('fetch' => PDO::FETCH_OBJ));
+      $result = db_query_range($sql, 0, 100, array(
+        ':lat' => $latitude,
+        ':lng' => $longitude
+      ), array('fetch' => PDO::FETCH_OBJ));
+    }
   }
+
+  // TODO: Allow admins to search for pre-authorized users
+  // The role restriction removes pre-authorized, members, but user admins should be able to see them
+//  $AND = (user_access('administer users')) ? '' : 'AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)';
 
   // Otherwise, just use the keys in the search, including wildcards.
   else {
@@ -735,8 +746,9 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
             WHERE u.uid = w.uid
             AND u.uid=l.oid
             AND status > 0
-            AND (LOWER(w.fullname) LIKE '%%:keys%%' OR u.name like '%%:keys%%'
-            OR l.city like '%%:keys%%' OR u.mail LIKE ':keys%%')";
+            AND (LOWER(w.fullname) LIKE :full_search_string OR u.name like :full_search_string
+            OR l.city LIKE :full_search_string
+            OR u.mail LIKE :email_search_string)";
 
 //    $count_query = "
 //            SELECT COUNT(*) FROM {users} u, {wsuser} w, {user_location} l
@@ -746,7 +758,10 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
 //            AND (LOWER(w.fullname) LIKE '%%:fullname%%' OR u.name like '%%:username%%'
 //            OR l.city like '%%:city%%' OR u.mail LIKE ':email%%')";
 
-    $result = db_query_range($sql, 0, 100, array(':keys' => $keys), array('fetch' => PDO::FETCH_OBJ));
+    $result = db_query_range($sql, 0, 100, array(
+      ':full_search_string' => '%' . db_like($keys) . '%',
+      ':email_search_string' => db_like($keys) . '%'
+    ), array('fetch' => PDO::FETCH_OBJ));
 
 //    $result = pager_query($sql, 50, 0, $count_query, $keys, $keys, $keys, $keys);
   }
@@ -754,34 +769,8 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
   $countrylist = _locationservices_supported_countries();
   foreach ($result as $account) {
     $location = $account->city . ", $account->province, " . $countrylist[$account->country];
-    $find[$account->uid] = array();
-    if (!empty($account->distance)) {
-      $find[$account->uid]['distance'] = number_format($account->distance * 1.609344, 0) . '/' .
-        number_format($account->distance, 0);
-    }
 
-    $fullname = l($account->fullname, 'user/' . $account->uid);
-    $location = l($location, "maponly/{$account->uid}/8", array(
-      'query' => array(
-        'width' => '90%',
-        'height' => '90%',
-        'iframe' => 'true',
-      ),
-      'attributes' => array('class' => 'colorbox-load'),
-    ));
-
-    $comments = $account->comments;
-    $max_comment_length = 200;
-    $comments = truncate_utf8($comments, $max_comment_length);
-    $available = $account->notcurrentlyavailable ? t('Not currently available') : t('Available for hosting');
-    $comments = " " . check_markup("({$available}) " . $comments);
-
-
-    $find[$account->uid] += array(
-      'fullname' => $fullname . ' (' . t('Location') . ': ' . $location . ')',
-      'comments' => $comments,
-    );
-
+    $find[$account->uid] = $account;
   }
   return $find;
 }
@@ -790,23 +779,43 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
  * Implements hook_search_page().
  *
  * @param results
- *   Array of results (keyed by uid) with member info.
+ *   Array of fully-populated $accounts (keyed by uid) with member info.
  * @return array
  *   Renderable array.
  */
-function wsuser_search_page($results) {
+function wsuser_search_page($accounts) {
   $output['prefix']['#markup'] = '<ol class="search-results">';
 
-  foreach ($results as $entry) {
+  foreach ($accounts as $account) {
     $output[] = array(
-      '#theme' => 'search_result',
-      '#result' => $entry,
+      '#theme' => 'wsuser_search_result',
+      '#result' => $account,
       '#module' => 'wsuser',
     );
   }
   $output['suffix']['#markup'] = '</ol>' . theme('pager');
-
   return $output;
+}
+
+/**
+ * Process variables for wsuser-search-result.tpl.php.
+ *
+ * The $variables array contains the following arguments:
+ * - $result
+ * - $module
+ *
+ * @see search-result.tpl.php
+ */
+function template_preprocess_wsuser_search_result(&$variables) {
+  global $language;
+  $max_comment_length = 300;
+
+  $result = $variables['result'];
+  $variables['url'] = url("user/{$result->uid}");
+  $variables['fullname'] = filter_xss($result->fullname);
+  $variables['location_plain'] = filter_xss($result->city) . ', ' . drupal_strtoupper($result->province) . ', ' . drupal_strtoupper($result->country);
+  $variables['about_me'] = truncate_utf8($result->comments, $max_comment_length, TRUE, TRUE);
+  $variables['location_link'] = l($variables['location_plain'], "user/{$result->uid}}/maponly/8", array('query' => array('width' => '90%', 'height' => '90%', 'iframe' => 'true')));
 }
 
 /**
@@ -1300,27 +1309,6 @@ function _wsuser_user_form_validate($form, &$form_state) {
 }
 
 
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function theme_wsuser_wsuser($user, $fields = array()) {
-  // TODO: Should this theme wsuser_wsuser be declared in hook_theme()?
-
-  $output = "<div class=\"wsuser\">\n";
-  $output .= theme('user_picture', array('account' => $user));
-  $output .= ' <div class="name">' . format_name($user) . "</div>\n";
-
-  foreach ($fields as $field) {
-    if ($value = wsuser_view_field($user, $field)) {
-      $output .= " <div class=\"field\">$value</div>\n";
-    }
-  }
-
-  $output .= "</div>\n";
-
-  return $output;
-}
 
 /**
  * Implements hook_block_info() to provide the wsuser block descriptions
@@ -1559,7 +1547,6 @@ function wsuser_pass_reset_url($account) {
     'language' => $language
   ));
 }
-
 
 /**
  * Search form for search block.
