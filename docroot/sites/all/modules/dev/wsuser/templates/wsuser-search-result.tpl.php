@@ -28,7 +28,13 @@
  * @ingroup themeable
  */
 ?>
-<li class="<?php print $classes; ?>"<?php print $attributes; ?>>
+<li class="<?php print $classes; ?>"<?php print $attributes; ?>
+    xmlns="http://www.w3.org/1999/html">
+  <?php if (isset($distance)): ?>
+  <div class="wssearch-distance">
+  <?php print $distance ?>
+  </div>
+  <?php endif ?>
   <div class="wssearch-description"><a href="<?php print $url; ?>"><?php print $fullname; ?></a>
     <?php print t('Location'); ?>: <?php print $location_link; ?>
   </div>
