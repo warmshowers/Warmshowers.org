@@ -795,6 +795,150 @@ function wsuser_user_load($accounts) {
   }
 }
 
+/**
+ * Implements hook_user_delete() to delete wsuser entry on user deletion
+ *
+ */
+function wsuser_user_delete($account) {
+  try {
+    db_delete('wsuser')->condition('uid', $account->uid)->execute();
+  } catch (Exception $e) {
+    watchdog_exception('wsuser', $e);
+  }
+
+}
+
+/**
+ * Implements hook_user_login()
+ *
+ * @param $edit
+ * @param $account
+ */
+function wsuser_user_login(&$edit, &$account) {
+  $countries = _locationservices_supported_countries();
+  $browser_cc = user_location_get_browser_country();
+  $browser_countryname = @$countries[user_location_get_browser_country()];
+  if (empty($browser_countryname)) {
+    $browser_countryname = t('Unknown');
+  }
+
+  if (function_exists('user_location_get_browser_country')) {
+    watchdog('user', "{$account->name} login from " . $browser_countryname);
+  }
+
+  if (!empty($account->notcurrentlyavailable)) {
+    drupal_set_message(t('Your account is set to "Not Currently Available" so you will not show on the map or receive guest requests.'));
+    if (empty($account->picture)) {
+      drupal_set_message(t('You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. !link', array('!link' => l(t('Upload your picture by editing your profile.'), 'user/' . $account->uid . '/edit'))));
+    }
+  }
+
+  // Note browscap settings in watchdog
+  if (module_exists('browscap')) {
+    $browser = (object) browscap_get_browser();
+    watchdog("browser", "browser=$browser->browser, version=$browser->version, platform=$browser->platform (" . var_export($browser, TRUE) . ")");
+  }
+
+  $languages = variable_get('wsuser_show_donate_login_languages', array('en-working'));
+  if (!wsuser_is_current_donor_member($account) && !wsuser_is_nondonor_member($account) && (arg(0) != 'donate') && in_array($account->language, $languages)) {
+    drupal_set_message(t('We are asking every member to choose a donation level. Please !choose Thanks!', array('!choose' => l('choose a donation level', 'donate'))));
+  }
+}
+
+
+/**
+ * Implements hook_user_update()
+ *
+ * @param $edit
+ * @param $account
+ * @param $category
+ */
+function wsuser_user_update(&$edit, &$account, $category) {
+  wsuser_user_insert($edit, $account, $category);
+}
+
+/**
+ * Implements hook_user_insert()
+ *
+ * @param $edit
+ * @param $account
+ * @param $category
+ */
+function wsuser_user_insert(&$edit, &$account, $category) {
+  // Support values for when they changed their notcurrentlyavailable, etc.
+
+  // If they're changing *to* not available, set the unavailable timestamp and make
+  // this the beginning of the unavailability pester cycle.
+  if (!empty($edit['notcurrentlyavailable']) && empty($account->notcurrentlyavailable)) {
+    $edit['set_unavailable_timestamp'] = (int) REQUEST_TIME;
+    $edit['last_unavailability_pester'] = (int) REQUEST_TIME;
+    $edit['set_available_timestamp'] = 0;
+    drupal_set_message(t('You have set your account to "Not Currently Available" and you will be reminded about this by email from time to time. Please read the FAQ for more information.'));
+  }
+  // Otherwise, if they're switching from not available, set this as the beginning
+  // of the availability cycle, and unset the other stuff.
+  else {
+    if (array_key_exists('notcurrentlyavailable', $edit) && empty($edit['notcurrentlyavailable']) && (!empty($account->notcurrentlyavailable) || !isset($account->notcurrentlyavailable))) {
+      $edit['set_available_timestamp'] = (int) REQUEST_TIME;
+      $edit['set_unavailable_timestamp'] = 0;
+      $edit['last_unavailability_pester'] = 0;
+      drupal_set_message(t('You have unchecked "Not Currently Available" so your location will be shown on the map and you may receive guest requests.'));
+
+    }
+  }
+
+  $fields = array();
+
+  foreach (array_keys(wsuser_fieldlist()) as $key) {
+    if (array_key_exists($key, $edit)) {
+      $fields[$key] = $edit[$key];
+      // Setting $edit[$key] to NULL removes it from $user->data. However, there
+      // are many features in this site that assume this stuff will be in the normally-loaded
+      // global $user, so not doing this at this point. rfay 20150129
+      // $edit[$key] = NULL;  // Required by hook_user_xx so it knows the field has been done
+    }
+  }
+  if (!empty($fields)) {
+    try {
+      db_merge('wsuser')
+        ->key(array('uid' => $account->uid))
+        ->fields($fields)
+        ->execute();
+    } catch (Exception $e) {
+      watchdog_exception('wsuser', $e);
+      drupal_set_message(t('Failed saving wsuser information'), 'error');
+    }
+  }
+}
+
+/**
+ * Implements hook_user_view()
+ *
+ * @param $user
+ * @return array
+ */
+function wsuser_user_view($account, $view_mode, $langcode) {
+
+  $fieldlist = wsuser_fieldlist();
+  $showvalue = array();
+
+  unset($fieldlist['howdidyouhear'], $fieldlist['hide_donation_status'], $fieldlist['email_opt_out']); // Don't need these in the output
+
+  foreach ($fieldlist as $key => $value) {
+    if (!empty($account->$key)) {
+      $showvalue[$key] = array(
+        '#type' => 'user_profile_item',
+        '#title' => $value['title'],
+        '#markup' => check_markup($account->$key),
+        // '#weight' => $field->weight,
+        '#attributes' => array('class' => array('profile-' . $key)),
+      );
+    }
+  }
+  $account->content['wsuser'] = $showvalue;
+
+}
+
 
 /**
  * A list of fields to be loaded/saved/presented on the user edit form.
@@ -997,149 +1141,6 @@ function wsuser_form_defaults($form_state_values, $account) {
 }
 
 
-/**
- * Implements hook_user_delete() to delete wsuser entry on user deletion
- *
- */
-function wsuser_user_delete($account) {
-  try {
-    db_delete('wsuser')->condition('uid', $account->uid)->execute();
-  } catch (Exception $e) {
-    watchdog_exception('wsuser', $e);
-  }
-
-}
-
-/**
- * Implements hook_user_login()
- *
- * @param $edit
- * @param $account
- */
-function wsuser_user_login(&$edit, &$account) {
-  $countries = _locationservices_supported_countries();
-  $browser_cc = user_location_get_browser_country();
-  $browser_countryname = @$countries[user_location_get_browser_country()];
-  if (empty($browser_countryname)) {
-    $browser_countryname = t('Unknown');
-  }
-
-  if (function_exists('user_location_get_browser_country')) {
-    watchdog('user', "{$account->name} login from " . $browser_countryname);
-  }
-
-  if (!empty($account->notcurrentlyavailable)) {
-    drupal_set_message(t('Your account is set to "Not Currently Available" so you will not show on the map or receive guest requests.'));
-    if (empty($account->picture)) {
-      drupal_set_message(t('You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. !link', array('!link' => l(t('Upload your picture by editing your profile.'), 'user/' . $account->uid . '/edit'))));
-    }
-  }
-
-  // Note browscap settings in watchdog
-  if (module_exists('browscap')) {
-    $browser = (object) browscap_get_browser();
-    watchdog("browser", "browser=$browser->browser, version=$browser->version, platform=$browser->platform (" . var_export($browser, TRUE) . ")");
-  }
-
-  $languages = variable_get('wsuser_show_donate_login_languages', array('en-working'));
-  if (!wsuser_is_current_donor_member($account) && !wsuser_is_nondonor_member($account) && (arg(0) != 'donate') && in_array($account->language, $languages)) {
-    drupal_set_message(t('We are asking every member to choose a donation level. Please !choose Thanks!', array('!choose' => l('choose a donation level', 'donate'))));
-  }
-}
-
-
-/**
- * Implements hook_user_update()
- *
- * @param $edit
- * @param $account
- * @param $category
- */
-function wsuser_user_update(&$edit, &$account, $category) {
-  wsuser_user_insert($edit, $account, $category);
-}
-
-/**
- * Implements hook_user_insert()
- *
- * @param $edit
- * @param $account
- * @param $category
- */
-function wsuser_user_insert(&$edit, &$account, $category) {
-  // Support values for when they changed their notcurrentlyavailable, etc.
-
-  // If they're changing *to* not available, set the unavailable timestamp and make
-  // this the beginning of the unavailability pester cycle.
-  if (!empty($edit['notcurrentlyavailable']) && empty($account->notcurrentlyavailable)) {
-    $edit['set_unavailable_timestamp'] = (int) REQUEST_TIME;
-    $edit['last_unavailability_pester'] = (int) REQUEST_TIME;
-    $edit['set_available_timestamp'] = 0;
-    drupal_set_message(t('You have set your account to "Not Currently Available" and you will be reminded about this by email from time to time. Please read the FAQ for more information.'));
-  }
-  // Otherwise, if they're switching from not available, set this as the beginning
-  // of the availability cycle, and unset the other stuff.
-  else {
-    if (array_key_exists('notcurrentlyavailable', $edit) && empty($edit['notcurrentlyavailable']) && (!empty($account->notcurrentlyavailable) || !isset($account->notcurrentlyavailable))) {
-      $edit['set_available_timestamp'] = (int) REQUEST_TIME;
-      $edit['set_unavailable_timestamp'] = 0;
-      $edit['last_unavailability_pester'] = 0;
-      drupal_set_message(t('You have unchecked "Not Currently Available" so your location will be shown on the map and you may receive guest requests.'));
-
-    }
-  }
-
-  $fields = array();
-
-  foreach (array_keys(wsuser_fieldlist()) as $key) {
-    if (array_key_exists($key, $edit)) {
-      $fields[$key] = $edit[$key];
-      // Setting $edit[$key] to NULL removes it from $user->data. However, there
-      // are many features in this site that assume this stuff will be in the normally-loaded
-      // global $user, so not doing this at this point. rfay 20150129
-      // $edit[$key] = NULL;  // Required by hook_user so it knows the field has been done
-    }
-  }
-  if (!empty($fields)) {
-    try {
-      db_merge('wsuser')
-        ->key(array('uid' => $account->uid))
-        ->fields($fields)
-        ->execute();
-    } catch (Exception $e) {
-      watchdog_exception('wsuser', $e);
-      drupal_set_message(t('Failed saving wsuser information'), 'error');
-    }
-  }
-}
-
-/**
- * Implements hook_user_view()
- *
- * @param $user
- * @return array
- */
-function wsuser_user_view($account, $view_mode, $langcode) {
-
-  $fieldlist = wsuser_fieldlist();
-  $showvalue = array();
-
-  unset($fieldlist['howdidyouhear'], $fieldlist['hide_donation_status'], $fieldlist['email_opt_out']); // Don't need these in the output
-
-  foreach ($fieldlist as $key => $value) {
-    if (!empty($account->$key)) {
-      $showvalue[$key] = array(
-        '#type' => 'user_profile_item',
-        '#title' => $value['title'],
-        '#markup' => check_markup($account->$key),
-        // '#weight' => $field->weight,
-        '#attributes' => array('class' => array('profile-' . $key)),
-      );
-    }
-  }
-  $account->content['wsuser'] = $showvalue;
-
-}
 
 /**
  * Implements hook_form_FORMID_alter() for user registration
