@@ -373,7 +373,7 @@ function _user_location_profile_validate($form, &$form_state) {
   $province = $form_state['values']['province'];
   $country = $form_state['values']['country'];
   $provincelist = _locationservices_provincelist($country);
-  if ($province != "XX" && !$provincelist[$province]) {
+  if ($province != "XX" && empty($provincelist[$province])) {
     form_set_error('province', t('State/Province not set correctly'));
   }
 }
@@ -399,7 +399,7 @@ function user_location_user_insert(&$edit, &$account, $category) {
 
   // Only do geocoding if the country is provided in $edit
   // And if source is not user-located
-  if (array_key_exists('country', $edit) && $account->source != 1) {
+  if (array_key_exists('country', $edit) && (empty($account->source) || $account->source != 1)) {
     $location_keys = array(
       'street',
       'city',
@@ -412,7 +412,7 @@ function user_location_user_insert(&$edit, &$account, $category) {
       $location[$key] = array_key_exists($key, $edit) ? $edit[$key] : $account->$key;
     }
 
-    $geocoded_location = _user_location_geocode($location);
+    $geocoded_location = _user_location_geocode($location, $account);
     $source = $geocoded_location['source'];
     if ($source <= 8) {
       $edit['source'] = $geocoded_location['source'];
@@ -468,31 +468,37 @@ function _user_location_delete($edit, $account) {
 /**
  * Create the defaults for each user_location member. Returns array that can be used for each
  *
- * @param $edit
+ * @param $form_state_values
  * @param  $user
  * @return unknown
  */
-function _user_location_form_defaults($edit, $account) {
+function _user_location_form_defaults($form_state_values, $account) {
   $defaults = array();
   $fields = _user_location_fieldlist();
 
-  // TODO: Make this more intelligent. This is a lot of trouble. Should just bless the array or something
-  if ($edit['country']) {
-    foreach ($fields as $field => $value) {
-      $defaults[$field] = $edit[$field];
-    }
-  }
-  else {
-    if ($account->country) {
-      foreach ($fields as $field => $value) {
-        $defaults[$field] = $account->$field;
-      }
+  foreach ($fields as $field => $value) {
 
+    // Choose the default for the field from
+    // 1) The edit/value
+    // 2) The account default
+    // 3) the default provided in user_location_fieldlist()
+    // 4) ""
+    $default = !empty($value['default']) ? $value['default'] : "";
+    if (!empty($form_state_values[$field])) {
+      $default = $form_state_values[$field];
     }
+    else {
+      if (!empty($account->$field)) {
+        $default = $account->$field;
+      }
+    }
+    $defaults[$field] = $default;
+
   }
   if (!$defaults['country']) {
     $defaults['country'] = user_location_get_browser_country();
   }
+
   return $defaults;
 }
 
@@ -521,7 +527,7 @@ function user_location_form_user_profile_form_alter(&$form, &$form_state) {
     '#attributes' => array('autocomplete' => 'off'),
   );
 
-  $defaults = _user_location_form_defaults($form_state['values'], $account);
+  $defaults = _user_location_form_defaults(!empty($form_state['values']) && is_array($form_state['values']) ? $form_state['values'] : array(), $account);
 
   $countrylist = array();
   $countrylist[''] = t('Select Country...');
@@ -559,12 +565,9 @@ function user_location_form_user_profile_form_alter(&$form, &$form_state) {
   // $form['location']['source']['#options'] = $sourceoptions; // TODO: Wrong - remove
 
 
-  $form['location']['country']['#ahah'] = array(
-    'path' => 'ahah_get_provinces_profile',
-    'event' => 'change',
+  $form['location']['country']['#ajax'] = array(
+    'callback' => '_user_location_provinces_callback',
     'wrapper' => 'province_target',
-    'method' => 'replace',
-    'effect' => 'fade',
   );
 
   $form['location']['province']['#prefix'] = '<div id="province_target">';
@@ -573,6 +576,13 @@ function user_location_form_user_profile_form_alter(&$form, &$form_state) {
 
   $form['location']['province']['#description'] = t("<noscript><b>You don't have javascript turned on in your browser</b>, so the provinces may not be listed correctly. If so, please choose 'Not listed' and put the correct postal code.</noscript>");
 
+}
+
+/**
+ * AJAX callback for when the country changes in the profile form
+ */
+function _user_location_provinces_callback($form, $form_state) {
+  return $form['location']['province'];
 }
 
 /**
@@ -625,10 +635,12 @@ function user_location_current_countries() {
  *   4. Try the zipcodes database developed for this module from geonames
  *   5. Just get the geographic center of the country from user_location_countries table
  *
- * @param array $location with street, city, province, country, postal_code
+ * @param
+ *   array $location with street, city, province, country, postal_code
+ *   object $account
  * @return unknown  Location array with latitude, longitude, and source
  */
-function _user_location_geocode($location = array()) {
+function _user_location_geocode($location = array(), $account) {
 
   $location['street'] = trim($location['street']);
   $location['postal_code'] = preg_replace('/\s+/', '', $location['postal_code']);
@@ -643,11 +655,10 @@ function _user_location_geocode($location = array()) {
 
     // Try google with all the info
     if ($google_result = _user_location_google_geocoder($location)) {
-      $account = array_shift(user_load_multiple(array(), array('name' => $location['name'])));
       watchdog('geocode', "Google accuracy=%accuracy for !link, details=<pre>@details</pre>",
         array(
           '%accuracy' => $google_result['source'],
-          '!link' => l($location['name'], "user/{$account->uid}"),
+          '!link' => l(filter_xss($account->name), "user/{$account->uid}"),
           '@details' => print_r($google_result, TRUE)
         ));
       return $google_result; // has additional accuracy and status values
@@ -680,7 +691,7 @@ function _user_location_geocode($location = array()) {
       return $google_result;
     }
 
-    if ($db_result = _user_location_geocode_from_db($location)) {
+    if ($db_result = _user_location_geocode_from_db($location, $account)) {
       watchdog('geocode', "Database accuracy=%accuracy for user %user, details=%details", array(
         '%user' => $location['name'],
         '%accuracy' => $db_result['source'],
@@ -832,7 +843,7 @@ function _user_location_google_geocoder($location = array()) {
     $province_name = preg_replace('/[a-zA-Z]+\:/', '', $province_codes[$location['province']]);
     $addr .= urlencode($province_name) . ",";
   }
-  if (strlen($location['postal_code'])) {
+  if (!empty($location['postal_code']) && strlen($location['postal_code'])) {
     $addr .= urlencode($location['postal_code']);
   }
 
@@ -888,12 +899,11 @@ function _user_location_google_geocoder($location = array()) {
     if (!empty($geo1->geometry->bounds)) {
       $bounds = $geo1->geometry->bounds;
       $lat1 = $bounds->northeast->lat;
-      $lon1 = $bounds->northeast->lon;
+      $lon1 = $bounds->northeast->lng;
       $lat2 = $bounds->southwest->lat;
-      $lon2 = $bounds->southwest->lon;
+      $lon2 = $bounds->southwest->lng;
 
       $bounding_box_diagonal = intval(earth_distance($lon1, $lat1, $lon2, $lat2));
-//    drupal_set_message("Bounding box size=$bounding_box_diagonal");
     }
 
     switch ($geocoded_type) {
@@ -1259,7 +1269,7 @@ function user_location_reset_location_submit($form, &$form_state) {
     'province' => $account->province,
     'country' => $account->country,
   );
-  $geocoded_location = _user_location_geocode($addressdata);
+  $geocoded_location = _user_location_geocode($addressdata, $account);
   $source = $geocoded_location['source'];
   if ($source <= 8) {
     $edit['source'] = $geocoded_location['source'];
