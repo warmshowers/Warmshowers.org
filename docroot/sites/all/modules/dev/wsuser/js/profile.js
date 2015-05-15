@@ -4,24 +4,27 @@
  * @param context
  */
 
-Drupal.behaviors.profileBehaviors = function(context) {
+(function ($) {
+  Drupal.behaviors.profileBehaviors = {
 
-    // Show hide "Become available" date based on whether
-    // currently unavailable is checked or not
+    attach: function (context, settings) {
 
-    var checkbox = $('#edit-notcurrentlyavailable');
-    var checkboxWrapper = $('#edit-notcurrentlyavailable-wrapper');
-    var dateWrapper = $('#edit-becomeavailable-wrapper');
+      // Show hide "Become available" date based on whether
+      // currently unavailable is checked or not
 
-    // Set initial conditions for checkbox wrapper and date field visibility.
-    if (checkbox.is(':checked')) {
+      var checkbox = $('#edit-notcurrentlyavailable');
+      var checkboxWrapper = $('#edit-notcurrentlyavailable-wrapper');
+      var dateWrapper = $('div.form-item-becomeavailable');
+
+      // Set initial conditions for checkbox wrapper and date field visibility.
+      if (checkbox.is(':checked')) {
         checkboxWrapper.parent().addClass('highlight-notcurrentlyavailable-wrapper');
-    }
-    else {
+      }
+      else {
         dateWrapper.hide();
-    }
+      }
 
-    checkbox.click(function () {
+      checkbox.click(function () {
         dateWrapper.toggle(this.checked);
         if (this.checked) {
           checkboxWrapper.parent().addClass('highlight-notcurrentlyavailable-wrapper');
@@ -29,5 +32,9 @@ Drupal.behaviors.profileBehaviors = function(context) {
         else {
           checkboxWrapper.parent().removeClass('highlight-notcurrentlyavailable-wrapper');
         }
-    });
-};
+      });
+    }
+  }
+})
+(jQuery)
+
