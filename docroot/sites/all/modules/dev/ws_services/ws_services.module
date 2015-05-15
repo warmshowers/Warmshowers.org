@@ -98,7 +98,6 @@ function ws_services_services_resources() {
 }
 
 
-
 /**
  * Utility function to provide search by location service
  *
@@ -130,34 +129,40 @@ function _ws_services_hosts_by_keyword($data) {
   $offset = !empty($data['offset']) ? $data['offset'] : 0;
   $limit = !empty($data['limit']) ? $data['limit'] : variable_get('ws_services_keyword_results_limit', 50);
 
-  $base_query =
-    "FROM {users} u, {wsuser} w, {user_location} l
-            WHERE u.uid = w.uid
-            AND u.uid=l.oid
-            AND status > 0
-            AND !w.isstale AND !w.isunreachable
-            AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
-            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name LIKE '%%%s%%'
-            OR l.city LIKE '%%%s%%'
-            OR u.mail = '%s%%') ";
+  try {
+    $query = db_select('users', 'u');
+    $query->join('wsuser', 'w', 'u.uid = w.uid');
+    $query->join('user_location', 'ul', 'u.uid = ul.oid');
+    $query->fields('u', array('uid'));
 
-  $query = "SELECT * " . $base_query . " ORDER BY w.notcurrentlyavailable ASC";
-  $count_query = "SELECT COUNT(*) " . $base_query;
-  // TODO Please convert this statement to the D7 database API syntax.
-  $avail_results_count = db_query($count_query, $keyword, $keyword, $keyword, $keyword)->fetchField();
+    $query->condition('u.status', 1)
+      ->condition(db_or()
+        ->condition('u.name', db_like($keys) . '%', 'LIKE')
+        ->condition('w.fullname', '%' . db_like($keys) . '%', 'LIKE')
+        ->condition('ul.city', db_like($keys) . '%', 'LIKE')
+        ->condition('u.mail', $keys));
 
-  // TODO Please convert this statement to the D7 database API syntax.
-  $result = db_query_range($query, $keyword, $keyword, $keyword, $keyword);
+    // Don't show unvalidated users
+    $query->where('u.uid NOT IN (SELECT uid FROM {users_roles} WHERE rid = :rid)', array(':rid' => 9));
+    $query->orderBy('w.notcurrentlyavailable');
 
-  $accounts = array();
-  while ($row = db_fetch_array($result)) {
-    unset($row['pass'], $row['mail'], $row['data'], $row['init']);
-    $accounts[$row['uid']] = $row;
+    // Get array of users matching- array of uid => distance
+    $uids = $query
+      ->range($offset, $limit)
+      ->execute()
+      ->fetchCol();
+
+  } catch (Exception $e) {
+    watchdog_exception('ws_services', $e);
+  }
+
+  $accounts = user_load_multiple($uids);
+  foreach ($accounts as &$row) {
+    unset($row->pass, $row->mail, $row->data, $row->init, $row->roles, $row->contact, $row->tinymce_status);
   }
   return array(
     'status' => array(
       'delivered' => count($accounts),
-      'totalresults' => $avail_results_count,
       'status' => 'complete',
     ),
     'query_data' => array(
