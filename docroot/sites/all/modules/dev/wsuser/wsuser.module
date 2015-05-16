@@ -44,6 +44,13 @@ function wsuser_menu() {
     'access arguments' => array('administer site configuration'),
     'weight' => 10,
   );
+  $items['user/%user/admin'] = array(
+    'title' => 'misc admin',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('wsuser_change_user_dates_form', 1),
+    'access arguments' => array('administer users'),
+    'weight' => 11,
+  );
 
   return $items;
 }
@@ -683,7 +690,10 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
 
     // If distance search, add the distance calc, ordering, and limitation
     if (is_numeric($latitude) && is_numeric($longitude)) {
-      $query->addExpression('SQRT(POW(69.1 * (ul.latitude - :lat), 2) + POW(69.1 * (:lng - ul.longitude) * COS(ul.latitude / 57.3), 2))', 'distance', array(':lat' => $latitude, ':lng' => $longitude));
+      $query->addExpression('SQRT(POW(69.1 * (ul.latitude - :lat), 2) + POW(69.1 * (:lng - ul.longitude) * COS(ul.latitude / 57.3), 2))', 'distance', array(
+        ':lat' => $latitude,
+        ':lng' => $longitude
+      ));
       $query->orderBy('distance');
     }
     // Otherwise just a simple keyword search. Use a bogus distance
@@ -743,7 +753,8 @@ function wsuser_search_page($accounts) {
         '#module' => 'wsuser',
       );
     }
-  } else {
+  }
+  else {
     $output['#markup'] = t('Your search yielded no results');
   }
   $output['suffix']['#markup'] = '</ol>' . theme('pager');
@@ -1139,7 +1150,6 @@ function wsuser_form_defaults($form_state_values, $account) {
 
   return $defaults;
 }
-
 
 
 /**
@@ -2319,4 +2329,77 @@ function wsuser_uc_role_expiration($account, $rid) {
     )
   )->fetchField();
   return $expires;
+}
+
+
+/**
+ * Admin form allowing changing user created, access dates, etc.
+ *
+ * @return mixed
+ */
+function wsuser_change_user_dates_form($form, &$form_state, $account) {
+  $form['#user'] = $account;
+  $form['changedates'] = array(
+    '#title' => t("<b>Change user dates</b>"),
+    '#description' => t("Change the database dates on a user"),
+    '#type' => 'fieldset',
+  );
+
+  $form['changedates']['instructions'] = array(
+    '#type' => 'markup',
+    '#value' => "<h4>Changing dates for user $account->name ($account->fullname)</h4><p>Use this form to update the created or last-login date of a user.
+					The last-login date is used to determine when the user is 'stale' and should
+					be retired, contacted, perhaps removed from the system.</p>",
+  );
+  $form['changedates']['created'] = array(
+    '#type' => 'textfield',
+    '#size' => 10,
+    '#maxlength' => 10,
+    '#title' => 'New created date (currently ' . date('Y-m-d', $account->created) . ")",
+    '#description' => t("In the form YYYY-MM-DD. Leave it blank to leave it unchanged."),
+  );
+  $form['changedates']['login'] = array(
+    '#type' => 'textfield',
+    '#size' => 10,
+    '#maxlength' => 10,
+    '#title' => t("New last-login date (currently last-login is " . date('Y-m-d', $account->login) . " and access is " . date('Y-m-d', $account->access) . ")"),
+    '#description' => t("In the form YYYY-MM-DD. Leave it blank to leave it unchanged."),
+  );
+  $form['changedates']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+
+}
+
+function wsuser_change_user_dates_form_validate($form, &$form_state) {
+  $created = $form_state['values']['created'];
+  $changed = $form_state['values']['login'];
+  if (strlen($created) && strtotime($created) < 100) {
+    form_set_error('created', "Created date must be in the form YYYY-MM-DD");
+  }
+  if (strlen($changed) && strtotime($changed) < 100) {
+    form_set_error('login', "Login date must be in the form YYYY-MM-DD");
+  }
+}
+
+function wsuser_change_user_dates_form_submit($form, &$form_state) {
+
+  $account = $form['#user'];
+  $edits = array();
+
+  if (strlen($form_state['values']['created'])) {
+    $edits['created'] = strtotime($form_state['values']['created']);
+  }
+  if (strlen($form_state['values']['login'])) {
+    $edits['login'] = strtotime($form_state['values']['login']);
+    $edits['access'] = $edits['login'];
+  }
+  try {
+    user_save($account, $edits);
+  } catch (Exception $e) {
+    drupal_set_message(t('Failed to update account. More information in log'));
+    watchdog_exception('wsuser', $e);
+  }
 }
