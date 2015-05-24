@@ -192,38 +192,47 @@ function warmshowers_site_form_privatemsg_new_alter(&$form, &$form_state) {
 }
 
 /**
- * Implements hook_form_alter().
+ * Implements hook_form_FORMID_alter()
+ *
+ * Change user cancel markup for normal user
+ *
+ * @param $form
+ * @param $form_state
  */
-function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
-
-  switch ($form_id) {
-    case 'user_cancel_confirm_form':
-      // Prepending help text to the user cancel form.
-      if (!user_access('administer users')) {
-        $form['description']['#markup'] = "If you would rather stay but not host members, you can just edit your account and click the <strong>'Not currently available'</strong> checkbox and you won't show up in any map or geographical searches.<br><br>" . $form['description']['#markup'];
-      }
-      break;
-    // Get rid of the input filter stuff on comment.
-    // Also change comment notification default values.
-    // TODO: Check that this works right. Isn't there just a way to turn it off instead?
-    case 'comment_form':
-      $form['comment_filter']['format']['#access'] = FALSE;
-
-      $form['notify_settings']['notify']['#default_value'] = TRUE;
-      $form['notify_settings']['notify_type']['#default_value'] = 2;
-      break;
-
-    // Privileged users must be able to save with html. Who?
-    // This is a questionable removal as it could allow translators to
-    // insert even PHP or javascript which would be destructive.
-    // TODO: Make sure this works
-    case 'locale_translate_edit_form':
-      unset($form['#validate']);
-      $form['#validate'] = array('warmshowers_site_translate_edit_form_validate');
-      break;
-
-
+function warmshowers_site_form_user_cancel_confirm_form_alter(&$form, &$form_state) {
+  // Prepending help text to the user cancel form.
+  if (!user_access('administer users')) {
+    $form['description']['#markup'] = "If you would rather stay but not host members, you can just edit your account and click the <strong>'Not currently available'</strong> checkbox and you won't show up in any map or geographical searches.<br><br>" . $form['description']['#markup'];
   }
+}
+
+/**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Default the notification settings
+ *
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_comment_form_alter(&$form, &$form_state) {
+
+  $form['notify_settings']['notify']['#default_value'] = TRUE;
+  $form['notify_settings']['notify_type']['#default_value'] = 2;
+}
+
+/**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Privileged users must be able to save with html. Who?
+ * This is a questionable removal as it could allow translators to
+ * insert even PHP or javascript which would be destructive.
+
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_locale_translate_edit_form_alter(&$form, &$form_state) {
+  unset($form['#validate']);
+  $form['#validate'] = array('warmshowers_site_translate_edit_form_validate');
 }
 
 /**
@@ -301,7 +310,7 @@ function _warmshowers_site_alter_feedback_member($form, &$form_state) {
 /**
  * This is added here to allow unvalidated saves for translators for just some
  * lids, which can be added to the variable if needed.
- * TODO: Make sure it works
+ *
  * @param $form
  * @param $form_state
  */
@@ -313,16 +322,15 @@ function warmshowers_site_translate_edit_form_validate($form, &$form_state) {
     return;
   }
 
-  // Continues on with copied i18nstrings_translate_edit_form_validate()
-  $context = $form_state['values']['i18nstrings_context'];
-  if (empty($context->format)) {
-    // If not input format use regular validation for all strings
-    $copy_state = $form_state;
-    $copy_state['values']['textgroup'] = 'default';
-    locale_translate_edit_form_validate($form, $copy_state);
-  }
-  elseif (!filter_access($context->format)) {
-    form_set_error('translations', t('You are not allowed to translate or edit texts with this input format.'));
+  // Continues on with copied locale_translate_edit_form_validate()
+
+  // Locale string check is needed for default textgroup only.
+  $safe_check_needed = $form_state['values']['textgroup'] == 'default';
+  foreach ($form_state['values']['translations'] as $key => $value) {
+    if ($safe_check_needed && !locale_string_is_safe($value)) {
+      form_set_error('translations', t('The submitted string contains disallowed HTML: %string', array('%string' => $value)));
+      watchdog('locale', 'Attempted submission of a translation string with disallowed HTML: %string', array('%string' => $value), WATCHDOG_WARNING);
+    }
   }
 }
 
