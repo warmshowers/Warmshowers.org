@@ -20,7 +20,6 @@
  * - $longitude
  * - $responsive_member: Count of times marked responsive
  * - $unresponsive_member : Count of times marked unresponsive
- * @see wsuser_preprocess_wsuser_member_contact_location()
  */
 
 if (!$is_self) {
