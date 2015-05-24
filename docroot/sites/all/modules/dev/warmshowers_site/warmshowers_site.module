@@ -26,13 +26,10 @@ function warmshowers_site_menu() {
   );
 
   // Provide access to unanswered messages
-  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
-  $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
-  $items[$url_prefix . '/unanswered'] = array(
+  $items['messages/unanswered'] = array(
     'title' => 'Unanswered Requests',
     'page callback' => 'warmshowers_site_unanswered_messages',
-    'page arguments' => array($url_prefix_user_arg_position),
-    'access callback' => 'privatemsg_menu_access',
+    'access callback' => 'privatemsg_user_access',
     'type' => MENU_LOCAL_TASK,
     'weight' => 30,
   );
@@ -166,6 +163,35 @@ function warmshowers_site_form_user_register_form_alter(&$form, &$form_state) {
 }
 
 /**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Prevent users from changing the to:, as we want them to access this using
+ * the button, and want them to access no more than one member.
+ *
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_privatemsg_new_alter(&$form, &$form_state) {
+  $form['recipient']['#type'] = 'hidden';
+  $target_username = preg_replace('/ \[user\]$/', '', @$form['recipient']['#default_value']);
+
+  $recipients_title = t("(No recipient specified)");
+
+  if (!empty($target_username) && ($accounts = user_load_multiple(array(), array('name' => $target_username)))) {
+    $account = array_shift($accounts);
+    $recipients_title = theme('username', array(
+      'account' => $account,
+      'name' => $account->name
+    ));
+    $form['description'] = array(
+      '#type' => 'item',
+      '#title' => t('Write new message to !recipient', array('!recipient' => $recipients_title)),
+      '#weight' => -99,
+    );
+  }
+}
+
+/**
  * Implements hook_form_alter().
  */
 function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
@@ -196,22 +222,6 @@ function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
       $form['#validate'] = array('warmshowers_site_translate_edit_form_validate');
       break;
 
-    // Prevent users from changing the to:, as we want them to access this using
-    // the button, and want them to access no more than one member.
-    // TODO: Make sure this works
-    case 'privatemsg_new':
-      $form['recipient']['#type'] = 'hidden';
-
-      $recipients_title = t("(No recipient specified)");
-      if (is_numeric(arg(4)) && ($target_account = user_load(arg(4)))) {
-        $recipients_title = $target_account->fullname;
-      }
-      $form['description'] = array(
-        '#type' => 'item',
-        '#title' => t('Write new message to %recipient', array('%recipient' => $recipients_title)),
-        '#weight' => -99,
-      );
-      break;
 
   }
 }
@@ -267,6 +277,7 @@ function warmshowers_site_form_trust_referral_node_form_alter(&$form, &$form_sta
   }
 
 }
+
 /**
  * Add specific instructions of username; this can be done only after
  * the prepopulate module has done its alteration so we know the member.
@@ -479,34 +490,35 @@ function warmshowers_site_mandrill_incoming_status_page() {
 /**
  * Provide a list of messages which haven't been answered
  *
- * @param $account
  * @return mixed
- * TODO: Validate that this is working
  */
-function warmshowers_site_unanswered_messages($account) {
-  $url_prefix = preg_replace('/%user/', $account->uid, variable_get('privatemsg_url_prefix', 'messages'));
+function warmshowers_site_unanswered_messages() {
+//  $url_prefix = preg_replace('/%user/', $account->uid, variable_get('privatemsg_url_prefix', 'messages'));
+  $account = $GLOBALS['user'];
 
   $period = REQUEST_TIME - variable_get('wsuser_privatemsg_responsiveness_period', 31536000);
-  $uid = $account->uid;
 
   $query = '
   SELECT DISTINCT(thread_id), pm.subject, pm.author, pi.deleted, DATE(FROM_UNIXTIME(pm.timestamp)) AS timestamp
     FROM pm_index pi, pm_message pm
-    WHERE pi.recipient = %d AND pi.thread_id = pi.mid
+    WHERE pi.recipient = :uid AND pi.thread_id = pi.mid
     AND pi.mid=pm.mid
-    AND pm.timestamp > %d
+    AND pm.timestamp > :period
     AND pi.thread_id NOT IN
-      (SELECT thread_id FROM pm_index pmsi INNER JOIN pm_message pm ON pm.mid = pmsi.mid WHERE pmsi.thread_id=pi.thread_id AND pm.author = %d)
+      (SELECT thread_id FROM pm_index pmsi INNER JOIN pm_message pm ON pm.mid = pmsi.mid WHERE pmsi.thread_id=pi.thread_id AND pm.author = :uid)
     ORDER by pi.thread_id
   ';
-  $result = db_query($query, array($uid, $period, $uid));
+  $result = db_query($query, array(
+    ':uid' => $account->uid,
+    ':period' => $period
+  ), array('fetch' => PDO::FETCH_ASSOC));
 
   $data = array();
 
   $header = array(t('Subject'), t('From'), t('Date'));
-  while ($row = db_fetch_array($result)) {
+  foreach ($result as $row) {
     if (empty($row['deleted'])) {
-      $row['subject'] = l($row['subject'], $url_prefix . '/view/' . $row['thread_id']);
+      $row['subject'] = l($row['subject'], 'messages/view/' . $row['thread_id']);
     }
     else {
       $row['subject'] .= ' (' . t('Message was deleted') . ')';
