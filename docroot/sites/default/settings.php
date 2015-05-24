@@ -559,6 +559,7 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  */
 
 $conf['cron_safe_threshold'] = 0;
+ini_set('session.cookie_lifetime',  0);
 
 /**
  * Include a local settings file if it exists.
