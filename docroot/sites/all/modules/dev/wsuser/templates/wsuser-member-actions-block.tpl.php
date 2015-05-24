@@ -26,16 +26,17 @@
 if (!$is_self) {
   print theme('linkbutton',
     array(
-      'title' => t('Provide Feedback'),
-      'href' => url('node/add/trust-referral', array(
-          'absolute' => TRUE,
-          'query' => array(
-            'edit[field_member_i_trust][0][uid][uid]' => $account->name,
-          ),
-        )
-      ),
-      'classes' => 'rounded dark big',
+      'link' => array(
+        'title' => t('Provide Feedback'),
+        'href' => url('node/add/trust-referral', array(
+            'absolute' => TRUE,
+            'query' => array(
+              'edit[field_member_i_trust][und][0][uid]' => $account->name,
+            ),
+          )
+        ),
+        'classes' => 'rounded dark big',
+      )
     )
   );
 }
-?>

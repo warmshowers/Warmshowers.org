@@ -59,6 +59,7 @@ if ($is_self) {
     }
     else {
       print theme('linkbutton',
+      array('link' =>
         array(
           'title' => t('Donate Now'),
           'href' => url('donate', array(
@@ -67,6 +68,7 @@ if ($is_self) {
           ),
           'classes' => 'rounded dark big',
         )
+      )
       );
       print '<p>' . t('Your donation will help Warmshowers to continue to thrive and provide this great service connecting hosts and bike travelers.') . '</p>';
 
