@@ -349,7 +349,7 @@ function wsuser_mail($key, &$message, $params) {
   switch ($key) {
     case 'logintoboggan_resend_validation':
       $message['subject'] .= token_replace(i18n_variable_get('user_mail_register_no_approval_required_subject', $langcode, "No subject"), array('user' => $account), array('language' => $langcode));
-      $message['body'][] = token_replace(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, "No body"),  array('user'), array('language' => $langcode));
+      $message['body'][] = token_replace(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, "No body"), array('user'), array('language' => $langcode));
       break;
 
     // Availability reminders and notifications. Assumes the variable will be properly set!
@@ -1791,8 +1791,6 @@ END;
   return $output;
 }
 
-// TODO: Re-implement country_counts page
-
 /**
  * Calculate responsiveness to privatemsgs (initial privatemsg) for a user.
  *
@@ -2375,4 +2373,264 @@ function wsuser_change_user_dates_form_submit($form, &$form_state) {
     drupal_set_message(t('Failed to update account. More information in log'));
     watchdog_exception('wsuser', $e);
   }
+}
+
+
+/**
+ * Provide member counts page.
+ *
+ * @return string
+ */
+function wsuser_country_counts() {
+
+  $cache_key = 'wsuser_country_counts_html_' . @$_GET['sort'] . @$_GET['order'] . $GLOBALS['language']->language;
+  $cached = cache_get($cache_key);
+  if (!empty($cached->data)) {
+    return $cached->data;
+  }
+  $page = array();
+
+  // Total user counts
+  $totalusers = db_select('users', 'u')
+    ->condition('u.status', 1)
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+
+  $query = db_select('users', 'u');
+  $query->join('wsuser', 'w', 'u.uid = w.uid');
+  $totalhosts = $query
+    ->condition('u.status', 1)
+    ->condition('w.notcurrentlyavailable', 0)
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+
+  $page['totalusers'] = array(
+    '#markup' => '<h3>' . t('%totalusers Warmshowers members, %totalhosts of them hosting right now.', array(
+        '%totalusers' => number_format($totalusers),
+        '%totalhosts' => number_format($totalhosts)
+      )) . '</h3>'
+  );
+  $page['instructions'] = array('#markup' => '<p>' . t('Click the headers to change sort order.') . '</p>');
+
+
+  // Members by continent
+  $page['continent']['title']['#markup'] = '<h3 id="continent">' . t('Members by Continent') . '</h3>';
+
+  $continents = array(
+    'AF' => t('Africa'),
+    'SA' => t('South America') . '&nbsp;&nbsp;',
+    'NA' => t('North America') . '&nbsp;&nbsp;',
+    'EU' => t('Europe'),
+    'OC' => t('Oceania'),
+    'AS' => t('Asia'),
+  );
+  $header = array(
+    array('data' => t('Continent'), 'field' => 'continent', 'sort' => 'asc'),
+    array('data' => t('Members On Continent'), 'field' => 'members'),
+    array('data' => t('Percent'), 'field' => 'percent'),
+  );
+
+  $query = db_select('users', 'u', array('fetch' => PDO::FETCH_ASSOC))->extend('TableSort');
+  $query->join('wsuser', 'w', 'u.uid = w.uid');
+  $query->join('user_location', 'ul', 'u.uid = ul.oid');
+  $query->join('geonames_countryinfo', 'g', 'ul.country = g.iso_alpha2');
+  $query->fields('g', array('continent'))
+    ->condition('u.status', 1)
+    ->addExpression('COUNT(*)', 'members');
+  $query->addExpression('ROUND((COUNT(*) * 100)/:total, 0)', 'percent', array(':total' => $totalusers));
+  $query->groupBy('g.continent');
+  $result = $query->orderByHeader($header)->execute();
+
+  foreach ($result as $row) {
+    $row['continent'] = $continents[$row['continent']];
+    $rows[] = array('data' => $row);
+  }
+
+  // Build the table for the nice output.
+  $page['continent']['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+
+
+  // Members by country
+  $page['country']['title']['#markup'] = '<h3 id="country">' . t('Members by country') . '</h3>';
+
+  $header = array(
+    array('data' => t('Country Name'), 'field' => 'name', 'sort' => 'asc'),
+    array('data' => t('Country Code') . '&nbsp;&nbsp;', 'field' => 'country'),
+    array('data' => t('Members In Country'), 'field' => 'members'),
+  );
+  $rows = array();
+
+  $query = db_select('users', 'u', array('fetch' => PDO::FETCH_ASSOC))->extend('TableSort');
+  $query->join('wsuser', 'w', 'u.uid = w.uid');
+  $query->join('user_location', 'ul', 'u.uid = ul.oid');
+  $query->join('geonames_countryinfo', 'g', 'ul.country = g.iso_alpha2');
+  $query->fields('g', array('name'))
+    ->fields('ul', array('country'))
+    ->condition('u.status', 1)
+    ->addExpression('COUNT(*)', 'members');
+  $query->groupBy('g.name');
+  $result = $query->orderByHeader($header)->execute();
+
+  foreach ($result as $row) {
+    $row['members'] = number_format($row['members']);
+    $rows[] = $row;
+  }
+  // Build the table for the nice output.
+  $page['country']['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+
+
+  // Growth by Year Joined
+  $page['growth']['title'] = "<h3 id='growth'>" . t('Growth by year joined') . '</h3>' . '<p>' . t('This actually only shows those who joined who are still members.') . '</p>';
+
+  $header = array(
+    array('data' => t('Year'), 'field' => 'year', 'sort' => 'asc'),
+    array('data' => t('Members joined'), 'field' => 'members'),
+  );
+  $rows = array();
+
+  $query = db_select('users', 'u', array('fetch' => PDO::FETCH_ASSOC))->extend('TableSort');
+  $query->condition('u.status', 1)
+    ->condition('created', 0, '<>')
+    ->addExpression('YEAR(from_unixtime(created))', 'year');
+  $query->addExpression('COUNT(*)', 'members');
+  $query->groupBy('year');
+  $result = $query->orderByHeader($header)->execute();
+
+  foreach ($result as $row) {
+    $row['members'] = number_format($row['members']);
+    $rows[] = $row;
+  }
+  $page['growth']['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+
+
+  // Membership by primary language
+  $page['language']['title'] = "<h3 id='language'>" . t('Primary languages of members') . '</h3>';
+  $header = array(
+    array('data' => t('Language'), 'field' => 'name'),
+    array('data' => t('Member Count'), 'field' => 'count', 'sort' => 'desc'),
+  );
+  $rows = array();
+
+  $query = db_select('users', 'u', array('fetch' => PDO::FETCH_ASSOC))->extend('TableSort');
+  $query->join('languages', 'l', 'u.language = l.language');
+  $query->fields('l', array('name'));
+  $query->addExpression('COUNT(*)', 'count');
+  $query->groupBy('u.language');
+  $rows = $query->orderByHeader($header)->execute()->fetchAll();
+
+  $page['language']['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+
+
+  // Global responsiveness stats (by year)? With explanation why starting in Sept 2013
+  $page['responsiveness']['title']['#markup'] = "<h3 id='responsiveness'>" . t('Responsiveness to private messages/hosting requests') . '</h3>' . '<p>' . t('This could not be calculated before September 2013, when private messages started going through the site.') . '</p>';
+  $header = array(
+    array('data' => t('Year'), 'field' => 'year'),
+    array(
+      'data' => t('Message Threads (Hosting Requests)'),
+      'field' => 'count'
+    ),
+    array('data' => t('Percent answered'), 'field' => 'responsive'),
+  );
+  $rows = array();
+
+  // Note that this query isn't bad, but it depends on is_new, which is cleared
+  // if the member *views* the message online, but doesn't respond.
+  $query = db_select('pm_index', 'pi', array('fetch' => PDO::FETCH_ASSOC))->extend('TableSort');
+  $query->join('pm_message', 'pm', 'pm.mid = pi.mid');
+  $query->where('pi.recipient <> pm.author AND pi.mid = pi.thread_id');
+  $query->condition('pm.timestamp', strtotime('2013-09-01'), '>');
+  $query->addExpression('YEAR(FROM_UNIXTIME(pm.timestamp))', 'year');
+  $query->addExpression('COUNT(*)', 'count');
+  $query->addExpression('100 - 100*SUM(pi.is_new)/COUNT(*)', 'responsive');
+  $query->groupBy('year');
+  $result = $query->orderByHeader($header)->execute();
+
+  foreach ($result as $row) {
+    $row['responsive'] = number_format($row['responsive'], 1);
+    $row['count'] = number_format($row['count']);
+    $rows[] = $row;
+  }
+  $page['responsiveness']['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+
+
+  // Positive and negative feedback numbers by year
+  $page['feedback']['title']['#markup'] = "<h3 id='feedback'>" . t('Positive and Negative Feedback') . '</h3>';
+  $header = array(
+    array('data' => t('Year'), 'field' => 'year'),
+    array('data' => t('Positive'), 'field' => 'positive_feedback_count'),
+    array('data' => t('Pct Positive'), 'field' => 'positive_percent'),
+    array('data' => t('Neutral'), 'field' => 'neutral_feedback_count'),
+    array('data' => t('Pct Neutral'), 'field' => 'neutral_percent'),
+    array('data' => t('Negative'), 'field' => 'negative_feedback_count'),
+    array('data' => t('Pct Negative'), 'field' => 'negative_percent'),
+    array('data' => t('Feedback for hosts'), 'field' => 'host_feedback_count'),
+    array(
+      'data' => t('Feedback for guests'),
+      'field' => 'guest_feedback_count'
+    ),
+  );
+  $rows = array();
+
+  $field_rating_info = field_info_field('field_rating');
+  $field_rating_table = key($field_rating_info['storage']['details']['sql'][FIELD_LOAD_CURRENT]);
+  $field_hosting_date_info = field_info_field('field_hosting_date');
+  $field_hosting_date_table = key($field_hosting_date_info['storage']['details']['sql'][FIELD_LOAD_CURRENT]);
+  $field_guest_or_host_info = field_info_field('field_guest_or_host');
+  $field_guest_or_host_table = key($field_guest_or_host_info['storage']['details']['sql'][FIELD_LOAD_CURRENT]);
+
+  $query = db_select('node', 'n', array('fetch' => PDO::FETCH_ASSOC))->extend('TableSort');
+  $query->join($field_rating_table, 'r', 'n.nid = r.entity_id AND n.vid = r.revision_id');
+  $query->join($field_hosting_date_table, 'd', 'n.nid = d.entity_id AND n.vid = d.revision_id');
+  $query->join($field_guest_or_host_table, 'gh', 'n.nid = gh.entity_id AND n.vid = gh.revision_id');
+  $query->where('d.field_hosting_date_value IS NOT NULL');
+  $query->addExpression('YEAR(d.field_hosting_date_value)', 'year');
+  $query->addExpression('COUNT(IF(r.field_rating_value = \'Positive\', 1, NULL))', 'positive_feedback_count');
+  $query->addExpression('COUNT( IF(r.field_rating_value = \'Positive\', 1, NULL)) / COUNT(*) * 100', 'positive_percent');
+  $query->addExpression('COUNT(IF(r.field_rating_value = \'Neutral\', 1, NULL))', 'neutral_feedback_count');
+  $query->addExpression('COUNT(IF(r.field_rating_value = \'Neutral\', 1, NULL)) / COUNT(*) * 100', 'neutral_percent');
+  $query->addExpression('COUNT(IF(r.field_rating_value = \'Negative\', 1, NULL))', 'negative_feedback_count');
+  $query->addExpression('COUNT(IF(r.field_rating_value = \'Negative\', 1, NULL)) / COUNT(*) * 100', 'negative_percent');
+  $query->addExpression('COUNT(IF(gh.field_guest_or_host_value = \'host\', 1, NULL))', 'host_feedback_count');
+  $query->addExpression('COUNT(IF(gh.field_guest_or_host_value = \'guest\', 1, NULL))', 'guest_feedback_count');
+  $query->groupBy('year');
+  $result = $query->orderByHeader($header)->execute();
+
+  foreach ($result as $row) {
+    $row['positive_percent'] = number_format($row['positive_percent'], 2);
+    $row['neutral_percent'] = number_format($row['neutral_percent'], 2);
+    $row['negative_percent'] = number_format($row['negative_percent'], 2);
+
+    $rows[] = array_values($row);
+  }
+  $page['feedback']['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+
+  cache_set($cache_key, $page, 'cache', time() + 86400); // Expire after 1 day
+  return $page;
+
 }
