@@ -146,7 +146,10 @@ function hook_features_export_options() {
  * @return array
  *   An associative array of rendered PHP code where the key is the name of the
  *   hook that should wrap the PHP code. The hook should not include the name
- *   of the module, e.g. the key for `hook_example` should simply be `example`.
+ *   of the module, e.g. the key for `hook_example` should simply be `example`
+ *   The values in the array can also be in the form of an associative array
+ *   with the required key of 'code' and optional key of 'args', if 'args' need
+ *   to be added to the hook.
  */
 function hook_features_export_render($module_name, $data, $export = NULL) {
   $code = array();

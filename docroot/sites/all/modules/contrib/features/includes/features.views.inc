@@ -68,7 +68,7 @@ function views_features_export_options() {
   $enabled_views = array();
   $views = views_get_all_views();
   foreach ($views as $view) {
-    if (!isset($views[$view->name]->disabled) || !$views[$view->name]->disabled) {
+    if (!isset($view->disabled) || !$view->disabled) {
       $enabled_views[$view->name] = $view->name;
     }
   }
@@ -211,7 +211,7 @@ function views_handler_dependencies() {
     foreach (module_implements('views_data') as $module) {
       if ($tables = module_invoke($module, 'views_data')) {
         foreach ($tables as $table => $info) {
-          if (isset($info['table']) && (!isset($map[$table]) || $info['table']['group'])) {
+          if (isset($info['table']) && (!isset($map[$table]) || !empty($info['table']['group']))) {
             $map[$table] = $module;
           }
           else if (!isset($map[$table])) {

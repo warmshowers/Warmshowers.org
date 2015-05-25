@@ -147,6 +147,15 @@ core and contrib components:
 * Currently in development.
 
 
+Security Concerns
+-----------------
+If you are using Features to export Roles and also use those Roles in other
+exportable code (like Views filters) you can wind up with an unintended
+security hole.  When you import your Feature, if the Roles do not get created
+with the exact same Role IDs then your Views filters (or other component) will
+be referencing a different Role than you intended.
+
+
 For developers
 --------------
 Please read `API.txt` for more information about the concepts and integration

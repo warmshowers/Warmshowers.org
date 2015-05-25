@@ -230,8 +230,10 @@ function features_export_render($export, $module_name, $reset = FALSE) {
       $code[$file['name']] = array();
     }
 
-    foreach ($hooks as $hook_name => $hook_code) {
-      $code[$file['name']][$hook_name] = features_export_render_defaults($module_name, $hook_name, $hook_code);
+    foreach ($hooks as $hook_name => $hook_info) {
+      $hook_code = is_array($hook_info) ? $hook_info['code'] : $hook_info;
+      $hook_args = is_array($hook_info) && !empty($hook_info['args']) ? $hook_info['args'] : '';
+      $code[$file['name']][$hook_name] = features_export_render_defaults($module_name, $hook_name, $hook_code, $hook_args);
     }
   }
 
@@ -273,10 +275,10 @@ function features_export_render($export, $module_name, $reset = FALSE) {
   }
   // Add a stub module to include the defaults
   else if (!empty($code['features'])) {
-    $code['module'] = "<?php\n\ninclude_once('{$module_name}.features.inc');\n";
+    $code['module'] = "<?php\n/**\n * @file\n * Code for the {$export['name']} feature.\n */\n\ninclude_once '{$module_name}.features.inc';\n";
   }
   else {
-    $code['module'] = "<?php\n\n// Drupal needs this blank file.\n";
+    $code['module'] = "<?php\n/**\n * @file\n */\n\n// Drupal needs this blank file.\n";
   }
   return $code;
 }
@@ -351,12 +353,12 @@ function features_get_default_hooks($component = NULL, $reset = FALSE) {
 /**
  * Return a code string representing an implementation of a defaults module hook.
  */
-function features_export_render_defaults($module, $hook, $code) {
+function features_export_render_defaults($module, $hook, $code, $args = '') {
   $output = array();
   $output[] = "/**";
   $output[] = " * Implementation of hook_{$hook}().";
   $output[] = " */";
-  $output[] = "function {$module}_{$hook}() {";
+  $output[] = "function {$module}_{$hook}(" . $args . ") {";
   $output[] = $code;
   $output[] = "}";
   return implode("\n", $output);
@@ -647,9 +649,15 @@ function features_get_default($component, $module_name = NULL, $alter = TRUE, $r
       // All other components
       else {
         if ($default_hook && function_exists("{$m}_{$default_hook}")) {
-          $cache[$component][$m] = call_user_func("{$m}_{$default_hook}");
-          if ($alter) {
-            drupal_alter($default_hook, $cache[$component][$m]);
+          $results = call_user_func("{$m}_{$default_hook}");
+          if (!empty($results) && is_array($results)) {
+            $cache[$component][$m] = $results;
+            if ($alter) {
+              drupal_alter($default_hook, $cache[$component][$m]);
+            }
+          }
+          else {
+            $cache[$component][$m] = FALSE;
           }
         }
         else {

@@ -121,6 +121,10 @@ function content_features_export_render($module, $data) {
       if (!empty($field['widget']['label'])) {
         $translatables[] = $field['widget']['label'];
       }
+      // Add any descriptions to translatables array.
+      if (!empty($field['widget']['description'])) {
+        $translatables[] = $field['widget']['description'];
+      }
     }
   }
   if (!empty($translatables)) {
@@ -148,11 +152,12 @@ function content_features_rebuild($module) {
     content_clear_type_cache(TRUE);
 
     foreach ($fields as $field) {
-      // We use content_field_instance_read() here so that we can get inactive 
+      // We use content_field_instance_read() here so that we can get inactive
       // fields too. We can't just pass $field to it as the fnc will add every
       // item of the array to the WHERE clause.
       $param = array('field_name' => $field['field_name'], 'type_name' => $field['type_name']);
-      $existing_instance = array_shift(content_field_instance_read($param, TRUE));
+      $read = content_field_instance_read($param, TRUE);
+      $existing_instance = array_shift($read);
 
       if (!empty($existing_instance)) {
         // If this existing instance is inactive, we need to activate it before
@@ -167,7 +172,7 @@ function content_features_rebuild($module) {
       }
       else {
         // Summary: content_field_instance_create() will fall back to prior
-        // instance values for weight, label, desc if not set. 
+        // instance values for weight, label, desc if not set.
         // See http://drupal.org/node/686240#comment-2786162
         $field['weight'] = $field['widget']['weight'];
         $field['label'] = $field['widget']['label'];

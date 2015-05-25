@@ -329,6 +329,12 @@ function features_admin_form($form_state) {
   $features = features_get_features();
   $conflicts = features_get_conflicts();
 
+  foreach ($features as $key => $feature) {
+    if (!empty($feature->info['hidden'])) {
+      unset($features[$key]);
+    }
+  }
+
   foreach ($modules as $key => $module) {
     if ($module->status && !empty($module->info['dependencies'])) {
       foreach ($module->info['dependencies'] as $dependent) {
@@ -771,14 +777,7 @@ function features_feature_status($feature) {
  * safely referenced by JS behaviors.
  */
 function features_dom_encode_options($options = array(), $keys_only = TRUE) {
-  $replacements = array(
-    ':' => '__'. ord(':') .'__',
-    '/' => '__'. ord('/') .'__',
-    ',' => '__'. ord(',') .'__',
-    '.' => '__'. ord(',') .'__',
-    '<' => '__'. ord('<') .'__',
-    '>' => '__'. ord('>') .'__',
-  );
+  $replacements = features_dom_encode_map();
   $encoded = array();
   foreach ($options as $key => $value) {
     $encoded[strtr($key, $replacements)] = $keys_only ? $value : strtr($value, $replacements);
@@ -791,17 +790,24 @@ function features_dom_encode_options($options = array(), $keys_only = TRUE) {
  * features_dom_encode_options().
  */
 function features_dom_decode_options($options, $keys_only = FALSE) {
-  $replacements = array_flip(array(
-    ':' => '__'. ord(':') .'__',
-    '/' => '__'. ord('/') .'__',
-    ',' => '__'. ord(',') .'__',
-    '.' => '__'. ord(',') .'__',
-    '<' => '__'. ord('<') .'__',
-    '>' => '__'. ord('>') .'__',
-  ));
+  $replacements = array_flip(features_dom_encode_map());
   $encoded = array();
   foreach ($options as $key => $value) {
     $encoded[strtr($key, $replacements)] = $keys_only ? $value : strtr($value, $replacements);
   }
   return $encoded;
+}
+
+/**
+ * Returns encoding map for decode and encode options.
+ */
+function features_dom_encode_map() {
+  return array(
+    ':' => '__' . ord(':') . '__',
+    '/' => '__' . ord('/') . '__',
+    ',' => '__' . ord(',') . '__',
+    '.' => '__' . ord('.') . '__',
+    '<' => '__' . ord('<') . '__',
+    '>' => '__' . ord('>') . '__',
+  );
 }
