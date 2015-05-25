@@ -29,6 +29,19 @@ function features_drush_command() {
     'drupal dependencies' => array('features'),
     'aliases' => array('fe'),
   );
+  $items['features-consolidate'] = array(
+    'description' => "Consolidate a feature to the database.",
+    'drupal dependencies' => array('features'),
+    'aliases' => array('fc'),
+  );
+  $items['features-consolidate-all'] = array(
+    'description' => "Consolidate all features to the database.",
+    'drupal dependencies' => array('features'),
+    'options' => array(
+      'exclude' => "A comma-separated list of features to exclude from consolidate.",
+    ),
+    'aliases' => array('fca'),
+  );
   $items['features-add'] = array(
     'description' => "Add a component to a feature module.",
     'drupal dependencies' => array('features'),
@@ -97,6 +110,10 @@ function features_drush_help($section) {
       return dt("List all the available features for your site.");
     case 'drush:features-export':
       return dt("Export a feature from your site into a module.");
+    case 'drush:features-consolidate':
+      return dt("Consolidate a feature to the database.");
+    case 'drush:features-consolidate-all':
+      return dt("Consolidate all features to the database.");
     case 'drush:features-update':
       return dt("Update a feature module on your site.");
     case 'drush:features-update-all':
@@ -179,6 +196,59 @@ function drush_features_export() {
     drush_print_table($rows, TRUE);
   }
 }
+
+ /**
+ * Consolidate a feature to the database.
+ */
+function drush_features_consolidate() {
+  if ($args = func_get_args()) {
+    foreach ($args as $module) {
+      if (($feature = feature_load($module, TRUE)) && module_exists($module)) {
+        drush_log(dt("Consolidating features for module !module", array('!module' => $module)), 'notice');
+        _drush_features_consolidate($feature->info['features'], $module);
+      }
+      else if ($feature) {
+        _features_drush_set_error($module, 'FEATURES_FEATURE_NOT_ENABLED');
+      }
+      else {
+        _features_drush_set_error($module);
+      }
+    }
+  }
+  else {
+    // By default just show contexts that are available.
+    $rows = array(array(dt('Available features')));
+    foreach (features_get_features(NULL, TRUE) as $name => $info) {
+      $rows[] = array($name);
+    }
+    drush_print_table($rows, TRUE);
+  }
+}
+
+/**
+ * Consolidate all features to the database.
+ */
+function drush_features_consolidate_all() {
+  $features_to_consolidate = array();
+  $features_to_exclude = _convert_csv_to_array(drush_get_option('exclude'));
+
+  $features = features_get_features();
+  foreach ($features as $module) {
+    if ($module->status && !in_array($module->name, $features_to_exclude)) {
+      $features_to_consolidate[] = $module->name;
+    }
+  }
+  drush_print(dt('The following modules will be consolidated: !modules', array('!modules' => implode(', ', $features_to_consolidate))));
+  if (drush_confirm(dt('Do you really want to continue?'))) {
+    foreach ($features_to_consolidate as $module_name) {
+      drush_invoke_process('@self', 'features-consolidate', array($module_name));
+    }
+  }
+  else {
+    return drush_user_abort();
+  }
+}
+
 
  /**
  * Add a component to a features module.
@@ -451,6 +521,17 @@ function _drush_features_export($stub, $dependencies, $module_name = NULL, $dire
 }
 
 /**
++ * Consolidate a feature to the database.
++ */
+function _drush_features_consolidate($features = array(), $module_name = '') {
+  features_include();
+  foreach ($features as $component => $items) {
+    drush_log(dt("Running consolidate for component !component", array('!component' => $component)), 'notice');
+    features_invoke($component, 'features_consolidate', $items, $module_name);
+  }
+}
+
+/**
  * Revert a feature to it's code definition.
  */
 function drush_features_revert() {
@@ -497,7 +578,7 @@ function drush_features_revert() {
           }
         }
       }
-      else if ($feature) {
+      elseif ($feature) {
         _features_drush_set_error($module, 'FEATURES_FEATURE_NOT_ENABLED');
       }
       else {

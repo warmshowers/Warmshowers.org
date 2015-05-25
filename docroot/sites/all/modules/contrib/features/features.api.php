@@ -158,7 +158,7 @@ function hook_features_export_render($module_name, $data, $export = NULL) {
     $code[] = "  \$mycomponents['{$name}'] = " . features_var_export(mycomponent_load($name)) .";";
   }
   $code[] = "return \$mycomponents;";
-  $code = implode("\n", $mycomponents);
+  $code = implode("\n", $code);
   return array('mycomponent_defaults' => $code);
 }
 
@@ -225,6 +225,19 @@ function hook_features_export_alter(&$export, $module_name) {
     unset($export['features']['node']['page']);
   }
 }
+
+ /**
+ * function hook_features_consolidate
+ */
+function hook_features_consolidate($data, &$export, $module_name) {
+  // The following is the simplest implementation of a straight object export
+  // with no further export processors called.
+  foreach ($data as $component) {
+    $export['mycomponent'][$component] = $component;
+  }
+  return array();
+}
+
 
 /**
  * Alter the pipe array for a given component. This hook should be implemented

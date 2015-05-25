@@ -159,3 +159,14 @@ function node_features_revert($module = NULL) {
     menu_rebuild();
   }
 }
+
+/**
+ * Implementation of hook_features_consolidate().
+ */
+function node_features_consolidate($items = array(), $module_name = '') {
+  // Delegate responsibility to node module
+  foreach ($items as $node_type) {
+    drush_log(dt("Reset node_type !node_type", array('!node_type' => $node_type)), 'notice');
+    db_query("UPDATE {node_type} SET module = 'node', modified = 1 WHERE type = '%s' AND module = 'features'", array($node_type));
+  }
+}

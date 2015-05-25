@@ -89,3 +89,23 @@ function _imagecache_features_preset_sanitize(&$preset) {
     }
   }
 }
+
+/**
+ * Implementation of hook_features_consolidate().
+ */
+function imagecache_features_consolidate($items = array(), $module_name = '') {
+  foreach ($items as $preset_name) {
+    $preset = imagecache_preset_by_name($preset_name, TRUE);
+    // Presets
+    if (!is_numeric($preset['presetid'])) {
+      $preset = imagecache_preset_save($preset);
+      // Actions
+      if (is_numeric($preset['presetid'])) {
+        foreach ($preset['actions'] as $action)  {
+          $action['presetid'] = $preset['presetid'];
+          imagecache_action_save($action);
+        }
+      }
+    }
+  }
+}
