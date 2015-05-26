@@ -41,6 +41,7 @@
         wsmap_initialize();
       });
 
+
       function wsmap_initialize() {
 
         // Grab necessary settings into globals.
@@ -53,7 +54,7 @@
         defaultLocation = Drupal.settings.wsmap.defaultLocation;
         marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity;
         marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity;
-        token = Drupal.settings.wsmap.token;
+
 
         // If we have a map-submit (go) button with some information configured,
         // Go to that location, but do not submit.
@@ -111,6 +112,9 @@
           $.ajax({
             url: '/services/rest/hosts/by_location',
             type: 'post',
+            beforeSend: function(xhrObj){
+              xhrObj.setRequestHeader("X-CSRF-Token", Drupal.settings.wsmap.csrf_token);
+            },
             data: {
               minlat: sw.lat(),
               maxlat: ne.lat(),
@@ -119,9 +123,6 @@
               centerlat: center.lat(),
               centerlon: center.lng(),
               limit: 2000
-            },
-            headers: {
-              "X-CSRF-Token": token
             },
             dataType: 'json',
             success: function (json) {
