@@ -1,4 +1,4 @@
-<?
+<?php
 /*
  * @file
  * Advanced Poll Field Devel Generator

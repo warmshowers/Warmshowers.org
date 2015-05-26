@@ -447,9 +447,8 @@ function logintoboggan_user_register_submit($form, &$form_state) {
   $pre_auth = logintoboggan_validating_id() != DRUPAL_AUTHENTICATED_RID;
 
   // If we are allowing user selected passwords then skip the auto-generate function
-  // The new user's status should default to the site settings, unless reg_passwd_set == 1
-  // (immediate login, we are going to assign a pre-auth role), and we want to allow
-  // admin approval accounts access to the site.
+  // The new user's status will be 1 (visitors can create own accounts) if reg_pass_set == 1
+  // Immediate login, we are going to assign a pre-auth role, until email validation completed
   if ($reg_pass_set) {
     $pass = $form_state['values']['pass'];
     $status = 1;
@@ -505,7 +504,7 @@ function logintoboggan_user_register_submit($form, &$form_state) {
   //   3. Visitors can create their own accounts.
   $message = t('Further instructions have been sent to your e-mail address.');
   if($reg_pass_set && $pre_auth && variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_VISITORS) {
-    $message = t('A validation e-mail has been sent to your e-mail address. In order to gain full access to the site, you will need to follow the instructions in that message.');
+    $message = t('A validation e-mail has been sent to your e-mail address. You will need to follow the instructions in that message in order to gain full access to the site.');
   }
 
   if (variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_VISITORS) {
@@ -560,9 +559,15 @@ function logintoboggan_user_login_validate($form, &$form_state) {
  * @ingroup logintoboggan_form
  */
 function logintoboggan_user_register_validate($form, &$form_state) {
+  //Check to see whether our username matches any email address currently in the system.
+  if($mail = db_query("SELECT mail FROM {users} WHERE LOWER(:name) = LOWER(mail)", array(
+  ':name' => $form_state['values']['name'],
+  ))->fetchField()) {
+    form_set_error('name', t('This e-mail has already been taken by another user.'));
+  }
   //Check to see whether our e-mail address matches the confirm address if enabled.
   if (variable_get('logintoboggan_confirm_email_at_registration', 0) && isset($form_state['values']['conf_mail'])) {
-    if ($form_state['values']['mail'] != $form_state['values']['conf_mail']) {
+    if (trim($form_state['values']['mail']) != trim($form_state['values']['conf_mail'])) {
       form_set_error('conf_mail', t('Your e-mail address and confirmed e-mail address must match.'));
     }
   }
@@ -756,8 +761,6 @@ function logintoboggan_unified_login_page($active_form = 'login') {
     return menu_execute_active_handler(NULL, FALSE);
   }
   else {
-    // Title just clutters the interface...
-    drupal_set_title('');
     $output = logintoboggan_get_authentication_form($active_form);
     return $output;
   }
@@ -1051,11 +1054,11 @@ function logintoboggan_process_login($account, &$edit, $redirect = array()){
 
 function logintoboggan_eml_validate_url($account, $url_options){
   $timestamp = REQUEST_TIME;
-  return url("user/validate/$account->uid/$timestamp/". logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail), $url_options);
+  return url("user/validate/$account->uid/$timestamp/". logintoboggan_eml_rehash($account->pass, $timestamp, $account->mail, $account->uid), $url_options);
 }
 
-function logintoboggan_eml_rehash($password, $timestamp, $mail) {
-  return user_pass_rehash($password, $timestamp, $mail);
+function logintoboggan_eml_rehash($password, $timestamp, $mail, $uid) {
+  return user_pass_rehash($password, $timestamp, $mail, $uid);
 }
 
 /**
