@@ -559,6 +559,13 @@ $conf['404_fast_html'] = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN"
  */
 
 $conf['cron_safe_threshold'] = 0;
+$conf['file_private_path'] = "../private_files";
+
+$conf['smart_ip_source'] = 'maxmind_bin';
+$conf['smart_ip_maxmind_bin_version'] = 1;
+$conf['smart_ip_maxmind_bin_edition'] = 133; // city
+$conf['smart_ip_maxmind_bin_db_auto_update'] = 0;
+
 ini_set('session.cookie_lifetime',  0);
 
 /**
