@@ -432,40 +432,71 @@ function warmshowers_site_services_resources_alter(&$resources, $endpoint) {
  * @return
  *   A valid session object.
  */
+
 function warmshowers_site_user_resource_login($username, $password) {
   global $user;
 
   if ($user->uid) {
     // user is already logged in
-    return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
+    return services_error(t('Already logged in as @user.', array('@user' => $user->name)), 406);
   }
 
   // Handle the case where they have provided an email address. From logintoboggan.
-  $name_from_email = db_query("SELECT name FROM {users} WHERE LOWER(mail) = :LOWER(mail)", array(
-    ':LOWER(mail)' => LOWER('%s'),
-    '' => $username
-  ))->fetchField();
+  try {
+    $name_from_email = db_query("SELECT name FROM {users} WHERE LOWER(mail) = LOWER(:username)", array(':username' => $username))->fetchField();
+  } catch (Exception $e) {
+    watchdog_exception('warmshowers_site', $e);
+  }
   if (!empty($name_from_email)) {
     $username = $name_from_email;
   }
 
-  $username($username, $password);
-
-  if (isset($user->uid) && $user->uid) {
-    // Regenerate the session ID to prevent against session fixation attacks.
-    sess_regenerate();
-
-    $return = new stdClass();
-    $return->sessid = session_id();
-    $return->session_name = session_name();
-
-    services_remove_user_data($user);
-
-    $return->user = $user;
-
-    return $return;
+  // Check if account is active.
+  if (user_is_blocked($username)) {
+    return services_error(t('The username %name has not been activated or is blocked.', array('%name' => $username)), 403);
   }
-  session_destroy();
+
+  // Emulate drupal native flood control: check for flood condition.
+  $flood_state = array();
+  if (variable_get('services_flood_control_enabled', TRUE)) {
+    $flood_state = _user_resource_flood_control_precheck($username);
+  }
+
+  // Only authenticate if a flood condition was not detected.
+  if (empty($flood_state['flood_control_triggered'])) {
+    $uid = user_authenticate($username, $password);
+  }
+  else {
+    $uid = FALSE;
+  }
+
+  // Emulate drupal native flood control: register flood event, and throw error
+  // if a flood condition was previously detected
+  if (variable_get('services_flood_control_enabled', TRUE)) {
+    $flood_state['uid'] = $uid;
+    _user_resource_flood_control_postcheck($flood_state);
+  }
+
+  if ($uid) {
+    $user = user_load($uid);
+    if ($user->uid) {
+      user_login_finalize();
+
+      $return = new stdClass();
+      $return->sessid = session_id();
+      $return->session_name = session_name();
+      $return->token = drupal_get_token('services');
+
+      $account = clone $user;
+
+      services_remove_user_data($account);
+
+      $return->user = $account;
+
+      return $return;
+    }
+  }
+  watchdog('user', 'Invalid login attempt for %username.', array('%username' => $username));
   return services_error(t('Wrong username or password.'), 401);
 }
 
