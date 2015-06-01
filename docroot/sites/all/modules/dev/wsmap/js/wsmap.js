@@ -167,7 +167,7 @@
           var marker = new google.maps.Marker({
             position: position,
             map: map,
-            title: host.name + "\n" + host.city + ', ' + host.province,
+            title: host.fullname + "\n" + host.city + ', ' + host.province,
             host: host,
             hostcount: 1,
             zIndex: 1,
@@ -307,8 +307,7 @@
           var link = cboxlink;
           var colorbox = '$.colorbox({href: \'' + cboxlink + '\', iframe: true, width: \'90%\', height: \'90%\' });'
 
-          // html += '<a onclick="' + colorbox + '" href="' + link + '">' + host.name + '</a><br/>';
-          html += '<a target="_blank" href="' + link + '">' + host.name + '</a><br/>';
+          html += '<a target="_blank" href="' + link + '">' + host.fullname + '</a><br/>';
 
           if (host.street) {
             html += host.street + '<br/>';
