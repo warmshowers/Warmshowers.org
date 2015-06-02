@@ -183,7 +183,7 @@ function _advpoll_converter_create_nodes($nids) {
     $votes = array();
     foreach ($poll_votes as $row) {
       $votes = array(
-        'entity_type' => 'advpoll',
+        'entity_type' => 'node',
         'entity_id' => $nid,
         'value' => 1,
         'tag' => $choice_by_id[$row->chid],

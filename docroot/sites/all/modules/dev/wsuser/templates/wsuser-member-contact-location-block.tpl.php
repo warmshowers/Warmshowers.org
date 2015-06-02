@@ -18,13 +18,14 @@
  * - $postal_code
  * - $latitude
  * - $longitude
+ * - $source
  *
  * @see wsuser_preprocess_wsuser_member_contact_location()
  */
 ?>
 
 <div class="member-map">
-	<a class="colorbox-load" href="/maponly/<?php print "$uid/8"; ?>?height=90%&width=90%&iframe=true" accesskey="" >
+	<a class="colorbox-load" href="/user/<?php print $uid; ?>/maponly/8?height=90%25&width=90%25&iframe=true" accesskey="" >
 		<img title="<?php print t('Click for more detail and nearby hosts'); ?>" alt="<?php print t('Location map');?>" src="https://maps.googleapis.com/maps/api/staticmap?zoom=8&size=240x220&sensor=false&markers=color:blue%7Clabel:S%7C <?php print $latitude . ',' . $longitude; ?>" />
 	</a>
 </div>
@@ -67,18 +68,20 @@
 <div class="member-actions"><?php
 if ($account->uid != $GLOBALS['user']->uid) {
 	print theme('linkbutton', array(
+      'link' => array(
       'title' => t('Send Message'),
       // Note that this href is dependent on the setting of BASE URL PATH
       // in the privatemsg settings. It needs to be set to user/%user/messages
       // for this to work.
-      'href' => 'user/' .  $GLOBALS['user']->uid . '/messages/new/' . $account->uid,
+      'href' => 'messages/new/' . $account->uid,
       'classes'=> 'rounded light',
+    )
     )
   );
 }
 else {
-	print theme('linkbutton', array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit','classes'=> 'rounded light',));
-	print theme('linkbutton', array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location','classes'=> 'rounded light',));
+	print theme('linkbutton', array('link' => array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit','classes'=> 'rounded light',)));
+	print theme('linkbutton', array('link' => array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location','classes'=> 'rounded light',)));
 } ?>
 
 </div>

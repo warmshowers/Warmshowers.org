@@ -26,16 +26,22 @@ function warmshowers_site_menu() {
   );
 
   // Provide access to unanswered messages
-  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
-  $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
-  $items[$url_prefix . '/unanswered'] = array(
+  $items['messages/unanswered'] = array(
     'title' => 'Unanswered Requests',
     'page callback' => 'warmshowers_site_unanswered_messages',
-    'page arguments' => array($url_prefix_user_arg_position),
-    'access callback' => 'privatemsg_menu_access',
+    'access callback' => 'privatemsg_user_access',
     'type' => MENU_LOCAL_TASK,
     'weight' => 30,
   );
+  $items['user/%user/messages/unanswered'] = array(
+    'title' => 'Unanswered Requests',
+    'page callback' => 'warmshowers_site_unanswered_messages',
+    'page arguments' => array(1),
+    'access callback' => 'privatemsg_user_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 30,
+  );
+
 
   return $items;
 }
@@ -157,77 +163,85 @@ function warmshowers_site_form_user_register_form_alter(&$form, &$form_state) {
   // We choose to hide the "remember me" checkbox on registration
   // if persistent login won't do it for us per our submitted patch:
   // https://www.drupal.org/node/765116
-  if (module_exists('logintoboggan')) {
-    if (variable_get('logintoboggan_immediate_login_on_register', TRUE)) {
-      if (isset($form['account']) && is_array($form['account'])) {
-        $form['account']['persistent_login']['#type'] = 'hidden';
-      }
-      else {
-        $form['persistent_login']['#type'] = 'hidden';
-      }
-    }
+  if (isset($form['account']) && is_array($form['account'])) {
+    $form['account']['persistent_login']['#type'] = 'hidden';
+  }
+  else {
+    $form['persistent_login']['#type'] = 'hidden';
   }
 }
 
 /**
- * Implements hook_form_alter().
+ * Implements hook_form_FORMID_alter()
+ *
+ * Prevent users from changing the to:, as we want them to access this using
+ * the button, and want them to access no more than one member.
+ *
+ * @param $form
+ * @param $form_state
  */
-function warmshowers_site_form_alter(&$form, &$form_state, $form_id) {
-  global $user;
-  
-  switch ($form_id) {
-    case 'user_cancel_confirm_form':
-      // Prepending help text to the user cancel form.
-      if (!user_access('administer users')) {
-        $form['description']['#markup'] = "If you would rather stay but not host members, you can just edit your account and click the <strong>'Not currently available'</strong> checkbox and you won't show up in any map or geographical searches.<br><br>" . $form['description']['#markup'];
-      }
-      break;
-    // Get rid of the input filter stuff on comment.
-    // Also change comment notification default values.
-    // TODO: Check that this works right. Isn't there just a way to turn it off instead?
-    case 'comment_form':
-      $form['comment_filter']['format']['#access'] = FALSE;
+function warmshowers_site_form_privatemsg_new_alter(&$form, &$form_state) {
+  $form['recipient']['#type'] = 'hidden';
+  $target_username = preg_replace('/ \[user\]$/', '', @$form['recipient']['#default_value']);
 
-      $form['notify_settings']['notify']['#default_value'] = TRUE;
-      $form['notify_settings']['notify_type']['#default_value'] = 2;
-      break;
+  $recipients_title = t("(No recipient specified)");
 
-    // Privileged users must be able to save with html. Who?
-    // This is a questionable removal as it could allow translators to
-    // insert even PHP or javascript which would be destructive.
-    // TODO: Make sure this works
-    case 'locale_translate_edit_form':
-      unset($form['#validate']);
-      $form['#validate'] = array('warmshowers_site_translate_edit_form_validate');
-      break;
-
-    // Prevent users from changing the to:, as we want them to access this using
-    // the button, and want them to access no more than one member.
-    // TODO: Make sure this works
-    case 'privatemsg_new':
-      $form['recipient']['#type'] = 'hidden';
-
-      $recipients_title = t("(No recipient specified)");
-      if (is_numeric(arg(4)) && ($target_account = user_load(arg(4)))) {
-        $recipients_title = $target_account->fullname;
-      }
-      $form['description'] = array(
-        '#type' => 'item',
-        '#title' => t('Write new message to %recipient', array('%recipient' => $recipients_title)),
-        '#weight' => -99,
-      );
-      break;
-
-    // Prevent altering the member and clean up presentation of it.
-    // TODO: Make sure this works, and solve https://github.com/warmshowers/Warmshowers.org/issues/484
-    case 'trust_referral_node_form':
-      $form['#after_build'][] = 'warmshowers_site_alter_feedback_member';
-      if (!user_access('administer users')) {
-        $form['field_member_i_trust'][0]['#prefix'] = '<div style="display:none">';
-        $form['field_member_i_trust'][0]['#suffix'] = '</div>';
-      }
-      break;
+  if (!empty($target_username) && ($accounts = user_load_multiple(array(), array('name' => $target_username)))) {
+    $account = array_shift($accounts);
+    $recipients_title = theme('username', array(
+      'account' => $account,
+      'name' => $account->name
+    ));
+    $form['description'] = array(
+      '#type' => 'item',
+      '#title' => t('Write new message to !recipient', array('!recipient' => $recipients_title)),
+      '#weight' => -99,
+    );
   }
+}
+
+/**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Change user cancel markup for normal user
+ *
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_user_cancel_confirm_form_alter(&$form, &$form_state) {
+  // Prepending help text to the user cancel form.
+  if (!user_access('administer users')) {
+    $form['description']['#markup'] = "If you would rather stay but not host members, you can just edit your account and click the <strong>'Not currently available'</strong> checkbox and you won't show up in any map or geographical searches.<br><br>" . $form['description']['#markup'];
+  }
+}
+
+/**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Default the notification settings
+ *
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_comment_form_alter(&$form, &$form_state) {
+
+  $form['notify_settings']['notify']['#default_value'] = TRUE;
+  $form['notify_settings']['notify_type']['#default_value'] = 2;
+}
+
+/**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Privileged users must be able to save with html. Who?
+ * This is a questionable removal as it could allow translators to
+ * insert even PHP or javascript which would be destructive.
+
+ * @param $form
+ * @param $form_state
+ */
+function warmshowers_site_form_locale_translate_edit_form_alter(&$form, &$form_state) {
+  unset($form['#validate']);
+  $form['#validate'] = array('warmshowers_site_translate_edit_form_validate');
 }
 
 /**
@@ -240,7 +254,7 @@ function warmshowers_site_user_cancel_methods_alter(&$methods) {
   unset($methods['user_cancel_block']);
   unset($methods['user_cancel_block_unpublish']);
   unset($methods['user_cancel_delete']);
-  
+
   // Modify the descriptions for the default user cancellation method.
   $methods['user_cancel_reassign'] = array(
     'title' => t('DEFAULT: Delete the account and make its content (including feedback) belong to the %anonymous-name user.', array('%anonymous-name' => variable_get('anonymous', t('Anonymous')))),
@@ -267,30 +281,45 @@ function warmshowers_site_user_cancel($edit, $account, $method) {
 }
 
 /**
+ * Implements hook_form_FORMID_alter().
+ *
+ * Add a #after_build to change the presentation so they can't change the target user
+ */
+function warmshowers_site_form_trust_referral_node_form_alter(&$form, &$form_state) {
+
+  // Prevent altering the member and clean up presentation of it.
+  $form['#after_build'][] = '_warmshowers_site_alter_feedback_member';
+  if (!user_access('administer users')) {
+    $form['field_member_i_trust']['und'][0]['#prefix'] = '<div style="display:none">';
+    $form['field_member_i_trust']['und'][0]['#suffix'] = '</div>';
+  }
+
+}
+
+/**
  * Add specific instructions of username; this can be done only after
  * the prepopulate module has done its alteration so we know the member.
- *     // TODO: Make sure this works, and solve https://github.com/warmshowers/Warmshowers.org/issues/484
  *
  * @param $form
  * @param $form_state
  * @return mixed
  */
-function warmshowers_site_alter_feedback_member($form, &$form_state) {
-  $username = $form['field_member_i_trust'][0]['#default_value']['uid']['uid'];
+function _warmshowers_site_alter_feedback_member($form, &$form_state) {
+  $username = $form['field_member_i_trust']['und'][0]['uid']['#value'];
   if (!empty($username)) {
-    $account = array_shift(user_load_multiple(array(), array('name' => $username)));
+    $accounts = user_load_multiple(array(), array('name' => $username));
+    $account = array_shift($accounts);
   }
-  if ($account) {
-    $form['field_rating']['value']['#title'] = t('Overall experience with %fullname', array('%fullname' => $account->fullname));
+  if (!empty($account)) {
+    $form['field_rating']['und']['#title'] = t('Overall experience with %fullname', array('%fullname' => $account->fullname));
   }
-
   return $form;
 }
 
 /**
  * This is added here to allow unvalidated saves for translators for just some
  * lids, which can be added to the variable if needed.
- * TODO: Make sure it works
+ *
  * @param $form
  * @param $form_state
  */
@@ -302,16 +331,15 @@ function warmshowers_site_translate_edit_form_validate($form, &$form_state) {
     return;
   }
 
-  // Continues on with copied i18nstrings_translate_edit_form_validate()
-  $context = $form_state['values']['i18nstrings_context'];
-  if (empty($context->format)) {
-    // If not input format use regular validation for all strings
-    $copy_state = $form_state;
-    $copy_state['values']['textgroup'] = 'default';
-    locale_translate_edit_form_validate($form, $copy_state);
-  }
-  elseif (!filter_access($context->format)) {
-    form_set_error('translations', t('You are not allowed to translate or edit texts with this input format.'));
+  // Continues on with copied locale_translate_edit_form_validate()
+
+  // Locale string check is needed for default textgroup only.
+  $safe_check_needed = $form_state['values']['textgroup'] == 'default';
+  foreach ($form_state['values']['translations'] as $key => $value) {
+    if ($safe_check_needed && !locale_string_is_safe($value)) {
+      form_set_error('translations', t('The submitted string contains disallowed HTML: %string', array('%string' => $value)));
+      watchdog('locale', 'Attempted submission of a translation string with disallowed HTML: %string', array('%string' => $value), WATCHDOG_WARNING);
+    }
   }
 }
 
@@ -340,22 +368,12 @@ function warmshowers_site_menu_alter(&$items) {
   // We don't want the node river of news page out there.
   unset($items['node']);
 
-  // Stop using contact form for member contact, and use privatemsg
-  // instead
-  $items['user/%user/contact'] = array(
-    'title' => 'Contact',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('warmshowers_site_contact_mail_user', 1),
-    'type' => MENU_CALLBACK,
-    'access callback' => '_contact_user_tab_access',
-    'access arguments' => array(1),
-  );
+  // Disallow use of contact form for member contact
+  unset($items['user/%user/contact']);
 
   // Remove the "write new message" pm submenu
   $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
   $items[$url_prefix . '/new']['type'] = MENU_CALLBACK;
-//  $items[$url_prefix . '/unanswered']['title'] = 'Unanswered Messages';
-
 }
 
 
@@ -414,40 +432,71 @@ function warmshowers_site_services_resources_alter(&$resources, $endpoint) {
  * @return
  *   A valid session object.
  */
+
 function warmshowers_site_user_resource_login($username, $password) {
   global $user;
 
   if ($user->uid) {
     // user is already logged in
-    return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
+    return services_error(t('Already logged in as @user.', array('@user' => $user->name)), 406);
   }
 
   // Handle the case where they have provided an email address. From logintoboggan.
-  $name_from_email = db_query("SELECT name FROM {users} WHERE LOWER(mail) = :LOWER(mail)", array(
-    ':LOWER(mail)' => LOWER('%s'),
-    '' => $username
-  ))->fetchField();
+  try {
+    $name_from_email = db_query("SELECT name FROM {users} WHERE LOWER(mail) = LOWER(:username)", array(':username' => $username))->fetchField();
+  } catch (Exception $e) {
+    watchdog_exception('warmshowers_site', $e);
+  }
   if (!empty($name_from_email)) {
     $username = $name_from_email;
   }
 
-  $username($username, $password);
-
-  if (isset($user->uid) && $user->uid) {
-    // Regenerate the session ID to prevent against session fixation attacks.
-    sess_regenerate();
-
-    $return = new stdClass();
-    $return->sessid = session_id();
-    $return->session_name = session_name();
-
-    services_remove_user_data($user);
-
-    $return->user = $user;
-
-    return $return;
+  // Check if account is active.
+  if (user_is_blocked($username)) {
+    return services_error(t('The username %name has not been activated or is blocked.', array('%name' => $username)), 403);
   }
-  session_destroy();
+
+  // Emulate drupal native flood control: check for flood condition.
+  $flood_state = array();
+  if (variable_get('services_flood_control_enabled', TRUE)) {
+    $flood_state = _user_resource_flood_control_precheck($username);
+  }
+
+  // Only authenticate if a flood condition was not detected.
+  if (empty($flood_state['flood_control_triggered'])) {
+    $uid = user_authenticate($username, $password);
+  }
+  else {
+    $uid = FALSE;
+  }
+
+  // Emulate drupal native flood control: register flood event, and throw error
+  // if a flood condition was previously detected
+  if (variable_get('services_flood_control_enabled', TRUE)) {
+    $flood_state['uid'] = $uid;
+    _user_resource_flood_control_postcheck($flood_state);
+  }
+
+  if ($uid) {
+    $user = user_load($uid);
+    if ($user->uid) {
+      user_login_finalize();
+
+      $return = new stdClass();
+      $return->sessid = session_id();
+      $return->session_name = session_name();
+      $return->token = drupal_get_token('services');
+
+      $account = clone $user;
+
+      services_remove_user_data($account);
+
+      $return->user = $account;
+
+      return $return;
+    }
+  }
+  watchdog('user', 'Invalid login attempt for %username.', array('%username' => $username));
   return services_error(t('Wrong username or password.'), 401);
 }
 
@@ -489,34 +538,36 @@ function warmshowers_site_mandrill_incoming_status_page() {
 /**
  * Provide a list of messages which haven't been answered
  *
- * @param $account
  * @return mixed
- * TODO: Validate that this is working
  */
-function warmshowers_site_unanswered_messages($account) {
-  $url_prefix = preg_replace('/%user/', $account->uid, variable_get('privatemsg_url_prefix', 'messages'));
+function warmshowers_site_unanswered_messages($account = NULL) {
+  if (empty($account)) {
+    $account = $GLOBALS['user'];
+  }
 
   $period = REQUEST_TIME - variable_get('wsuser_privatemsg_responsiveness_period', 31536000);
-  $uid = $account->uid;
 
   $query = '
   SELECT DISTINCT(thread_id), pm.subject, pm.author, pi.deleted, DATE(FROM_UNIXTIME(pm.timestamp)) AS timestamp
     FROM pm_index pi, pm_message pm
-    WHERE pi.recipient = %d AND pi.thread_id = pi.mid
+    WHERE pi.recipient = :uid AND pi.thread_id = pi.mid
     AND pi.mid=pm.mid
-    AND pm.timestamp > %d
+    AND pm.timestamp > :period
     AND pi.thread_id NOT IN
-      (SELECT thread_id FROM pm_index pmsi INNER JOIN pm_message pm ON pm.mid = pmsi.mid WHERE pmsi.thread_id=pi.thread_id AND pm.author = %d)
+      (SELECT thread_id FROM pm_index pmsi INNER JOIN pm_message pm ON pm.mid = pmsi.mid WHERE pmsi.thread_id=pi.thread_id AND pm.author = :uid)
     ORDER by pi.thread_id
   ';
-  $result = db_query($query, array($uid, $period, $uid));
+  $result = db_query($query, array(
+    ':uid' => $account->uid,
+    ':period' => $period
+  ), array('fetch' => PDO::FETCH_ASSOC));
 
   $data = array();
 
   $header = array(t('Subject'), t('From'), t('Date'));
-  while ($row = db_fetch_array($result)) {
+  foreach ($result as $row) {
     if (empty($row['deleted'])) {
-      $row['subject'] = l($row['subject'], $url_prefix . '/view/' . $row['thread_id']);
+      $row['subject'] = l($row['subject'], 'messages/view/' . $row['thread_id']);
     }
     else {
       $row['subject'] .= ' (' . t('Message was deleted') . ')';

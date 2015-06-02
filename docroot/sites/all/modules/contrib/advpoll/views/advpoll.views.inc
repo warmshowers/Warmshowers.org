@@ -9,7 +9,7 @@ function advpoll_views_data_alter(&$views_data) {
 // behavior to tie votes to node.
   $default_relationships[] = array(
     'description' => t('Advanced Poll'),
-    'entity_type' => 'advpoll',
+    'entity_type' => 'node',
     'base_table' => 'node',
     'entity_id_column' => 'nid',
     'pseudo_vote' => 'votingapi_vote', // for legacy compatability w/RC1.

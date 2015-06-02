@@ -214,6 +214,10 @@
           }
         });
 
+        // if this is a write-in, update its weight
+        if ($item.find('input').length) {
+          $(formID + " input[name='write_in_weight']").attr('value', j+1);
+        }
       });
 
       if (votes < 1) {

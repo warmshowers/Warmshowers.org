@@ -98,7 +98,6 @@ function ws_services_services_resources() {
 }
 
 
-
 /**
  * Utility function to provide search by location service
  *
@@ -110,6 +109,11 @@ function ws_services_services_resources() {
  */
 function _ws_services_hosts_by_location($data) {
   $hosts = wsmap_get_hosts_by_location($data['minlat'], $data['maxlat'], $data['minlon'], $data['maxlon'], $data['centerlat'], $data['centerlon'], $data['limit']);
+  foreach ($hosts['accounts'] as &$account) {
+    foreach (_ws_services_profile_pictures($account->picture) as $key => $value) {
+      $account->$key = $value;
+    }
+  }
   return $hosts;
 }
 
@@ -130,34 +134,45 @@ function _ws_services_hosts_by_keyword($data) {
   $offset = !empty($data['offset']) ? $data['offset'] : 0;
   $limit = !empty($data['limit']) ? $data['limit'] : variable_get('ws_services_keyword_results_limit', 50);
 
-  $base_query =
-    "FROM {users} u, {wsuser} w, {user_location} l
-            WHERE u.uid = w.uid
-            AND u.uid=l.oid
-            AND status > 0
-            AND !w.isstale AND !w.isunreachable
-            AND u.uid NOT IN (SELECT ur.uid FROM users_roles ur WHERE ur.rid = 9)
-            AND (LOWER(w.fullname) LIKE '%%%s%%' OR u.name LIKE '%%%s%%'
-            OR l.city LIKE '%%%s%%'
-            OR u.mail = '%s%%') ";
+  try {
+    $query = db_select('users', 'u');
+    $query->join('wsuser', 'w', 'u.uid = w.uid');
+    $query->join('user_location', 'ul', 'u.uid = ul.oid');
+    $query->fields('u', array('uid'));
 
-  $query = "SELECT * " . $base_query . " ORDER BY w.notcurrentlyavailable ASC";
-  $count_query = "SELECT COUNT(*) " . $base_query;
-  // TODO Please convert this statement to the D7 database API syntax.
-  $avail_results_count = db_query($count_query, $keyword, $keyword, $keyword, $keyword)->fetchField();
+    $query->condition('u.status', 1)
+      ->condition(db_or()
+        ->condition('u.name', db_like($keyword) . '%', 'LIKE')
+        ->condition('w.fullname', '%' . db_like($keyword) . '%', 'LIKE')
+        ->condition('ul.city', db_like($keyword) . '%', 'LIKE')
+        ->condition('u.mail', $keyword));
 
-  // TODO Please convert this statement to the D7 database API syntax.
-  $result = db_query_range($query, $keyword, $keyword, $keyword, $keyword);
+    // Don't show unvalidated users
+    $query->where('u.uid NOT IN (SELECT uid FROM {users_roles} WHERE rid = :rid)', array(':rid' => 9));
+    $query->orderBy('w.notcurrentlyavailable');
 
-  $accounts = array();
-  while ($row = db_fetch_array($result)) {
-    unset($row['pass'], $row['mail'], $row['data'], $row['init']);
-    $accounts[$row['uid']] = $row;
+    // Get array of users matching- array of uid => distance
+    $uids = $query
+      ->range($offset, $limit)
+      ->execute()
+      ->fetchCol();
+
+  } catch (Exception $e) {
+    watchdog_exception('ws_services', $e);
+  }
+
+  $accounts = user_load_multiple($uids);
+  foreach ($accounts as &$account) {
+    unset($account->pass, $account->mail, $account->data, $account->init, $account->roles, $account->contact, $account->tinymce_status);
+    if (!empty($account->picture->uri)) {
+      foreach (_ws_services_profile_pictures($account->picture->uri) as $key => $value) {
+        $account->$key = $value;
+      }
+    }
   }
   return array(
     'status' => array(
       'delivered' => count($accounts),
-      'totalresults' => $avail_results_count,
       'status' => 'complete',
     ),
     'query_data' => array(
@@ -173,10 +188,33 @@ function _ws_services_hosts_by_keyword($data) {
 }
 
 /**
+ * Provide a full set of profile picture possiblities for API users
+ *
+ * @param $picture_path (from user object)
+ * @return array
+ */
+function _ws_services_profile_pictures($picture_path) {
+  $file_directory_path = variable_get("file_directory_path");
+  $profile_presets = variable_get('wsuser_profile_image_presets', array('mobile_profile_photo_std', 'profile_picture'));
+  $pictures = array();
+  if (!empty($picture_path)) {
+    // Oddly, image_style_url wants only $picture_path from the root of the public files dir
+    $picture_path = preg_replace("/^{$file_directory_path}\//", '', $picture_path);
+    foreach ($profile_presets as $preset) {
+      $pictures["profile_image_{$preset}"] = image_style_url($preset, $picture_path);
+    }
+  }
+  return $pictures;
+}
+/**
  * Remove inappropriate info from user object retrieved by services.
  *
  * @param $account
  */
 function ws_services_services_account_object_alter(&$account) {
-  unset($account->data, $account->roles, $account->contact, $account->tinymce_status);
+  unset($account->mail, $account->signature, $account->data, $account->roles, $account->contact, $account->tinymce_status, $account->howdidyouhear, $account->geoip_location, $account->uc_stripe_customer_id);
+
+  foreach (_ws_services_profile_pictures($account->picture->uri) as $key => $value) {
+    $account->$key = $value;
+  }
 }

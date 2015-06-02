@@ -3,7 +3,7 @@
 /*
  * @file
  * Advanced Poll Pages Include
- * 
+ *
  * All items in this document are responsible for generating the tab (menu local) pages
  * that are used for administering an individual poll.
  */
@@ -12,11 +12,11 @@
  * Generates page for administering individual voters on a poll.  Enables administrator
  * to clear all votes. For users that can view votes but not administer them, the button
  * is not displayed.
- * 
+ *
  * @param $node
  * An advpoll node
  * @return
- * Markup displayed by menu callback for this page. 
+ * Markup displayed by menu callback for this page.
  */
 
 function advpoll_votes_page($node) {
@@ -83,7 +83,7 @@ function advpoll_votes_page($node) {
     );
 
     $output .= theme('pager', array('tags' => array()));
-    if (user_access('administer votes')) {
+    if (user_access('administer polls')) {
       $rendered_form = drupal_get_form('advpoll_clear_votes_form');
       $output .= drupal_render($rendered_form);
     }
@@ -124,7 +124,7 @@ function advpoll_clear_votes_form($form, &$form_state) {
  * @param $node
  * An advpoll node
  * @return
- * Markup displayed by menu callback for this page. 
+ * Markup displayed by menu callback for this page.
  */
 
 function advpoll_electoral_list_page($node) {
@@ -218,27 +218,27 @@ function advpoll_electoral_list_form($form, &$form_state, $nid) {
     $form['electoral_list']['add_user']['#autocomplete_path'] = 'user/autocomplete';
   }
 
-  // Check to see if basic authorized users (2) have permission to vote.  If this is the case, 
-  // new roles added after auth was selected in permissions may not show up in list. This check 
+  // Check to see if basic authorized users (2) have permission to vote.  If this is the case,
+  // new roles added after auth was selected in permissions may not show up in list. This check
   // ensures that all roles get added to the list if auth users are included.
-  $auth = db_query("SELECT r.name, 
-                      r.rid 
-                      FROM {role} r 
-                      LEFT JOIN {role_permission} p ON p.rid = r.rid 
-                      WHERE p.permission LIKE '%vote on polls%' 
+  $auth = db_query("SELECT r.name,
+                      r.rid
+                      FROM {role} r
+                      LEFT JOIN {role_permission} p ON p.rid = r.rid
+                      WHERE p.permission LIKE '%vote on polls%'
                       AND r.rid = 2 ORDER BY r.name")->fetchField();
   // List all roles with "vote on polls" permission, but don't include anonymous users.
   if ($auth) {
-    $result = db_query("SELECT r.name, 
-                      r.rid 
-                      FROM {role} r 
+    $result = db_query("SELECT r.name,
+                      r.rid
+                      FROM {role} r
                       WHERE r.rid <> 1 ORDER BY r.name");
   } else {
-    $result = db_query("SELECT r.name, 
-                      r.rid 
-                      FROM {role} r 
-                      LEFT JOIN {role_permission} p ON p.rid = r.rid 
-                      WHERE p.permission LIKE '%vote on polls%' 
+    $result = db_query("SELECT r.name,
+                      r.rid
+                      FROM {role} r
+                      LEFT JOIN {role_permission} p ON p.rid = r.rid
+                      WHERE p.permission LIKE '%vote on polls%'
                       AND r.rid <> 1 ORDER BY r.name");
   }
   $role_options = array(0 => t('(Select a role)'));
@@ -276,8 +276,8 @@ function advpoll_electoral_list_form_submit($form, &$form_state) {
 
   // using new db_merge method to avoid having to write multiple checks for insert.
   if ($add_user) {
-    $uid = db_query('SELECT uid 
-                     FROM {users} 
+    $uid = db_query('SELECT uid
+                     FROM {users}
                      WHERE name = :user', array(':user' => $add_user))->fetchField();
 
     db_merge('advpoll_electoral_list')
@@ -297,9 +297,9 @@ function advpoll_electoral_list_form_submit($form, &$form_state) {
   $roles = $form['electoral_list']['add_role']['#options'];
 
   if ($add_role) {
-    $result = db_query("SELECT u.uid 
-                        FROM {users} u 
-                        LEFT JOIN {users_roles} ur ON u.uid = ur.uid 
+    $result = db_query("SELECT u.uid
+                        FROM {users} u
+                        LEFT JOIN {users_roles} ur ON u.uid = ur.uid
                         WHERE ur.rid = :rid", array(':rid' => $add_role));
 
     foreach ($result as $record) {
@@ -338,8 +338,8 @@ function advpoll_electoral_list_form_validate($form, &$form_state) {
   $add_user = $form_state['values']['electoral_list']['add_user'];
   if ($add_user) {
     // Check that the user exists
-    $result = db_query("SELECT uid 
-                        FROM {users} 
+    $result = db_query("SELECT uid
+                        FROM {users}
                         WHERE name = :name", array(':name' => $add_user));
     if (!$result) {
       form_set_error('electoral_list][add_user', t('User %user does not exist.', array('%user' => $add_user)));
@@ -357,8 +357,8 @@ function advpoll_remove_voter() {
 
   if (is_numeric($nid) && is_numeric($uid)) {
     if ($uid && $node = node_load($nid)) {
-      $user = db_query('SELECT name 
-                        FROM {users} 
+      $user = db_query('SELECT name
+                        FROM {users}
                         WHERE uid = :uid', array(':uid' => $uid))->fetchField();
 
       if ($user) {
@@ -406,7 +406,7 @@ function advpoll_clear_votes_confirm_form_submit($form, &$form_state) {
 
 /*
  * Display Write-in node management tab page.
- * 
+ *
  * @param $node
  * And advpoll node
  */
@@ -577,7 +577,7 @@ function advpoll_merge_writein_form($form, &$form_state, $node) {
 
 /*
  * Submit function for merging write-in votes.
- * 
+ *
  */
 
 function advpoll_merge_writein_form_submit($form, &$form_state) {
@@ -616,7 +616,7 @@ function advpoll_merge_writein_form_submit($form, &$form_state) {
   // transfer merge from votes to new vote object and update votingapi
   foreach ($merge_fromVotes as $vote) {
     $votes = array(
-      'entity_type' => 'advpoll',
+      'entity_type' => 'node',
       'entity_id' => $nid,
       'value' => $vote['value'],
       'tag' => $to_tag,
@@ -653,7 +653,7 @@ function advpoll_merge_writein_form_submit($form, &$form_state) {
 
 /*
  * Display the poll's results for users with appropriate permissions
- * 
+ *
  * @param $node
  * And advpoll node
  */
