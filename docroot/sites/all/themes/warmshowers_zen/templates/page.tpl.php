@@ -50,6 +50,22 @@
 
     <?php print render($page['header']); ?>
 
+    <?php if (!empty($primary_nav) || !empty($secondary_nav) || !empty($page['navigation'])): ?>
+      <div class="navbar">
+        <nav role="navigation">
+          <?php if (!empty($primary_nav)): ?>
+            <?php print render($primary_nav); ?>
+          <?php endif; ?>
+          <?php if (!empty($secondary_nav)): ?>
+            <?php print render($secondary_nav); ?>
+          <?php endif; ?>
+          <?php if (!empty($page['navigation'])): ?>
+            <?php print render($page['navigation']); ?>
+          <?php endif; ?>
+        </nav>
+      </div>
+    <?php endif; ?>
+
   </div></div><!-- /.section, /#header -->
 </div></div> <!-- /#header-wrapper, /#header-style -->
 
@@ -96,29 +112,6 @@
       <?php endif; ?>
 
     </div></div><!-- /.section, /#content -->
-
-<!--    TODO: get conditional statement working again-->
-<!--    --><?php //if ($main_menu || $page['navigation']): ?>
-      <div id="navigation"><div class="section clearfix">
-        <?php print theme(array('links__system_main_menu'), $main_menu,
-          array(
-            'links' => $main_menu,
-            'attributes' => array(
-              'id' => 'main-menu',
-              'class' => array('links', 'clearfix'),
-            ),
-            'heading' => array(
-              'text' => t('Main menu'),
-              'level' => 'h2',
-              'class' => array('element-invisible'),
-            ),
-          ));
-        ?>
-
-        <?php print render($page['navigation']); ?>
-
-      </div></div><!-- /.section, /#navigation -->
-<!--    --><?php //endif; ?>
 
     <?php
       // Render the sidebars to see if there's anything in them.
