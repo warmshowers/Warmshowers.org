@@ -1,0 +1,500 @@
+<?php
+/**
+ * @file
+ * ws_d7_upgrade_features.features.field_instance.inc
+ */
+
+/**
+ * Implements hook_field_default_field_instances().
+ */
+function ws_d7_upgrade_features_field_default_field_instances() {
+  $field_instances = array();
+
+  // Exported field_instance: 'node-trust_referral-body'
+  $field_instances['node-trust_referral-body'] = array(
+    'bundle' => 'trust_referral',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => 'This is a way for one member to leave feedback for another.  If you\'ve stayed with someone as host, or hosted someone who\'s a good guest, please put a reference for them here. It will show up on their member page.  And your story will be visible in the "all references area" too. ',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -2,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(
+          'trim_length' => 600,
+        ),
+        'trim_length' => 1200,
+        'type' => 'text_summary_or_trimmed',
+        'weight' => -2,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'body',
+    'label' => 'Please tell about your experience with this member',
+    'required' => 1,
+    'settings' => array(
+      'display_summary' => TRUE,
+      'text_processing' => 1,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'text',
+      'settings' => array(
+        'rows' => 20,
+        'summary_rows' => 5,
+      ),
+      'type' => 'text_textarea_with_summary',
+      'weight' => -2,
+    ),
+  );
+
+  // Exported field_instance: 'node-trust_referral-field_contest_photo'
+  $field_instances['node-trust_referral-field_contest_photo'] = array(
+    'bundle' => 'trust_referral',
+    'default_value' => '',
+    'deleted' => 0,
+    'description' => 'You can add as many photos of your host or guest as you like.',
+    'display' => array(
+      'default' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+      'rss' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+      'search_index' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+      'search_result' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+      'token' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_contest_photo',
+    'label' => 'Optional Photos',
+    'required' => 0,
+    'settings' => array(
+      'alt_field' => 0,
+      'default_image' => 0,
+      'file_directory' => 'recommendation_photo/[uid]',
+      'file_extensions' => 'jpg jpeg',
+      'max_filesize' => '15M',
+      'max_resolution' => 0,
+      'min_resolution' => 0,
+      'title_field' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'weight' => 1,
+    'widget' => array(
+      'active' => 1,
+      'module' => 'image',
+      'settings' => array(
+        'preview_image_style' => 'thumbnail',
+        'progress_indicator' => 'bar',
+        'use_default_image' => 0,
+      ),
+      'type' => 'image_image',
+      'weight' => 1,
+    ),
+    'widget_type' => 'imagefield_widget',
+  );
+
+  // Exported field_instance: 'node-trust_referral-field_guest_or_host'
+  $field_instances['node-trust_referral-field_guest_or_host'] = array(
+    'bundle' => 'trust_referral',
+    'default_value' => array(
+      0 => array(
+        'value' => '',
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -1,
+      ),
+      'full' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -1,
+      ),
+      'teaser' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -1,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_guest_or_host',
+    'label' => 'Feedback is for',
+    'required' => 1,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -1,
+    'widget' => array(
+      'active' => 1,
+      'module' => 'options',
+      'settings' => array(
+        'default_value_php' => NULL,
+      ),
+      'type' => 'options_buttons',
+      'weight' => -1,
+    ),
+    'widget_type' => 'optionwidgets_buttons',
+  );
+
+  // Exported field_instance: 'node-trust_referral-field_hosting_date'
+  $field_instances['node-trust_referral-field_hosting_date'] = array(
+    'bundle' => 'trust_referral',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -1,
+      ),
+      'full' => array(
+        'label' => 'inline',
+        'module' => 'date',
+        'settings' => array(
+          'format_type' => 'field_hosting_date_default',
+          'fromto' => 'both',
+          'multiple_from' => '',
+          'multiple_number' => '',
+          'multiple_to' => '',
+          'show_repeat_rule' => 'show',
+        ),
+        'type' => 'date_default',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'inline',
+        'module' => 'date',
+        'settings' => array(
+          'format_type' => 'field_hosting_date_default',
+          'fromto' => 'both',
+          'multiple_from' => '',
+          'multiple_number' => '',
+          'multiple_to' => '',
+          'show_repeat_rule' => 'show',
+        ),
+        'type' => 'date_default',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_hosting_date',
+    'label' => 'Date We Met',
+    'required' => 0,
+    'settings' => array(
+      'default_value' => 'now',
+      'default_value2' => 'blank',
+      'default_value_code' => '',
+      'default_value_code2' => '',
+      'user_register_form' => FALSE,
+    ),
+    'weight' => 0,
+    'widget' => array(
+      'active' => 1,
+      'module' => 'date',
+      'settings' => array(
+        'display_all_day' => 0,
+        'increment' => 1,
+        'input_format' => 'Y-m-d H:i:s',
+        'input_format_custom' => '',
+        'label_position' => 'above',
+        'text_parts' => array(),
+        'year_range' => '-7:+0',
+      ),
+      'type' => 'date_select',
+      'weight' => 0,
+    ),
+    'widget_type' => 'date_select',
+  );
+
+  // Exported field_instance: 'node-trust_referral-field_member_i_trust'
+  $field_instances['node-trust_referral-field_member_i_trust'] = array(
+    'bundle' => 'trust_referral',
+    'default_value' => array(
+      0 => array(
+        'uid' => NULL,
+        '_error_element' => 'default_value_widget][field_member_i_trust][0][uid][uid',
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => -2,
+      ),
+      'full' => array(
+        'label' => 'inline',
+        'module' => 'user_reference',
+        'settings' => array(),
+        'type' => 'user_reference_default',
+        'weight' => -6,
+      ),
+      'teaser' => array(
+        'label' => 'inline',
+        'module' => 'user_reference',
+        'settings' => array(),
+        'type' => 'user_reference_default',
+        'weight' => -6,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_member_i_trust',
+    'label' => 'Member',
+    'required' => 1,
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -6,
+    'widget' => array(
+      'active' => 1,
+      'module' => 'user_reference',
+      'settings' => array(
+        'autocomplete_match' => 'contains',
+        'autocomplete_path' => 'user_reference/autocomplete',
+        'default_value_php' => NULL,
+        'reverse_link' => 0,
+        'size' => 60,
+      ),
+      'type' => 'user_reference_autocomplete',
+      'weight' => -6,
+    ),
+    'widget_type' => 'userreference_autocomplete',
+  );
+
+  // Exported field_instance: 'node-trust_referral-field_rating'
+  $field_instances['node-trust_referral-field_rating'] = array(
+    'bundle' => 'trust_referral',
+    'default_value' => array(
+      0 => array(
+        'value' => '',
+      ),
+    ),
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'list',
+        'settings' => array(),
+        'type' => 'list_default',
+        'weight' => 31,
+      ),
+      'full' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+      'rss' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+      'search_index' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+      'search_result' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+      'teaser' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+      'token' => array(
+        'label' => 'inline',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -5,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_rating',
+    'label' => 'Overall Experience',
+    'required' => 1,
+    'settings' => array(
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -5,
+    'widget' => array(
+      'active' => 1,
+      'module' => 'options',
+      'settings' => array(
+        'default_value_php' => NULL,
+      ),
+      'type' => 'options_select',
+      'weight' => -5,
+    ),
+    'widget_type' => 'optionwidgets_select',
+  );
+
+  // Exported field_instance: 'node-trust_referral-upload'
+  $field_instances['node-trust_referral-upload'] = array(
+    'bundle' => 'trust_referral',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'rss' => array(
+        'label' => 'hidden',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => NULL,
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'upload',
+    'label' => 'File attachments',
+    'required' => 0,
+    'settings' => array(
+      'description_field' => 1,
+      'file_directory' => '',
+      'file_extensions' => 'jpg jpeg gif png txt doc docx xls xlsx pdf ppt pps odt ods odp psd kml kmz gpx',
+      'max_filesize' => '15 MB',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'file_generic',
+      'weight' => 1,
+    ),
+  );
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Date We Met');
+  t('Feedback is for');
+  t('File attachments');
+  t('Member');
+  t('Optional Photos');
+  t('Overall Experience');
+  t('Please tell about your experience with this member');
+  t('This is a way for one member to leave feedback for another.  If you\'ve stayed with someone as host, or hosted someone who\'s a good guest, please put a reference for them here. It will show up on their member page.  And your story will be visible in the "all references area" too. ');
+  t('You can add as many photos of your host or guest as you like.');
+
+  return $field_instances;
+}
