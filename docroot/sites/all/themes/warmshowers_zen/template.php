@@ -163,8 +163,8 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
 
   // Add links to login, or if logged in, add link to profile
   if (!$variables['logged_in']) {
-    $variables['authentication_block'] =  l(t('Sign up'), 'user/register', array('attributes' => array('class' => 'signup'))) .
-      l(t('Log in'), 'user', array('attributes' => array('class' => 'login')));
+    $variables['authentication_block'] =  l(t('Sign up'), 'user/register', array('attributes' => array('class' => array('signup')))) .
+      l(t('Log in'), 'user', array('attributes' => array('class' => array('login'))));
   }
   else {
    $variables['authentication_block'] = t("Logged in as !name | !logout",
@@ -214,13 +214,15 @@ function warmshowers_zen_status_messages($variables) {
  * @param $variables
  * @return string
  */
+/* -- To be reworked as required.
 function warmshowers_zen_form_element($variables) {
-  $element = $variables ['element'];
-  $value = $variables ['value'];
+  $element = $variables['element'];
+  $value = $variables['value'];
   // This looks just awful on checkbox, so use classic theming for it.
   if ($element['#type'] == 'checkbox') {
     return theme_form_element($element, $value);
   }
+
   // This is also used in the installer, pre-database setup.
   $t = get_t();
 
@@ -248,6 +250,7 @@ function warmshowers_zen_form_element($variables) {
 
   return $output;
 }
+*/
 
 /**
  * Override privatemsg theming of username.
