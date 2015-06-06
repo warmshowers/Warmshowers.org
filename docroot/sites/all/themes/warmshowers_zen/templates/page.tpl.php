@@ -51,7 +51,7 @@
     <?php print render($page['header']); ?>
 
     <?php if (!empty($primary_nav) || !empty($secondary_nav) || !empty($page['navigation'])): ?>
-      <div class="navbar">
+      <div class="primary-navbar navbar">
         <nav role="navigation">
           <?php if (!empty($primary_nav)): ?>
             <?php print render($primary_nav); ?>
