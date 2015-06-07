@@ -13,21 +13,16 @@
  */
 function warmshowers_zen_theme(&$existing, $type, $theme, $path) {
   $hooks = zen_theme($existing, $type, $theme, $path);
-
-  // Theme colorbox but with no gallery.
-  // TODO: If it's really just to remove one html attribute then there must be a more efficient method???
-  $hooks['colorbox_imagefield_no_gallery'] = array(
-    'variables' => array(
-        'namespace' => NULL,
-        'path' => NULL,
-        'alt' => NULL,
-        'title' => NULL,
-        'gid' => NULL,
-        'field_name' => NULL,
-        'attributes' => NULL
-    ),
+  // Add your theme hooks like this:
+  $hooks['user_login_block'] = array(
+    'template' => 'user-login-block',
+    'variables' => array('form' => NULL),
+    'path' => drupal_get_path('theme', 'warmshowers_zen') . '/templates',
   );
-
+  // Theme colorbox but with no gallery.
+  $hooks['colorbox_imagefield_no_gallery'] = array(
+    'variables' => array('namespace' => NULL, 'path' => NULL, 'alt' => NULL, 'title' => NULL, 'gid' => NULL, 'field_name' => NULL, 'attributes' => NULL),
+  );
   return $hooks;
 }
 
@@ -54,6 +49,24 @@ function warmshowers_zen_colorbox_imagefield_no_gallery($variables) {
 }
 
 /**
+ * Override or insert variables into the maintenance page template.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ * @param $hook
+ *   The name of the template being rendered ("maintenance_page" in this case.)
+ */
+/* -- Delete this line if you want to use this function
+function warmshowers_zen_preprocess_maintenance_page(&$variables, $hook) {
+  // When a variable is manipulated or added in preprocess_html or
+  // preprocess_page, that same work is probably needed for the maintenance page
+  // as well, so we can just re-use those functions to do that work here.
+  warmshowers_zen_preprocess_html($variables, $hook);
+  warmshowers_zen_preprocess_page($variables, $hook);
+}
+// */
+
+/**
  * Override or insert variables into the html templates.
  *
  * @param $variables
@@ -62,21 +75,20 @@ function warmshowers_zen_colorbox_imagefield_no_gallery($variables) {
  *   The name of the template being rendered ("html" in this case.)
  */
 function warmshowers_zen_preprocess_html(&$variables, $hook) {
-  // TODO: Consider using https://www.drupal.org/project/metatag instead.
-  // Until then these images should reside in the theme.
-  // Also suggest a reasonable image for shares to facebook
+  // Suggest a reasonable image for shares to facebook
+
   $ws_image = array(
     '#tag' => 'meta',
     '#attributes' => array(
       'property' => 'og:image',
-      'content' => drupal_get_path('theme', 'warmshowers_zen') . '/imv/ws-og-image.png',
+      'content' => 'https://www.warmshowers.org/files/ws-icon-v1_0.png',
     ),
   );
   $ws_image_secure = array(
     '#tag' => 'meta',
     '#attributes' => array(
       'property' => 'og:image:secure_url',
-      'content' => drupal_get_path('theme', 'warmshowers_zen') . '/img/ws-og-image.png',
+      'content' => 'https://www.warmshowers.org/files/ws-icon-v1_0.png',
     ),
   );
   drupal_add_html_head($ws_image, 'ws-image');
@@ -95,49 +107,24 @@ function warmshowers_zen_preprocess_html(&$variables, $hook) {
   }
   $variables['head'] = drupal_get_html_head();
 
-  /*
-   * Add page classes depending on the following logic:
-   */
-  _warmshowers_zen_add_html_classes($variables);
-}
-
-/**
- * Helper function to add relevant classes to describe each page.
- *
- * @param array $variables
- */
-function _warmshowers_zen_add_html_classes(&$variables) {
+  if (!empty($variables['highlighted'])) {
+    $variables['classes_array'][] = 'with-highlight';
+  }
   global $user;
-  $args = arg();
-
-  // Add classes for all populated theme regions
-  $regions = system_region_list('warmshowers_zen');
-  if (isset($regions)) {
-    foreach ($regions as $key=>$region) {
-      if (isset($variables[$key])) {
-        $variables['classes_array'][] = drupal_html_class("has-region-{$key}");
-      }
-    }
-  }
-  // Add classes for all roles a user has
-  $roles_include = array(
-      'anonymous user',
-      'authenticated user',
-      'donation-free',
-      'current-member',
-  );
   foreach ($user->roles as $role){
-    if (in_array($role, $roles_include)) {
-      $variables['classes_array'][] = drupal_html_class("user-has-role-{$role}");
-    }
+    $role = str_replace(" ","-",$role);
+    $variables['classes_array'][] = 'role-'.$role;
   }
-  // Add classes for page node type
-  if ($arg[0] == 'user') {
-    // @TODO: New logic.
-  }
+  $variables['classes_array'][] = 'spg-'.array_pop(explode("/", $_GET['q']));
+
+  // Set page-user-profile type if we're on profile page.
   if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
-    $variables['classes_array'][] = 'page-user-profile';
+    $variables['classes_array'][] = drupal_html_class('page-user-profile');
   }
+
+  // The body tag's classes are controlled by the $classes_array variable. To
+  // remove a class from $classes_array, use array_diff().
+  //$variables['classes_array'] = array_diff($variables['classes_array'], array('class-to-remove'));
 }
 
 /**
@@ -151,38 +138,6 @@ function _warmshowers_zen_add_html_classes(&$variables) {
 function warmshowers_zen_preprocess_page(&$variables, $hook) {
   global $user;
 
-  /*
-   * Generate renderable menu arrays
-   */
-  _warmshowers_zen_generate_menus($variables);
-
-  // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
-  if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
-    unset($variables['breadcrumb']);
-  }
-  // Add links to login, or if logged in, add link to profile
-  if (!$variables['logged_in']) {
-    $variables['authentication_block'] =  l(t('Sign up'), 'user/register', array('attributes' => array('class' => array('signup')))) .
-      l(t('Log in'), 'user', array('attributes' => array('class' => array('login'))));
-  }
-  else {
-    $variables['authentication_block'] = t(
-      "Logged in as !name | !logout",
-      array(
-        '!name' => l($user->data['fullname'], 'user/' . $user->uid),
-        '!logout' => l(t('Log out'),'logout')
-      )
-    );
-  }
-
-}
-
-/**
- * Helper function to generate menu arrays ready for rendering.
- *
- * @param array $variables
- */
-function _warmshowers_zen_generate_menus(&$variables) {
   // Primary nav.
   $variables['primary_nav'] = FALSE;
   if ($variables['main_menu']) {
@@ -200,17 +155,21 @@ function _warmshowers_zen_generate_menus(&$variables) {
     // Provide default theme wrapper function.
     $variables['secondary_nav']['#theme_wrappers'] = array('menu_tree__secondary');
   }
-}
 
-/**
- * Override or insert variables into the node templates.
- *
- * @param $variables
- *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("node" in this case.)
- */
-function warmshowers_zen_preprocess_node(&$variables, $hook) {
+  // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
+  if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
+    unset($variables['breadcrumb']);
+  }
+
+  // Add links to login, or if logged in, add link to profile
+  if (!$variables['logged_in']) {
+    $variables['authentication_block'] =  l(t('Sign up'), 'user/register', array('attributes' => array('class' => 'signup'))) .
+      l(t('Log in'), 'user', array('attributes' => array('class' => 'login')));
+  }
+  else {
+   $variables['authentication_block'] = t("Logged in as !name | !logout",
+     array('!name' => l($user->data['fullname'], 'user/' . $user->uid), '!logout' => l(t('Log out'),'logout')));
+  }
 
 }
 
@@ -228,7 +187,8 @@ function warmshowers_zen_preprocess_node(&$variables, $hook) {
  *   A string containing the messages.
  */
 function warmshowers_zen_status_messages($variables) {
-  // TODO: Is this really needed if we're using better messages??
+  // TODO: this probably changed, it looks like messages are
+  // empty so check out the function theme_status_message in D7
   $display = $variables['display'];
   $output = '';
   foreach (drupal_get_messages($display) as $type => $messages) {
@@ -249,6 +209,74 @@ function warmshowers_zen_status_messages($variables) {
 }
 
 /**
+ * Replace theme('form_element') to put the description ahead of the form element.
+ *
+ * @param $variables
+ * @return string
+ */
+function warmshowers_zen_form_element($variables) {
+  $element = &$variables['element'];
+
+  // This function is invoked as theme wrapper, but the rendered form element
+  // may not necessarily have been processed by form_builder().
+  $element += array(
+    '#title_display' => 'before',
+  );
+
+  // Add element #id for #type 'item'.
+  if (isset($element['#markup']) && !empty($element['#id'])) {
+    $attributes['id'] = $element['#id'];
+  }
+  // Add element's #type and #name as class to aid with JS/CSS selectors.
+  $attributes['class'] = array('form-item');
+  if (!empty($element['#type'])) {
+    $attributes['class'][] = 'form-type-' . strtr($element['#type'], '_', '-');
+  }
+  if (!empty($element['#name'])) {
+    $attributes['class'][] = 'form-item-' . strtr($element['#name'], array(' ' => '-', '_' => '-', '[' => '-', ']' => ''));
+  }
+  // Add a class for disabled elements to facilitate cross-browser styling.
+  if (!empty($element['#attributes']['disabled'])) {
+    $attributes['class'][] = 'form-disabled';
+  }
+  $output = '<div' . drupal_attributes($attributes) . '>' . "\n";
+
+  // If #title is not set, we don't display any label or required marker.
+  if (!isset($element['#title'])) {
+    $element['#title_display'] = 'none';
+  }
+  $prefix = isset($element['#field_prefix']) ? '<span class="field-prefix">' . $element['#field_prefix'] . '</span> ' : '';
+  $suffix = isset($element['#field_suffix']) ? ' <span class="field-suffix">' . $element['#field_suffix'] . '</span>' : '';
+
+  switch ($element['#title_display']) {
+    case 'before':
+    case 'invisible':
+      $output .= ' ' . theme('form_element_label', $variables);
+      if (!empty($element['#description'])) {
+        $output .= '<div class="description">' . $element['#description'] . "</div>\n";
+      }
+      $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+      break;
+    case 'after':
+      $output .= ' ' . $prefix . $element['#children'] . $suffix;
+      $output .= ' ' . theme('form_element_label', $variables) . "\n";
+      if (!empty($element['#description'])) {
+        $output .= '<div class="description">' . $element['#description'] . "</div>\n";
+      }
+      break;
+    case 'none':
+    case 'attribute':
+      // Output no label and no required marker, only the children.
+      $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+      break;
+  }
+
+  $output .= "</div>\n";
+
+  return $output;
+}
+
+/**
  * Override privatemsg theming of username.
  *
  * This actually adds a new option 'email', which is for when the name is
@@ -258,8 +286,8 @@ function warmshowers_zen_status_messages($variables) {
  * @return mixed|string
  */
 function warmshowers_zen_privatemsg_username($variables) {
-  $recipient = $variables ['recipient'];
-  $options = $variables ['options'];
+  $recipient = $variables['recipient'];
+  $options = $variables['options'];
   if (!isset($recipient->uid)) {
     $recipient->uid = $recipient->recipient;
   }
@@ -272,11 +300,12 @@ function warmshowers_zen_privatemsg_username($variables) {
     return $name;
   }
   else if (!empty($options['plain'])) {
-    $name = strip_tags(format_username($recipient));
+    $name = $recipient->name;
     if (!empty($options['unique'])) {
       $name .= ' [user]';
     }
     return $name;
+
   }
   else {
     return theme('username', $recipient);
@@ -289,7 +318,7 @@ function warmshowers_zen_privatemsg_username($variables) {
  * @return string
  */
 function warmshowers_zen_username($variables) {
-  $object = $variables ['object'];
+  $object = $variables['object'];
   $name = warmshowers_zen_sanitized_username($object);
 
   if ($object->uid && $name) {
@@ -392,6 +421,8 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
   }
 }
 
+
+
 /**
  * Override theming of donations thermometer
  *
@@ -473,3 +504,76 @@ function warmshowers_zen_uc_cart_complete_sale($variables) {
   return $message;
 
 }
+
+/**
+ * Override or insert variables into the node templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ * @param $hook
+ *   The name of the template being rendered ("node" in this case.)
+ */
+/* -- Delete this line if you want to use this function
+function warmshowers_zen_preprocess_node(&$variables, $hook) {
+  $variables['sample_variable'] = t('Lorem ipsum.');
+
+  // Optionally, run node-type-specific preprocess functions, like
+  // warmshowers_zen_preprocess_node_page() or warmshowers_zen_preprocess_node_story().
+  $function = __FUNCTION__ . '_' . $variables['node']->type;
+  if (function_exists($function)) {
+    $function($variables, $hook);
+  }
+}
+// */
+
+/**
+ * Override or insert variables into the comment templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ * @param $hook
+ *   The name of the template being rendered ("comment" in this case.)
+ */
+/* -- Delete this line if you want to use this function
+function warmshowers_zen_preprocess_comment(&$variables, $hook) {
+  $variables['sample_variable'] = t('Lorem ipsum.');
+}
+// */
+
+/**
+ * Override or insert variables into the region templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ * @param $hook
+ *   The name of the template being rendered ("region" in this case.)
+ */
+/* -- Delete this line if you want to use this function
+function warmshowers_zen_preprocess_region(&$variables, $hook) {
+  // Don't use Zen's region--sidebar.tpl.php template for sidebars.
+  //if (strpos($variables['region'], 'sidebar_') === 0) {
+  //  $variables['theme_hook_suggestions'] = array_diff($variables['theme_hook_suggestions'], array('region__sidebar'));
+  //}
+}
+// */
+
+/**
+ * Override or insert variables into the block templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ * @param $hook
+ *   The name of the template being rendered ("block" in this case.)
+ */
+/* -- Delete this line if you want to use this function
+function warmshowers_zen_preprocess_block(&$variables, $hook) {
+  // Add a count to all the blocks in the region.
+  // $variables['classes_array'][] = 'count-' . $variables['block_id'];
+
+  // By default, Zen will use the block--no-wrapper.tpl.php for the main
+  // content. This optional bit of code undoes that:
+  //if ($variables['block_html_id'] == 'block-system-main') {
+  //  $variables['theme_hook_suggestions'] = array_diff($variables['theme_hook_suggestions'], array('block__no_wrapper'));
+  //}
+}
+// */
