@@ -189,7 +189,7 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
 function warmshowers_zen_status_messages($variables) {
   // TODO: this probably changed, it looks like messages are
   // empty so check out the function theme_status_message in D7
-  $display = $variables ['display'];
+  $display = $variables['display'];
   $output = '';
   foreach (drupal_get_messages($display) as $type => $messages) {
     $output .= "<div class=\"messages $type\"><div class=\"message\">\n";
@@ -215,35 +215,64 @@ function warmshowers_zen_status_messages($variables) {
  * @return string
  */
 function warmshowers_zen_form_element($variables) {
-  $element = $variables ['element'];
-  $value = $variables ['value'];
-  // This looks just awful on checkbox, so use classic theming for it.
-  if ($element['#type'] == 'checkbox') {
-    return theme_form_element($element, $value);
-  }
-  // This is also used in the installer, pre-database setup.
-  $t = get_t();
+  $element = &$variables['element'];
 
-  $output = '<div class="form-item"';
-  if (!empty($element['#id'])) {
-    $output .= ' id="' . $element['#id'] . '-wrapper"';
-  }
-  $output .= ">\n";
-  $required = !empty($element['#required']) ? '<span class="form-required" title="' . $t('This field is required.') . '">*</span>' : '';
+  // This function is invoked as theme wrapper, but the rendered form element
+  // may not necessarily have been processed by form_builder().
+  $element += array(
+    '#title_display' => 'before',
+  );
 
-  if (!empty($element['#title'])) {
-    $title = $element['#title'];
-    if (!empty($element['#id'])) {
-      $output .= ' <label for="' . $element['#id'] . '">' . $t('!title: !required', array('!title' => filter_xss_admin($title), '!required' => $required)) . "</label>\n";
-    }
-    else {
-      $output .= ' <label>' . $t('!title: !required', array('!title' => filter_xss_admin($title), '!required' => $required)) . "</label>\n";
-    }
+  // Add element #id for #type 'item'.
+  if (isset($element['#markup']) && !empty($element['#id'])) {
+    $attributes['id'] = $element['#id'];
   }
-  if (!empty($element['#description'])) {
-    $output .= ' <div class="description">' . $element['#description'] . "</div>\n";
+  // Add element's #type and #name as class to aid with JS/CSS selectors.
+  $attributes['class'] = array('form-item');
+  if (!empty($element['#type'])) {
+    $attributes['class'][] = 'form-type-' . strtr($element['#type'], '_', '-');
   }
-  $output .= " $value\n";
+  if (!empty($element['#name'])) {
+    $attributes['class'][] = 'form-item-' . strtr($element['#name'], array(' ' => '-', '_' => '-', '[' => '-', ']' => ''));
+  }
+  // Add a class for disabled elements to facilitate cross-browser styling.
+  if (!empty($element['#attributes']['disabled'])) {
+    $attributes['class'][] = 'form-disabled';
+  }
+  $output = '<div' . drupal_attributes($attributes) . '>' . "\n";
+
+  // If #title is not set, we don't display any label or required marker.
+  if (!isset($element['#title'])) {
+    $element['#title_display'] = 'none';
+  }
+  $prefix = isset($element['#field_prefix']) ? '<span class="field-prefix">' . $element['#field_prefix'] . '</span> ' : '';
+  $suffix = isset($element['#field_suffix']) ? ' <span class="field-suffix">' . $element['#field_suffix'] . '</span>' : '';
+
+  switch ($element['#title_display']) {
+    case 'before':
+    case 'invisible':
+      $output .= ' ' . theme('form_element_label', $variables);
+      if (!empty($element['#description'])) {
+        $output .= '<div class="description">' . $element['#description'] . "</div>\n";
+      }
+      $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+      break;
+
+    case 'after':
+      $output .= ' ' . $prefix . $element['#children'] . $suffix;
+      $output .= ' ' . theme('form_element_label', $variables) . "\n";
+      if (!empty($element['#description'])) {
+        $output .= '<div class="description">' . $element['#description'] . "</div>\n";
+      }
+      break;
+
+    case 'none':
+    case 'attribute':
+      // Output no label and no required marker, only the children.
+      $output .= ' ' . $prefix . $element['#children'] . $suffix . "\n";
+      break;
+  }
+
   $output .= "</div>\n";
 
   return $output;
@@ -259,8 +288,8 @@ function warmshowers_zen_form_element($variables) {
  * @return mixed|string
  */
 function warmshowers_zen_privatemsg_username($variables) {
-  $recipient = $variables ['recipient'];
-  $options = $variables ['options'];
+  $recipient = $variables['recipient'];
+  $options = $variables['options'];
   if (!isset($recipient->uid)) {
     $recipient->uid = $recipient->recipient;
   }
@@ -291,7 +320,7 @@ function warmshowers_zen_privatemsg_username($variables) {
  * @return string
  */
 function warmshowers_zen_username($variables) {
-  $object = $variables ['object'];
+  $object = $variables['object'];
   $name = warmshowers_zen_sanitized_username($object);
 
   if ($object->uid && $name) {
