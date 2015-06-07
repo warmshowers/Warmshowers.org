@@ -63,14 +63,9 @@
   <div id="page-wrapper" class="page wrapper <?php print $classes; ?>">
     <section id="page" class="container responsive">
 
-      <?php if ($is_front && !$logged_in) {
-        echo '<div id="highlight_wrapper_anon">';
-        print render($page['highlighted']);
-        echo '<div class="welcome_msg"><div class="welcome_msg_wrapper">'.t('<strong>The Warm Showers Community</strong> is a free worldwide hospitality exchange for touring cyclists. People who are willing to host touring cyclists sign up and provide their contact information, and may occasionally have someone stay with them and share great stories and a drink.').'</div></div>';
-        echo '</div>';
-      } else {
-        print render($page['highlighted']);
-      } ?>
+      <?php if (!empty($page['highlighted'])): ?>
+        <?php print render($page['highlighted']); ?>
+      <?php endif; ?>
 
       <div id="main-wrapper">
         <section id="main" class="clearfix<?php if ($main_menu || $navigation) { print ' with-navigation'; } ?>">

@@ -120,8 +120,16 @@ function _warmshowers_zen_add_html_classes(&$variables) {
     }
   }
   // Add classes for all roles a user has
+  $roles_include = array(
+      'anonymous user',
+      'authenticated user',
+      'donation-free',
+      'current-member',
+  );
   foreach ($user->roles as $role){
-    $variables['classes_array'][] = drupal_html_class("user-has-role-{$role}");
+    if (in_array($role, $roles_include)) {
+      $variables['classes_array'][] = drupal_html_class("user-has-role-{$role}");
+    }
   }
   // Add classes for page node type
   if ($arg[0] == 'user') {
