@@ -58,7 +58,7 @@
       <?php endif; ?>
 
     </header>
-  </div><!-- /#header-wrapper -->
+  </div>
 
   <div id="page-wrapper" class="page wrapper <?php print $classes; ?>">
     <section id="page" class="container responsive">
@@ -117,18 +117,19 @@
         </section>
       </div><!-- /#main-wrapper -->
 
-      <div id="footer-wrapper" class="<?php print $classes; ?>">
-        <footer class="section">
-          <h2 class="title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
+      <div id="footer-wrapper" class="footer wrapper">
+        <footer id="footer" class="container responsive">
+          <h2 class="footer-title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
+
           <ul class="social">
             <li><a href="https://www.facebook.com/groups/135049549858210/" class="social_fb" title="<?php print t("Follow Warm Showers on"); ?> Facebook"></a></li>
             <li><a href="https://twitter.com/#!/warmshowers" class="social_tw" title="<?php print t("Follow Warm Showers on"); ?> Twitter"></a></li>
             <li><a href="https://www.warmshowers.org/rssfeed" class="social_rs" title="<?php print t("Keep up to date with"); ?> RSS"></a></li>
           </ul>
-          <?php print render($page['footer']); ?>
 
+          <?php print render($page['footer']); ?>
         </footer>
-      </div><!-- /#footer -->
+      </div>
 
     </section>
   </div><!-- /#page-wrapper -->
