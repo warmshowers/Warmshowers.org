@@ -364,19 +364,6 @@ function member_feedback_views_views_default_views() {
 
   /* Display: User feedback */
   $handler = $view->new_display('entity_view', 'User feedback', 'user_feedback');
-  $handler->display->display_options['display_description'] = 'Most recent feedback for a user.';
-  $handler->display->display_options['defaults']['header'] = FALSE;
-  /* Header: Global: Text area */
-  $handler->display->display_options['header']['text']['id'] = 'text';
-  $handler->display->display_options['header']['text']['table'] = 'views';
-  $handler->display->display_options['header']['text']['field'] = 'area';
-  $handler->display->display_options['header']['text']['empty'] = TRUE;
-  $handler->display->display_options['header']['text']['content'] = 'To leave feedback for a member..........';
-  $handler->display->display_options['header']['text']['format'] = '1';
-  $handler->display->display_options['entity_type'] = 'user';
-  $handler->display->display_options['bundles'] = array(
-    0 => 'user',
-  );
   $translatables['member_feedback'] = array(
     t('Defaults'),
     t('Feedback'),
@@ -407,8 +394,6 @@ function member_feedback_views_views_default_views() {
     t('Feedback given by user.'),
     t('Feedback given by'),
     t('User feedback'),
-    t('Most recent feedback for a user.'),
-    t('To leave feedback for a member..........'),
   );
   $export['member_feedback'] = $view;
 
