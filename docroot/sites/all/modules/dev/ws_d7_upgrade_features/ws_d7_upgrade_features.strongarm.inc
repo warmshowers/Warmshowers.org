@@ -185,6 +185,13 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'token_actions_extras_default_recipient_email';
+  $strongarm->value = '[user:mail]';
+  $export['token_actions_extras_default_recipient_email'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'views_defaults';
   $strongarm->value = array(
     'taxonomy_term' => 'disabled',
