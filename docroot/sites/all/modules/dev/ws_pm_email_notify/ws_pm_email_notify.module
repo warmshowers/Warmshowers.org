@@ -7,7 +7,6 @@
  */
 
 // TODO: Make sure the variables for configuration are correct, migrate ws_pm_email_notify to pm_email_notify in all languages
-// TODO: Implement hook_variable_info()
 
 /**
  * Alter the outgoing message to use our routing information in subject and headers
@@ -147,7 +146,7 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
   }
 
   // Validate privatemsg mid and thread_id, which is hidden in hash.
-  $tid = $pm['thread_id'];
+  $tid = $pm->thread_id;
   $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
   if (strcasecmp($our_mhash, $their_mhash)) {
     watchdog('mandrill_incoming', 'Message hash in incoming message (%their_mhash) did not match hash (%our_mhash)', array(
@@ -208,7 +207,7 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
   }
 
   $pm = privatemsg_message_load($mid);
-  $tid = $pm['thread_id'];
+  $tid = $pm->thread_id;
   $sender_account = user_load($sender_uid);
 
   $text = $msg->text;
@@ -310,59 +309,132 @@ function ws_pm_email_notify_routing_hash($mid, $thread_id, $recipient_uid) {
 /**
  * Alter pm_email_notify admin.
  *
- * TODO: Alter the pm_email_notify settings instead of doing them here
  */
-function ws_pm_email_notify_form_pm_email_notify_admin_settings_form_alter(&$form, &$form_state) {
+function ws_pm_email_notify_form_privatemsg_admin_settings_alter(&$form, &$form_state) {
 
-  $form['pm_email']['mandrill_integration'] = array(
+  // Length may be longer than the default 128
+  $form['pm_email_notify']['pm_email_notify_subject']['#maxlength'] = 256;
+
+  $form['pm_email_notify']['mandrill_integration'] = array(
     '#type' => 'fieldset',
     '#title' => t('Mandrill Integration'),
     '#weight' => 20,
   );
 
-  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_enabled'] = array(
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_enabled'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable email reply via Mandrill Inbound webhook'),
     '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_enabled', 0),
   );
 
-  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_friendlyname'] = array(
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_friendlyname'] = array(
     '#type' => 'textfield',
     '#title' => t('Friendly name of email address for reply-to'),
-    '#default_value' => variable_get('ws_pm_email_notify_mandrill_from_reply_to_friendlyname', 'Warmshowers Messages'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_friendlyname', 'Warmshowers Messages'),
   );
 
-  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_localpart_base'] = array(
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_localpart_base'] = array(
     '#type' => 'textfield',
     '#title' => t('Localpart base of email address for reply-to'),
     '#description' => t('If the reply-to is messages+nonsense.32.none@reply.warmshowers.org, the localpart base is "messages"'),
-    '#default_value' => variable_get('ws_pm_email_notify_mandrill_from_reply_to_localpart_base', 'messages'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_localpart_base', 'messages'),
   );
 
-  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_domain'] = array(
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_domain'] = array(
     '#type' => 'textfield',
     '#title' => t('Domain of email address for reply-to'),
     '#description' => t('If the reply-to is messages+nonsense.32.none@reply.warmshowers.org, the domain is "reply.warmshowers.org"'),
     '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_domain', 'reply.warmshowers.org'),
   );
 
-  $form['pm_email']['mandrill_integration']['ws_pm_email_notify_hashkey'] = array(
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_hashkey'] = array(
     '#type' => 'textfield',
     '#title' => t('Hash key to validate Message/Thread id (can be same as Mandrill webhook key)'),
     '#default_value' => variable_get('ws_pm_email_notify_hashkey', ''),
   );
 
-  $form = system_settings_form($form);
-  if (module_exists('i18nstrings')) {
-    $form['#submit'][] = 'ws_pm_email_notify_admin_settings_update_strings';
-  }
-
-  return $form;
+//  $form = system_settings_form($form);
+//  if (module_exists('i18n_string')) {
+//    $form['#submit'][] = 'ws_pm_email_notify_admin_settings_update_strings';
+//  }
 }
 
 /**
  * Form submit callback to update the translation string sources.
  */
-function ws_pm_email_notify_admin_settings_update_strings($form, &$form_state) {
-  ws_pm_email_notify_locale_refresh();
+//function ws_pm_email_notify_admin_settings_update_strings($form, &$form_state) {
+//  ws_pm_email_notify_locale_refresh();
+//}
+
+/**
+ * Refresh callback to update the string translation sources.
+ */
+//function ws_pm_email_notify_locale_refresh() {
+//  i18n_string_update('pm_email_notify:mail:subject', _ws_pm_email_notify_source_text('subject'));
+//  i18n_string_update('pm_email_notify:mail:body', _ws_pm_email_notify_source_text('body'));
+//  return TRUE;
+//
+//}
+
+
+/**
+ * Implements hook_variable_info(), provided by variable module
+ * This is required for variables to be translatable.
+ * @param $options
+ * @return array
+ */
+function ws_pm_email_notify_variable_info($options) {
+  $variable = array();
+  $variable['ws_pm_email_notify_sender_blacklist_regex'] = array(
+    'type' => 'string',
+    'title' => t('Regular expression of sender emails to be ignored/discarded'),
+    'default' => '@info-emailer\.com|@linkedin\.com|@infoaxe\.net|@fliporamail\.com',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_subject_blacklist_regex'] = array(
+    'type' => 'string',
+    'title' => t('Regular expression of sender emails to be ignored/discarded'),
+    'default' => 'info-emailer\.com|linkedin\.com|quiere seguirte. ¿Aceptas?',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+
+  $variable['ws_pm_email_notify_hashkey'] = array(
+    'type' => 'string',
+    'title' => t('Hash key as base for hashing mid/tid'),
+    'default' => '',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_to_friendlyname'] = array(
+    'type' => 'string',
+    'title' => t('Friendly name of sender'),
+    'default' => 'Warmshowers Messages',
+    'localize' => TRUE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_to_localpart_base'] = array(
+    'type' => 'string',
+    'title' => t('Local part of reply-to email address'),
+    'default' => 'messages',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_to_domain'] = array(
+    'type' => 'string',
+    'title' => t('Domain part of reply-to email address'),
+    'default' => 'reply.warmshowers.org',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_enabled'] = array(
+    'type' => 'int',
+    'title' => t('Enable or disable mandrill reply option'),
+    'default' => 0,
+    'localize' => TRUE,
+    'group' => 'warmshowers',
+  );
+
+  return $variable;
 }
