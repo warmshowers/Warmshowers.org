@@ -13,7 +13,4 @@ s/www./$www_prefix/g" languages.sql  | drush sqlc -r $webroot
 drush cc all
 
 
-echo "Now please visit http://$devsite_host/admin/settings/language/i18n/variables and click 'clean up variables' at the bottom. You'll need the line in your settings.php that says 
-$conf['user_location_google_key'] = $conf['wsmap_google_key'] = 'AIzaSyAvy-YGOa-_t3q6WuE90ZdU23M1mIdN3TQ';
-
 "
