@@ -42,21 +42,20 @@ Při každé reakci na váš příspěvek bude upozorňován e-mailems.
 
 - Tým Warmshowers',
   'pm_email_notify_body' => '--------------------- Odpověď pište prosím nad touto linkou -------------------+
-Milý uživateli jménem !username, dostal jsi na Warmshowers.org zprávu od <a href="!uri/user/!author_uid">!author</a>:
+Milý uživateli jménem [privatemsg_message:recipient:fullname], dostal jsi na Warmshowers.org zprávu od <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>:
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-Na tento e-mail můžeš odpovědět přímo nebo <a href="!message">odpovědět na webu.</a> Nepřikládej prosím žádné přílohy - pokud je to potřeba, udělej to na webové stránce.
+Na tento e-mail můžeš odpovědět přímo nebo <a href="[privatemsg_message:url]">odpovědět na webu.</a> Nepřikládej prosím žádné přílohy - pokud je to potřeba, udělej to na webové stránce.
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Odesílatel: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (od !author na Warmshowers.org) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Odesílatel: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (od [privatemsg_message:author:fullname] na Warmshowers.org) [[privatemsg_message:pm_routing_hash]]',
   'user_mail_password_reset_body' => 'Milý uživateli jménem [user:name],
 
 vy (nebo někdo jiný) jste požadoval jednorázové přihlášení k vašemu účtu na Warmshowers.org. Pokud jste to nebyl vy, tuto zprávu ignorujte.
@@ -336,22 +335,21 @@ Mit freundlichen Grüssen,
 
 das Warmshowers.org-Team',
   'pm_email_notify_body' => '--------------------- Bitte Antworten Sie oberhalb dieser Linie -------------------+
-Hallo !username, 
+Hallo [privatemsg_message:recipient:fullname],
 
-Sie haben eine neue Nachricht von <a href="!uri/user/!author_uid">!author</a> auf Warmshowers.org  erhalten
+Sie haben eine neue Nachricht von <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a> auf Warmshowers.org  erhalten
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-Sie können auf diese Mail oder <a href="!message">über die Internetseite</a> antworten. Bitte fügen Sie keine Anhänge an. Dies können Sie, falls Sie wollen, über die Internetseite tun.
+Sie können auf diese Mail oder <a href="[privatemsg_message:url]">über die Internetseite</a> antworten. Bitte fügen Sie keine Anhänge an. Dies können Sie, falls Sie wollen, über die Internetseite tun.
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (von !author auf Warmshowers.org) [!pm_routing_hash] ',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (von [privatemsg_message:author:fullname] auf Warmshowers.org) [[privatemsg_message:pm_routing_hash]] ',
   'site_footer' => ' Gastfreundschaft für Tourenradfahrer<br/>
 <a href="/">Startseite</a>',
   'site_mission' => '<a href="http://de.warmshowers.org">warmshowers.org</a>: Gastfreundschaft für Tourenradfahrer',
@@ -534,21 +532,20 @@ O.K., das ist alles! Bitte fahren Sie unten mit Ihrer Registrierung fort.
 );
   $realm_variables['language']['en'] = array(
   'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
-Hi !username, you have received a message on Warmshowers.org from <a href="!uri/user/!author_uid">!author</a>:
+Hi [privatemsg_message:recipient:fullname], you have received a message on Warmshowers.org from <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>:
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-You can reply to this email or <a href="!message">respond on the site.</a> Please do not add attachments - you can do that on the site if you like.
+You can reply to this email or <a href="[privatemsg_message:url]">respond on the site.</a> Please do not add attachments - you can do that on the site if you like.
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (from !author at Warmshowers.org) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (from [privatemsg_message:author:fullname] at Warmshowers.org) [[privatemsg_message:pm_routing_hash]]',
 );
   $realm_variables['language']['en-working'] = array(
   'anonymous' => 'Former member',
@@ -639,6 +636,22 @@ You can view the comment by <a href="[comment:url]">clicking here</a>.  (Please 
 You will receive emails like this for all replies to your posts.
 
 - Warmshowers team',
+  'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
+Hi [privatemsg_message:recipient:fullname], you have received a message on Warmshowers.org from <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>:
+
+<div class="privatemsg-email-body" style="text-indent: 25px;">
+<em><strong> [privatemsg_message:subject] </strong>
+[privatemsg_message:body]</em>
+</div>
+
+You can reply to this email or <a href="[privatemsg_message:url]">respond on the site.</a> Please do not add attachments - you can do that on the site if you like.
+
+-----
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:url]</a>
+',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (from [privatemsg_message:author:fullname] at Warmshowers.org [[privatemsg_message:pm_routing_hash]]',
   'site_footer' => 'Hospitality for Touring Bicyclists Worldwide<br/>
 <a href="/welcome">Home</a>  <a href="/map">Map</a>',
   'site_mission' => 'the members of <a href="http://warmshowers.org">warmshowers.org</a>: hospitality for touring cyclists',
@@ -889,27 +902,26 @@ Se puede ver este comento por <a href="[comment:url]">cliquear aquí</a>.  (Favo
 
 - Equipo de Warmshowers.org',
   'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
-Hola, !username - has recibido un mensaje de <a href="!uri/user/!author_uid">!author</a> a través de Warmshowers.
+Hola, [privatemsg_message:recipient:fullname] - has recibido un mensaje de <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a> a través de Warmshowers.
 
-<em>Puedes contestar este e-mail o <a href="!message">clique aquí</a> para responder en el sitio.</strong></em>
+<em>Puedes contestar este e-mail o <a href="[privatemsg_message:url]">clique aquí</a> para responder en el sitio.</strong></em>
 
 
-<a href="!uri/user/!author_uid">!author</a> dice:
+<a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a> dice:
 -----------
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 -----------
-Para responder a <a href="!uri/user/!author_uid">!author</a>, utiliza este <a href="!message">enlace</a>:
-!message
+Para responder a <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>, utiliza este <a href="[privatemsg_message:url]">enlace</a>:
+[privatemsg_message:url]
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => 'Mensaje de !author en Warmshowers(!pm_subject) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => 'Mensaje de [privatemsg_message:author:fullname] en Warmshowers([privatemsg_message:subject]) [[privatemsg_message:pm_routing_hash]]',
   'site_footer' => 'Hospedaje para cicloturistas en todo el mundo<br/>
 <a href="/">Inicio</a>  <a href="/map">Mapa</a>',
   'site_mission' => 'los miembros de <a href="http://es.warmshowers.org">warmshowers.org</a>: hospitalidad entre cicloturistas',
@@ -1158,23 +1170,22 @@ Username: %username
 Email: %useremail
 ',
   'pm_email_notify_body' => '--------------------- لصفا بالای این خط پاسخ دهید -------------------+
-سلام !username ، شما یک پیغام جدید  وارم شاورز  از طرف  <a href="!uri/user/!author_uid">!author</a> 
-<em> دارید. لطفاً برای پاسخ دادن به آن  <a href="!message"> این لینک را کلیک کنید </a> </strong></em> 
- آنچه <a href="!uri/user/!author_uid">!author</a> می گوید اینست که :
- -----------  
-<div class="privatemsg-email-body" style="text-indent: 25px;"> 
-<em><strong>!pm_subject</strong> 
-!pm_body</em> 
-</div> 
------------ 
-برای پیگیری و پاسخ دادن به !author ، لطفا <a href="!message"> این لینک را کلیک کنید </a> : !message شما  *می توانید * با هر نرم افزار ایمیلی به این ایمیل پاسخ دهید ، ولی لطفا در صورت امکان  <a href="!message"> از طریق سایت وارم شاورز پاسخ دهید  </a>  
+سلام [privatemsg_message:recipient:fullname] ، شما یک پیغام جدید  وارم شاورز  از طرف  <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>
+<em> دارید. لطفاً برای پاسخ دادن به آن  <a href="[privatemsg_message:url]"> این لینک را کلیک کنید </a> </strong></em>
+ آنچه <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a> می گوید اینست که :
+ -----------
+<div class="privatemsg-email-body" style="text-indent: 25px;">
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
+</div>
+-----------
+برای پیگیری و پاسخ دادن به [privatemsg_message:author:fullname] ، لطفا <a href="[privatemsg_message:url]"> این لینک را کلیک کنید </a> : [privatemsg_message:url] شما  *می توانید * با هر نرم افزار ایمیلی به این ایمیل پاسخ دهید ، ولی لطفا در صورت امکان  <a href="[privatemsg_message:url]"> از طریق سایت وارم شاورز پاسخ دهید  </a>
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => 'پیغام جدید از !author از وارم شاورز Warmshowers.org (!pm_subject) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => 'پیغام جدید از [privatemsg_message:author:fullname] از وارم شاورز Warmshowers.org ([privatemsg_message:subject]) [[privatemsg_message:pm_routing_hash]]',
   'user_mail_password_reset_body' => 'سلام[user:name]
 شما ( یا یک کسی) برای اجازه یکبار ورود به حساب شما در  warmshowers.org  درخواست کرده است.اگر شما درخواست کننده نبوده اید، کافی است فقط این پیغام را ندیده بگیرید.
 لطفا ً  برای بازنویسی کلمه رمزتان <a href="[user:one-time-login-url]">اینجا را کلیک کنید </a>، تا بتوانید  کلمه رمزتان را تغییر دهید.
@@ -1482,20 +1493,19 @@ Vous recevrez un e-mail comme celui-ci à chaque fois que quelqu\'un répond à 
 - L\'équipe Warmshowers.org
 ',
   'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
-Salut !username, tu as un nouveau message sur Warmshowers.org de <a href="!uri/user/!author_uid">!author</a>
+Salut [privatemsg_message:recipient:fullname], tu as un nouveau message sur Warmshowers.org de <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-Tu peux répondre à ce mail ou <a href="!message">répondre sur le site.</a>. N\'ajoute pas de pièce jointe, tu peux le faire depuis le site si tu veux.
+Tu peux répondre à ce mail ou <a href="[privatemsg_message:url]">répondre sur le site.</a>. N\'ajoute pas de pièce jointe, tu peux le faire depuis le site si tu veux.
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-auteur: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (de !author at Warmshowers.org) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+auteur: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (de [privatemsg_message:author:fullname] at Warmshowers.org) [[privatemsg_message:pm_routing_hash]]',
   'site_footer' => 'Hébergement entre cyclo-randonneurs dans le monde entier<br/>
 <a href="/">Accueil</a>  <a href="/map">Carte</a>',
   'site_mission' => 'Membres de <a href="http://fr.warmshowers.org">warmshowers.org</a>: hébergement entre cyclo-randonneurs',
@@ -1743,22 +1753,21 @@ Username: %username
 Email: %useremail
 ',
   'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
-Ciao !username, hai appena ricevuto un nuovo messaggio su Warmshowers.org da <a href="!uri/user/!author_uid">!author</a>
+Ciao [privatemsg_message:recipient:fullname], hai appena ricevuto un nuovo messaggio su Warmshowers.org da <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>
 
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-Puoi rispondere direttamente a questa email o <a href="!message">rispondere attraverso il sito.</a> Per favore non mandare allegati - ma puoi caricarli attraverso il sito, se vuoi.
+Puoi rispondere direttamente a questa email o <a href="[privatemsg_message:url]">rispondere attraverso il sito.</a> Per favore non mandare allegati - ma puoi caricarli attraverso il sito, se vuoi.
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => ' !pm_subject (from !author at Warmshowers.org) [!pm_routing_hash] ',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => ' [privatemsg_message:subject] (from [privatemsg_message:author:fullname] at Warmshowers.org) [[privatemsg_message:pm_routing_hash]] ',
   'user_mail_password_reset_body' => 'Ciao [user:name],
 
 Tu (o qualcuno) ha richiesto un login unico per il tuo account su warmshowers.org. Se non hai richiesto questo servizio, ignora questo messaggio.
@@ -1943,24 +1952,23 @@ OK, è tutto per ora! Adesso prosegui con la registrazione.
 
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
   'pm_email_notify_body' => '--------------------- このラインの上側に返信して下さい -------------------+
-!usernameさんこんにちは。
+[privatemsg_message:recipient:fullname]さんこんにちは。
 
-あなたは、Warmshowers.orgの<a href="!uri/user/!author_uid">!author</a>さんから新しいメッセージを受信しました。
+あなたは、Warmshowers.orgの<a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>さんから新しいメッセージを受信しました。
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-このメッセージにはEメールで返信するか、<a href="!message">サイト上で返信する</a>ことができます。
+このメッセージにはEメールで返信するか、<a href="[privatemsg_message:url]">サイト上で返信する</a>ことができます。
 メールにはファイル添付を行わないで下さい。もしファイル添付したい場合は、サイト上で返信し、その際にサイト上で添付を行って下さい。
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (Warmshowers.org-!authorさんから新メッセージ) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (Warmshowers.org-[privatemsg_message:author:fullname]さんから新メッセージ) [[privatemsg_message:pm_routing_hash]]',
   'user_mail_password_reset_body' => '[user:name]さん、こんにちは。
 
 あなた（もしくは誰か）が、あなたのwarmshowers.orgへのワンタイムログインを依頼しました。もし依頼されたのがあなたでない場合は、このメッセージを無視して下さい。
@@ -2245,21 +2253,20 @@ Będziesz otrzymywał podobne e-maile informujące o wszystkich odpowiedziach na
 
 - Zespół Warmshowers',
   'pm_email_notify_body' => '--------------------- Prosimy umieścić odpowiedź powyżej tej linii -------------------+
-Witaj !username, otrzymałeś nową wiadomość na Warmshowers.org od <a href="!uri/user/!author_uid">!author</a>:
+Witaj [privatemsg_message:recipient:fullname], otrzymałeś nową wiadomość na Warmshowers.org od <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>:
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-Możesz odpowiedzieć na ten e-mail lub <a href="!message">odpowiedzieć poprzez stronę.</a> Prosimy nie dodawać załączników - możesz to zrobić odpowiadajac na stronie.
+Możesz odpowiedzieć na ten e-mail lub <a href="[privatemsg_message:url]">odpowiedzieć poprzez stronę.</a> Prosimy nie dodawać załączników - możesz to zrobić odpowiadajac na stronie.
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (od !author z Warmshowers.org) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (od [privatemsg_message:author:fullname] z Warmshowers.org) [[privatemsg_message:pm_routing_hash]]',
   'user_mail_password_reset_body' => 'Witaj [user:name],
 
 Ty (lub ktoś inny) poprosił o wysłanie jednorazowego przypomnienia loginu do konta na warmshowers.org Jeśli nie byłeś to Ty, możesz po prostu zignorować tę wiadomość.
@@ -2442,27 +2449,26 @@ To wszystko! Prosimy teraz, abyś kontynuował i wypełnił formularz rejestracy
 
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
   'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
-Olá !username, você recebeu uma nova mensagem no Warmshowers.org de <a href="!uri/user/!author_uid">!author</a>.
+Olá [privatemsg_message:recipient:fullname], você recebeu uma nova mensagem no Warmshowers.org de <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>.
 
-<em><strong>  <a href="!message">Clique neste link </a> para responder. </strong> </em>
+<em><strong>  <a href="[privatemsg_message:url]">Clique neste link </a> para responder. </strong> </em>
 
-Aqui está o que <a href="!uri/user/!author_uid">!author</a> diz:
+Aqui está o que <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a> diz:
 -----------
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 -----------
-Para responder ao remetente, <a href="!message">clique neste link </a> </strong> </em>: !message
+Para responder ao remetente, <a href="[privatemsg_message:url]">clique neste link </a> </strong> </em>: [privatemsg_message:url]
 
-É possível responder a este e-mail, mas pedimos para sempre que possível <a href="!message">responda através do site</a> 
+É possível responder a este e-mail, mas pedimos para sempre que possível <a href="[privatemsg_message:url]">responda através do site</a>
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => 'Nova mensagem de !author em Warmshowers (!pm_subject) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => 'Nova mensagem de [privatemsg_message:author:fullname] em Warmshowers ([privatemsg_message:subject]) [[privatemsg_message:pm_routing_hash]]',
   'site_footer' => ' Hospitalidade para cicloviajantes  ao redor do mundo<br/>
 <a href="/">Início</a>  <a href="/map">Mapa</a>',
   'site_mission' => '<a href="http://pt.warmshowers.org">warmshowers.org</a>: hospitalidade (e banho quente!) para cicloviajantes',
@@ -2742,21 +2748,20 @@ Email: %useremail',
 
 - Команда Warmshowers',
   'pm_email_notify_body' => '--------------------- Пожалуйста, ответьте над этой линией -------------------+
-Здравствуйте, !username, вы получили сообщение на сайте Warmshowers.org от <a href="!uri/user/!author_uid">!author</a>:
+Здравствуйте, [privatemsg_message:recipient:fullname], вы получили сообщение на сайте Warmshowers.org от <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>:
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-Вы можете ответить на это сообщение или же <a href="!message">ответить на сайте.</a> Пожалуйста, не прикрепляйте здесь файлы - при необходимости это можно сделать на сайте.
+Вы можете ответить на это сообщение или же <a href="[privatemsg_message:url]">ответить на сайте.</a> Пожалуйста, не прикрепляйте здесь файлы - при необходимости это можно сделать на сайте.
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject (от !author с сайта Warmshowers.org) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] (от [privatemsg_message:author:fullname] с сайта Warmshowers.org) [[privatemsg_message:pm_routing_hash]]',
   'user_mail_password_reset_body' => 'Здравствуйте, [user:name],
 
 Вы (или кто-то от вашего имени) запросил одноразовую ссылку для входа в ваш профиль на warmshowers.org. Если это не были вы, просто проигнорируйте данное сообщение.
@@ -3463,14 +3468,13 @@ Warmshowers.org',
 
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>',
   'pm_email_notify_body' => '--------------------- Please reply above this line -------------------+
-Merhaba !username, <a href="!uri/user/!author_uid">!author</a>\'den bir mesaj aldınız. <em>Lütfen <a href="!message">bu bağlantıyı tıklayarak</a> cevaplayın.</strong></em> <a href="!uri/user/!author_uid">!author</a>\'ın mesajını şurada bulabilirsiniz: ----------- <div class="privatemsg-email-body" style="text-indent: 25px;"> <em><strong>!pm_subject</strong> !pm_body</em> </div> ----------- Devam edip !author\'e cevap vermek için lütfen <a href="!message">bu bağlantıyı tıklayın</a>: !message Bu mesajı çoğu e-posta okuyucu ile *cevaplandırabilirsiniz*, ancak mümkün olduğu ölçüde mesajınızı <a href="!message">siteyi kullanarak cevaplamanızı</a> öneririz.
+Merhaba [privatemsg_message:recipient:fullname], <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>\'den bir mesaj aldınız. <em>Lütfen <a href="[privatemsg_message:url]">bu bağlantıyı tıklayarak</a> cevaplayın.</strong></em> <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>\'ın mesajını şurada bulabilirsiniz: ----------- <div class="privatemsg-email-body" style="text-indent: 25px;"> <em><strong>[privatemsg_message:subject]</strong> [privatemsg_message:body]</em> </div> ----------- Devam edip [privatemsg_message:author:fullname]\'e cevap vermek için lütfen <a href="[privatemsg_message:url]">bu bağlantıyı tıklayın</a>: [privatemsg_message:url] Bu mesajı çoğu e-posta okuyucu ile *cevaplandırabilirsiniz*, ancak mümkün olduğu ölçüde mesajınızı <a href="[privatemsg_message:url]">siteyi kullanarak cevaplamanızı</a> öneririz.
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => 'Warmshowers.org - !author kullanıcısı yeni bir mesaj gönderdi (!pm_subject) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => 'Warmshowers.org - [privatemsg_message:author:fullname] kullanıcısı yeni bir mesaj gönderdi ([privatemsg_message:subject]) [[privatemsg_message:pm_routing_hash]]',
   'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
   'wsuser_become_available_notification_subject' => 'You are now listed as available to host on Warmshowers.org ([user:fullname])',
   'wsuser_notavailable_reminder_body' => 'Hi [user:fullname], <br/><br/>Your warmshowers.org account, [user:name], is marked as unavailable to host. Could you please log in and set the date that you expect to return? If you don\'t know when or if you\'ll be able to host, just put in a date like 2025-01-01. You can change it at any time. You can log in with your username and password at <a href=\'https://tr.warmshowers.org\'>tr.warmshowers.org</a> or <a href=\'[user:login_url]\'>click this link to log in automatically</a><br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
@@ -3566,21 +3570,20 @@ E-mail: %useremail
 -Warmshowers.org团队敬上
 ',
   'pm_email_notify_body' => '--------------------- 请在这条华丽的分割线以上回复 -------------------+
-!username 您好！Warmshowers.org的用户<a href="!uri/user/!author_uid">!author</a>给您发送了一条站内消息：
+[privatemsg_message:recipient:fullname] 您好！Warmshowers.org的用户<a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>给您发送了一条站内消息：
 
 <div class="privatemsg-email-body" style="text-indent: 25px;">
-<em><strong>!pm_subject</strong>
-!pm_body</em>
+<em><strong>[privatemsg_message:subject]</strong>
+[privatemsg_message:body]</em>
 </div>
 
-如果您想回复这条站内消息，您可以直接回复这封邮件或者<a href="!message">点击这里在网站里回复</a>。回复这封邮件时请不要添加附件，如果您需要给对方发送文件，请在网站内操作。
+如果您想回复这条站内消息，您可以直接回复这封邮件或者<a href="[privatemsg_message:url]">点击这里在网站里回复</a>。回复这封邮件时请不要添加附件，如果您需要给对方发送文件，请在网站内操作。
 
 -----
-Routing: !pm_routing_hash
-Routing email: <a href="mailto:!pm_routing_email_addr">!pm_routing_email_addr</a>
-Site link: <a href="!message">!message</a>
-Sender: <a href="!uri/user/!author_uid">!uri/user/!author_uid</a>',
-  'pm_email_notify_subject' => '!pm_subject ( Warmshowers.org的用户!author给您发送的消息) [!pm_routing_hash]',
+Routing: [privatemsg_message:pm_routing_hash]
+Site link: <a href="[privatemsg_message:url]">[privatemsg_message:url]</a>
+Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:fullname]</a>',
+  'pm_email_notify_subject' => '[privatemsg_message:subject] ( Warmshowers.org的用户[privatemsg_message:author:fullname]给您发送的消息) [[privatemsg_message:pm_routing_hash]]',
   'user_mail_password_reset_body' => '[user:name]，您好
 
 您（也有可能是其他人）刚刚申请了重置您在WarmShowers网站的登录密码。如果这不是您进行的申请，请忽略这封邮件。
