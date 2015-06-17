@@ -7,7 +7,7 @@
  * @see https://drupal.org/node/1728148
  */
 ?>
-<div id="page-container" class="page wrapper <?php print $classes; ?>">
+<div id="page-container" class="<?php print $classes; ?>">
 
   <div id="header-wrapper" class="header wrapper">
     <header id="header" class="container responsive">
@@ -60,28 +60,34 @@
     </header>
   </div>
 
-  <div id="page-wrapper" class="page wrapper <?php print $classes; ?>">
-    <section id="page" class="container responsive">
+  <div id="page-wrapper" class="page wrapper">
+    <section id="page" class="container">
 
       <?php if (!empty($page['highlighted'])): ?>
         <?php print render($page['highlighted']); ?>
       <?php endif; ?>
 
-      <div id="main-wrapper">
-        <section id="main" class="clearfix<?php if ($main_menu || $navigation) { print ' with-navigation'; } ?>">
+      <div id="main-wrapper" class="main-wrapper container responsive">
 
-          <div id="content" class="column"><div class="section">
+          <aside class="sidebar first">
+              <?php print render($page['sidebar_first']); ?>
+          </aside>
+
+        <section id="main" class="main">
+
+          <div class="tabs"><?php print render($tabs); ?></div>
+
+          <div id="content-area" class="content-area">
             <?php if (preg_match("/^(admin|forum)/", $menu_item['path']) || $node->type == 'forum') { print $breadcrumb; } ?>
+
             <?php print render($title_prefix); ?>
             <?php if ($title && !$is_front): ?>
               <h1 class="title"><?php print $title; ?></h1>
             <?php endif; ?>
             <?php print render($title_suffix); ?>
+
             <?php print $messages; ?>
-            <!-- We will show the tabs only if not on the profile page) -->
-            <?php if ($tabs && (!empty($menu_item['path']) && $menu_item['path'] != 'user/%')): ?>
-              <div class="tabs"><?php print render($tabs); ?></div>
-            <?php endif; ?>
+
             <?php print render($page['help']); ?>
             <?php if ($action_links): ?>
               <ul class="action-links"><?php print render($action_links); ?></ul>
@@ -89,7 +95,7 @@
 
             <?php print render($page['content_top']); ?>
 
-            <div id="content-area">
+            <div class="region-content">
               <?php print render($page['content']); ?>
             </div>
 
@@ -98,23 +104,12 @@
             <?php if ($feed_icons): ?>
               <div class="feed-icons"><?php print $feed_icons; ?></div>
             <?php endif; ?>
-
-          </div></div><!-- /.section, /#content -->
-
-          <?php
-            // Render the sidebars to see if there's anything in them.
-            $sidebar_first  = render($page['sidebar_first']);
-            $sidebar_second = render($page['sidebar_second']);
-          ?>
-
-          <?php if ($sidebar_first || $sidebar_second): ?>
-            <div class="sidebars">
-              <?php print $sidebar_first; ?>
-              <?php print $sidebar_second; ?>
-            </div>
-          <?php endif; ?>
-
+          </div><!-- /#content-area -->
         </section>
+
+          <aside class="sidebar second">
+              <?php print render($page['sidebar_second']); ?>
+          </aside>
       </div><!-- /#main-wrapper -->
 
       <div id="footer-wrapper" class="footer wrapper">

@@ -108,7 +108,6 @@ function warmshowers_zen_preprocess_html(&$variables, $hook) {
  */
 function _warmshowers_zen_add_html_classes(&$variables) {
   global $user;
-  $args = arg();
 
   // Add classes for all populated theme regions
   $regions = system_region_list('warmshowers_zen');
@@ -131,11 +130,7 @@ function _warmshowers_zen_add_html_classes(&$variables) {
       $variables['classes_array'][] = drupal_html_class("user-has-role-{$role}");
     }
   }
-  // Add classes for page node type
-  if ($arg[0] == 'user') {
-    // @TODO: New logic.
-  }
-  if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
+  if (arg(0) == 'user' && is_numeric(arg(1)) && empty(arg(2))) {
     $variables['classes_array'][] = 'page-user-profile';
   }
 }
