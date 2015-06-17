@@ -1,4 +1,0 @@
-To do
-:   Document the API, and give examples of usage.
-
-For now, full Doxygen comments are provided at the top of each class method.
