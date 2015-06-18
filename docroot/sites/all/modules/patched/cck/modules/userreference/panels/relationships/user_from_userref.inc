@@ -1,5 +1,5 @@
 <?php
-// $Id: user_from_userref.inc,v 1.1.2.3 2009/07/21 20:06:12 markuspetrux Exp $
+// $Id$
 
 /**
  * @file

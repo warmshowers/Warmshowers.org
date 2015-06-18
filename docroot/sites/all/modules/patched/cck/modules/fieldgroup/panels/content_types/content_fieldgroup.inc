@@ -1,5 +1,5 @@
 <?php
-// $Id: content_fieldgroup.inc,v 1.1.2.4 2009/07/18 01:18:07 markuspetrux Exp $
+// $Id$
 
 /**
  * @file

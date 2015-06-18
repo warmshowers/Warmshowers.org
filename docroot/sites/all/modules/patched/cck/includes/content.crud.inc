@@ -1,5 +1,5 @@
 <?php
-// $Id: content.crud.inc,v 1.76.2.17 2009/07/14 22:17:05 yched Exp $
+// $Id$
 
 /**
  * @file

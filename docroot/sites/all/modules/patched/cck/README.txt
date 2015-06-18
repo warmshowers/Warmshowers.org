@@ -1,4 +1,4 @@
-// $Id: README.txt,v 1.12.2.4 2008/10/28 01:42:48 yched Exp $
+// $Id$
 
 Content Construction Kit
 ------------------------

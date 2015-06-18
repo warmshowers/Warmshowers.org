@@ -1,5 +1,5 @@
 <?php
-// $Id: content_handler_sort.inc,v 1.1.2.6 2008/10/25 00:36:41 yched Exp $
+// $Id$
 
 /**
  * @file

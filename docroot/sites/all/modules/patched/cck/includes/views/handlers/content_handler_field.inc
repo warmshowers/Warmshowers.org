@@ -1,5 +1,5 @@
 <?php
-// $Id: content_handler_field.inc,v 1.1.2.21 2011/01/07 13:33:55 yched Exp $
+// $Id$
 
 /**
  * @file

@@ -1,5 +1,5 @@
 <?php
-// $Id: content.views.inc,v 1.1.2.28 2009/08/11 20:05:18 markuspetrux Exp $
+// $Id$
 
 /**
  * @file

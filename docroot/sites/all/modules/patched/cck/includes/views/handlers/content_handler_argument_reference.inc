@@ -1,5 +1,5 @@
 <?php
-// $Id: content_handler_argument_reference.inc,v 1.1.2.2 2009/04/08 19:26:23 yched Exp $
+// $Id$
 
 /**
  * @file

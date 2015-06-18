@@ -1,5 +1,5 @@
 <?php
-// $Id: content-admin-field-overview-form.tpl.php,v 1.1.2.6 2009/06/26 18:02:45 yched Exp $
+// $Id$
 ?>
 <div>
   <?php print $help; ?>

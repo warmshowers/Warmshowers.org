@@ -1,5 +1,5 @@
 <?php
-// $Id: content_handler_argument_many_to_one.inc,v 1.1.2.4 2009/04/05 01:41:21 yched Exp $
+// $Id$
 
 /**
  * @file

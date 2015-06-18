@@ -1,5 +1,5 @@
 <?php
-// $Id: content.token.inc,v 1.5.2.14 2011/01/05 10:34:57 yched Exp $
+// $Id$
 
 /**
  * @file
@@ -166,7 +166,6 @@ if (module_exists('userreference')) {
       $tokens['user reference']['link']  = t('Formatted HTML link to referenced user');
       $tokens['user reference']['path']  = t("Relative path alias to the referenced user.");
       $tokens['user reference']['url']  = t("Absolute path alias to the referenced user.");
-      $tokens['user reference']['mail'] = t('Referenced user email address');
 
       return $tokens;
     }
@@ -181,9 +180,6 @@ if (module_exists('userreference')) {
       $tokens['link']  = isset($item['view']) ? $item['view'] : '';
       $tokens['path'] = is_numeric($item['uid']) ? url('user/' . $item['uid']) : '';
       $tokens['url'] = is_numeric($item['uid']) ? url('user/' . $item['uid'], array('absolute' => TRUE)) : '';
-
-      $user = user_load(array('uid' => $item['uid']));
-      $tokens['mail'] = $user ? $user->mail : '';
 
       return $tokens;
     }

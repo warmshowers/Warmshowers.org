@@ -1,5 +1,5 @@
 <?php
-// $Id: content_handler_filter_string.inc,v 1.1.2.2 2008/10/04 13:14:21 karens Exp $
+// $Id$
 
 /**
  * @file

@@ -1,5 +1,5 @@
 <?php
-// $Id: content.node_form.inc,v 1.7.2.24 2010/12/30 13:55:30 yched Exp $
+// $Id$
 
 /**
  * @file

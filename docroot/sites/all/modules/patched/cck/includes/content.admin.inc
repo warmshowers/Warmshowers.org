@@ -1,5 +1,5 @@
 <?php
-// $Id: content.admin.inc,v 1.181.2.76 2009/11/02 21:21:24 markuspetrux Exp $
+// $Id$
 
 /**
  * @file
@@ -1331,9 +1331,12 @@ function content_field_edit_form_submit($form, &$form_state) {
   $form_values = $form_state['values'];
   content_field_instance_update($form_values);
 
-  if (isset($_REQUEST['destinations'])) {
+  $destinations = !empty($_REQUEST['destinations']) ? $_REQUEST['destinations'] : array();
+  // Remove any external URLs.
+  $destinations = array_diff($destinations, array_filter($destinations, 'menu_path_is_external'));
+  if ($destinations) {
     drupal_set_message(t('Added field %label.', array('%label' => $form_values['label'])));
-    $form_state['redirect'] = content_get_destinations($_REQUEST['destinations']);
+    $form_state['redirect'] = content_get_destinations($destinations);
   }
   else {
     drupal_set_message(t('Saved field %label.', array('%label' => $form_values['label'])));
