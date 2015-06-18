@@ -681,7 +681,7 @@ Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:url
 Your password and further instructions have been sent to your e-mail address.
 
 For your convenience, you are already logged in with your newly created account.',
-  'uc_msg_order_submit' => 'Thanks so much for your donation of [order-total]. You have made a real difference to our community! Your membership will last for the coming year.',
+  'uc_msg_order_submit' => 'Thanks so much for your donation of [uc_order:order-total]. You have made a real difference to our community! Your membership will last for the coming year.',
   'uc_paypal_wps_checkout_button' => 'Send Your Donation',
   'uc_product_add_to_cart_text' => 'Give now!',
   'uc_roles_default_expiration_header' => 'Your membership is expiring',
