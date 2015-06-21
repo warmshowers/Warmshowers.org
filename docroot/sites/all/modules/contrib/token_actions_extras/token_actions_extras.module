@@ -1,0 +1,291 @@
+<?php
+/**
+ * @file
+ * token_actions_extras.module
+ *
+ * This module provides more advanced token actions. *
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function token_actions_extras_menu() {
+  $items = array();
+
+  $items['admin/config/system/token_actions_extras'] = array(
+    'title' => 'Token Actions Extras',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('token_actions_extras_settings_form'),
+    'access arguments' => array('administer site'),
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_action_info().
+ *
+ * Provide additional token actions.
+ */
+function token_actions_extras_action_info() {
+  return array(
+    'token_actions_extras_send_email_action' => array(
+      'label' => t('Send enhanced tokenized e-mail'),
+      'type' => 'system',
+      'configurable' => TRUE,
+      'triggers' => array(
+        'node_view',
+        'node_insert',
+        'node_update',
+        'node_delete',
+        'comment_view',
+        'comment_insert',
+        'comment_update',
+        'comment_delete',
+        'user_view',
+        'user_insert',
+        'user_update',
+        'user_delete',
+        'user_login',
+        'taxonomy_term_insert',
+        'taxonomy_term_update',
+        'taxonomy_term_delete',
+      ),
+    ),
+  );
+}
+
+/**
+ * System settings form for the module.
+ *
+ * @return
+ *   The form.
+ */
+function token_actions_extras_settings_form() {
+  $form = array();
+
+  $form['tokenized_email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Tokenized Email'),
+    '#collapsed' => FALSE,
+  );
+
+  $form['tokenized_email']['token_actions_extras_default_sender_email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default sender email address'),
+    '#default_value' => variable_get('token_actions_extras_default_sender_email', ''),
+    '#size' => 20,
+  );
+  $form['tokenized_email']['token_actions_extras_default_sender_friendly_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default sender friendly name'),
+    '#default_value' => variable_get('token_actions_extras_default_sender_friendly_name', variable_get('site_name', '')),
+    '#size' => 20,
+    '#description' => t('The friendly name for the from address. For example, if the sender is me@example.com and the friendly name is "Example Admin" the From: will then be "Example Admin" <me@example.com>.'),
+  );
+  $form['tokenized_email']['token_actions_extras_default_replyto'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default reply-to address'),
+    '#default_value' => variable_get('token_actions_extras_default_replyto', ''),
+    '#size' => 20,
+  );
+  $form['tokenized_email']['token_actions_extras_default_recipient_email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default target recipient address'),
+    '#default_value' => variable_get('token_actions_extras_default_recipient_email', '[user:mail]'),
+    '#size' => 20,
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Action callback to send a tokenized e-mail.
+ *
+ * This is mostly a copy of what's in system module but adds
+ * Sender, Friendly name, and Reply-To.
+ *
+ * @see token_actions_extras_send_email_action_form()
+ * @see token_actions_extras_send_email_action_submit()
+ */
+function token_actions_extras_send_email_action($entity, $context) {
+  $recipient = token_replace($context['recipient'], $context);
+  $params['sender'] = token_replace($context['sender'], $context);
+  $params['sender_friendly'] = token_replace($context['sender_friendly'], $context);
+  $params['replyto'] = token_replace($context['replyto'], $context);
+  $params['subject'] = str_replace(array(
+    "\r",
+    "\n",
+  ), '', token_replace($context['subject'], $context));
+  $params['body'] = token_replace($context['message'], $context);
+
+  // If the recipient is a registered user with a language preference, use
+  // the recipient's preferred language. Otherwise, use the system default
+  // language.
+  $recipient_account = user_load_by_mail($recipient);
+  if ($recipient_account) {
+    $language = user_preferred_language($recipient_account);
+  }
+  else {
+    $language = language_default();
+  }
+
+  if (drupal_mail('token_actions_extras', 'send_email', $recipient, $language, $params, $params['sender'])) {
+    watchdog('action', 'Sent tokenized email to %recipient', array('%recipient' => $recipient));
+  }
+  else {
+    watchdog('error', 'Unable to send email to %recipient', array('%recipient' => $recipient));
+  }
+}
+
+/**
+ * Return a form definition so the send email action can be configured.
+ *
+ * @param $context
+ *   Default values (if we are editing an existing action instance).
+ *
+ * @return
+ *   Form definition.
+ *
+ * @see token_actions_extras_send_email_action()
+ * @see token_actions_extras_send_email_action_validate()
+ * @see token_actions_extras_send_email_action_submit()
+ */
+function token_actions_extras_send_email_action_form($context) {
+  // Set default values for form.
+  if (!isset($context['sender'])) {
+    $context['sender'] = '';
+  }
+  if (!isset($context['sender_friendly'])) {
+    $context['sender_friendly'] = '';
+  }
+  if (!isset($context['replyto'])) {
+    $context['replyto'] = '';
+  }
+  if (!isset($context['recipient'])) {
+    $context['recipient'] = '';
+  }
+  if (!isset($context['subject'])) {
+    $context['subject'] = '';
+  }
+  if (!isset($context['message'])) {
+    $context['message'] = '';
+  }
+
+  $form['sender'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sender'),
+    '#default_value' => !empty($context['sender']) ? $context['sender'] : variable_get('token_actions_extras_default_sender_email', ''),
+    '#required' => TRUE,
+    '#size' => '20',
+    '#maxlength' => '254',
+    '#description' => t('The email address FROM which the message should be sent.'),
+  );
+
+  $form['sender_friendly'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sender Friendly Name'),
+    '#default_value' => !empty($context['sender_friendly']) ? $context['sender_friendly'] : variable_get('token_actions_extras_default_sender_friendly_name', 'Warmshowers.org'),
+    '#required' => TRUE,
+    '#size' => '20',
+    '#maxlength' => '254',
+    '#description' => t('The friendly display name of sender.'),
+  );
+
+  $form['replyto'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Reply-to'),
+    '#default_value' => !empty($context['replyto']) ? $context['replyto'] : variable_get('token_actions_extras_default_replyto', ''),
+    '#size' => '20',
+    '#maxlength' => '254',
+    '#description' => t('The reply-to email address.'),
+  );
+
+  $form['recipient'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Recipient'),
+    '#default_value' => !empty($context['recipient']) ? $context['recipient'] : variable_get('token_actions_extras_default_recipient_email', '[user:mail]'),
+    '#required' => TRUE,
+    '#size' => '20',
+    '#maxlength' => '254',
+    '#description' => t('The email address to which the message should be sent.'),
+  );
+  $form['subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#default_value' => $context['subject'],
+    '#size' => '20',
+    '#maxlength' => '254',
+    '#description' => t('The subject of the message.'),
+  );
+  $form['message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Message'),
+    '#default_value' => $context['message'],
+    '#required' => TRUE,
+    '#cols' => '80',
+    '#rows' => '20',
+    '#description' => t('The message that should be sent. You may include placeholders like [node:title], [user:name], and [comment:body] to represent data that will be different each time message is sent. Not all placeholders will be available in all contexts.'),
+  );
+
+  $form['tokens'] = array(
+    '#theme' => 'token_tree_link',
+    '#token_types' => 'all',
+  );
+
+  return $form;
+}
+
+/**
+ * Validate token_actions_extras_send_email_action form submissions.
+ *
+ * @see token_actions_extras_send_email_action()
+ * @see token_actions_extras_send_email_action_form()
+ * @see token_actions_extras_send_email_action_submit()
+ */
+function token_actions_extras_send_email_action_validate($form, $form_state) {
+  $form_values = $form_state['values'];
+  if (!empty($form_values['replyto']) && !valid_email_address($form_values['replyto'])) {
+    form_set_error('replyto', t('Enter a valid email address or use a token e-mail address such as %mail.', array('%mail' => '[user:mail]')));
+  }
+  foreach (array('sender', 'recipient') as $form_item) {
+    if (!valid_email_address($form_values[$form_item]) && strpos($form_values[$form_item], ':mail') === FALSE) {
+      // We want the literal %mail placeholder to be emphasized in the error message.
+      form_set_error($form_item, t('Enter a valid email address or use a token e-mail address such as %mail.', array('%mail' => '[user:mail]')));
+    }
+  }
+}
+
+/**
+ * Process token_actions_extras_send_email_action form submissions.
+ *
+ * @see token_actions_extras_send_email_action()
+ * @see token_actions_extras_send_email_action_form()
+ * @see token_actions_extras_send_email_action_validate()
+ */
+function token_actions_extras_send_email_action_submit($form, $form_state) {
+  return array(
+    'sender' => $form_state['values']['sender'],
+    'sender_friendly' => $form_state['values']['sender_friendly'],
+    'recipient' => $form_state['values']['recipient'],
+    'replyto' => $form_state['values']['replyto'],
+    'subject' => $form_state['values']['subject'],
+    'message' => $form_state['values']['message'],
+  );
+}
+
+/**
+ * Implements hook_mail().
+ */
+function token_actions_extras_mail($key, &$message, $params) {
+  $message['headers']['From'] = $params['sender'];
+  if (!empty($params['sender_friendly'])) {
+    $message['headers']['From'] = '"'
+      . str_replace('"', '', $params['sender_friendly'])
+      . '" <' . $params['sender'] . '>';
+  }
+
+  if (!empty($params['replyto'])) {
+    $message['headers']['Reply-To'] = $params['replyto'];
+  }
+  $message['subject'] = $params['subject'];
+  $message['body'][] = $params['body'];
+}

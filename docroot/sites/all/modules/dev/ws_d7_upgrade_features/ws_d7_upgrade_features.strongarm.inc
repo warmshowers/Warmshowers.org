@@ -124,6 +124,16 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'mail_system';
+  $strongarm->value = array(
+    'default-system' => 'HTMLMailSystem',
+    'htmlmail' => 'HTMLMailSystem',
+  );
+  $export['mail_system'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'menu_options_trust_referral';
   $strongarm->value = array(
     0 => 'navigation',
@@ -171,6 +181,13 @@ function ws_d7_upgrade_features_strongarm() {
     'wsuser' => 'wsuser',
   );
   $export['search_active_modules'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'token_actions_extras_default_recipient_email';
+  $strongarm->value = '[user:mail]';
+  $export['token_actions_extras_default_recipient_email'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */

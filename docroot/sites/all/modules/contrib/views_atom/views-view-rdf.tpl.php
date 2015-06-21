@@ -1,3 +1,0 @@
-<?php ?>
-
-RDF goes here
