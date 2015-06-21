@@ -109,7 +109,7 @@ function warmshowers_zen_preprocess_html(&$variables, $hook) {
 function _warmshowers_zen_add_html_classes(&$variables) {
   global $user;
 
-  // Add classes for all populated theme regions
+  // Add classes for all populated theme regions to show which regions are on the page.
   $regions = system_region_list('warmshowers_zen');
   if (isset($regions)) {
     foreach ($regions as $key=>$region) {
@@ -118,7 +118,7 @@ function _warmshowers_zen_add_html_classes(&$variables) {
       }
     }
   }
-  // Add classes for all roles a user has
+  // Add classes for all roles a user has.
   $roles_include = array(
       'anonymous user',
       'authenticated user',
@@ -130,6 +130,7 @@ function _warmshowers_zen_add_html_classes(&$variables) {
       $variables['classes_array'][] = drupal_html_class("user-has-role-{$role}");
     }
   }
+  // Add a class for the user profile page if not already created by base theme.
   if (arg(0) == 'user' && is_numeric(arg(1)) && empty(arg(2))) {
     $variables['classes_array'][] = 'page-user-profile';
   }
@@ -145,31 +146,17 @@ function _warmshowers_zen_add_html_classes(&$variables) {
  */
 function warmshowers_zen_preprocess_page(&$variables, $hook) {
   global $user;
-
   /*
    * Generate renderable menu arrays
+   *
+   * @TODO: Not implemented yet, but consider replacing menu blocks with this.
    */
   _warmshowers_zen_generate_menus($variables);
 
   // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
-  if (($url_parts = explode("/", $_GET['q'])) && $url_parts[0] == 'user') {
+  if (arg(0) == 'user' && is_numeric(arg(1))) {
     unset($variables['breadcrumb']);
   }
-  // Add links to login, or if logged in, add link to profile
-  if (!$variables['logged_in']) {
-    $variables['authentication_block'] =  l(t('Sign up'), 'user/register', array('attributes' => array('class' => array('signup')))) .
-      l(t('Log in'), 'user', array('attributes' => array('class' => array('login'))));
-  }
-  else {
-    $variables['authentication_block'] = t(
-      "Logged in as !name | !logout",
-      array(
-        '!name' => l($user->data['fullname'], 'user/' . $user->uid),
-        '!logout' => l(t('Log out'),'logout')
-      )
-    );
-  }
-
 }
 
 /**
@@ -202,11 +189,34 @@ function _warmshowers_zen_generate_menus(&$variables) {
  *
  * @param $variables
  *   An array of variables to pass to the theme template.
- * @param $hook
- *   The name of the template being rendered ("node" in this case.)
  */
-function warmshowers_zen_preprocess_node(&$variables, $hook) {
+function warmshowers_zen_preprocess_node(&$variables) {
 
+  //@TODO: Only in here so that I don't have to clear registry if I want to add some block output. Remove if empty.
+}
+
+/**
+ * Override or insert variables into the region templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ */
+function warmshowers_zen_preprocess_region(&$variables) {
+
+  // Count how many blocks are in each region
+  $blocks = (count(element_children($variables['elements'])));
+  $variables['classes_array'][] = drupal_html_class("region-block-count--{$blocks}");
+}
+
+/**
+ * Override or insert variables into the block templates.
+ *
+ * @param $variables
+ *   An array of variables to pass to the theme template.
+ */
+function warmshowers_zen_preprocess_block(&$variables) {
+
+  //@TODO: Only in here so that I don't have to clear registry if I want to add some block output. Remove if empty.
 }
 
 /**
@@ -370,7 +380,7 @@ function warmshowers_zen_privatemsg_username($variables) {
     return $name;
   }
   else {
-    return theme('username', $recipient);
+    return theme('username', array('account' => $recipient));
   }
 }
 
@@ -380,17 +390,17 @@ function warmshowers_zen_privatemsg_username($variables) {
  * @return string
  */
 function warmshowers_zen_username($variables) {
-  $object = $variables['object'];
-  $name = warmshowers_zen_sanitized_username($object);
+  $account = $variables['account'];
+  $name = warmshowers_zen_sanitized_username($variables);
 
-  if ($object->uid && $name) {
+  if ($account->uid && $name) {
     // Shorten the name when it is too long or it will break many tables.
     if (drupal_strlen($name) > 22) {
       $name = drupal_substr($name, 0, 18) . '...';
     }
 
     if (user_access('access user profiles')) {
-      $output = l($name, 'user/' . $object->uid, array('attributes' => array('title' => t('View user profile.'))));
+      $output = l($name, 'user/' . $account->uid, array('attributes' => array('title' => t('View user profile.'))));
     }
     else {
       $output = check_plain($name);
@@ -419,6 +429,7 @@ function warmshowers_zen_username($variables) {
 function warmshowers_zen_sanitized_username($variables) {
   $account = $variables['account'];
   $name = t('WS Member');
+
   if (user_access('access user profiles')) {
     if (!empty($account->fullname)) {
       $name = $account->fullname;
