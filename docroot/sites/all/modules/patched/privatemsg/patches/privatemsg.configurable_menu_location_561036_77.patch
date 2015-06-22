@@ -1,0 +1,512 @@
+commit 618c7c0430c5a22781a866c7efa9c54507f5f39f
+Author: Randy Fay <randy@randyfay.com>
+Date:   Wed Jun 17 12:52:34 2015 -0600
+
+    Issue #561036 by Berdir, tylor, smoothify, rfay: Added custom URL prefix setting for 7.x-1.x.
+
+diff --git a/pm_block_user/pm_block_user.module b/pm_block_user/pm_block_user.module
+index 25d3bca..e2e0efa 100755
+--- a/pm_block_user/pm_block_user.module
++++ b/pm_block_user/pm_block_user.module
+@@ -29,6 +29,7 @@ function pm_block_user_help($path) {
+  * Implements hook_menu().
+  */
+ function pm_block_user_menu() {
++  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
+   $items['messages/block/%user'] = array(
+     'title'            => 'Block user messages',
+     'page callback'    => 'drupal_get_form',
+@@ -40,13 +41,13 @@ function pm_block_user_menu() {
+     'weight'           => -10,
+   );
+ 
+-  $items['messages/blocked'] = array(
++  $items[$url_prefix . '/blocked'] = array(
+     'title'            => 'Blocked users',
+     'page callback'    => 'drupal_get_form',
+     'page arguments'    => array('pm_block_user_list'),
+     'file'             => 'pm_block_user.pages.inc',
+     'access callback'  => 'privatemsg_user_access',
+-    'access arguments' => array('read privatemsg'),
++    'access arguments' => array('read privatemsg', TRUE),
+     'type'             => MENU_LOCAL_TASK,
+     'weight'           => 10,
+   );
+@@ -60,7 +61,7 @@ function pm_block_user_menu() {
+     'access arguments' => array('administer privatemsg settings'),
+     'type'             => MENU_LOCAL_TASK,
+   );
+-  
++
+   $items['messages/block/js'] = array(
+     'title'            => 'Javascript block actions form',
+     'page callback'    => 'pm_block_user_js',
+diff --git a/pm_block_user/pm_block_user.pages.inc b/pm_block_user/pm_block_user.pages.inc
+index 3469c5c..004c5a4 100644
+--- a/pm_block_user/pm_block_user.pages.inc
++++ b/pm_block_user/pm_block_user.pages.inc
+@@ -18,7 +18,7 @@ function pm_block_user_form($form, $form_state, $author) {
+   );
+   $form['destination'] = array(
+     '#type' => 'value',
+-    '#value' => isset($_GET['destination']) ? $_GET['destination'] : 'messages/',
++    '#value' => isset($_GET['destination']) ? $_GET['destination'] : privatemsg_get_dynamic_url_prefix(),
+   );
+   if (pm_block_user_has_blocked($author, $user)) {
+     $form['block_action'] = array(
+@@ -27,7 +27,7 @@ function pm_block_user_form($form, $form_state, $author) {
+     );
+     return confirm_form($form,
+       t('You have previously blocked "@author" from sending you any more messages. Are you sure you want to unblock this user?', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
+-      isset($_GET['destination']) ? $_GET['destination'] : 'messages/',
++      isset($_GET['destination']) ? $_GET['destination'] : privatemsg_get_dynamic_url_prefix(),
+       '',
+       t('Unblock @author', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
+       t('Cancel')
+@@ -40,7 +40,7 @@ function pm_block_user_form($form, $form_state, $author) {
+     );
+     return confirm_form($form,
+       t('Are you sure you want to block "@author" from sending you any more messages?', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
+-      isset($_GET['destination']) ? $_GET['destination'] : 'messages/',
++      isset($_GET['destination']) ? $_GET['destination'] : privatemsg_get_dynamic_url_prefix(),
+       '',
+       t('Block @author', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
+       t('Cancel')
+@@ -203,4 +203,4 @@ function pm_block_user_block_submit($form, &$form_state) {
+ function theme_pm_block_user_list($variables) {
+   $form = $variables['form'];
+   return drupal_render_children($form) . theme('table', array('header' => $form['#header'], 'rows' =>  $form['#rows'])) . theme('pager');
+-}
+\ No newline at end of file
++}
+diff --git a/privatemsg.admin.inc b/privatemsg.admin.inc
+index 3a6ef68..6f5f5b2 100644
+--- a/privatemsg.admin.inc
++++ b/privatemsg.admin.inc
+@@ -123,6 +123,15 @@ function privatemsg_admin_settings() {
+     '#default_value' => variable_get('privatemsg_display_fields', array('participants')),
+   );
+ 
++  $form['privatemsg_listing']['privatemsg_url_prefix'] = array(
++    '#type' => 'textfield',
++    '#title' => t('Base URL path'),
++    '#required' => TRUE,
++    '#description' => t("Specify the base URL path to be used for all Private Message pages. Note that %user can be used as a placeholder for the current user's ID. Possible paths include 'user/%user/messages' (pages appear as children of the user account page) or 'messages' (the default path)."),
++    '#default_value' => variable_get('privatemsg_url_prefix', 'messages'),
++    '#weight' => 20,
++  );
++
+   $amounts = drupal_map_assoc(array(5, 10, 20, 30, 50, 70, 90, 150, 200, 250, 300));
+   $form['privatemsg_listing']['privatemsg_view_max_amount'] = array(
+     '#type'          => 'select',
+@@ -200,16 +209,22 @@ function privatemsg_admin_settings() {
+     '#description' => t('Also display a link to send a private message to the authors of the comments of the selected content types.'),
+     '#default_value' => variable_get('privatemsg_display_on_comments', 0),
+   );
+-
+   $form['#submit'][] = 'privatemsg_admin_settings_submit';
+   return system_settings_form($form);
+ }
+ 
+-function privatemsg_admin_settings_submit() {
+-  drupal_theme_rebuild();
++/**
++ * Submit handler to check if URL prefixes have changes and rebuild the menu
++ * cache if this is true.
++ */
++function privatemsg_admin_settings_submit($form, &$form_state) {
++  // Only rebuild menu if url prefix has changed.
++  if ($form_state['values']['privatemsg_url_prefix'] != $form['privatemsg_listing']['privatemsg_url_prefix']['#default_value']) {
++    menu_rebuild();
++  }
+ }
+ 
+ function privatemsg_view_options() {
+   $options = module_invoke_all('privatemsg_view_template');
+   return $options;
+-}
+\ No newline at end of file
++}
+diff --git a/privatemsg.module b/privatemsg.module
+index 5f9c69c..5ccad10 100755
+--- a/privatemsg.module
++++ b/privatemsg.module
+@@ -169,36 +169,44 @@ function _privatemsg_format_participants($part_array, $limit = NULL, $no_text =
+  * Implements hook_menu().
+  */
+ function privatemsg_menu() {
+-  $items['messages'] = array(
++  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
++  // Find how many arguments are in the prefix.
++  $url_prefix_arg_count = substr_count($url_prefix, '/') + 1;
++  // Find at which position a %user token is if it exists.
++  $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
++
++  $items[$url_prefix] = array(
+     'title'            => 'Messages',
+     'title callback'   => 'privatemsg_title_callback',
++    'title arguments'  => array($url_prefix_user_arg_position),
+     'page callback'    => 'privatemsg_list_page',
+-    'page arguments'   => array('list'),
++    'page arguments'   => array('list', $url_prefix_user_arg_position),
+     'file'             => 'privatemsg.pages.inc',
+     'access callback'  => 'privatemsg_user_access',
+-    'type'             => MENU_NORMAL_ITEM,
++    'type'             => $url_prefix_user_arg_position === FALSE ? MENU_NORMAL_ITEM : MENU_LOCAL_TASK,
+     'menu_name'        => 'user-menu',
+   );
+-  $items['messages/list'] = array(
++  $items[$url_prefix . '/list'] = array(
+     'title'            => 'Messages',
+     'page callback'    => 'privatemsg_list_page',
+-    'page arguments'   => array('list'),
++    'page arguments'   => array('list', $url_prefix_user_arg_position),
+     'file'             => 'privatemsg.pages.inc',
+     'access callback'  => 'privatemsg_user_access',
+     'type'             => MENU_DEFAULT_LOCAL_TASK,
+     'weight'           => -10,
+     'menu_name'        => 'user-menu',
+   );
+-  $items['messages/view/%privatemsg_thread'] = array(
++  $items[$url_prefix . '/view/%privatemsg_thread'] = array(
++    'title'            => 'Read message',
+     // Set the third argument to TRUE so that we can show access denied instead
+     // of not found.
+     'load arguments'   => array(NULL, NULL, TRUE),
+     'title'            => 'Read message',
+     'page callback'    => 'privatemsg_view',
+-    'page arguments'   => array(2),
++    'page arguments'   => array($url_prefix_arg_count + 1),
+     'file'             => 'privatemsg.pages.inc',
+     'access callback'  => 'privatemsg_view_access',
+-    'access arguments' => array(2),
++    'access arguments' => array($url_prefix_arg_count + 1),
+     'type'             => MENU_LOCAL_TASK,
+     'weight'           => -5,
+     'menu_name'        => 'user-menu',
+@@ -214,10 +222,10 @@ function privatemsg_menu() {
+     'weight'           => -10,
+     'menu_name'        => 'user-menu',
+   );
+-  $items['messages/new'] = array(
++  $items[$url_prefix . '/new'] = array(
+     'title'            => 'Write new message',
+     'page callback'    => 'drupal_get_form',
+-    'page arguments'   => array('privatemsg_new', 2, 3, NULL),
++    'page arguments'   => array('privatemsg_new', $url_prefix_arg_count + 1, $url_prefix_arg_count + 2, NULL),
+     'file'             => 'privatemsg.pages.inc',
+     'access callback'  => 'privatemsg_user_access',
+     'access arguments' => array('write privatemsg'),
+@@ -265,24 +273,26 @@ function privatemsg_menu() {
+     'description'      => 'Undo last thread action',
+     'page callback'    => 'privatemsg_undo_action',
+     'file'             => 'privatemsg.pages.inc',
+-    'access arguments' => array('read privatemsg'),
++    'access callback' => 'privatemsg_user_access',
+     'type'             => MENU_CALLBACK,
+     'menu'             => 'user-menu',
+   );
+-  $items['user/%/messages'] = array(
+-    'title' => 'Messages',
+-    'page callback'    => 'privatemsg_list_page',
+-    'page arguments'   => array('list', 1),
+-    'file'             => 'privatemsg.pages.inc',
+-    'access callback'  => 'privatemsg_user_access',
+-    'access arguments' => array('read all private messages'),
+-    'type' => MENU_LOCAL_TASK,
+-  );
+-
++  if ($url_prefix_user_arg_position === FALSE) {
++    $items['user/%user/messages'] = array(
++      'title' => 'Messages',
++      'page callback'    => 'privatemsg_list_page',
++      'page arguments'   => array('list', 1),
++      'file'             => 'privatemsg.pages.inc',
++      'access callback'  => 'privatemsg_user_access',
++      'access arguments' => array('read all private messages'),
++      'type' => MENU_LOCAL_TASK,
++    );
++  }
+   return $items;
+ }
+ 
+ /**
++ * Privatemsg  wrapper for user_access.
+  * Implements hook_menu_local_tasks_alter().
+  */
+ function privatemsg_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+@@ -304,39 +314,69 @@ function privatemsg_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+ 
+ /**
+  * Privatemsg  wrapper for user_access.
++ * Privatemsg wrapper for user_access.
+  *
+  * Never allows anonymous user access as that doesn't makes sense.
+  *
+  * @param $permission
+  *   Permission string, defaults to read privatemsg
+  *
++ * @param $account
++ *   User account to check permissions. If null, default to current user.
++ *
+  * @return
+- *   TRUE if user has access, FALSE if not
++ *   TRUE if user has access, FALSE if not.
+  *
+  * @ingroup api
+  */
+ function privatemsg_user_access($permission = 'read privatemsg', $account = NULL) {
+-  static $disabled_displayed = FALSE;
+-  if ( $account === NULL ) {
++  if ($account === NULL) {
+     global $user;
+     $account = $user;
+   }
+-  if (!$account->uid) { // Disallow anonymous access, regardless of permissions
++  // Disallow anonymous access, regardless of permissions.
++  if (!$account->uid) {
+     return FALSE;
+   }
++
++  // Deny write access if the user has privatemsg disabled.
+   if (privatemsg_is_disabled($account) && ($permission == 'write privatemsg') ) {
+-    if (arg(0) == 'messages' && variable_get('privatemsg_display_disabled_message', TRUE) && !$disabled_displayed) {
+-      $disabled_displayed = TRUE;
+-      drupal_set_message(t('You have disabled Privatemsg and are not allowed to write messages. Go to your <a href="@settings_url">Account settings</a> to enable it again.', array('@settings_url' => url('user/' . $account->uid . '/edit'))), 'warning');
+-    }
+     return FALSE;
+   }
++
+   if (!user_access($permission, $account)) {
+     return FALSE;
+   }
+   return TRUE;
+ }
+ 
++
++/**
++ * Returns the current dynamic url prefix.
++ *
++ * Does replace %user with the uid.
++ *
++ * @param $uid
++ *   Use this uid instead of global $user.
++ *
++ * @return
++ *   The privatemsg url prefix for the current request.
++ */
++ function privatemsg_get_dynamic_url_prefix($uid = NULL) {
++   global $user;
++   if (!$uid) {
++     $uid = $user->uid;
++
++     // If viewing the messages of a different user, use that uid.
++     $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
++     $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
++     if (((int)arg($url_prefix_user_arg_position)) > 0) {
++       $uid = arg($url_prefix_user_arg_position);
++     }
++   }
++   return str_replace('%user', $uid, variable_get('privatemsg_url_prefix', 'messages'));
++ }
++
+ /**
+  * Check access to the view messages page.
+  *
+@@ -356,7 +396,8 @@ function privatemsg_view_access($thread) {
+     // Count all messages, if there
+     return FALSE;
+   }
+-  if (privatemsg_user_access('read privatemsg') && arg(1) == 'view') {
++  $arg = substr_count(variable_get('privatemsg_url_prefix', 'messages'), '/') + 1;
++  if (privatemsg_user_access('read privatemsg') && arg($arg) == 'view') {
+     return TRUE;
+   }
+   return FALSE;
+@@ -411,7 +452,7 @@ function privatemsg_is_disabled($account) {
+  *
+  *   If no messages are found, or the thread_id is invalid, the function returns
+  *   FALSE.
+-
++ *
+  * @ingroup api
+  */
+ function privatemsg_thread_load($thread_id, $account = NULL, $start = NULL, $useAccessDenied = FALSE) {
+@@ -1499,14 +1540,16 @@ function _privatemsg_block_new() {
+ }
+ 
+ function _privatemsg_block_menu() {
++  global $user;
+   $block = array();
+-
+   $links = array();
+   if (privatemsg_user_access('write privatemsg')) {
++    $links[] = l(t('Write new message'), 'messages/new', array('attributes' => array('title' => t('Write new message'))));
+     $links[] = l(t('Write new message'), 'messages/new');
++    $links[] = l(t('Write new message'), privatemsg_get_dynamic_url_prefix($user->uid) . '/new', array('attributes' => array('title' => t('Write new message'))));
+   }
+   if (privatemsg_user_access('read privatemsg') || privatemsg_user_access('read all private messages') ) {
+-    $links[] = l(privatemsg_title_callback(), 'messages');
++    $links[] = l(privatemsg_title_callback(), privatemsg_get_dynamic_url_prefix($user->uid));
+   }
+   if (count($links)) {
+     $block = array(
+@@ -1933,7 +1976,9 @@ function privatemsg_get_link($recipients, $account = array(), $subject = NULL) {
+   if (empty($validated)) {
+     return FALSE;
+   }
++  $url = 'messages/new/'. implode(',', $validated);
+   $url = 'messages/new/' . implode(',', $validated);
++  $url = privatemsg_get_dynamic_url_prefix($account->uid) . '/new/'. implode(',', $validated);
+   if (!is_null($subject)) {
+     // Explicitly encode the / so that it will be encoded twice to work around
+     // the the menu_system.
+diff --git a/privatemsg.pages.inc b/privatemsg.pages.inc
+index a26e74e..158fc9a 100644
+--- a/privatemsg.pages.inc
++++ b/privatemsg.pages.inc
+@@ -127,27 +127,20 @@ function privatemsg_delete_submit($form, &$form_state) {
+  *
+  * @param $argument
+  *   An argument to pass through to the query builder.
+- * @param $uid
+- *   User id messages of another user should be displayed
+- *
+- * @return
+- *   Form array
++ * @param $account_check
++ *   Account to check if current user has access.
+  */
+-function privatemsg_list_page($argument = 'list', $uid = NULL) {
++function privatemsg_list_page($argument = 'list', $account_check = NULL) {
+   global $user;
+ 
+   // Setting default behavior...
+   $account = $user;
+   // Because uid is submitted by the menu system, it's a string not a integer.
+-  if ((int)$uid > 0 && $uid != $user->uid) {
+-    // Trying to view someone else's messages...
+-    if (!$account_check = user_load($uid)) {
+-      return MENU_NOT_FOUND;
+-    }
++  if (is_object($account_check) && $account_check->uid != $user->uid) {
+     if (!privatemsg_user_access('read all private messages')) {
+       return MENU_ACCESS_DENIED;
+     }
+-    // Has rights and user_load return an array so user does exist
++    // Has rights and user_load return an array so user does exist.
+     $account = $account_check;
+   }
+ 
+@@ -453,7 +446,7 @@ function privatemsg_new($form, &$form_state, $recipients = array(), $subject = '
+     '#value'              => t('Send message'),
+     '#weight'             => 49,
+   );
+-  $url = 'messages';
++  $url = privatemsg_get_dynamic_url_prefix();
+   $title = t('Cancel');
+   if (isset($_REQUEST['destination'])) {
+     $url = $_REQUEST['destination'];
+@@ -635,12 +628,19 @@ function privatemsg_new_submit($form, &$form_state) {
+           unset($_GET['destination']);
+         }
+         // Forward to the new message in the thread.
+-        $form_state['redirect'] = array('messages/view/' . $message->thread_id, array('fragment' => 'privatemsg-mid-' . $message->mid));
++        $form_state['redirect'] = array(privatemsg_get_dynamic_url_prefix() . '/view/' . $message->thread_id, array('fragment' => 'privatemsg-mid-' . $message->mid));
++
+       }
+       elseif (!empty($redirect)) {
+         $form_state['redirect'] = $redirect;
+       }
+     }
++    // Replace [new-message] placeholder with actual destination.
++    if (!empty($_REQUEST['destination']) && $_REQUEST['destination'] == '[new-message]') {
++      // url() can not be used because it does create an path with base path and
++      // prefix.
++      $_REQUEST['destination'] =  urlencode((privatemsg_get_dynamic_url_prefix() . '/view/' . $status['thread_id'] . '#' . 'privatemsg-mid-' . $status['mid']));
++    }
+   }
+   catch (Exception $e) {
+     if (error_displayable()) {
+diff --git a/privatemsg.theme.inc b/privatemsg.theme.inc
+index 59099b7..bb3201d 100644
+--- a/privatemsg.theme.inc
++++ b/privatemsg.theme.inc
+@@ -103,7 +103,7 @@ function theme_privatemsg_list_field__subject($variables) {
+     $message = privatemsg_message_load($thread['thread_id']);
+     $subject = privatemsg_token_replace($subject, array('privatemsg_message' => $message), array('sanitize' => TRUE, 'privatemsg-show-span' => FALSE));
+   }
+-  $field['data'] = l($subject, 'messages/view/' . $thread['thread_id'], $options) . $is_new;
++  $field['data'] = l($thread['subject'], privatemsg_get_dynamic_url_prefix() . '/view/' . $thread['thread_id'], $options) . $is_new;
+   $field['class'][] = 'privatemsg-list-subject';
+   return $field;
+ }
+@@ -120,7 +120,7 @@ function theme_privatemsg_list_field__count($variables) {
+   $options = array();
+   if (!empty($thread['is_new']) && $thread['is_new'] < $thread['count']) {
+     $options['fragment'] = 'new';
+-    $field['data'] .= '<br />' . l((format_plural($thread['is_new'], '(1 new)', '(@count new)')), 'messages/view/' . $thread['thread_id'], $options);
++    $field['data'] .= '<br />' . l((format_plural($thread['is_new'], '(1 new)', '(@count new)')), privatemsg_get_dynamic_url_prefix() . '/view/' . $thread['thread_id'], $options);
+   }
+   $field['class'][] = 'privatemsg-list-count';
+   return $field;
+diff --git a/privatemsg_filter/privatemsg_filter.module b/privatemsg_filter/privatemsg_filter.module
+index 6c71c47..3e28bee 100644
+--- a/privatemsg_filter/privatemsg_filter.module
++++ b/privatemsg_filter/privatemsg_filter.module
+@@ -29,6 +29,9 @@ function privatemsg_filter_permission() {
+  * Implements hook_menu().
+  */
+ function privatemsg_filter_menu() {
++  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
++  $user_arg_position = array_search('%user', explode('/', $url_prefix));
++
+   $items['admin/config/messaging/privatemsg/tags'] = array(
+     'title'            => 'Tags',
+     'description'      => 'Configure tags.',
+@@ -82,10 +85,10 @@ function privatemsg_filter_menu() {
+     'access arguments' => array('administer privatemsg settings'),
+     'type'             => MENU_CALLBACK,
+   );
+-  $items['messages/inbox'] = array(
++  $items[$url_prefix. '/inbox'] = array(
+     'title'            => 'Inbox',
+     'page callback'    => 'privatemsg_list_page',
+-    'page arguments'   => array('inbox'),
++    'page arguments'   => array('inbox', $user_arg_position),
+     'file'             => 'privatemsg.pages.inc',
+     'file path'        => drupal_get_path('module', 'privatemsg'),
+     'access callback'  => 'privatemsg_user_access',
+@@ -93,10 +96,10 @@ function privatemsg_filter_menu() {
+     'weight'           => -15,
+     'menu_name'        => 'user-menu',
+   );
+-  $items['messages/sent'] = array(
++  $items[$url_prefix . '/sent'] = array(
+     'title'            => 'Sent Messages',
+     'page callback'    => 'privatemsg_list_page',
+-    'page arguments'   => array('sent'),
++    'page arguments'   => array('sent', $user_arg_position),
+     'file'             => 'privatemsg.pages.inc',
+     'file path'        => drupal_get_path('module', 'privatemsg'),
+     'access callback'  => 'privatemsg_user_access',
+@@ -128,13 +131,16 @@ function privatemsg_filter_menu() {
+  * Implement hook_menu_alter().
+  */
+ function privatemsg_filter_menu_alter(&$items) {
++  $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
++  $user_arg_position = array_search('%user', explode('/', $url_prefix));
++
+   // Rename messages to "All messages".
+-  $items['messages/list']['title'] = 'All messages';
++  $items[$url_prefix . '/list']['title'] = 'All messages';
+ 
+   if (variable_get('privatemsg_filter_default_list', 0) == 0) {
+     // Change default argument of /messages to inbox. and set the task to MENU_LOCAL_TASK.
+-    $items['messages']['page arguments'] = array('inbox');
+-    $items['messages/list']['type'] = MENU_LOCAL_TASK;
++    $items[$url_prefix]['page arguments'] = array('inbox', $user_arg_position);
++    $items[$url_prefix . '/list']['type'] = MENU_LOCAL_TASK;
+   }
+ }
+ 
