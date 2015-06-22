@@ -34,18 +34,22 @@
  */
 ?>
 <?php drupal_set_title($account->fullname); ?>
-<div id="profile-container">
-  <div id="profile-top">
-    <div id="profile-image"><?php
+
+<div class="profile-wrapper">
+
+  <div class="profile-top">
+    <div class="profile-image"><?php
       if (!empty($photo_scolding)) {
         print $photo_scolding;
       } else {
         print print render($user_profile['user_picture']);
-      } ?></div>
-    <div id="name-title">
+      } ?>
+    </div>
+
+    <div class="name-title">
       <h3><?php print render($fullname); ?></h3>
 
-      <ul id="user_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
+      <ul class="user_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
         $i++;
         $classname .= " number";
             if ($i == 0) { $classname .= " leaf-first"; }
@@ -64,33 +68,45 @@
         }
     ?></ul>
     </div>
-    <?php var_dump($menu_primary_local_tasks); ?>
-    <div id="profile-tabs">
-      <?php print render($tabs); ?>
+
+    <div class="profile-tabs">
+      <?php //print render($tabs); ?>
     </div>
   </div>
+
   <div class="content">
     <h1><?php print t('About this Member'); ?></h1>
-    <div id="account-comments"><?php print check_markup($account->comments); ?></div>
-    <div id="host-services">
-      <h2><?php print t('Hosting information'); ?></h2>
-      <?php if ($notcurrentlyavailable) : ?>
-        <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. <br/>Expected return @return.', array('@return' => $return_date)); ?>
-      <?php else: ?>
-        <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
-           <?php if (!empty($$item)): ?>
-             <div class="member-info-<?php print $item; ?>"><span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span></div>
-           <?php endif; ?>
-        <?php endforeach; ?>
-        <h4><?php print t('This host may offer'); ?></h4>
-        <ul>
-          <?php print render($user_profile['services']); ?>
-        </ul>
-      <?php endif; ?>
+
+    <div class="account-body">
+      <?php print check_markup($account->comments); ?>
     </div>
-    <div id="recommendations">
-      <h2><?php print t('Feedback'); ?></h2>
-      <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
+
+    <div class="account-extras container responsive">
+      <div class="host-services">
+        <h2><?php print t('Hosting information'); ?></h2>
+
+        <?php if ($notcurrentlyavailable) : ?>
+          <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. <br/>Expected return @return.', array('@return' => $return_date)); ?>
+        <?php else: ?>
+
+          <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
+             <?php if (!empty($$item)): ?>
+               <div class="member-info-<?php print $item; ?>"><span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span></div>
+             <?php endif; ?>
+          <?php endforeach; ?>
+
+          <h4><?php print t('This host may offer'); ?></h4>
+
+          <ul>
+            <?php print render($user_profile['services']); ?>
+          </ul>
+        <?php endif; ?>
+      </div>
+
+      <div class="recommendations">
+        <h2><?php print t('Feedback'); ?></h2>
+        <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
+      </div>
     </div>
   </div>
 </div>
