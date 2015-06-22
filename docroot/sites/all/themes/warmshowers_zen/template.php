@@ -131,7 +131,7 @@ function _warmshowers_zen_add_html_classes(&$variables) {
     }
   }
   // Add a class for the user profile page if not already created by base theme.
-  if (arg(0) == 'user' && is_numeric(arg(1)) && empty(arg(2))) {
+  if (arg(0) == 'user' && is_numeric(arg(1)) && arg(2) == NULL) {
     $variables['classes_array'][] = 'page-user-profile';
   }
 }
