@@ -133,6 +133,8 @@ function _warmshowers_zen_add_html_classes(&$variables) {
   // Add a class for the user profile page if not already created by base theme.
   if (arg(0) == 'user' && is_numeric(arg(1)) && arg(2) == NULL) {
     $variables['classes_array'][] = 'page-user-profile';
+
+
   }
 }
 
@@ -216,7 +218,7 @@ function warmshowers_zen_preprocess_region(&$variables) {
  */
 function warmshowers_zen_preprocess_block(&$variables) {
 
-  //@TODO: Only in here so that I don't have to clear registry if I want to add some block output. Remove if empty.
+  $variables['edit_links'] = !empty($variables['edit_links']) ? $variables['edit_links'] : NULL;
 }
 
 /**
@@ -450,10 +452,13 @@ function warmshowers_zen_sanitized_username($variables) {
  * (imagecache_profiles_preprocess_user_picture) and adjusted for colorbox.
  * Requires colorbox and imagecache_profiles modules.
  *
+ * @TODO: Must check this function thoroughly, a lot has changed regarding profile pictures.
+ *
  * @param $variables
  */
 function warmshowers_zen_preprocess_user_picture(&$variables) {
-  $default = $variables['picture'];
+  $default = isset($variables['picture']) ? $variables['picture'] : NULL;
+
   if (variable_get('user_pictures', 0)) {
     $account = $variables['account'];
 
@@ -466,7 +471,7 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
       $preset = variable_get('user_picture_imagecache_profiles_default', '');
     }
 
-    if (!empty($account->picture) && file_exists($account->picture)) {
+    if (!empty($account->picture->uri) && file_exists($account->picture->uri)) {
       $picture = $account->picture;
     }
     elseif (variable_get('user_picture_default', '')) {

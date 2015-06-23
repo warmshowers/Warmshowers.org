@@ -83,7 +83,7 @@
           </div>
 
           <div id="content-area" class="content-area">
-            <?php if (preg_match("/^(admin|forum)/", $menu_item['path']) || $node->type == 'forum') { print $breadcrumb; } ?>
+            <?php print $breadcrumb; ?>
 
             <?php print render($title_prefix); ?>
             <?php if ($title && !$is_front): ?>
