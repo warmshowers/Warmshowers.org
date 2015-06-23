@@ -557,16 +557,16 @@ function warmshowers_zen_donations_thermometer($variables) {
 function warmshowers_zen_uc_cart_complete_sale($variables) {
   $message = $variables['message'];
   $order = $variables['order'];
-  $x = 1;
 
   $title = t('Thanks for your support');
 
-  $product = $order->products[0]->model;
+  $product = array_shift(array_values($order->products));
+  $model = $product->model;
 
   drupal_set_title($title);
 
   if ($order->order_total == 0) {
-    switch ($product) {
+    switch ($model) {
       case 'membership_hostingonly':
         $message = t('You incredible hosts are the backbone of our community, the ones that really make it happen. Thanks so much for showing your support by selecting the hosting-only donation level.');
         break;
