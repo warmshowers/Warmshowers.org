@@ -219,6 +219,10 @@ function warmshowers_zen_preprocess_region(&$variables) {
 function warmshowers_zen_preprocess_block(&$variables) {
 
   $variables['edit_links'] = !empty($variables['edit_links']) ? $variables['edit_links'] : NULL;
+
+  if (isset($variables['block']->delta)) {
+    $variables['classes_array'][] = drupal_html_class("block-delta__{$variables['block']->delta}");
+  }
 }
 
 /**
