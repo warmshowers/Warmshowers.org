@@ -1,0 +1,161 @@
+<?php
+
+/**
+ * @file
+ * Installation file for the uc_stripe module.
+ */
+
+
+/**
+ * Implements hook_requirements().
+ */
+function uc_stripe_requirements($phase) {
+  $t = get_t();
+  $has_curl = function_exists('curl_init');
+
+  $requirements['uc_stripe_curl'] = array(
+    'title' => $t('cURL'),
+    'value' => $has_curl ? $t('Enabled') : $t('Not found'),
+  );
+
+  if (!$has_curl) {
+    $requirements['uc_stripe_curl']['severity'] = REQUIREMENT_ERROR;
+    $requirements['uc_stripe_curl']['description'] = $t("The Stripe API requires the PHP <a href='!curl_url'>cURL</a> library.", array('!curl_url' => 'http://php.net/manual/en/curl.setup.php'));
+  }
+
+  $php_api_version = _uc_stripe_load_api();
+  $requirements['uc_stripe_api'] = array(
+    'title' => $t('Stripe PHP API'),
+    'value' => $t('Version !version', array('!version' => $php_api_version)),
+  );
+  if ($php_api_version != UC_STRIPE_STRIPE_PHP_LIBRARY_VERSION) {
+    $requirements['uc_stripe_api']['value'] = empty($php_api_version) ? $t('Not Installed') : $t('Unsupported version installed');
+    $requirements['uc_stripe_api']['severity'] = REQUIREMENT_ERROR;
+    $requirements['uc_stripe_api']['description'] = empty($php_api_version) ? $t('Please install Stripe PHP Library version @version', array('@version' => UC_STRIPE_STRIPE_PHP_LIBRARY_VERSION)) : $t('Stripe PHP API version @current_version is installed but @required_version is required', array('@current_version' => $php_api_version, '@required_version' => UC_STRIPE_STRIPE_PHP_LIBRARY_VERSION));
+  }
+
+
+  $requirements['uc_stripe_keys'] = array(
+    'title' => $t('Stripe API Keys'),
+    'value' => $t('Configured'),
+  );
+  if ($phase == 'runtime' && !_uc_stripe_check_api_keys()) {
+    $requirements['uc_stripe_keys']['title'] = $t('Stripe API Keys.');
+    $requirements['uc_stripe_keys']['value'] = $t('Not configured');
+    $requirements['uc_stripe_keys']['severity'] = REQUIREMENT_ERROR;
+    $requirements['uc_stripe_keys']['description'] = $t('The Stripe API keys are not fully configured.');
+  }
+
+  return $requirements;
+}
+
+/**
+ * Load the PHP API
+ *
+ * @return Stripe version number as string or FALSE if failed to load
+ */
+function _uc_stripe_load_api() {
+  module_load_include('module', 'uc_stripe');
+
+  if (($library = libraries_load('stripe')) && !empty($library['loaded']) && class_exists('\Stripe\Stripe')) {
+    return \Stripe\Stripe::VERSION;
+  }
+  return FALSE;
+
+}
+
+/**
+ * Implements hook_install().
+ */
+function uc_stripe_install() {
+  // This turns ON the uc_recurring cron task to renew. We want this
+  // ON because the renewal payments are handled by uc_recurring and NOT the stripe gateway
+  variable_set('uc_recurring_trigger_renewals', TRUE);
+
+  // Stripe does cc validation, so uc_credit must not... especially because
+  // uc_credit gets a bogus cc number.
+  variable_set('uc_credit_validate_numbers', FALSE);
+}
+
+/**
+ * Enable triggered renewals, as uc_recurring manages renewals with this version.
+ */
+function uc_stripe_update_7201(&$sandbox) {
+  variable_set('uc_recurring_trigger_renewals', TRUE);
+  variable_set('uc_credit_validate_numbers', FALSE);
+
+  return 'Enabled uc_recurring triggered renewals (uc_recurring_trigger_renewals) and required uc_checkout_skip_review';
+}
+
+/**
+ * Move customer IDs from uc_recurring_stripe into account
+ */
+function uc_stripe_update_7202(&$sandbox) {
+  $ret = array();
+  $sandbox['per_run'] = 100;  // users per run
+  $sandbox['#finished'] = 0;
+
+  if (db_table_exists('uc_recurring_stripe')) {
+    if (!isset($sandbox['progress'])) {
+      $sandbox['progress'] = 0;
+      $sandbox['max'] = db_query('
+        SELECT COUNT(DISTINCT(u.uid))
+        FROM {users} u JOIN {uc_recurring_stripe} urs
+        ON (u.uid = urs.uid)
+        WHERE urs.active = 1
+    ')->fetchField();
+    }
+
+
+    _uc_stripe_move_customer_id($sandbox);
+    return "Updated {$sandbox['progress']} of {$sandbox['max']} uc_recurring_stripe rows into user objects";
+  }
+  else {
+    return 'Old uc_recurring_stripe table did not exist, no action taken.';
+  }
+}
+
+/**
+ * Move customer ids from uc_recurring_stripe into user account
+ */
+function _uc_stripe_move_customer_id(&$sandbox) {
+
+  // Find the users with stripe customer ids that are active
+  $query = '
+    SELECT DISTINCT(urs.uid)
+    FROM {users} u JOIN {uc_recurring_stripe} urs
+    ON (u.uid = urs.uid)
+    WHERE urs.active = 1';
+  $result = db_query_range($query, 0, $sandbox['per_run'],
+    array(),
+    array('fetch' => PDO::FETCH_ASSOC));
+
+  foreach ($result as $item) {
+
+    $sandbox['progress']++;
+    $stripe_customer_id = db_query_range('
+      SELECT urs.customer_id
+      FROM {uc_recurring_stripe} urs
+      WHERE urs.uid = :uid AND urs.active = 1
+      ORDER BY urs.rfid DESC
+      ', 0, 1, array(':uid' => $item['uid']))->fetchField();
+    $account = user_load($item['uid']);
+    // Set to inactive every subscription for this uid
+    db_update('uc_recurring_stripe')
+      ->fields(
+        array('active' => 0)
+      )
+      ->condition('uid', $item['uid'])
+      ->execute();
+
+    if (empty($account->data['uc_stripe_customer_id'])) {
+      user_save($account, array('data' => array('uc_stripe_customer_id' => $stripe_customer_id)));
+    }
+  }
+
+  if ($sandbox['progress'] >= $sandbox['max'] || $result->rowCount() == 0) {
+    $sandbox['#finished'] = 1;
+  } else  {
+    $sandbox['#finished'] = $sandbox['progress'] / $sandbox['max'];
+  }
+}
