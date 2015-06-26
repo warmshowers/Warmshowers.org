@@ -58,7 +58,7 @@ function uc_recurring_authorizenet_cim_process($order, &$fee) {
     $data = array(
       'txn_type' => UC_CREDIT_REFERENCE_SET,
     );
-    return uc_authorizenet_charge($order->order_id, $order->total_amount, $data);
+    return uc_authorizenet_charge($order->order_id, $order->order_total, $data);
   }
   return TRUE;
 }
@@ -74,6 +74,7 @@ function uc_recurring_authorizenet_cim_process($order, &$fee) {
  *   TRUE if renewal succeeded
  */
 function uc_recurring_authorizenet_cim_renew($order, &$fee) {
+  global $user;
   if (!empty($order->data['cc_txns']['references'])) {
     $refs = array_keys($order->data['cc_txns']['references']);
     $data = array(
@@ -87,7 +88,13 @@ function uc_recurring_authorizenet_cim_renew($order, &$fee) {
       uc_payment_enter($order->order_id, $order->payment_method, $order->order_total, $fee->uid, $result['data'], $result['comment']);
       return TRUE;
     }
+    else {
+      uc_order_comment_save($order->order_id, $user->uid, $result['comment']);
+      return FALSE;
+    }
   }
+  // Upon failure, log a message.
+  uc_order_comment_save($order->order_id, $user->uid, t('Error: No credit card reference found for order.'));
   return FALSE;
 }
 

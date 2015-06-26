@@ -591,6 +591,7 @@ function uc_recurring_get_extension_list($fee_id = NULL) {
     $result = db_query("SELECT * FROM {uc_recurring_extensions} WHERE (pfid = :pfid OR pfid IS NULL) ORDER BY pfid DESC, rebill_attempt ASC", array(':pfid' => $fee_id));
   }
 
+  $extensions = array();
   foreach ($result as $extension) {
     if (!isset($extensions[$extension->rebill_attempt])) {
       $extensions[$extension->rebill_attempt] = $extension;
@@ -980,10 +981,14 @@ function uc_recurring_user_access($account = NULL, $rfid = NULL, $op = '') {
     return user_access('administer recurring fees');
   }
   // Check if user has access to perform action on a certain fee.
-  if (isset($rfid)) {
-    $fee = uc_recurring_fee_user_load($rfid);
-    $access = module_invoke_all('recurring_access', $fee, $op, $account);
+  if (isset($rfid) && ($fee = uc_recurring_fee_user_load($rfid))) {
+    // Make sure that the currently logged-in user actually owns the recurring
+    // fee they are attempting to access or has administrative privileges.
+    if ($fee->uid != $user->uid) {
+      return user_access('administer recurring fees');
+    }
 
+    $access = module_invoke_all('recurring_access', $fee, $op, $account);
     if (in_array(UC_RECURRING_ACCESS_DENY, $access, TRUE)) {
       return FALSE;
     }

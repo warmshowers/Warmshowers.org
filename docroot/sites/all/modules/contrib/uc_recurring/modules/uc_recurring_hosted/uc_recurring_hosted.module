@@ -149,15 +149,15 @@ function uc_recurring_hosted_subscription_load($id, $type = 'rfid') {
   $return = array();
 
   if ($type == 'rfid') {
-    $return = db_fetch_object(db_query("SELECT * FROM {uc_recurring_hosted} WHERE rfid = :rfid", array(':rfid' => $id)));
+    $return = db_query("SELECT * FROM {uc_recurring_hosted} WHERE rfid = :rfid", array(':rfid' => $id));
   }
   elseif ($type == 'subscription_id') {
-    $return = db_fetch_object(db_query("SELECT * FROM {uc_recurring_hosted} WHERE subscription_id = :subscription_id", array(':subscription_id' => $id)));
+    $return = db_query("SELECT * FROM {uc_recurring_hosted} WHERE subscription_id = :subscription_id", array(':subscription_id' => $id));
   }
 
   drupal_alter('uc_recurring_hosted_subscription', $object);
 
-  return $return;
+  return $return->fetchObject();
 }
 
 /**
@@ -372,6 +372,8 @@ function uc_recurring_hosted_authorizenet_arb_process($order, &$fee) {
       ),
     );
   }
+
+  drupal_alter('uc_recurring_hosted_arb_process', $data, $fee, $order);
 
   // Build the XML string.
   $xml = _uc_authorizenet_xml_api_wrapper('ARBCreateSubscriptionRequest', _uc_authorizenet_array_to_xml($data));
@@ -822,8 +824,8 @@ function uc_recurring_hosted_paypal_wpp_process($order, &$fee) {
   $types = uc_credit_transaction_types();
 
   // Get the $amount and $data from the fee object.
-  $amount = $fee->data['amount'];
-  $data = $fee->data['data'];
+  $amount = $fee->fee_amount;
+  $data = $data = $fee->data;
 
   $context = array(
     'revision' => 'formatted-original',
@@ -850,7 +852,7 @@ function uc_recurring_hosted_paypal_wpp_process($order, &$fee) {
       $message = t('<b>PayPal Recurring Profile Setup</b><br /><b>Recurring Profile Amount: </b>@amount @currency<br /><b>Recurring Profile ID: </b>@profile_id',
         array(
         '@amount' => $nvp_request['AMT'],
-        '@currency' => $nvp_response['CURRENCYCODE'],
+        '@currency' => $nvp_request['CURRENCYCODE'],
         '@profile_id' => $nvp_response['PROFILEID'],
       ));
 
@@ -863,7 +865,7 @@ function uc_recurring_hosted_paypal_wpp_process($order, &$fee) {
       );
 
       // We need to save the rfid, we don't have it yet.
-      if (!$fee->rfid) {
+      if (!property_exists($fee, 'rfid') || !$fee->rfid) {
         $fee->rfid = uc_recurring_fee_user_save($fee);
       }
 
@@ -876,7 +878,7 @@ function uc_recurring_hosted_paypal_wpp_process($order, &$fee) {
       $id = db_insert('uc_payment_paypal_ipn')
   ->fields(array(
         'order_id' => $order->order_id,
-        'txn_id' => $nvp_response['TRANSACTIONID'],
+        'txn_id' => $nvp_response['CORRELATIONID'],
         'txn_type' => 'web_accept',
         'mc_gross' => $amount,
         'status' => 'Completed',

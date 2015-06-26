@@ -466,6 +466,7 @@ function uc_recurring_payment_form($form, &$form_state) {
   );
   $extensions = uc_recurring_get_extension_list();
   $extend_days = array();
+  $rows = array();
   foreach ($extensions as $ext) {
     $days = $ext->time_to_extend / (24 * 60 * 60);
     $rows[] = array(

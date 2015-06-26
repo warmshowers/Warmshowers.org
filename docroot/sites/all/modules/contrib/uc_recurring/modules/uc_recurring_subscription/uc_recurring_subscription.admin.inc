@@ -332,7 +332,7 @@ function uc_recurring_subscription_product_form($form, $form_state, $product_id 
   }
 
   if (!empty($node->nid) && $node->type != variable_get('uc_recurring_subscription_product_class', 'uc_recurring_subscription')) {
-    return confirm_form($form, '', uc_referer_uri(), t('This product is not a subscription product, saving this form will convert this product to a subscription product, which could result in data being lost if you have specified custom fields.'), t('Save product and convert to a subscription'), t('Cancel'));
+    return confirm_form($form, '', $_SERVER['HTTP_REFERER'], t('This product is not a subscription product, saving this form will convert this product to a subscription product, which could result in data being lost if you have specified custom fields.'), t('Save product and convert to a subscription'), t('Cancel'));
   }
   else {
     $form['submit'] = array(
