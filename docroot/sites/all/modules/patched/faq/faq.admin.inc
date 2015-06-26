@@ -505,7 +505,8 @@ function faq_order_settings_form($form, $form_state, $category = NULL) {
         if (!faq_taxonomy_term_count_nodes($term->tid)) {
           continue;
         }
-        $options[$term->tid] = faq_tt("taxonomy:term:$term->tid:name", $term->name);
+        $term = _faq_get_translated_term($term);
+        $options[$term->tid] = $term->name;
         $form['choose_cat']['faq_category'] = array(
           '#type' => 'select',
           '#title' => t('Choose a category'),

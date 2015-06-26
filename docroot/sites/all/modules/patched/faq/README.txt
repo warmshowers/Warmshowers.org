@@ -58,6 +58,13 @@ question and answer text.  In addition, if the 'Taxonomy' module is enabled and
 there are some terms configured for the FAQ node type, it will also be possible
 to put the questions into different categories when editing.
 
+TRANSLATED VERSIONS OF FAQ
+--------------------------
+
+If you want translated versions of the FAQ to appear by language, please make
+sure the i18n_select module is enabled (part of the i18n module,
+https://drupal.org/project/i18n.
+
 
 KNOWN ISSUES
 -------------
