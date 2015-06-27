@@ -148,6 +148,7 @@ function _warmshowers_zen_add_html_classes(&$variables) {
  */
 function warmshowers_zen_preprocess_page(&$variables, $hook) {
   global $user;
+
   /*
    * Generate renderable menu arrays
    *
@@ -155,7 +156,20 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
    */
   _warmshowers_zen_generate_menus($variables);
 
-  // Remove breadcrumb from profile pages, but don't remove from template for forums and perhaps other places.
+  if (arg(0) == 'user' && is_numeric(arg(1))) {
+    // Remove tabs from the user profile page, because
+    // this will be moved to the user profile template instead.
+    unset($variables['tabs']);
+  }
+}
+
+/**
+ * Override the breadcrumbs for specific pages
+ *
+ * @param $variables
+ */
+function warmshowers_zen_preprocess_breadcrumb(&$variables) {
+  // Remove breadcrumb from the user profile pages only.
   if (arg(0) == 'user' && is_numeric(arg(1))) {
     unset($variables['breadcrumb']);
   }
@@ -223,6 +237,15 @@ function warmshowers_zen_preprocess_block(&$variables) {
   if (isset($variables['block']->delta)) {
     $variables['classes_array'][] = drupal_html_class("block-delta__{$variables['block']->delta}");
   }
+}
+
+/**
+ *
+ */
+function warmshowers_zen_preprocess_user_profile(&$variables) {
+
+  $variables ['tabs'] = menu_local_tabs();
+
 }
 
 /**
@@ -327,30 +350,6 @@ function warmshowers_zen_form_element($variables) {
   }
 
   $output .= "</div>\n";
-
-  return $output;
-}
-
-/**
- * Override privatemsg theming of username.
- *
- * This actually adds a new option 'email', which is for when the name is
- * being viewed in email.
- *
- * @param $variables
- * @return mixed|string
- */
-function warmshowers_zen_form_required_marker($variables) {
-  // This is also used in the installer, pre-database setup.
-  $t = get_t();
-  $attributes = array(
-    'class' => 'form-required label-text',
-    'title' => $t('This field is required.'),
-  );
-  $output = '<span' . drupal_attributes($attributes) . '>: ' . $attributes['title'] . '</span>';
-
-  $attributes['class'] = 'form-required label-marker';
-  $output .= '<span' . drupal_attributes($attributes) . '>*</span>';
 
   return $output;
 }

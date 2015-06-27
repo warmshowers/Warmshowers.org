@@ -35,14 +35,15 @@
 ?>
 <?php drupal_set_title($account->fullname); ?>
 
-<div class="profile-wrapper">
+<section class="profile-wrapper">
 
   <div class="profile-top">
-    <div class="profile-image"><?php
+    <div class="profile-image">
+      <?php // Display a message encouraging the user to upload their photo
       if (!empty($photo_scolding)) {
         print $photo_scolding;
       } else {
-        print print render($user_profile['user_picture']);
+        print render($user_profile['user_picture']);
       } ?>
     </div>
 
@@ -68,13 +69,13 @@
         }
     ?></ul>
     </div>
-
-    <div class="profile-tabs">
-      <?php //print render($tabs); ?>
-    </div>
   </div>
 
-  <div class="content">
+  <div class="tabs--profile">
+    <?php print render($tabs); ?>
+  </div>
+
+  <div class="content--profile">
     <h1><?php print t('About this Member'); ?></h1>
 
     <div class="account-body">
@@ -91,7 +92,9 @@
 
           <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
              <?php if (!empty($$item)): ?>
-               <div class="member-info-<?php print $item; ?>"><span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span></div>
+               <div class="member-info-<?php print $item; ?>">
+                 <span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span>
+               </div>
              <?php endif; ?>
           <?php endforeach; ?>
 
@@ -109,4 +112,4 @@
       </div>
     </div>
   </div>
-</div>
+</section>
