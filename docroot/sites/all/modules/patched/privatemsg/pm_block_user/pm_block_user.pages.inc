@@ -18,7 +18,7 @@ function pm_block_user_form($form, $form_state, $author) {
   );
   $form['destination'] = array(
     '#type' => 'value',
-    '#value' => isset($_GET['destination']) ? $_GET['destination'] : privatemsg_get_dynamic_url_prefix(),
+    '#value' => isset($_GET['destination']) ? $_GET['destination'] : 'messages/',
   );
   if (pm_block_user_has_blocked($author, $user)) {
     $form['block_action'] = array(
@@ -27,7 +27,7 @@ function pm_block_user_form($form, $form_state, $author) {
     );
     return confirm_form($form,
       t('You have previously blocked "@author" from sending you any more messages. Are you sure you want to unblock this user?', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
-      isset($_GET['destination']) ? $_GET['destination'] : privatemsg_get_dynamic_url_prefix(),
+      isset($_GET['destination']) ? $_GET['destination'] : 'messages/',
       '',
       t('Unblock @author', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
       t('Cancel')
@@ -40,7 +40,7 @@ function pm_block_user_form($form, $form_state, $author) {
     );
     return confirm_form($form,
       t('Are you sure you want to block "@author" from sending you any more messages?', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
-      isset($_GET['destination']) ? $_GET['destination'] : privatemsg_get_dynamic_url_prefix(),
+      isset($_GET['destination']) ? $_GET['destination'] : 'messages/',
       '',
       t('Block @author', array('@author' => privatemsg_recipient_format($author, array('plain' => TRUE)))),
       t('Cancel')

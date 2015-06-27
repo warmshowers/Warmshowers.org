@@ -127,20 +127,27 @@ function privatemsg_delete_submit($form, &$form_state) {
  *
  * @param $argument
  *   An argument to pass through to the query builder.
- * @param $account_check
- *   Account to check if current user has access.
+ * @param $uid
+ *   User id messages of another user should be displayed
+ *
+ * @return
+ *   Form array
  */
-function privatemsg_list_page($argument = 'list', $account_check = NULL) {
+function privatemsg_list_page($argument = 'list', $uid = NULL) {
   global $user;
 
   // Setting default behavior...
   $account = $user;
   // Because uid is submitted by the menu system, it's a string not a integer.
-  if (is_object($account_check) && $account_check->uid != $user->uid) {
+  if ((int)$uid > 0 && $uid != $user->uid) {
+    // Trying to view someone else's messages...
+    if (!$account_check = user_load($uid)) {
+      return MENU_NOT_FOUND;
+    }
     if (!privatemsg_user_access('read all private messages')) {
       return MENU_ACCESS_DENIED;
     }
-    // Has rights and user_load return an array so user does exist.
+    // Has rights and user_load return an array so user does exist
     $account = $account_check;
   }
 
@@ -446,7 +453,7 @@ function privatemsg_new($form, &$form_state, $recipients = array(), $subject = '
     '#value'              => t('Send message'),
     '#weight'             => 49,
   );
-  $url = privatemsg_get_dynamic_url_prefix();
+  $url = 'messages';
   $title = t('Cancel');
   if (isset($_REQUEST['destination'])) {
     $url = $_REQUEST['destination'];
@@ -628,18 +635,11 @@ function privatemsg_new_submit($form, &$form_state) {
           unset($_GET['destination']);
         }
         // Forward to the new message in the thread.
-        $form_state['redirect'] = array(privatemsg_get_dynamic_url_prefix() . '/view/' . $message->thread_id, array('fragment' => 'privatemsg-mid-' . $message->mid));
-
+        $form_state['redirect'] = array('messages/view/' . $message->thread_id, array('fragment' => 'privatemsg-mid-' . $message->mid));
       }
       elseif (!empty($redirect)) {
         $form_state['redirect'] = $redirect;
       }
-    }
-    // Replace [new-message] placeholder with actual destination.
-    if (!empty($_REQUEST['destination']) && $_REQUEST['destination'] == '[new-message]') {
-      // url() can not be used because it does create an path with base path and
-      // prefix.
-      $_REQUEST['destination'] =  urlencode((privatemsg_get_dynamic_url_prefix() . '/view/' . $status['thread_id'] . '#' . 'privatemsg-mid-' . $status['mid']));
     }
   }
   catch (Exception $e) {
@@ -773,7 +773,9 @@ function  privatemsg_view($thread) {
     if (isset($thread['older_start'])) {
       $options = array(
         'query' => array('start' => $thread['older_start']),
-        'title' => t('Display older messages'),
+        'attributes' => array(
+          'title' => t('Display older messages'),
+        ),
       );
       $older = l(t('<<'), 'messages/view/' . $thread['thread_id'], $options);
     }
@@ -781,7 +783,9 @@ function  privatemsg_view($thread) {
     if (isset($thread['newer_start'])) {
       $options = array(
         'query' => array('start' => $thread['newer_start']),
-        'title' => t('Display newer messages'),
+        'attributes' => array(
+          'title' => t('Display newer messages'),
+        ),
       );
       $newer = l(t('>>'), 'messages/view/' . $thread['thread_id'], $options);
     }

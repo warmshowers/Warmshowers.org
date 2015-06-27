@@ -123,15 +123,6 @@ function privatemsg_admin_settings() {
     '#default_value' => variable_get('privatemsg_display_fields', array('participants')),
   );
 
-  $form['privatemsg_listing']['privatemsg_url_prefix'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Base URL path'),
-    '#required' => TRUE,
-    '#description' => t("Specify the base URL path to be used for all Private Message pages. Note that %user can be used as a placeholder for the current user's ID. Possible paths include 'user/%user/messages' (pages appear as children of the user account page) or 'messages' (the default path)."),
-    '#default_value' => variable_get('privatemsg_url_prefix', 'messages'),
-    '#weight' => 20,
-  );
-
   $amounts = drupal_map_assoc(array(5, 10, 20, 30, 50, 70, 90, 150, 200, 250, 300));
   $form['privatemsg_listing']['privatemsg_view_max_amount'] = array(
     '#type'          => 'select',
@@ -209,19 +200,13 @@ function privatemsg_admin_settings() {
     '#description' => t('Also display a link to send a private message to the authors of the comments of the selected content types.'),
     '#default_value' => variable_get('privatemsg_display_on_comments', 0),
   );
+
   $form['#submit'][] = 'privatemsg_admin_settings_submit';
   return system_settings_form($form);
 }
 
-/**
- * Submit handler to check if URL prefixes have changes and rebuild the menu
- * cache if this is true.
- */
-function privatemsg_admin_settings_submit($form, &$form_state) {
-  // Only rebuild menu if url prefix has changed.
-  if ($form_state['values']['privatemsg_url_prefix'] != $form['privatemsg_listing']['privatemsg_url_prefix']['#default_value']) {
-    menu_rebuild();
-  }
+function privatemsg_admin_settings_submit() {
+  drupal_theme_rebuild();
 }
 
 function privatemsg_view_options() {
