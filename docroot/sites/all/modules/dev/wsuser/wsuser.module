@@ -61,6 +61,7 @@ function wsuser_menu() {
 function wsuser_theme() {
   global $user;
   $template_path = drupal_get_path('module', 'wsuser') . '/templates';
+
   return array(
     'email_addr' => array(
       'variables' => array('email' => NULL),
@@ -95,6 +96,11 @@ function wsuser_theme() {
       'variables' => array('result' => NULL, 'module' => NULL),
       'path' => $template_path,
       'template' => 'wsuser-search-result',
+    ),
+    'wsuser_member_profile_highlight' => array(
+      'variables' => array('result' => NULL, 'module' => NULL),
+      'path' => $template_path,
+      'template' => 'wsuser-member-profile-highlight-block',
     ),
 
   );
@@ -790,6 +796,8 @@ function wsuser_search_page($accounts) {
  * - $result
  * - $module
  *
+ * @TODO: Rename.
+ *
  * @see search-result.tpl.php
  */
 function template_preprocess_wsuser_search_result(&$variables) {
@@ -1313,6 +1321,10 @@ function wsuser_block_info() {
     'info' => t('[wsuser] Member Contact/Location Block'),
     'cache' => DRUPAL_CACHE_PER_USER | DRUPAL_CACHE_PER_PAGE,
   );
+  $blocks['wsuser_member_profile_highlight'] = array(
+    'info' => t('Member highlight block'),
+    'cache' => DRUPAL_CACHE_PER_USER | DRUPAL_CACHE_PER_PAGE,
+  );
 
 
   return $blocks;
@@ -1344,6 +1356,10 @@ function wsuser_block_view($delta) {
     case 'wsuser_member_contact_location':
       $block['subject'] = t('Contact/Location');
       $block['content'] = theme('wsuser_member_contact_location');
+      return $block;
+    case 'wsuser_member_profile_highlight':
+      $block['subject'] = t('<none>');
+      $block['content'] = theme('wsuser_member_profile_highlight');
       return $block;
   }
 }
@@ -1650,26 +1666,26 @@ function wsuser_country_change_callback($form, $form_state) {
  * @return mixed
  */
 function wsuser_preprocess(&$variables, $key) {
-  if (!in_array($key, array(
+  $themes = array(
     'user_profile',
     'wsuser_member_contact_location',
     'wsuser_member_actions',
     'wsuser_member_donate',
-
-  )) ) {
+    'wsuser_member_profile_highlight',
+  );
+  // Only process further for the user account related theme functions above.
+  if (!in_array($key, $themes)) {
     return;
   }
-  @list($arg1, $uid) = arg();
-  if ($arg1 != 'user' || !is_numeric($uid)) {
+  // Only process further if a user account object can be obtained from the current path.
+  if (!$account = menu_get_object('user')) {
     return;
   }
-  $account = user_load($uid);
 
   $provincemap = _locationservices_get_provincecode_to_province_map($account->country);
   $countrylist = _locationservices_supported_countries();
   $countryname = !empty($countrylist[$account->country]) ? $countrylist[$account->country] : t('Unknown');
   $provincename = !empty($provincemap[$account->province]) ? $provincemap[$account->province] : t('Unknown');
-
 
   $variables['fieldlist'] = $fieldlist = wsuser_fieldlist();
 
@@ -1684,7 +1700,6 @@ function wsuser_preprocess(&$variables, $key) {
     "storage",
     "kitchenuse",
   );
-
   foreach ($services as $item) {
     if (!empty($variables['account']->$item)) {
       $variables['services'] .= "<li>" . t($fieldlist[$item]['title']) . "</li>";
@@ -1694,39 +1709,80 @@ function wsuser_preprocess(&$variables, $key) {
   $variables['hide_donation_status'] = $account->hide_donation_status;
   $variables['email_opt_out'] = $account->email_opt_out;
 
-  // Organize "Stats"
+  // Define the items array used to generate the stats list.
+  $items = array();
+  // Get global "Stat" - feedback count and link.
   $reference_count = wsuser_count_user_references($account->uid);
-  $url = !empty($account->URL) ? l($account->URL, $account->URL) : '';
-  $languagesspoken = check_plain($account->languagesspoken);
-  $memberfor = format_interval(REQUEST_TIME - $account->created);
-  $global_stats = array(
-    "recommendation-summary" => l(t('Feedback (!count)', array('!count' => $reference_count)),
-      'user/' . $account->uid . '/recommendations_of_me', array('html' => TRUE)),
-    "memberfor" => t('Member for %years', array('%years' => $memberfor)),
-    "lastlogin" => t('Active !when ago', array('!when' => format_interval(REQUEST_TIME - $account->access))),
+  $reference_link = 'user/' . $account->uid . '/recommendations_of_me';
+  $items[] = array(
+    'data' => l(t('Feedback (!count)', array('!count' => $reference_count)), $reference_link, array('html' => TRUE)),
+    'class' => array('number', 'recommendation-summary'),
   );
-  $personal_stats = array();
-  if (!empty($languagesspoken)) {
-    $personal_stats["languagesspoken"] = t('Languages Spoken: %languages', array('%languages' => $languagesspoken));
-  }
-  if (!empty($url)) {
-    $personal_stats['personal_website'] = t('Personal Website: !url', array('!url' => $url));
-  }
-
-  $personal_stats['username'] = t('Username: %username', array('%username' => $account->name));
+  // Get global "Stat" - length of membership.
+  $member_for = format_interval(REQUEST_TIME - $account->created);
+  $items[] = array(
+    'data' => t('Member for %years', array('%years' => $member_for)),
+    'class' => array('number', 'member-for'),
+  );
+  // Get global "Stat" - last accessed account.
+  $last_access = format_interval(REQUEST_TIME - $account->access);
+  $items[] = array(
+    'data' => t('Active !when ago', array('!when' => $last_access)),
+    'class' => array('number', 'last-login'),
+  );
+  // Get personal "Stat" - languages spoken.
+  $variables['languagesspoken'] = check_plain($account->languagesspoken);
+  $items[] = array(
+    'data' => t('Languages Spoken: %languages', array('%languages' => $variables['languagesspoken'])),
+    'class' => array('personal', 'languages-spoken'),
+  );
+  // Get personal "Stat" - personal website address.
+  $url = !empty($account->URL) ? l($account->URL, $account->URL) : '';
+  $items[] = array(
+    'data' => t('Personal Website: !url', array('!url' => $url)),
+    'class' => array('personal', 'personal-website'),
+  );
+  // Get personal "Stat" - user ID.
+  $items[] = array(
+    'data' => t('UID: %uid', array('%uid' => $account->uid)),
+    'class' => array('personal', 'uid'),
+  );
+  // Get personal "Stat" - username.
+  $items[] = array(
+    'data' => t('Username: %username', array('%username' => $account->name)),
+    'class' => array('personal', 'uid'),
+  );
+  // Get personal "Stat" - availability.
   $return_date = $account->becomeavailable ? format_date($account->becomeavailable, 'custom', 'Y-m-d') : t('not specified');
-  $personal_stats['availability'] = empty($account->notcurrentlyavailable) ? t('Currently Available') : t('Not Currently Available - expected return @date', array('@date' => $return_date));
-
+  $items[] = array(
+    'data' => empty($account->notcurrentlyavailable) ? t('Currently Available') : t('Not Currently Available - expected return @date', array('@date' => $return_date)),
+    'class' => array('personal', 'availability'),
+  );
+  // Get personal "Stat" - availability.
   if (user_access('administer users')) {
-    $personal_stats['uid'] = t('UID: %uid', array('%uid' => $account->uid));
-    $personal_stats['validated'] = empty($account->roles[9]) ? t("Validated") : t("NOT Validated");
+    $items[] = array(
+      'data' => empty($account->roles[9]) ? t("Validated") : t("NOT Validated"),
+      'class' => array('personal', 'validated'),
+    );
     if (!$account->status) {
       // IN this case we should change the colors on the page or something.
-      $personal_stats['blocked'] = t('BLOCKED');
+      $items[] = array(
+        'data' => t('BLOCKED'),
+        'class' => array('personal', 'blocked'),
+      );
     }
-    $personal_stats['mandrill'] = l('Mandrill', "https://mandrillapp.com/activity?date_format=mm%2Fdd%2Fyy&q={$account->mail}&date_range=60&start_date=04%2F20%2F2014&stop_date=04%2F27%2F2014&tag=_all&sender=&search-select-q=&api_key=&__csrf_token=04d6a6210707c59df11d022e55a86a8a09623eba", array('absolute' => TRUE));
+    $mandrill_link = l('Mandrill', "https://mandrillapp.com/activity?date_format=mm%2Fdd%2Fyy&q={$account->mail}&date_range=60&start_date=04%2F20%2F2014&stop_date=04%2F27%2F2014&tag=_all&sender=&search-select-q=&api_key=&__csrf_token=04d6a6210707c59df11d022e55a86a8a09623eba", array('absolute' => TRUE));
+    $items[] = array(
+      'data' => $mandrill_link,
+      'class' => array('personal', 'mandrill'),
+    );
   }
 
+  if (!empty($items)) {
+    $variables['stats'] = theme('item_list', array('items' => $items));
+  }
+
+  // Sanitize and set main account variables.
   $variables += array(
     'account' => $account,
     'uid' => $account->uid,
@@ -1752,24 +1808,21 @@ function wsuser_preprocess(&$variables, $key) {
     'motel' => check_plain($account->motel),
     'campground' => check_plain($account->campground),
     'bikeshop' => check_plain($account->bikeshop),
-    'languagesspoken' => $languagesspoken,
     'notcurrentlyavailable' => $account->notcurrentlyavailable,
     'is_self' => $account->uid == $GLOBALS['user']->uid,
-    "global_stats" => $global_stats,
-    "personal_stats" => $personal_stats,
     'return_date' => $return_date,
   );
 
-
+  // Get private message respnosiveness variables.
   list($variables['pm_responsiveness'], $variables['pm_requests'], $variables['pm_responses'], $variables['pm_start_date'], $variables['pm_responsiveness_over_full_period']) = wsuser_privatemsg_responsiveness($account);
   $variables['pm_start_date'] = date('Y-m-d', $variables['pm_start_date']);
 
-  if ($key == 'user_profile') {
-    if ($account->uid == $GLOBALS['user']->uid && empty($account->picture)) {
-      $variables['photo_scolding'] = '<p>' . t('You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. !link', array('!link' => l(t('Upload your picture by editing your profile.'), 'user/' . $account->uid . '/edit'))) . '</p>';
-    }
+  // Generate the theme account picture or a scolding mesage if none is present.
+  if (isset($account) && !empty($account->picture)) {
+    $variables['user_picture'] = theme('user_picture', array('account' => $account));
+  } else {
+    $variables['user_picture'] = '<p class="photo-scolding">' . t('You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. !link', array('!link' => l(t('Upload your picture by editing your profile.'), 'user/' . $account->uid . '/edit'))) . '</p>';
   }
-
 }
 
 
