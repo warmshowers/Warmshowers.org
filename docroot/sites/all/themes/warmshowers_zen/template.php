@@ -156,11 +156,6 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
    */
   _warmshowers_zen_generate_menus($variables);
 
-  if (arg(0) == 'user' && is_numeric(arg(1))) {
-    // Remove tabs from the user profile page, because
-    // this will be moved to the user profile template instead.
-    unset($variables['tabs']);
-  }
 }
 
 /**

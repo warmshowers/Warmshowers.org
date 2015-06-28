@@ -66,15 +66,19 @@
   <div id="page-wrapper" class="page-wrapper">
     <section id="page" class="container">
 
-      <?php if (!empty($page['highlighted'])): ?>
-        <?php print render($page['highlighted']); ?>
-      <?php endif; ?>
-
       <div id="main-wrapper" class="main-wrapper container responsive">
 
-          <aside class="sidebar first">
-              <?php print render($page['sidebar_first']); ?>
-          </aside>
+        <?php if (!empty($page['highlighted'])): ?>
+          <?php print render($page['highlighted']); ?>
+        <?php endif; ?>
+
+        <aside class="sidebar second">
+          <?php print render($page['sidebar_second']); ?>
+        </aside>
+
+        <aside class="sidebar first">
+          <?php print render($page['sidebar_first']); ?>
+        </aside>
 
         <section id="main" class="main">
 
@@ -112,10 +116,6 @@
             <?php endif; ?>
           </div><!-- /#content-area -->
         </section>
-
-          <aside class="sidebar second">
-              <?php print render($page['sidebar_second']); ?>
-          </aside>
       </div><!-- /#main-wrapper -->
 
       <div id="footer-wrapper" class="footer-wrapper">
