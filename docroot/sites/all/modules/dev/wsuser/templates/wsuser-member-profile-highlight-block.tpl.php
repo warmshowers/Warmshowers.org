@@ -1,10 +1,12 @@
 <?php
 /**
  * @file
- * Returns the HTML for the member welcome block.
+ * Returns the HTML for the profile highlight block.
  *
  * Available variables:
- *   - $menu: An array of profile items. Use render() to print them.
+ *  - $user_picture: An already rendered user picture or a scolding message if not present.
+ *  - $stats: An already rendered list of custom user stats.
+ *  - user_profile: Standard user profile fields variables.
  */
 ?>
 <div class="profile-highlight">

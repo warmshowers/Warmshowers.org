@@ -235,15 +235,6 @@ function warmshowers_zen_preprocess_block(&$variables) {
 }
 
 /**
- *
- */
-function warmshowers_zen_preprocess_user_profile(&$variables) {
-
-  $variables ['tabs'] = menu_local_tabs();
-
-}
-
-/**
  * This is a basic copy of theme_status_message. We add a div to help us with
  * our new layout of icons and different background colors.
  *
