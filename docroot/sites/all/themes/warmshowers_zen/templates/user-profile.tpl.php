@@ -35,78 +35,45 @@
 ?>
 <?php drupal_set_title($account->fullname); ?>
 
-<div class="profile-wrapper">
+<section class="profile-wrapper">
+  <h1><?php print t('About this Member'); ?></h1>
 
-  <div class="profile-top">
-    <div class="profile-image"><?php
-      if (!empty($photo_scolding)) {
-        print $photo_scolding;
-      } else {
-        print print render($user_profile['user_picture']);
-      } ?>
-    </div>
-
-    <div class="name-title">
-      <h3><?php print render($fullname); ?></h3>
-
-      <ul class="user_stats"><?php $i=0; foreach ($global_stats as $classname=>$stat){
-        $i++;
-        $classname .= " number";
-            if ($i == 0) { $classname .= " leaf-first"; }
-        ?><li class="<?php print $classname; ?>"><?php print $stat; ?></li><?php
-      }
-        $i=0;
-        if ($personal_stats) {
-          foreach ($personal_stats as $classname=>$stat) {
-        $i++;
-        $classname .= " personal";
-            if ($i == count($personal_stats)) {
-              $classname .= " leaf-last";
-            }
-            print '<li class="' . $classname . '">' . $stat . '</li>';
-          }
-        }
-    ?></ul>
-    </div>
-
-    <div class="profile-tabs">
-      <?php //print render($tabs); ?>
-    </div>
+  <div class="account-body">
+    <?php print check_markup($account->comments); ?>
   </div>
 
-  <div class="content">
-    <h1><?php print t('About this Member'); ?></h1>
+  <?php // @TODO @TODO @TODO @TODO @TODO Aboslutely must render the full node.
+  // Must wait for everything to be in D7 fields first.
+  // print render($user_profile);
+  // @TODO @TODO @TODO @TODO @TODO Absolutely render the full node. ?>
 
-    <div class="account-body">
-      <?php print check_markup($account->comments); ?>
+  <div class="account-extras container responsive">
+    <div class="host-services">
+      <h2><?php print t('Hosting information'); ?></h2>
+
+      <?php if ($notcurrentlyavailable) : ?>
+        <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. <br/>Expected return @return.', array('@return' => $return_date)); ?>
+      <?php else: ?>
+
+        <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
+           <?php if (!empty($$item)): ?>
+             <div class="member-info-<?php print $item; ?>">
+               <span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span>
+             </div>
+           <?php endif; ?>
+        <?php endforeach; ?>
+
+        <h4><?php print t('This host may offer'); ?></h4>
+
+        <ul>
+          <?php print render($user_profile['services']); ?>
+        </ul>
+      <?php endif; ?>
     </div>
 
-    <div class="account-extras container responsive">
-      <div class="host-services">
-        <h2><?php print t('Hosting information'); ?></h2>
-
-        <?php if ($notcurrentlyavailable) : ?>
-          <?php print t('This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. <br/>Expected return @return.', array('@return' => $return_date)); ?>
-        <?php else: ?>
-
-          <?php foreach (array('preferred_notice', 'maxcyclists', 'bikeshop', 'campground', 'motel') as $item) : ?>
-             <?php if (!empty($$item)): ?>
-               <div class="member-info-<?php print $item; ?>"><span class="item-title"><?php print $fieldlist[$item]['title'];?></span>: <span class="item-value"><?php print $$item; ?></span></div>
-             <?php endif; ?>
-          <?php endforeach; ?>
-
-          <h4><?php print t('This host may offer'); ?></h4>
-
-          <ul>
-            <?php print render($user_profile['services']); ?>
-          </ul>
-        <?php endif; ?>
-      </div>
-
-      <div class="recommendations">
-        <h2><?php print t('Feedback'); ?></h2>
-        <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
-      </div>
+    <div class="recommendations">
+      <h2><?php print t('Feedback'); ?></h2>
+      <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
     </div>
   </div>
-</div>
+</section>
