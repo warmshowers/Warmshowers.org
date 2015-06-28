@@ -165,7 +165,7 @@ function warmshowers_zen_preprocess_page(&$variables, $hook) {
  */
 function warmshowers_zen_preprocess_breadcrumb(&$variables) {
   // Remove breadcrumb from the user profile pages only.
-  if (arg(0) == 'user' && is_numeric(arg(1))) {
+  if (arg(0) == 'user' && is_numeric(arg(1)) && isset($variables['breadcrumb)'])) {
     unset($variables['breadcrumb']);
   }
 }
