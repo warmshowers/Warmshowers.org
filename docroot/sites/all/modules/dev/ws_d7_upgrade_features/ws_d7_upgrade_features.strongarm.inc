@@ -189,37 +189,5 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm->value = '[user:mail]';
   $export['token_actions_extras_default_recipient_email'] = $strongarm;
 
-  $strongarm = new stdClass();
-  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
-  $strongarm->api_version = 1;
-  $strongarm->name = 'views_defaults';
-  $strongarm->value = array(
-    'taxonomy_term' => 'disabled',
-    'comments_recent' => FALSE,
-    'frontpage' => TRUE,
-    'tracker' => FALSE,
-    'admin_content' => TRUE,
-    'admin_user_review' => TRUE,
-    'admin_users' => TRUE,
-    'feedback_counts' => TRUE,
-    'flagged_unresponsive' => TRUE,
-    'flagged_users' => TRUE,
-    'login_status' => TRUE,
-    'negative_feedbacks_for_user' => TRUE,
-    'node_administration' => TRUE,
-    'nodes_review' => TRUE,
-    'referrals' => TRUE,
-    'tips' => TRUE,
-    'tutorial_videos' => TRUE,
-    'user_flagging' => TRUE,
-    'users_with_ordrs' => TRUE,
-    'advanced_user_admin' => TRUE,
-    'member_feedback' => TRUE,
-    'user_referrals_by_referee' => TRUE,
-    'user_referrals_by_referrer' => TRUE,
-    'feedback_block' => TRUE,
-  );
-  $export['views_defaults'] = $strongarm;
-
   return $export;
 }
