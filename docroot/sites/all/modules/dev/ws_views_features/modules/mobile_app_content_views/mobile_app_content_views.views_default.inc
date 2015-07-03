@@ -1,17 +1,17 @@
 <?php
 /**
  * @file
- * ws_d7_upgrade_features.views_default.inc
+ * mobile_app_content_views.views_default.inc
  */
 
 /**
  * Implements hook_views_default_views().
  */
-function ws_d7_upgrade_features_views_default_views() {
+function mobile_app_content_views_views_default_views() {
   $export = array();
 
   $view = new view();
-  $view->name = 'mobile_app_content_1';
+  $view->name = 'mobile_app_content';
   $view->description = '';
   $view->tag = 'json';
   $view->base_table = 'node';
@@ -140,7 +140,7 @@ function ws_d7_upgrade_features_views_default_views() {
   /* Display: Page */
   $handler = $view->new_display('page', 'Page', 'page');
   $handler->display->display_options['path'] = 'user/%/json_recommendations';
-  $translatables['mobile_app_content_1'] = array(
+  $translatables['mobile_app_content'] = array(
     t('Master'),
     t('more'),
     t('Apply'),
@@ -162,7 +162,7 @@ function ws_d7_upgrade_features_views_default_views() {
     t('All'),
     t('Page'),
   );
-  $export['mobile_app_content_1'] = $view;
+  $export['mobile_app_content'] = $view;
 
   return $export;
 }
