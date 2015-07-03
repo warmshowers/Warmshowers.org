@@ -21,7 +21,9 @@ c) On this page, provide the following settings:
 d) Download and install version 2.2.0 PHP Stripe
 library (https://github.com/stripe/stripe-php. Put it in
 sites/all/libraries/stripe such that the path to Stripe.php
-is sites/all/libraries/stripe/lib/Stripe.php
+is sites/all/libraries/stripe/lib/Stripe.php. PLEASE CLEAR THE CACHE AFTER
+CHANGING THE STRIPE PHP LIBRARY. The Libraries module caches its memory of
+libraries like the Stripe Library.
 
 e) If you are using recurring payments, install version 2.x
 of the Ubercart Recurring module:

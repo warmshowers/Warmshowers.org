@@ -135,11 +135,34 @@ function uc_stripe_recurring_info() {
  * @param $form_state
  * @param $form_id
  */
-function uc_stripe_form_uc_cart_checkout_form_alter(&$form, &$form_state, $form_id) {
+function uc_stripe_form_uc_cart_checkout_form_alter(&$form, &$form_state) {
 
-  // Prevent form submission if javascript has not enabled the button.
-  // If JS happens to be disabled, we don't want user to be able to submit.
-  $form['continue']['#disabled'] = TRUE;
+  $payment_form = &$form['panes']['payment']['details'];
+
+  $payment_form['stripe_nojs_warning'] = array(
+    '#type' => 'item',
+    '#markup' => '<span id="stripe-nojs-warning" class="stripe-warning">' . t('Sorry, for security reasons your card cannot be processed because Javascript is disabled in your browser.') . '</span>',
+    '#weight' => -1000,
+  );
+
+  $payment_form['stripe_token'] = array(
+    '#type' => 'hidden',
+    '#default_value' => 'default',
+    '#attributes' => array(
+      'id' => 'edit-panes-payment-details-stripe-token',
+    ),
+  );
+
+  // Prevent form Credit card fill and submission if javascript has not removed
+  // the "disabled" attributes..
+  // If JS happens to be disabled, we don't want user to be able to enter CC data.
+  // Note that we can't use '#disabled', as it causes Form API to discard all input,
+  // so use the disabled attribute instead.
+  $form['panes']['payment']['details']['cc_number']['#attributes']['disabled'] = 'disabled';
+  if (empty($form['actions']['continue']['#attributes'])) {
+    $form['actions']['continue']['#attributes'] = array();
+  }
+  $form['actions']['continue']['#attributes']['disabled'] = 'disabled';
 
   $apikey = variable_get('uc_stripe_testmode', TRUE) ? variable_get('uc_stripe_api_key_test_publishable', '') : variable_get('uc_stripe_api_key_live_publishable', '');
 
@@ -155,23 +178,14 @@ function uc_stripe_form_uc_cart_checkout_form_alter(&$form, &$form_state, $form_
 
   // Add a section for stripe.js error messages (CC validation, etc.)
   $form['panes']['messages'] = array(
-    '#type' => 'markup',
-    '#value' => "<div id='uc_stripe_messages' class='messages error hidden'></div>",
-  );
-
-  // This image after loading triggers js to make sure the JS warning and disablings are removed
-  $image_path = url(drupal_get_path('module', 'uc_stripe') . '/images/1px.png');
-  $form['dummy_image_load'] = array(
-    '#type' => 'markup',
-    '#value' => "<img src='{$image_path}' style='display:none;' onload='uc_stripe_clean_cc_form()'>",
+    '#markup' => "<div id='uc_stripe_messages' class='messages error hidden'></div>",
   );
 
   if (uc_credit_default_gateway() == 'uc_stripe') {
     if (variable_get('uc_stripe_testmode', TRUE)) {
       $form['panes']['testmode'] = array(
         '#prefix' => "<div class='messages' style='background-color:#BEEBBF'>",
-        '#type' => 'markup',
-        '#value' => t("Test mode is <strong>ON</strong> for the Stripe Payment Gateway. Your  card will not be charged. To change this setting, edit the !link", array('!link' => l("Stripe settings", "admin/store/settings/payment/edit/gateways"))),
+        '#markup' => t("Test mode is <strong>ON</strong> for the Stripe Payment Gateway. Your  card will not be charged. To change this setting, edit the !link", array('!link' => l("Stripe settings", "admin/store/settings/payment/method/credit"))),
         '#suffix' => "</div>",
       );
     }
@@ -435,7 +449,7 @@ function uc_stripe_charge($order_id, $amount, $data) {
     // charge the Customer the amount in the order
     $charge = \Stripe\Charge::create(array(
         "amount" => $amount,
-        "currency" => "usd",
+        "currency" => strtolower($order->currency),
         "customer" => $stripe_customer_id,
       )
     );
@@ -520,7 +534,7 @@ function uc_stripe_renew($order, &$fee) {
 
     $charge = \Stripe\Charge::create(array(
         "amount" => $amount,
-        "currency" => "usd",
+        "currency" => strtolower($order->currency),
         "customer" => $stripe_customer_id
       )
     );
@@ -594,7 +608,7 @@ function uc_stripe_cancel($order, $op) {
 function _uc_stripe_prepare_api() {
 
   module_load_include('install', 'uc_stripe');
-  if (!_uc_stripe_load_api()) {
+  if (!_uc_stripe_load_library()) {
     return FALSE;
   }
 
@@ -640,40 +654,6 @@ function _uc_stripe_get_customer_id($uid) {
   return $id;
 }
 
-/**
- * implements hook_form_alter() to make sure that we have control of the
- * credit form. It's critical that it have these elements; if we used
- * hook_form_FORMID_alter for this some other module might get an earlier
- * chance at it.
- *
- * @param $form
- * @param $form_state
- * @param $form_id
- */
-function uc_stripe_form_alter(&$form, &$form_state, $form_id) {
-  if ($form_id == 'uc_cart_checkout_form') {
-
-    $payment_form = &$form['panes']['payment']['details'];
-
-    // Make sure tp properly prepare the CC form. Because so much is done
-    // by AJAX on this page, do this again on cc number change.
-    $payment_form['cc_number']['#attributes']['onchange'] = 'uc_stripe_clean_cc_form()';
-
-    $payment_form['stripe_nojs_warning'] = array(
-      '#type' => 'item',
-      '#value' => '<span id="stripe-nojs-warning" class="stripe-warning">' . t('Sorry, for security reasons your card cannot be processed because Javascript is disabled in your browser.') . '</span>',
-      '#weight' => -1000,
-    );
-
-    $payment_form['stripe_token'] = array(
-      '#type' => 'hidden',
-      '#default_value' => 'default',
-      '#attributes' => array(
-        'id' => 'edit-panes-payment-details-stripe-token',
-      ),
-    );
-  }
-}
 
 /**
  * Implements hook_theme_registry_alter() to make sure that we render
