@@ -126,7 +126,7 @@
             <ul class="menu">
               <li><a href="https://www.facebook.com/groups/135049549858210/" class="social_fb" title="<?php print t("Follow Warm Showers on"); ?> Facebook"></a></li>
               <li><a href="https://twitter.com/#!/warmshowers" class="social_tw" title="<?php print t("Follow Warm Showers on"); ?> Twitter"></a></li>
-              <li><a href="https://www.warmshowers.org/rssfeed" class="social_rs" title="<?php print t("Keep up to date with"); ?> RSS"></a></li>
+              <li><a href="https://www.warmshowers.org/rss.xml" class="social_rs" title="<?php print t("Keep up to date with"); ?> RSS"></a></li>
             </ul>
           </nav>
 

@@ -92,6 +92,17 @@ function warmshowers_zen_preprocess_html(&$variables, $hook) {
       ),
     );
     drupal_add_html_head($ios_app, 'apple-itunes-app');
+
+    $element = array(
+      '#tag' => 'link',
+      '#attributes' => array(
+        'href' => '/rss.xml',
+        'rel' => 'alternate',
+        'type' => 'application/rss+xml',
+        'title' => t('WarmShowers RSS feed')
+      ),
+    );
+    drupal_add_html_head($element, 'ws-rss-feed');
   }
   $variables['head'] = drupal_get_html_head();
 
