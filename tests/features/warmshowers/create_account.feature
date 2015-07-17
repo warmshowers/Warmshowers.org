@@ -37,6 +37,10 @@ Scenario Outline: As a new user, I can complete and submit the registration form
 	And enter a <fullname>
 	And enter at least 15 words of <aboutText>
 	Then I should see a modal with "A validation e-mail has been sent to your e-mail address. In order to gain full access to the site, you will need to follow the instructions in that message."
+<<<<<<< Updated upstream
+=======
+	And I should see the New Member Validation Instructions page
+>>>>>>> Stashed changes
 	And I should receive a validation email
 
 	Examples:
@@ -44,7 +48,12 @@ Scenario Outline: As a new user, I can complete and submit the registration form
 		|Spector 	|spector@aol.com 	|f00d			|United States	|Denver		|CO		|Inspector Spacetime|"I'm a dog and I love food" |
 		|Mabs 		|Melissa@yahoo.com	|crochet		|Malaysia		|Kuala Lumpur|Kuala Lumpur	|Melissa Jones		|"I teach music in an international school"	|
 		|Joe 		|js1234@gmail.com	|Wh0@Dood		|Singapore	|Cagayan de Oro City	|NOT LISTED		|Joe TheCat		|"I love to play the trumpet and teach English"		|
+<<<<<<< Updated upstream
 		|Grendal 	|gilgamesh@nunya.net	|eP1k	|South Korea	|Paju		|Gyeonggi-do |Jim Jones		|"I don't know what I'm doing here"|				
+=======
+		|Grendal 	|gilgamesh@nunya.net	|eP1k	|South Korea	|Paju		|Gyeonggi-do |Jim Jones		|"I don't know what I'm doing here"|	
+					
+>>>>>>> Stashed changes
 Scenario: After submitting the registration form, I can confirm my email address using the link I receive.
 	Given I receive a validation email
 	When I click on the validation link
