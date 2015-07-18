@@ -1,10 +1,6 @@
 #language:en
 
-<<<<<<< Updated upstream
-Feature:Edit account Info
-=======
 Feature:I can edit or update my account information
->>>>>>> Stashed changes
 	In order to maintain accurate and helpful user info
 	As a registered user
 	I can edit my account information
@@ -13,11 +9,7 @@ Background:
 	Given I am at the profile page
 	And the Edit tab
 
-<<<<<<< Updated upstream
-Scenario Outline: Change Personal Info
-=======
 Scenario Outline: I can add or change my personal information
->>>>>>> Stashed changes
 	When I change the value in the <field> field
 	And click the save button
 	Then I should see a modal about location determination
@@ -31,17 +23,7 @@ Scenario Outline: I can add or change my personal information
 	|About		|profile|
 	|website	|profile|
 	|home phone	|profile|
-<<<<<<< Updated upstream
-
-#This one does NOT work on the current version of the site (bug)
-Scenario: Change Country Choose Province
-	When I change my country
-	Then the State/Province list should populate with matching entries
-
-Scenario: Change Country
-=======
 	|language	|profile|
-	|phone		|profile|
 
 #This one does NOT work on the current version of the site (bug)
 Scenario: I can change my country and see an appropriate list of provinces or states
@@ -49,28 +31,17 @@ Scenario: I can change my country and see an appropriate list of provinces or st
 	Then the State/Province list should populate with matching entries
 
 Scenario: I can change my city, state, and country
->>>>>>> Stashed changes
 	When I change my country
 	And I select a new state
 	And I choose a new city
 	Then I should see a map of my new location on the profile page
 
-<<<<<<< Updated upstream
-Scenario: Add a photo
-=======
 Scenario: I can add or change my profile picture
->>>>>>> Stashed changes
 	When I click the Choose File button
 	And select a file with size less than 20000 KB
 	And click the save button
 	Then my photo should appear on the profile page
 
-<<<<<<< Updated upstream
-Scenario: Delete a photo
-	When I check the delete picture checkbox
-	And click the save button
-	Then my photo should no longer appear on the profile page
-=======
 Scenario: I can delete my profile picture
 	When I check the delete picture checkbox
 	And click the save button
@@ -138,4 +109,4 @@ Scenario: I can change my default time zone
 	Then I should see the profile page
 	And a modal indicating that changes are saved
 	And I should see times using this timezone throughout Warmshowers.
->>>>>>> Stashed changes
+
