@@ -33,16 +33,25 @@ Scenario: I can see links to Warmshowers-related sites
 	Then I see the Links page
  
 Scenario: I can reach the login form
+	And I am not logged in
 	When I click the Log In link in the footer
 	Then I see the User Account page
 	And the Log In tab
 
+Scenario: I can log out of Warmshowers
+	And I am logged in
+	When I click the Log Out link in the footer
+	Then I will be logged out
+	And I will see the home page as an unauthenticated user
+	
 Scenario: I can reach the Create Account page
+	And I am not logged in
 	When I click on the Sign Up link in the footer
 	Then I see the User Account page
 	And the Create New Account tab
 
 Scenario: I can reach the Password Recovery page
+	And I am not logged in
 	When I click on the Password Recovery link in the footer
 	Then I see the User Account page
 	And the Request New Password tab
