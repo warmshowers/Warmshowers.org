@@ -30,7 +30,7 @@ Scenario: I can select services to offer a guest
   When I select services I may be able to offer
   And I click the save button
   Then I should see the profile page
-  And my selected options in an unordered list titled "this host may offer" under Hosting Information
+  And my selected options in an unordered list titled "This host may offer" under Hosting Information
   And a modal indicating that changes have been saved.
 
 

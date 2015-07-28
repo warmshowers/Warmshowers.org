@@ -36,7 +36,10 @@ Scenario Outline: As a new user, I can complete and submit the registration form
   And enter a <state>/province
   And enter a <fullname>
   And enter at least 15 words of <aboutText>
-  Then I should see a modal with "A validation e-mail has been sent to your e-mail address. In order to gain full access to the site, you will need to follow the instructions in that message."
+  Then I should see a modal with:
+  """
+  A validation e-mail has been sent to your e-mail address. In order to gain full access to the site, you will need to follow the instructions in that message.
+  """
   And I should see the New Member Validation Instructions page
   And I should receive a validation email
 
@@ -52,4 +55,9 @@ Scenario: After submitting the registration form, I can confirm my email address
   Given I receive a validation email
   When I click on the validation link
   Then I should see the Welcome, New Member page
-  And a modal with "You have successfully validated your e-mail address." and "We are asking every member to choose a donation level (there are free options). Please choose a donation level Thanks!" and "You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. Upload your picture by editing your profile."
+  And a modal with:
+  """
+  You have successfully validated your e-mail address.
+  We are asking every member to choose a donation level (there are free options). Please choose a donation level Thanks!
+  You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. Upload your picture by editing your profile.
+  """

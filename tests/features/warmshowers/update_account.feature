@@ -69,9 +69,14 @@ Scenario: I can set my account to unavailable
   And I select a date in the future
   And I click the save button
   Then I should see the Profile page
-  And hosting information should read "This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. Expected return --return date--"
+  And hosting information should read:
+  """
+  This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. Expected return --return date--
+  """
   And my address information should not appear in the location sidebar
-  And I should see a modal with "You have set your account to 'Not Currently Available' and you will be reminded about this by email from time to time. Please read the FAQ for more information."
+  And I should see a modal with:
+  """You have set your account to 'Not Currently Available' and you will be reminded about this by email from time to time. Please read the FAQ for more information.
+  """
 
 Scenario: I can set my account to available
   When I deselect the Not Currently Available checkbox
@@ -79,7 +84,9 @@ Scenario: I can set my account to available
   Then I should see the Profile Page
   And my hosting information and offerings hould be visible in the main content area
   And my address and phone number should appear in the location sidebar (if entered)
-  And I should see a modal with "You have unchecked 'Not Currently Available' so your location will be shown on the map and you may receive guest requests."
+  And I should see a modal with: 
+  """You have unchecked 'Not Currently Available' so your location will be shown on the map and you may receive guest requests.
+  """
 
 Scenario: I can enter referral information
   When I enter a value in the How you hear about Warmshowers field

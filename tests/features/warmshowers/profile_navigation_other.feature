@@ -12,11 +12,6 @@ Scenario: I can click tabs to navigate between a user's profile and feedback pag
   When I click the navigation tabs in the main content area (profile or feedback)
   Then I should see the corresponding content.
 
-Scenario: I can reach the edit tab by clicking the Upload your Picture link
-  And I have not uploaded a profile picture
-  When I click the "Upload your picture by editing your profile." link in the upper left
-  Then I see the Edit tab.
-
 Scenario: I can see a modal with a user's profile picture
   And a user has uploaded a profile picture
   When I click on a user's profile picture under the WarmShowers Logo
