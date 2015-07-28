@@ -1,8 +1,8 @@
 #language:en
-Feature:I can connect with other Warmshowers users on the Forums pages
-  In order to interact with other Warmshowers users
+Feature:I can stay informed about Warmshowers by reading content on the Forums pages
+  In order to stay informed about Warmshowers issues, discussions, and users 
   As an authenticated user
-  I can read and post content in the forums
+  I can read content in the forums
 
 Background:
   Given I am on the Forums pages
@@ -105,7 +105,7 @@ Scenario: I can reach the Login page through forum links
   When I click the Login link above the list of posts
   Then I see the login page
 
-Scenario: I can reach the FAQ page
+Scenario: I can reach the FAQ page using forum links
   And the View Forums tab
   When I click on the Frequently-Asked Questions link in the Website Help Forum description
   Then I see the FAQ page
@@ -186,48 +186,19 @@ Scenario: I can navigate aggregate lists using the pagination buttons
   When I click on a numbered button, Next button, or Last button at the bottom of the list of threads
   Then I will see the corresponding page of threads within that forum.
 
-Scenario: I can reach the New Topic post creation form
-  And I have entered a forum or subforum
-  When I click the New Topic button at the top left
-  Then I will see the post creation form.
+Scenario: I can return to the top of a thread using the Top button
+  And I have entered a thread
+  When I click the Top button at the bottom left of a post/reply
+  Then the page focus will change to the first post in the thread
 
-Scenario: I can write and submit a post to a new topic
-  And I am on the post creation form
-  When I enter a subject
-  And I select an appropriate forum from the dropdown list
-  And enter my comments in the Body field
-  And I click the Submit button
-  Then I will see my new thread
-  And a modal informing me that the new thread has been created
+Scenario: I can view the first unread message in a thread
+  And I have entered a thread with unread items
+  When I click the First Unread button
+  Then the page focus will change to the first unread post in the thread
 
-Scenario: I can edit my post
-  And I am viewing a post I created
-  When I click the Edit button
-  And I see the edit form
-  And I make desired changes
-  And I click the Submit button
-  Then I will see my edited post
-  And a modal with "Forum topic [topic title] has been updated."
-
-Scenario: I can delete my post
-  And I am viewing a post I created
-  When I click 
-
-Scenario: I can mark a post as spam
-  And I am viewing a spam post
-  When I click the Mark This as Spam button
-  Then I see the associated thread
-  And a modal with:
-    """
-    Thanks for letting us know. An email has been sent to the administrators so we can get it taken care of.
-    You have marked this as spam. You can click again to unmark it if this was a mistake.
-    """
-
-Scenario:I can add a reply to a post using the Post Reply button
-  And I am viewing a post to which I would like to reply
-  When I click the Post Reply button in the upper left
-  And I enter subject text
-  And I enter Comment text
-  And I click Save
-  Then I will see my published reply.
+#This button directs to the last "post" in a thread, but not the last content (which may be a reply or other lower-tier item) which seems confusing.
+Scenario: I can view the last top-level post in a thread 
+  And I have entered a thread
+  When I click on the Last Post button
+  Then the page focus will change to the latest reply to the original post (but not to more recent lower level comments)
 
