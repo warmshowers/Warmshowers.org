@@ -25,11 +25,8 @@ Scenario: I can navigate backwards using the breadcrumb trail
   Then I will see the corresponding page.
   And I will see my path in the breadcrumb trail
 
-Scenario: I can search site content
-  And I am on any forum page
-  When I enter a search term in the text box labeled Search
-  And I click the Search button
-  Then I will see a list of search results for site content corresponding to my search term
+#Search box stories moved to search.feature
+
 
 Scenario: I can easily identify Forums or Subforums with new content since my last view
   And I am on a page listing forum or subforum listings
