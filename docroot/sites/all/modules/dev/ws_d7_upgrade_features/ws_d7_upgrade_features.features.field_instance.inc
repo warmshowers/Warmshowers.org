@@ -10,6 +10,88 @@
 function ws_d7_upgrade_features_field_default_field_instances() {
   $field_instances = array();
 
+  // Exported field_instance: 'node-product-field_cart_button_label'
+  $field_instances['node-product-field_cart_button_label'] = array(
+    'bundle' => 'product',
+    'default_value' => array(
+      0 => array(
+        'value' => 'Add to cart',
+      ),
+    ),
+    'deleted' => 0,
+    'description' => 'Specify the label for the add-to-cart button.',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => 34,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_cart_button_label',
+    'label' => 'Cart button label',
+    'required' => 1,
+    'settings' => array(
+      'better_formats' => array(
+        'allowed_formats' => array(
+          1 => 1,
+          3 => 3,
+          4 => 4,
+          5 => 5,
+          6 => 6,
+          7 => 7,
+          8 => 8,
+        ),
+        'allowed_formats_toggle' => 0,
+        'default_order_toggle' => 0,
+        'default_order_wrapper' => array(
+          'formats' => array(
+            1 => array(
+              'weight' => -1,
+            ),
+            3 => array(
+              'weight' => 0,
+            ),
+            4 => array(
+              'weight' => 0,
+            ),
+            5 => array(
+              'weight' => 0,
+            ),
+            6 => array(
+              'weight' => 0,
+            ),
+            7 => array(
+              'weight' => 0,
+            ),
+            8 => array(
+              'weight' => 1,
+            ),
+          ),
+        ),
+      ),
+      'text_processing' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'text',
+      'settings' => array(
+        'size' => 60,
+      ),
+      'type' => 'text_textfield',
+      'weight' => -4,
+    ),
+  );
+
   // Exported field_instance: 'node-trust_referral-body'
   $field_instances['node-trust_referral-body'] = array(
     'bundle' => 'trust_referral',
@@ -486,6 +568,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
 
   // Translatables
   // Included for use with string extractors like potx.
+  t('Cart button label');
   t('Date We Met');
   t('Feedback is for');
   t('File attachments');
@@ -493,6 +576,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
   t('Optional Photos');
   t('Overall Experience');
   t('Please tell about your experience with this member');
+  t('Specify the label for the add-to-cart button.');
   t('This is a way for one member to leave feedback for another.  If you\'ve stayed with someone as host, or hosted someone who\'s a good guest, please put a reference for them here. It will show up on their member page.  And your story will be visible in the "all references area" too. ');
   t('You can add as many photos of your host or guest as you like.');
 
