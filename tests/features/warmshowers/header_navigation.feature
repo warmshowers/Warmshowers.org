@@ -30,14 +30,14 @@ Scenario: I can reach my profile page
 
 #There is currently one exception to this- when "Expand Map" is clicked, the Home, My Profile/Sign Up, FAQ, and Forums links disappear from the header.  The size of the header does not change, so not sure why these links can't/shouldn't stay. 
 
-Scenario: I can reach the Create Account page
+Scenario: I can reach the Create Account page using the large Sign Up link
   Given I am a new user
   When I click on the large Sign Up link in the header
   Then I see the User Account page
   And the Create New Account tab
 
 
-Scenario: I can reach the Create Account page
+Scenario: I can reach the Create Account page using the small Sign up link
   Given I am a new user
   When I click on the small Sign Up link above Log In in the header
   Then I see the User Account page
