@@ -6,7 +6,7 @@ Feature:I can learn more about Warmshowers on the Warmshowers homepage
 
 Background:
   Given I am on the homepage
-  And I am an authenticated user
+  And I am an unauthenticated user
 
 Scenario: I can find basic information about Warmshowers Hospitality sharing
   When I click the Frequently-Asked Questions link in the How Does It Work sidebar
