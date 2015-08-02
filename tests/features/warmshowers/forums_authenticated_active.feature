@@ -8,10 +8,7 @@ Background:
   Given I am on the Forums pages
   And I am an authenticated user
 
-Scenario: I can send a private message to the original author of a forum thread
-  And I have entered a thread
-  When I click the Send Author a Message link at the bottom of the original post
-  Then I will see the New Message form with the appropriate recipient.
+#Private message content moved to private_message.feature
 
 Scenario: I can reach the New Topic post creation form
   And I have entered a forum or subforum
@@ -111,6 +108,15 @@ Scenario: I can add additional images to a post
   And I have uploaded files to fill up default spaces in the Image table
   When I click the Add Another Item button
   Then I will see an additional row in the Image table
+
+Scenario:I can reorder attachments to a post
+  And I have entered the Create Forum Topic form
+  And I have entered values for subject, forum, and body
+  And I have attached two or more files to my message
+  When I click the cross at the left of the file name
+  And I drag the file(s) into the desired order
+  And I click Submit
+  Then my post will be published with attachments listed in desired order.
 
 Scenario: I can mark a post as spam
   And I am viewing a spam post
