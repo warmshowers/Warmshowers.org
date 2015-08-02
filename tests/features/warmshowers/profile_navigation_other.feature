@@ -36,9 +36,8 @@ Scenario: I can see a user's About Message in my chosen language
   And I click the adjacent button (translate in selected language)
   Then I see the user's About message translated below
 
-Scenario: I can send a message to a user
-  When I click on the Send Message button in the location sidebar
-  Then I see the Write New Message form for the user
+#Send Message scenario moved to private_message.feature
+
 
 Scenario: I can provide feedback for a user
   When I click on the Provide Feedback button in the Actions sidebar
