@@ -5,10 +5,11 @@ Feature:I can navigate to various locations starting from my own profile page
   I can navigate the site starting from my profile page
   
 Background:   
-  Given I am on my User page
+  Given I am an authenticated user
+  And I am on my User page
   And the Profile tab
 
-Scenario: I can click tabs to navigate between profile, edit, messages, and feedback pages
+Scenario: I can use tab navigation to navigate areas of my profile
   When I click the navigation tabs in the main content area (profile, edit, messages, feedback)
   Then I should see the corresponding content.
 
@@ -34,10 +35,7 @@ Scenario: I can see a large map of my approximate location
   When I click the small map in the location sidebar
   Then I see a modal map with my location and pins showing other nearby users
 
-#Currently this link goes to a page called recommendations_of_me - it should probably direct instead to the feedback tab to improve navigation.
-Scenario: I can see my feedback
-  When I click on feedback in the green profile summary area
-  Then I see the feedback tab
+#Moved scenario about feedback to feedback.feature
 
 Scenario: I can see my personal website
   And I have entered a personal website url
