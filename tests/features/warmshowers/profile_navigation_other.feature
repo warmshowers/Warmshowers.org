@@ -21,10 +21,7 @@ Scenario: I can see a large map of a user's approximate location
   When I click the small map in the location sidebar
   Then I see a modal map with the user's approximate location and pins showing other nearby users
 
-#Currently this link goes to a page called recommendations_of_me - it should probably direct instead to the feedback tab to improve navigation.
-Scenario: I can see a user's feedback
-  When I click on feedback in the green profile summary area
-  Then I see the feedback tab
+#Moved feedback scenarios to feedback.feature
 
 Scenario: I can see a user's personal website
   And the user has entered a personal website url
@@ -38,7 +35,3 @@ Scenario: I can see a user's About Message in my chosen language
 
 #Send Message scenario moved to private_message.feature
 
-
-Scenario: I can provide feedback for a user
-  When I click on the Provide Feedback button in the Actions sidebar
-  Then I see the Create Feedback form for the user.
