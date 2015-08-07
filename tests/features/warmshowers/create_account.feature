@@ -176,7 +176,6 @@ Scenario: I can NOT create an account with non-matching values in the Password a
 Scenario: I can NOT create an account with fewer than 15 words of text in the About You section
   Given I am on the Create Account page
   When I enter fewer than 15 words of text in the About You field
-  And I enter a different value in the Confirm Password field
   And complete all required fields
   And I click the Create New Account button
   Then I will see the Create Account form with About You field highlighted
