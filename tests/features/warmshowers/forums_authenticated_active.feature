@@ -10,11 +10,13 @@ Background:
 
 #Private message content moved to private_message.feature
 
+@nav
 Scenario: I can reach the New Topic post creation form
   And I have entered a forum or subforum
   When I click the New Topic button at the top left
   Then I will see the post creation form.
 
+@smoke
 Scenario: I can write and submit a post to a new topic
   And I am on the post creation form
   When I enter a subject
@@ -33,11 +35,13 @@ Scenario: I can edit my post
   Then I will see my edited post
   And a modal with "Forum topic [topic title] has been updated."
 
+@nav
 Scenario: I can access the Edit form for my own posts by using the Edit tab
   And I am viewing a post I created
   When I click the Edit tab
   Then I can see the edit form for my post.
 
+@nav
 Scenario: I can view my post with the view tab
   And I am editing a post I created
   When I click the view tab
@@ -118,6 +122,7 @@ Scenario:I can reorder attachments to a post
   And I click Submit
   Then my post will be published with attachments listed in desired order.
 
+@smoke
 Scenario: I can mark a post as spam
   And I am viewing a spam post
   When I click the Mark This as Spam button
@@ -128,6 +133,7 @@ Scenario: I can mark a post as spam
     You have marked this as spam. You can click again to unmark it if this was a mistake.
     """
 
+@smoke
 Scenario: I can mark a post as obsolete
   And I am viewing an obsolete post
   When I click the Mark Obsolete button
@@ -138,6 +144,7 @@ Scenario: I can mark a post as obsolete
     You have marked this as spam. You can click again to unmark it if this was a mistake.
     """
 
+@smoke
 Scenario:I can add a reply to a post using the Post Reply button
   And I am viewing a post to which I would like to reply
   When I click the Post Reply button in the upper left or bottom left of thread 
@@ -146,6 +153,7 @@ Scenario:I can add a reply to a post using the Post Reply button
   And I click Save
   Then I will see my published reply.
 
+@smoke
 Scenario:I can add a reply to a post using the Reply button
   And I am viewing a post to which I would like to reply
   When I click the Reply button at the bottom right of a comment
@@ -168,4 +176,66 @@ Scenario: I can change my notification settings for a thread to which I have rep
   And I click Save
   Then I will receive notification of all new replies to this thread (not just replies to my comment)
 
+#Validation/fail scenarios
 
+#Currently, the system will allow sending messages with EITHER subject OR message (or both).  It will not send a message with only an attachment.  The failure modal isn't totally accurate and the validation rules might benefit from tightening a bit here.
+@smoke
+Scenario: I can NOT publish an empty post or reply
+  And I am in the Create Forum Topic or Reply form
+  When I do not enter text in the Comment Field
+  And I click Save
+  Then I will see my incomplete comment with empty field(s) highlighted
+  And a modal with "Comment field is required."
+  And my comment will not be published.
+
+Scenario: I can NOT publish a new Forum Topic without a subject.
+  And I am in the Create Forum Topic area
+  But I have not entered a value in the Subject field
+  When I click the Submit button
+  Then I will see my incomplete comment with Subject field highlighted
+  And a modal with "Subject field is required."
+  And my comment will not be published.
+
+Scenario: I can NOT publish a new Forum Topic without selecting a Forum.
+  And I am in the Create Forum Topic area
+  But I have not selected a forum from the dropdown menu
+  When I click the Submit button
+  Then I will see my incomplete comment with Forums field highlighted
+  And a modal with "Forums field is required."
+  And my comment will not be published.
+
+@smoke
+Scenario: I can NOT attach a file of unapproved file type to a message
+  And I am in the Create Forum Topic or Reply form
+  And I have completed required fields
+  When I click Choose File
+  And I select a file of incorrect file type/extension
+  Then I will see the message 
+  """
+  The selected file [filepath] cannot be uploaded. Only files with the following extensions are allowed: png, gif, jpg, jpeg.
+  """
+  And my file will not be uploaded.
+
+#The system currently DOES allow cumulative totals exceeding the limit. Couldn't find a single file big enough to see if the max limit works on individual file uploads.
+#This scenario is a guess about proper functionality.
+@smoke
+Scenario: I can NOT attach file(s) exceeding the maximum upload size of 20 mb.
+  And I am in the Create Forum Topic or Reply form
+  And I have completed required fields
+  When I click Choose File
+  And I select file(s) exceeding the 20 mb limit
+  And I click Upload
+  And I click the Submit button
+  Then I should see a modal informing me that my attachments have exceeded the maximum upload allowance
+  And my comment will not be posted
+
+Scenario: I can NOT post a message directly to a container forum.
+  And I am in the Create Forum Topic area
+  And I have completed the Subject and Body fields
+  When I select a container forum (General or Site Leadership) from the Forums dropdown
+  And I click Submit
+  Then I will see a modal with :
+  """
+  The item [container] is only a container for forums. Please select one of the forums below it.
+  """
+  And my comment will not be published.
