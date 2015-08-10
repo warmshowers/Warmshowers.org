@@ -116,7 +116,7 @@ Scenario: I can reach the Map My Home Location page using the Set Location butto
   Then I see the Map My Home Location page
 
 @map
-Scenario: I can see a large map of my approximate location
-  And I am on my profile page
+Scenario: I can see a large map of a user's approximate location
+  And I am on a profile page (my own or another user's)
   When I click the small map in the location sidebar
-  Then I see a modal map with my location and pins showing other nearby users
+  Then I see a modal map with the user's location and pins showing other nearby users
