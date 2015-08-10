@@ -28,10 +28,12 @@ Scenario: I can see a street view map of an approximate location
   When I drag and drop the person icon from the top left of the map to a location of my choice
   Then I will see a street view image of that location
 
+@smoke
 Scenario: I can see Warmshowers users near a map location
   When I find a desired location on the map
   Then I will see map markers indicating location and number of hosts nearby
 
+@smoke
 Scenario: I can select a specific Warmshowers host using the map
   When I click on a map marker
   Then I see a tooltip with the name, address, picture, and profile link for the user(s)
@@ -61,6 +63,7 @@ Scenario: I can restore map markers
   When I uncheck the Dim Map Markers checkbox
   Then I will see the map with standard-opacity markers
 
+@smoke
 Scenario: I can show US Adventure Cycling Routes
   And I am on the main Warmshowers page
   When I check the Load US Adventure Cycling Routes checkbox
@@ -73,6 +76,7 @@ Scenario: I can hide US Adventure Cycling Routes
   Then I will not see the Adventure Cycling routes 
 
 #If the user fails to select an autocomplete option, search displays some strange behavior strange_map_search_bx.png - better to force a choice or show an explicit error
+@smoke
 Scenario: I can map Warmshowers members by location using the Search sidebar
   And I am on the main page
   When I select a country in the dropdown menu
@@ -81,7 +85,8 @@ Scenario: I can map Warmshowers members by location using the Search sidebar
   And I click map
   Then I will see the map focus shift to my chosen location with pins indicating nearby users.
 
-Scenario: I can submit an exact home location
+@smoke
+Scenario: I can submit an exact home location using the map
   And I am on the main page
   When I click the Update Location button
   And I click my exact location on the map
@@ -89,7 +94,8 @@ Scenario: I can submit an exact home location
   Then I see the Map My Home Location page
   And a modal with "Your location has been updated"
 
-Scenario: I can submit an exact home location
+@smoke
+Scenario: I can submit an exact home location by entering latitude and longitude
   And I am on the main page
   When I click the Update Location button
   And I enter my latitude and longitude in the labeled fields
@@ -102,3 +108,15 @@ Scenario: I can use only my address for location
   When I click Use Address Only for Map Location
   Then I see my Profile page
   And a modal with "Your location will be determined by your address"
+
+@nav
+Scenario: I can reach the Map My Home Location page using the Set Location button
+  And I am on my profile page
+  When I click the Set Location button in the location sidebar
+  Then I see the Map My Home Location page
+
+@map
+Scenario: I can see a large map of a user's approximate location
+  And I am on a profile page (my own or another user's)
+  When I click the small map in the location sidebar
+  Then I see a modal map with the user's location and pins showing other nearby users

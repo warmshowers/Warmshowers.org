@@ -5,7 +5,7 @@ Feature: I can create an account
   As a new user
   I can create an account
 
-@test @notification
+@smoke @mail
 Scenario:I can complete and submit the registration form
   Given I am at the User Account page
   And on the Create New Account tab
@@ -26,7 +26,7 @@ Scenario:I can complete and submit the registration form
   And I should see the New Member Validation Instructions page
   And I should receive a validation email
 
-@test
+@smoke
 Scenario: After submitting the registration form, I can confirm my email address using the link I receive.
   Given I receive a validation email
   When I click on the validation link
@@ -39,7 +39,7 @@ Scenario: After submitting the registration form, I can confirm my email address
   """
 
 #Currently this does not work correctly.
-@test
+@smoke
 Scenario: When I select a country from the dropdown menu, I can see an appropriate list of states or provinces
   Given I am on the Create Account page
   When I select a country using the dropdown menu
@@ -109,7 +109,7 @@ Scenario: I can set my account to unavailable
 
 #Language scenarios are in language.feature
 
-@notification
+@mail
 Scenario: I can opt out of nonessential emails
   Given I am on the Create Account page
   When I check the box to opt out of nonessential emails
@@ -119,7 +119,7 @@ Scenario: I can opt out of nonessential emails
   And I should not receive newsletter and other nonessential email from Warmshowers.
 
 #Validation/Fail Scenarios
-@test
+@smoke
 Scenario: I can NOT create an account using a username that has already been claimed
   Given I am on the Create Account page
   When I enter a username with an existing account
@@ -129,7 +129,7 @@ Scenario: I can NOT create an account using a username that has already been cla
   And a modal with "The name [username] is already taken."
   And the account will not be created.
 
-@test
+@smoke
 Scenario: I can NOT create a new account using an email address that already has an associated account
   Given I am on the Create Account page
   When I enter an email address with an existing account
@@ -139,7 +139,7 @@ Scenario: I can NOT create a new account using an email address that already has
   And a modal with "The e-mail address [email] is already registered. Have you forgotten your password?"
   And the account will not be created.
 
-@test
+@smoke
 Scenario: I can NOT create an account without a valid email address
   Given I am on the Create Account page
   When I enter a value that does not match the pattern for an email address in the Email Address field
@@ -150,7 +150,7 @@ Scenario: I can NOT create an account without a valid email address
   And a modal with "The e-mail address [value] is not valid."
   And the account will not be created.
 
-@test
+@smoke
 Scenario: I can NOT create an account with non-matching values in the Email Address and Confirm Email Address fields
   Given I am on the Create Account page
   When I enter an email address in the Email Address field
@@ -161,7 +161,7 @@ Scenario: I can NOT create an account with non-matching values in the Email Addr
   And a modal with "Your e-mail address and confirmed e-mail address must match."
   And the account will not be created.
 
-@test
+@smoke
 Scenario: I can NOT create an account with non-matching values in the Password and Confirm Password fields
   Given I am on the Create Account page
   When I enter a value in the Password field
@@ -172,7 +172,7 @@ Scenario: I can NOT create an account with non-matching values in the Password a
   And a modal with "The specified passwords do not match."
   And the account will not be created.
 
-@test
+@smoke
 Scenario: I can NOT create an account with fewer than 15 words of text in the About You section
   Given I am on the Create Account page
   When I enter fewer than 15 words of text in the About You field
@@ -185,7 +185,7 @@ Scenario: I can NOT create an account with fewer than 15 words of text in the Ab
   """
   And the account will not be created.
 
-@test
+@smoke
 Scenario: I can NOT create an account without completing all required fields
   Given I am on the Create Account page
   When I fail to complete all required fields

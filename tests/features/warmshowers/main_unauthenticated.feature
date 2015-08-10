@@ -8,15 +8,18 @@ Background:
   Given I am on the homepage
   And I am an unauthenticated user
 
+@nav
 Scenario: I can find basic information about Warmshowers Hospitality sharing
   When I click the Frequently-Asked Questions link in the How Does It Work sidebar
   Then I will see the Frequently Asked Questions page
 
-#This feature currently has some strange behavior. This user story describes my best guess about how it's meant to work.
+#This feature currently has some strange behavior. This scenario describes my best guess about how it's meant to work.
+@nav
 Scenario: I can see a map representing concentrations of Warmshowers users in the US
   When I click on the map
   Then I see a modal with a larger version of this map.
 
+@nav
 Scenario: I can see photos taken by Warmshowers users
   When I click on the Touring Photos slideshow
   Then I will see a large modal with touring photos.
@@ -34,11 +37,12 @@ Scenario: I can pause the embedded Touring Photos slideshow
   When I hover over the slideshow
   Then the auto-advance will pause and I can continue looking at one photo.
 
+@nav
 Scenario: I can find out more about Warmshowers Mobile Apps by clicking on the mobile device image.
   When I click on the picture of mobile devices
   Then I will see the  Mobile Apps page
 
+@nav
 Scenario: I can find out more about Warmshowers Mobile Apps by clicking on the Mobile Apps Available link.
   When I click on the Mobile Apps Available link
   Then I will see the  Mobile Apps page
-

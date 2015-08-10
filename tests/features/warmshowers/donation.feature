@@ -10,7 +10,7 @@ Background:
 
 #INCOMPLETE SCENARIO
 
-#@test
+#@smoke
 #Scenario: I can donate to Warmshowers using debit or credit card using a single payment
 #  And I am on the Donation page
 #  When I select the radio button for my chosen one-time donation amount
@@ -25,7 +25,7 @@ Background:
 #  And my card will be charged
 #  And I will receive a confirmation/receipt email
 
-#@test
+#@smoke
 #Scenario: I can donate to Warmshowers using Paypal using a single payment
 #  And I am on the Donation page
 #  When I select the radio button for my chosen one-time donation amount
@@ -40,7 +40,7 @@ Background:
 
 #It's a bit odd that the process for one-time donations is identical to repeat donations.  If I were signing up, I would want clarifying information like when the debits will be taken, how many repeats I authorize, etc.
 
-#@test
+#@smoke
 #Scenario: I can donate to Warmshowers using debit or credit card using a repeat payment
 #  And I am on the Donation page
 #  When I select the radio button for my chosen repeating donation amount
@@ -56,7 +56,7 @@ Background:
 #  And my card will be charged
 #  And I will receive a confirmation/receipt email
 
-#@test
+#@smoke
 #Scenario: I can donate to Warmshowers using Paypal using a repeat payment
 #  And I am on the Donation page
 #  When I select the radio button for my chosen repeating donation amount
@@ -69,7 +69,7 @@ Background:
 #  And my Paypal account will be debited
 #  And I will receive a confirmation/receipt email
 
-@test
+@smoke
 Scenario: I can donate to Warmshowers at the free Someday level
   And I am on the Donation page
   When I click on the Someday button
@@ -77,7 +77,7 @@ Scenario: I can donate to Warmshowers at the free Someday level
   And I click the Send Your Donation button
   Then I see the Thanks for Your Support page with future donor specific message
 
-@test
+@smoke
 Scenario: I can donate to Warmshowers at the free Hosting Only level
   And I am on the Donation page
   When I click on the Hosting Only button
@@ -86,7 +86,7 @@ Scenario: I can donate to Warmshowers at the free Hosting Only level
   Then I see the Thanks for Your Support page with hosting-specific message
 
 #Tried this out with the free donation level and didn't appear to receive a confirmation email, so not sure if those comments went anywhere or not
-@test
+@smoke
 Scenario: I can send a comment with my Warmshowers donation
   And I am on the Payment Information page
   And I have completed required fields
@@ -95,13 +95,14 @@ Scenario: I can send a comment with my Warmshowers donation
   Then my comments will be sent to Warmshowers
   And will appear in my order confirmation email
 
-@contact
+@mail @smoke
 Scenario: I can email Warmshowers admin using the link on the Donation page.
   And I am on the Donation page
   And I have a mail client installed and configured
   When I click on the wsl@warmshowers.org link
   Then my mail client will pop up with a new message and the warmshowers address as recipient.
 
+@nav
 Scenario: I can find out about CVV numbers
   And I am on the Payment Information page
   When I click the What's the CVV? link

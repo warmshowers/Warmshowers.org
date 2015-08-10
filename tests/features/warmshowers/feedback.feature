@@ -8,13 +8,15 @@ Background:
   Given I am an authenticated user
 
 #Currently this link goes to a page called recommendations_of_me - it should probably direct instead to the feedback tab to improve navigation.
+@nav
 Scenario: I can see feedback about a user by using the link in the profile summary
-  And I am on a user's profile page (own or other user)
+  And I am on a profile page (my own or other user's)
   When I click on the Feedback link in the green profile summary area
   Then I see the feedback tab
 
+@nav
 Scenario: I can see feedback using tab navigation
-  And I am on a user's profile page (own or other user)
+  And I am on a profile page (my own or other user's)
   When I click the feedback tab
   Then I see feedback by and about the user.
 
@@ -24,12 +26,14 @@ Scenario: I can view feedback given by a user
   When I click on the link "View feedback [user] has given"
   Then I will see feedback given by that user.
 
+@nav
 Scenario: I can access the Create Feedback form for another user
   And I am on another user's profile page
   When I click on the Provide Feedback button in the Actions sidebar
   Then I see the Create Feedback form for the user.
 
 #The sender of feedback receives an email, but the recipient doesn't seem to get theirs.
+@smoke @mail
 Scenario: I can create feedback for another user
   And I am on the Create Feedback form for a user
   When I select a feedback type from the dropdown menu
@@ -69,8 +73,8 @@ Scenario: I can delete feedback I created from the feedback listing
   And I see the message "This action cannot be undone."
   And I click the Delete button
   Then I see the updated feedback listing for the user
+  And my deleted feedback item does not appear in the listing.
   And a modal with "Feedback Feedback for [user] has been deleted."
-  But my deleted feedback item does not appear in the listing.
 
 #Deleted feedback is removed from the feedback list, but still appears on the profile page and the front page.
 Scenario: I can delete feedback I created from the edit form
@@ -151,17 +155,20 @@ Scenario:I can reorder attachments to a post
   Then my post will be published with images shown in desired order.
 
 #Sidebar navigation
+@nav
 Scenario: I can access the contact form for site admin through the Feedback form
   And I have entered the Create Feedback or Edit Feedback form
   When I click on the Via the Contact Form link in the sidebar
   Then I see the contact form to reach site admin.
 
+@nav
 Scenario: I can read about what to do about negative interactions
   And I have entered the Create Feedback or Edit Feedback form
   When I click on the  "What if I have a problem with a Warmshowers host or guest" link in the sidebar
   Then I see the FAQ item on this subject.
 
 #Validation/Failure Scenarios:
+@smoke
 Scenario: I can NOT publish feedback with less than 10 words of text
   And I am on the Create Feedback form for a user
   When I select a feedback type from the dropdown menu
@@ -175,18 +182,21 @@ Scenario: I can NOT publish feedback with less than 10 words of text
   """
   And my feedback is not published
 
-Scenario: I can NOT upload a file with incorrect filename
+@smoke
+Scenario: I can NOT upload a file with incorrect filetype
   And I am in the Create Feedback or Edit Feedback Area
   And I have completed required fields
   When I click Choose File
-  And I select a file of incorrect filename
+  And I select a file of incorrect filetype
   Then I will see the upload area highlighted in red
   And the message:
   """
   The selected file [file path] cannot be uploaded. Only files with the following extensions are allowed: jpg, jpeg.
   """
+
 #The system currently DOES allow cumulative totals exceeding the limit. Couldn't find a single file big enough to see if the max limit works on individual file uploads.
 #This scenario is a guess about proper functionality.
+@smoke
 Scenario: I can NOT attach file(s) exceeding the maximum upload size of 15 mb.
   And I have entered values for required files
   When I click Choose File

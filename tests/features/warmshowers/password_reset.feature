@@ -7,7 +7,7 @@ Feature:I can log in to Warmshowers
 Background:
   Given I am an authenticated user
 
-@test
+@smoke
 Scenario: I can request a new password
   And I am on the User Account page
   And the Request New Password tab
@@ -17,7 +17,7 @@ Scenario: I can request a new password
   And a modal with "Further instructions have been sent to your e-mail address."
   And I will receive an email with a password token.
 
-@test
+@smoke
 Scenario: I can use a password token to rest my Warmshowers password
   And I have received an email with a password token
   When I click on the link in my email
