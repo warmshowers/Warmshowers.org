@@ -7,6 +7,7 @@ Feature:I can exchange private messages with other Warmshowers users
 Background:
   Given I am an authenticated user
 
+@smoke
 Scenario: I can use the Send Message button on a user's profile to reach the Write New Message form
   And I am viewing another user's profile
   When I click on the Send Message button in the location sidebar
@@ -17,6 +18,7 @@ Scenario: I can reach the Write New Message form for the original author of a fo
   When I click the Send Author a Message link at the bottom of the original post
   Then I will see the New Message form with the appropriate recipient.
 
+@smoke
 Scenario: I can send a private message
   And I have reached the Write New Message form with a given member as recipient
   When I enter text into the message field
@@ -26,6 +28,7 @@ Scenario: I can send a private message
   And the other user will receive the message in their WS inbox
   And the other user will receive an email notifying them of the message
 
+@smoke
 Scenario: I can read private messages I have received
   And I am viewing the Messages tab within my profile
   And Inbox in the submenu
@@ -44,6 +47,7 @@ Scenario: I can read private messages I have received but not replied to
   When I click on the message subject
   Then I will see the message text
 
+@smoke
 Scenario: I can reply to a privage message
   And I am viewing a private message received from another user
   When I enter text into the Reply field
@@ -60,6 +64,7 @@ Scenario: I can clear an unsent reply
   When I click the Clear link at the bottom of the thread
   Then my entered text will no longer appear in the Reply field.
 
+@smoke
 Scenario: I can attach files to a message
   And I have entered message body text for a new message or reply
   When I click on the File Attachments link
@@ -111,6 +116,7 @@ Scenario: I can filter my messages
   Then I will see only messages that match my filter term
 
 #Save filter doesn't actually do anything that I can identify, and I'm not sure what behavior it SHOULD exhibit, so leaving this scenario incomplete for now.
+
 #Scenario: I can save a message filter for later use
 #  And I am viewing the Messages tab (any submenu)
 #  When I click on the Filter Messages link
@@ -222,6 +228,7 @@ Scenario: I can delete messages from the Read Message view
 #Validation/Failure Scenarios:
 
 #Currently, the system will allow sending messages with EITHER subject OR message (or both).  It will not send a message with only an attachment.  The failure modal isn't totally accurate and the validation rules might benefit from tightening a bit here.
+@smoke
 Scenario: I can NOT send an empty private message
   And I have reached the Write New Message form with a given member as recipient
   When I do not enter text in the Subject or Message Fields
@@ -236,6 +243,7 @@ Scenario: I can NOT send an empty reply
   Then I see a modal with "You must include a message in your reply."
   And my message will not be sent.
 
+@smoke
 Scenario: I can NOT attach a file of unapproved file type to a message
   And I have entered message body text for a new message or reply
   When I click on the File Attachments link
@@ -247,6 +255,7 @@ Scenario: I can NOT attach a file of unapproved file type to a message
 
 #The system currently DOES allow cumulative totals exceeding the limit. Couldn't find a single file big enough to see if the max limit works on individual file uploads.
 #This scenario is a guess about proper functionality.
+@smoke
 Scenario: I can NOT attach file(s) exceeding the maximum upload size of 15 mb.
   And I have entered message body text for a new message or reply
   When I click on the File Attachments link
