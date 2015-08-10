@@ -8,7 +8,7 @@ Background:
   Given I have an email address
 
 #Should the sender receive an email confirmation?
-@test
+@smoke @mail
 Scenario: I can use the contact form to send an email to Warmshowers admin
   And I am on the Contact page
   When I enter values in all required fields
@@ -31,7 +31,7 @@ Scenario: I can access the Help Forum page using the link on the Contact page
   Then I will see the Website Help and Support Forum page
 
 #Validation/Fail Scenarios
-@test
+@smoke
 Scenario: I can NOT sent a message with an invalid email address
   And I am on the Contact page
   And I have entered values in all required fields
@@ -41,7 +41,7 @@ Scenario: I can NOT sent a message with an invalid email address
   And a modal with "You must enter a valid e-mail address."
   And my message will not be sent
 
-@test
+@smoke
 Scenario: I can NOT send a message without completing required form fields
   And I am on the Contact page
   And I have NOT entered values in all form fields
