@@ -7,7 +7,7 @@ Feature:I can log in to Warmshowers
 Background:
   Given I am an authenticated user
 
-@test
+@smoke
 Scenario: I can log in to Warmshowers using my username
   And I am on the User Account page
   And the Log in tab
@@ -16,7 +16,7 @@ Scenario: I can log in to Warmshowers using my username
   And I click the Log In button
   Then I see the main page as an authenticated user.
 
-@test
+@smoke
 Scenario: I can log in to Warmshowers using my email address
   And I am on the User Account page
   And the Log in tab
@@ -25,7 +25,7 @@ Scenario: I can log in to Warmshowers using my email address
   And I click the Log In button
   Then I see the main page as an authenticated user.
 
-@test
+@smoke
 Scenario: I can connect my Warmshowers account to Facebook
   And I am on the User Account page
   And the Log in tab
@@ -38,7 +38,7 @@ Scenario: I can connect my Warmshowers account to Facebook
   Then I see the main Warmshowers page as an authenticated user
   And a modal with "You've connected your account with Facebook."
 
-@test
+@smoke
 Scenario: I can login to Warmshowers using Facebook
   And I am on the User Account page
   And the Log In tab
@@ -47,7 +47,7 @@ Scenario: I can login to Warmshowers using Facebook
   Then I see the main Warmshowers page as an authenticated user
 
 #This doesn't seem to work right now
-@test
+@smoke
 Scenario: I can have Warmshowers remember my login information
   And I am on the User Account page
   And the Log In tab
@@ -58,7 +58,7 @@ Scenario: I can have Warmshowers remember my login information
   And my login information will be stored for my next visit
 
 #Validation/Fail Scenarios
-@test
+@smoke
 Scenario: I can NOT log in to Warmshowers with an incorrect user name or email address
   And I am on the User Account page
   And the Log in tab
@@ -72,7 +72,7 @@ Scenario: I can NOT log in to Warmshowers with an incorrect user name or email a
   Have you forgotten your password?
   """
 
-@test
+@smoke
 Scenario: I can NOT log in to Warmshowers with an incorrect password
   And I am on the User Account page
   And the Log in tab
