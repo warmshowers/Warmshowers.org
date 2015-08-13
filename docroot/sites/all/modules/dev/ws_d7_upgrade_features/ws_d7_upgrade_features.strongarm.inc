@@ -291,5 +291,12 @@ Disallow: /?q=user/logout/
   $strongarm->value = '[user:mail]';
   $export['token_actions_extras_default_recipient_email'] = $strongarm;
 
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'uc_credit_encryption_path';
+  $strongarm->value = '../ubercart_encryption';
+  $export['uc_credit_encryption_path'] = $strongarm;
+
   return $export;
 }
