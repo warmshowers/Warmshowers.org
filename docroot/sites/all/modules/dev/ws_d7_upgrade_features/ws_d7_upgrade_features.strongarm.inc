@@ -287,6 +287,27 @@ Disallow: /?q=user/logout/
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'slack_channel';
+  $strongarm->value = '#dev-playground';
+  $export['slack_channel'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'slack_username';
+  $strongarm->value = 'Warmshowers.org';
+  $export['slack_username'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'slack_webhook_url';
+  $strongarm->value = 'UPDATE THIS URL, GET IT FROM SLACK INTEGRATIONS PAGE.';
+  $export['slack_webhook_url'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'token_actions_extras_default_recipient_email';
   $strongarm->value = '[user:mail]';
   $export['token_actions_extras_default_recipient_email'] = $strongarm;
