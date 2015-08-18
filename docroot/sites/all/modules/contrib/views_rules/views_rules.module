@@ -1,0 +1,176 @@
+<?php
+/**
+ * @file
+ * Views & Rules deep-level integration.
+ */
+
+/**
+ * Implements hook_rules_ui_menu_alter().
+ */
+function views_rules_rules_ui_menu_alter(&$items, $base_path, $base_count) {
+  module_load_include('inc', 'views_rules', 'rules/views_rules.rules_admin');
+  _views_rules_rules_ui_menu_alter($items, $base_path, $base_count);
+}
+
+/**
+ * Gets data types.
+ */
+function views_rules_data_type_options($items = NULL) {
+  if (!isset($items)) {
+    $items = views_rules_data_types();
+  }
+  // Build options list as Rules UI would.
+  module_load_include('inc', 'rules', 'ui/ui.core');
+  $options = RulesPluginUI::getOptions('data', $items);
+
+  return $options;
+}
+
+/**
+ * Builds data options for Rules data types.
+ */
+function views_rules_data_types($options = array()) {
+  // Enumerate data types.
+  $cache = rules_get_cache();
+  $items = $cache['data_info'];
+
+  // Add default data options.
+  $options += array(
+    'list' => FALSE,
+    'entity' => FALSE,
+  );
+
+  // Remove list items.
+  if (empty($options['list'])) {
+    if (isset($items['list'])) {
+      unset($items['list']);
+    }
+    foreach ($items as $name => $info) {
+      if (strpos($name, 'list<') === 0) {
+        unset($items[$name]);
+      }
+    }
+  }
+
+  // Remove entity items.
+  if (empty($options['entity'])) {
+    if (isset($items['entity'])) {
+      unset($items['entity']);
+    }
+    $items = array_diff_key($items, entity_get_info());
+  }
+
+  return $items;
+}
+
+/**
+ * Lists options for all view displays for use as rules iterators.
+ *
+ * Each display is identified by the view name, followed by a colon (':'), and
+ * then the display name.
+ */
+function views_rules_list_iterators($grouped = TRUE) {
+  $applicable_displays = views_get_applicable_views('rules iterator');
+  $options = array();
+  foreach ($applicable_displays as $view_display) {
+    /** @var $view view */
+    list($view, $display_name) = $view_display;
+    // Validate display.
+    if (!$view->validate()) {
+      continue;
+    }
+    // Check user access.
+    if (!$view->access($display_name)) {
+      continue;
+    }
+    // Build option.
+    $view_label = $view->get_human_name();
+    if (empty($view_label)) {
+      $view_label = $view->name;
+    }
+    $display_label = $view->display_handler->display->display_title;
+    // Add display as option.
+    $display_id = $view->name . ':' . $display_name;
+    if ($grouped) {
+      $options[$view_label][$display_id] = $display_label;
+    }
+    else {
+      $options[$display_id] = t('@view_title: @display_title', array('@view_title' => $view_label, '@display_title' => $display_label));
+    }
+  }
+  return $options;
+}
+
+/**
+ * Loads a view with the display ID as given by views_rules_list_iterators().
+ */
+function views_rules_get_view($view_display_id, $reset = FALSE) {
+  list($view_name, $display_name) = explode(':', $view_display_id, 2);
+  if (($view = views_get_view($view_name, $reset)) && $view->set_display($display_name)) {
+    return $view;
+  }
+}
+
+/**
+ * Creates a view loop.
+ *
+ * This function is as used in a fluent interface. Note that, much like the loop
+ * provided by Rules, a view loop is used as an action.
+ *
+ * @param string $view_name
+ *   Machine name of the view to use.
+ * @param string $display_name
+ *   Machine name of the specific display in the view to use.
+ * @param array $settings
+ *   Parameter and row variable settings. Specify view contextual filters as
+ *   parameters, i.e. with data selectors, data processors, etc., using variable
+ *   machine names configured in the Rules display parameter info. Specify
+ *   available row variables in the syntax of provided variables, using variable
+ *   machine names configured in the Rules display variable info. The following
+ *   is an example of settings in a rule with variable "term" of type Taxonomy
+ *   term, given a view with contextual filter "tid" for term ID and row
+ *   variable "node" for node ID (configured as variable type Node):
+ *
+ *   <code>
+ *     array(
+ *       'tid:select' => 'term:tid',
+ *       'node:var' => 'node',
+ *       'node:label' => 'Node',
+ *     )
+ *   </code>
+ *
+ * @return ViewsRulesLoop
+ */
+function views_rules_loop($view_name, $display_name, array $settings = array()) {
+  return new ViewsRulesLoop($view_name, $display_name, $settings);
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function views_rules_views_api() {
+  return array(
+    'version' => '3.0',
+  );
+}
+
+/**
+ * Implements hook_views_plugins().
+ */
+function views_rules_views_plugins() {
+  return array(
+    'display' => array(
+      'views_rules' => array(
+        'title' => t('Rules'),
+        'help' => t('Provide a display for using results in Rules.'),
+        'handler' => 'views_rules_plugin_display_rules',
+        'theme' => 'views_view',
+        'uses hook menu' => FALSE,
+        'uses fields' => TRUE,
+        'accept attachments' => FALSE,
+        'admin' => t('Rules'),
+        'rules iterator' => TRUE,
+      ),
+    ),
+  );
+}

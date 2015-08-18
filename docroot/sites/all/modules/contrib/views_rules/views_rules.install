@@ -1,0 +1,67 @@
+<?php
+/**
+ * @file
+ * Module installation file.
+ */
+
+/**
+ * Updates collect action settings.
+ */
+function views_rules_update_7000(&$sandbox) {
+  $rules = rules_config_load_multiple(FALSE);
+  /** @var $rule RulesPlugin */
+  foreach ($rules as $rule) {
+    if ($rule instanceof RulesContainerPlugin && views_rules_update_clean_collect_action_variable_names($rule)) {
+      $rule->save();
+    }
+  }
+}
+
+/**
+ * Cleans up variable names in collect actions.
+ *
+ * @param RulesContainerPlugin $container
+ */
+function views_rules_update_clean_collect_action_variable_names($container) {
+  $changed = FALSE;
+  $iterator = new RecursiveIteratorIterator($container->getIterator(), RecursiveIteratorIterator::SELF_FIRST);
+  foreach ($iterator as $element) {
+    /** @var RulesAction $element */
+    if ($element instanceof RulesAction && $element->getElementName() == 'views_rules_collect_rows') {
+      $updated_settings = array();
+      $parameter_info = array();
+      $variable_info = array();
+      if (!empty($element->settings['display']) && $view = views_rules_get_view($element->settings['display'])) {
+        /** @var $display views_rules_plugin_display_rules */
+        $display = $view->display_handler;
+        $parameter_info = $display->get_rules_parameter_info();
+        $variable_info = $display->get_rules_variable_info();
+      }
+      foreach ($element->settings as $key => $value) {
+        $updated_key = $key;
+        $updated_value = $value;
+
+        // Transform 'display' key.
+        if ($key == 'display') {
+          $updated_key = 'views_rules_display';
+          $changed = TRUE;
+        }
+        // Transform parameter key.
+        elseif (preg_match('/^param_([^:]*)/', $key, $match) && isset($parameter_info[$match[1]])) {
+          $updated_key = substr($key, 6);
+          $changed = TRUE;
+        }
+        // Transform list variable key.
+        elseif (preg_match('/^list_([^:]*)/', $key, $match) && isset($variable_info[$match[1]])) {
+          $updated_key = substr($key, 5);
+          $changed = TRUE;
+        }
+
+        $updated_settings[$updated_key] = $updated_value;
+      }
+      $element->settings = $updated_settings;
+    }
+  }
+
+  return $changed;
+}
