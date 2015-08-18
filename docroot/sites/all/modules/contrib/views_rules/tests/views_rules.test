@@ -1,0 +1,467 @@
+<?php
+/**
+ * @file
+ * Simpletest implementations.
+ */
+
+/**
+ * Base test for Views Rules.
+ */
+abstract class ViewsRulesBaseTestCase extends DrupalWebTestCase {
+  /**
+   * Creates site objects.
+   */
+  protected function createSiteData() {
+    $data = array();
+
+    // Create sample items.
+    $vocabulary = taxonomy_vocabulary_machine_name_load('tags');
+    $data['term'] = (object) array(
+      'name' => 'Term 1',
+      'vid' => $vocabulary->vid,
+      'vocabulary_machine_name' => 'tags',
+    );
+    taxonomy_term_save($data['term']);
+    $nodeBase = array(
+      'type' => 'article',
+      'language' => LANGUAGE_NONE,
+      'field_tags' => array(LANGUAGE_NONE => array(array('tid' => $data['term']->tid))),
+    );
+    $data['node1'] = $this->drupalCreateNode(array('title' => 'Node 1') + $nodeBase);
+    $data['node2'] = $this->drupalCreateNode(array('title' => 'Node 2') + $nodeBase);
+    $data['node3'] = $this->drupalCreateNode(array('title' => 'Node 3') + $nodeBase);
+
+    return $data;
+  }
+
+  /**
+   * Retrieves a file in the test directory.
+   */
+  protected function getFileContents($fileName) {
+    $filePath = drupal_get_path('module', 'views_rules_test') . '/' . $fileName;
+    return file_get_contents($filePath);
+  }
+}
+
+/**
+ * Framework function tests.
+ */
+class ViewsRulesFrameworkTestCase extends ViewsRulesBaseTestCase {
+  /**
+   * Declares test.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Framework tests',
+      'description' => 'Tests basic module functionality.',
+      'group' => 'Views Rules',
+    );
+  }
+
+  protected function setUp() {
+    parent::setUp('views_rules_test');
+  }
+
+  /**
+   * Tests data type listing.
+   */
+  public function testDataTypes() {
+    $entityInfo = entity_get_info();
+
+    // Check only primitives are returned.
+    $items = views_rules_data_types();
+    $this->assertIdentical(array(), array_intersect_key($items, $entityInfo), 'Default data types do not include entity types.');
+    $this->assertIdentical(array(), array_filter(array_keys($items), array(__CLASS__, 'filterListDataTypes')), 'Default data types do not include lists.');
+
+    // Check list types are returned.
+    $items = views_rules_data_types(array('list' => TRUE));
+    $this->assertNotIdentical(array(), array_filter(array_keys($items), array(__CLASS__, 'filterListDataTypes')), 'List types are correctly enumerated.');
+    $this->assertIdentical($items, array_diff_key($items, $entityInfo), 'List types do not include entity types.');
+
+    // Check entity types are returned.
+    $items = views_rules_data_types(array('entity' => TRUE));
+    $this->assertIdentical(array(), array_diff_key($entityInfo, $items), 'Entity types are correctly enumerated.');
+    $this->assertIdentical(array(), array_filter(array_keys($items), array(__CLASS__, 'filterListDataTypes')), 'Entity data types do not include lists.');
+  }
+
+  /**
+   * Filters list data types.
+   */
+  public static function filterListDataTypes($type) {
+    return (bool) preg_match('/^list($|<)/', $type);
+  }
+
+  /**
+   * Tests listing rule iterator view displays.
+   */
+  public function testListIterators() {
+    $views_rules_test_id = 'views_rules_test:views_rules_1';
+
+    $iterators = views_rules_list_iterators(FALSE);
+    $this->assertTrue(array_key_exists($views_rules_test_id, $iterators), 'Views iterators are corrected listed.');
+  }
+
+  /**
+   * Tests retrieving a view by view and display names joined by a colon.
+   */
+  public function testGetView() {
+    $displayId = 'views_rules_1';
+    $view = views_rules_get_view('views_rules_test:' . $displayId);
+    $this->assertTrue(is_object($view) && $view instanceof view, 'Iterator view can be retrieved.');
+    $this->assertEqual($displayId, $view->current_display, 'Iterator display is active in retrieved view.');
+    $this->assertTrue($view->display_handler instanceof views_rules_iterator, 'Iterator object is ready.');
+  }
+}
+
+/**
+ * Views display tests.
+ */
+class ViewsRulesViewsDisplayTestCase extends ViewsRulesBaseTestCase {
+  /**
+   * Declares test.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Views display tests',
+      'description' => 'Tests Views display plugin implementation.',
+      'group' => 'Views Rules',
+    );
+  }
+
+  protected function setUp() {
+    parent::setUp('views_rules_test', 'views_ui');
+    $user = $this->drupalCreateUser(array('administer views'));
+    $this->drupalLogin($user);
+  }
+
+  /**
+   * Tests iterator evaluation.
+   */
+  public function testExecuteIterator() {
+    $iterable = new ViewsRulesTestIterable();
+    /** @var $iterator views_rules_plugin_display_rules */
+    $iterator = views_rules_get_view('views_rules_test:views_rules_1')->display_handler;
+
+    // Create sample items.
+    $data = $this->createSiteData();
+
+    // Disable nid and test executing iterator.
+    $option = $iterator->get_option('rules_variables');
+    $option['nid']['enabled'] = 0;
+    $iterator->set_option('rules_variables', $option);
+    $iterator->execute_iterator(array($data['term']->tid), $iterable);
+    $expectedData = array(
+      array('title' => 'Node 1'),
+      array('title' => 'Node 2'),
+      array('title' => 'Node 3'),
+    );
+    $this->assertIdentical($expectedData, $iterable->rows, 'Iterator display correctly evaluates.');
+
+    // Check execution for rendered result.
+    $iterator = views_rules_get_view('views_rules_test:views_rules_1')->display_handler;
+    $option = $iterator->get_option('fields');
+    $option['title']['alter']['alter_text'] = 1;
+    $option['title']['alter']['text'] = '<em>[title]</em>';
+    $option['title']['link_to_node'] = 0;
+    $iterator->set_option('fields', $option);
+    $option = $iterator->get_option('rules_variables');
+    $option['nid']['enabled'] = 0;
+    $option['title']['rendered'] = 1;
+    $iterator->set_option('rules_variables', $option);
+    $iterator->execute_iterator(array($data['term']->tid), $iterable->reset());
+    $expectedData = array(
+      array('title' => '<em>Node 1</em>'),
+      array('title' => '<em>Node 2</em>'),
+      array('title' => '<em>Node 3</em>'),
+    );
+    $this->assertIdentical($expectedData, $iterable->rows, 'Iterator display correctly evaluates rendered result.');
+
+    // Check execution for non-field row styles.
+    $iterator = views_rules_get_view('views_rules_non_field_test:views_rules_1')->display_handler;
+    $iterator->execute_iterator(array($data['term']->tid), $iterable->reset());
+    $expectedData = array(
+      array('node' => $data['node1']->nid),
+      array('node' => $data['node2']->nid),
+      array('node' => $data['node3']->nid),
+    );
+    $this->assertIdentical($expectedData, $iterable->rows, 'Iterator display correctly evaluates for non-field row style.');
+  }
+}
+
+/**
+ * Rules plugin tests.
+ */
+class ViewsRulesViewLoopTestCase extends ViewsRulesBaseTestCase {
+  /**
+   * Declares test.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Rules view loop tests',
+      'description' => 'Tests view loop integration with Rules.',
+      'group' => 'Views Rules',
+    );
+  }
+
+  protected function setUp() {
+    parent::setUp('views_rules_test', 'rules_admin', 'views_ui');
+    $user = $this->drupalCreateUser(array('administer rules', 'administer views'));
+    $this->drupalLogin($user);
+  }
+
+  /**
+   * Tests creation of a view loop.
+   */
+  public function testViewLoopUI() {
+    // Check redirection.
+    rules_action_set(array('term' => array('type' => 'taxonomy_term', 'label' => 'Term')))->save('test');
+    $this->drupalGet('admin/config/workflow/rules/components/manage/test/add/1/view loop');
+    $this->assertUrl('admin/config/workflow/rules/components/manage/test/add-view-loop/1', array(), 'Form redirects when adding a view loop.');
+
+    // Create view loop.
+    $this->drupalPost(NULL, array('views_rules_display' => 'views_rules_non_field_test:views_rules_1'), t('Continue'));
+    $this->drupalPost(NULL, array(), t('Switch to data selection'));
+    $this->drupalPost(NULL, array('parameter[tid][settings][tid:select]' => 'term:tid'), t('Save'));
+    $this->assertUrl('admin/config/workflow/rules/components/manage/test', array(), 'View loop creation form is saved.');
+    $this->assertLinkByHref('admin/structure/views/view/views_rules_non_field_test/edit/views_rules_1', 0, 'View loop can be added via UI.');
+  }
+
+  /**
+   * Tests evaluation of a view loop.
+   */
+  public function testEvaluate() {
+    $data = $this->createSiteData();
+    $expectedData = array($data['node1']->title, $data['node2']->title, $data['node3']->title);
+
+    // Test view loop with fields.
+    $comp = $this->createTestComponent();
+    $result = $comp->execute($data['term']);
+    $this->assertIdentical($expectedData, reset($result), 'View loop evaluates correctly.');
+
+    // Test view loop without fields.
+    $comp = $this->createTestNonFieldComponent();
+    $result = $comp->execute($data['term']);
+    $this->assertIdentical($expectedData, reset($result), 'Non-field view loop evaluates correctly.');
+
+    // Test evaluating view loop after data has changed.
+    $newNode = (array) $data['node1'];
+    $newNode = array_intersect_key($newNode, array_flip(array('title', 'type', 'field_tags')));
+    $this->drupalCreateNode($newNode);
+    $result = $comp->execute($data['term']);
+    $this->assertNotIdentical($expectedData, reset($result), 'View loop result data is not prematurely cached.');
+  }
+
+  /**
+   * Tests exporting a view loop.
+   */
+  public function testExport() {
+    $comp = $this->createTestComponent();
+    $comp->name = 'view_loop_test';
+    $export = $this->getFileContents('view_loop_test.export.txt');
+    $this->assertEqual($export, $comp->export(), 'View loop exports correctly.');
+
+    $this->assertTrue(in_array('views_rules', $comp->dependencies()), 'View loop depends on Views Rules.');
+  }
+
+  /**
+   * Tests importing a view loop.
+   */
+  public function testImport() {
+    $export = $this->getFileContents('view_loop_test.export.txt');
+    $comp = entity_import('rules_config', $export);
+    $data = $this->createSiteData();
+    $expectedData = array($data['node1']->title, $data['node2']->title, $data['node3']->title);
+    $result = $comp->execute($data['term']);
+    $this->assertIdentical($expectedData, reset($result), 'Imported view loop evaluates correctly.');
+  }
+
+  /**
+   * Tests importing a view loop for an invalid display.
+   */
+  public function testImportInvalidDisplay() {
+    $export = $this->getFileContents('view_loop_test_invalid_display.export.txt');
+    $message = 'Importing view loop for missing display triggers integrity error.';
+    try {
+      /** @var $rules_config RulesPlugin */
+      $rules_config = entity_import('rules_config', $export);
+      $rules_config->integrityCheck();
+      $this->fail($message);
+    }
+    catch (RulesIntegrityException $e) {
+      $this->pass($message);
+    }
+  }
+
+  /**
+   * Creates an action set to test a view loop.
+   */
+  protected function createTestComponent() {
+    $variables = array(
+      'term' => array(
+        'type' => 'taxonomy_term',
+        'label' => 'Term',
+      ),
+      'list' => array(
+        'type' => 'list',
+        'label' => 'List',
+        'parameter' => FALSE,
+      ),
+    );
+    $provides = array('list');
+    $loop = views_rules_loop('views_rules_test', 'views_rules_1', array(
+      'tid:select' => 'term:tid',
+      'type' => 'article',
+      'nid:var' => 'nid',
+      'nid:label' => 'Node ID',
+      'title:var' => 'title',
+      'title:label' => 'Title',
+    ));
+    return rules_action_set($variables, $provides)
+      ->action($loop->action('list_add', array('list:select' => 'list', 'item:select' => 'title')));
+  }
+
+  /**
+   * Creates an action set to test a view loop for a non-field view.
+   */
+  protected function createTestNonFieldComponent() {
+    $variables = array(
+      'term' => array(
+        'type' => 'taxonomy_term',
+        'label' => 'Term',
+      ),
+      'list' => array(
+        'type' => 'list',
+        'label' => 'List',
+        'parameter' => FALSE,
+      ),
+    );
+    $provides = array('list');
+    $loop = views_rules_loop('views_rules_non_field_test', 'views_rules_1', array(
+      'tid:select' => 'term:tid',
+      'node:var' => 'node',
+      'node:label' => 'Node',
+    ));
+    return rules_action_set($variables, $provides)
+      ->action($loop->action('list_add', array('list:select' => 'list', 'item:select' => 'node:title')));
+  }
+}
+
+/**
+ * Rules plugin tests.
+ */
+class ViewsRulesCollectActionTestCase extends ViewsRulesBaseTestCase {
+  /**
+   * Declares test.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Rules collect action tests',
+      'description' => 'Tests view loop integration with Rules.',
+      'group' => 'Views Rules',
+    );
+  }
+
+  protected function setUp() {
+    parent::setUp('views_rules_test');
+  }
+
+  /**
+   * Tests data collector.
+   */
+  public function testCollector() {
+    $data = $this->createSiteData();
+    /** @var $iterator views_rules_plugin_display_rules */
+    $iterator = views_rules_get_view('views_rules_test:views_rules_1')->display_handler;
+    $collector = new ViewsRulesResultCollector(array_keys($iterator->get_rules_variable_info()));
+    $iterator->execute_iterator(array($data['term']->tid), $collector);
+    $expectedData = array();
+    foreach (array('nid', 'title') as $field) {
+      foreach (array('node1', 'node2', 'node3') as $dataKey) {
+        $expectedData[$field][] = $data[$dataKey]->$field;
+      }
+    }
+    $this->assertIdentical($expectedData, $collector->getData(), 'Collector correctly returns executed view data.');
+  }
+
+  /**
+   * Tests evaluating the action.
+   */
+  public function testEvaluate() {
+    $data = $this->createSiteData();
+    $variables = array(
+      'term' => array('type' => 'taxonomy_term', 'label' => 'Term'),
+      'list1' => array('type' => 'list', 'label' => 'List 1', 'parameter' => FALSE),
+      'list2' => array('type' => 'list', 'label' => 'List 2', 'parameter' => FALSE),
+    );
+    $provides = array('list1', 'list2');
+    $comp = rules_action_set($variables, $provides)
+      ->action('views_rules_collect_rows', array(
+        'views_rules_display' => 'views_rules_test:views_rules_1',
+        'tid:select' => 'term:tid',
+        'type' => 'article',
+        'nid:var' => 'list_nid',
+        'nid:label' => 'List of node IDs',
+        'title:var' => 'list_title',
+        'title:label' => 'List of node titles',
+      ))
+      ->action('data_set', array('data:select' => 'list1', 'value:select' => 'list_nid'))
+      ->action('data_set', array('data:select' => 'list2', 'value:select' => 'list_title'));
+
+    // Test evaluation.
+    $expectedList1 = array($data['node1']->nid, $data['node2']->nid, $data['node3']->nid);
+    $expectedList2 = array($data['node1']->title, $data['node2']->title, $data['node3']->title);
+    $return = $comp->execute($data['term']);
+    $this->assertIdentical($expectedList1, reset($return), 'Collect action correctly returns a list of data.');
+    $this->assertIdentical($expectedList2, next($return), 'Collect action correctly returns all lists of data.');
+  }
+}
+
+/**
+ * Test suite for updates.
+ */
+class ViewsRulesUpdateTestCase extends ViewsRulesBaseTestCase {
+  /**
+   * Declares test.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Update tests',
+      'description' => 'Tests module updates.',
+      'group' => 'Views Rules',
+    );
+  }
+
+  protected function setUp() {
+    parent::setUp('views_rules_test');
+    module_load_all_includes('install');
+  }
+
+  /**
+   * Tests views_rules_update_clean_collect_action_variable_names().
+   */
+  public function testCleanCollectActionVariableNames() {
+    $action = rules_action('views_rules_collect_rows', array(
+      'views_rules_display' => 'views_rules_test:views_rules_1',
+      'tid:select' => 'term:tid',
+      'type' => 'article',
+      'nid:var' => 'list_nid',
+      'nid:label' => 'List of node IDs',
+      'title:var' => 'list_title',
+      'title:label' => 'List of node titles',
+    ));
+    $comp = rules_action_set(array('term' => array('type' => 'taxonomy_term', 'label' => 'Term')))
+      ->action($action);
+    views_rules_update_clean_collect_action_variable_names($comp);
+    $expectedSettings = array(
+      'views_rules_display' => 'views_rules_test:views_rules_1',
+      'tid:select' => 'term:tid',
+      'type' => 'article',
+      'nid:var' => 'list_nid',
+      'nid:label' => 'List of node IDs',
+      'title:var' => 'list_title',
+      'title:label' => 'List of node titles',
+    );
+    $updatedSettings = array_intersect_key($action->settings, array_flip(array_filter(array_keys($action->settings), 'element_child')));
+    $this->assertIdentical($expectedSettings, $updatedSettings, 'Prefixed collect action variable names are cleaned.');
+  }
+}

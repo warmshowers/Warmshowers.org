@@ -13,8 +13,16 @@ function user_redirection_rules_default_rules_configuration() {
       "LABEL" : "User redirection",
       "PLUGIN" : "reaction rule",
       "OWNER" : "rules",
+      "TAGS" : [ "User" ],
       "REQUIRES" : [ "rules" ],
       "ON" : { "user_insert" : [], "user_update" : [] },
+      "IF" : [
+        { "user_has_role" : {
+            "account" : [ "account" ],
+            "roles" : { "value" : { "3" : "3", "8" : "8", "6" : "6", "13" : "13" } }
+          }
+        }
+      ],
       "DO" : [ { "redirect" : { "url" : "[account:url]", "force" : "0" } } ]
     }
   }');
