@@ -11,6 +11,6 @@
  */
 ?>
 <div class="account-menu">
-  <?php print t("Logged in as !name | !logout", array('!name' => $profile_link, '!logout' => $logout_link)); ?>
+  <?php print t("Logged in as !name | !messages | !logout", array('!name' => $profile_link, '!messages' => $message_link, '!logout' => $logout_link)); ?>
 </div>
 
