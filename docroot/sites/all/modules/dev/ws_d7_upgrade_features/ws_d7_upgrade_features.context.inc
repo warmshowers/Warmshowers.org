@@ -69,23 +69,23 @@ function ws_d7_upgrade_features_context_default_contexts() {
           'region' => 'highlighted',
           'weight' => '-10',
         ),
-        'nodeblock-89314' => array(
-          'module' => 'nodeblock',
-          'delta' => '89314',
-          'region' => 'highlighted',
-          'weight' => '-9',
-        ),
-        'nodeblock-93637' => array(
-          'module' => 'nodeblock',
-          'delta' => '93637',
-          'region' => 'highlighted',
-          'weight' => '-8',
-        ),
-        'views-recent_forum_topics-block_1' => array(
+        'views-a0e2a8ab6066d8f20b8c3c1b25cf9735' => array(
           'module' => 'views',
-          'delta' => 'recent_forum_topics-block_1',
+          'delta' => 'a0e2a8ab6066d8f20b8c3c1b25cf9735',
           'region' => 'highlighted',
           'weight' => '-7',
+        ),
+        'donations_thermometer-thermometer' => array(
+          'module' => 'donations_thermometer',
+          'delta' => 'thermometer',
+          'region' => 'highlighted',
+          'weight' => '-6',
+        ),
+        'views-recent_feedback-recent_feedback' => array(
+          'module' => 'views',
+          'delta' => 'recent_feedback-recent_feedback',
+          'region' => 'highlighted',
+          'weight' => '-8',
         ),
         'wsmap-wsmap_map' => array(
           'module' => 'wsmap',
@@ -132,11 +132,23 @@ function ws_d7_upgrade_features_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'lang_dropdown-0' => array(
-          'module' => 'lang_dropdown',
-          'delta' => 0,
+        'warmshowers_site-ws_user_account_menu' => array(
+          'module' => 'warmshowers_site',
+          'delta' => 'ws_user_account_menu',
           'region' => 'header',
-          'weight' => 0,
+          'weight' => '-9',
+        ),
+        'warmshowers_site-ws_anonymous_user_menu' => array(
+          'module' => 'warmshowers_site',
+          'delta' => 'ws_anonymous_user_menu',
+          'region' => 'header',
+          'weight' => '-5',
+        ),
+        'lang_dropdown-language' => array(
+          'module' => 'lang_dropdown',
+          'delta' => 'language',
+          'region' => 'header',
+          'weight' => '-7',
         ),
       ),
     ),
@@ -2099,41 +2111,35 @@ function ws_d7_upgrade_features_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
+        'warmshowers_site-ws_member_stats_block' => array(
+          'module' => 'warmshowers_site',
+          'delta' => 'ws_member_stats_block',
+          'region' => 'highlighted',
+          'weight' => '-72',
+        ),
+        'warmshowers_site-ws_anonymous_welcome_message' => array(
+          'module' => 'warmshowers_site',
+          'delta' => 'ws_anonymous_welcome_message',
+          'region' => 'highlighted',
+          'weight' => '-71',
+        ),
         'nodeblock-15526' => array(
           'module' => 'nodeblock',
-          'delta' => 15526,
+          'delta' => '15526',
           'region' => 'sidebar_first',
-          'weight' => 0,
-        ),
-        'user-0' => array(
-          'module' => 'user',
-          'delta' => 0,
-          'region' => 'sidebar_first',
-          'weight' => 1,
+          'weight' => '0',
         ),
         'views-photo_contest-block_2' => array(
           'module' => 'views',
           'delta' => 'photo_contest-block_2',
           'region' => 'sidebar_second',
-          'weight' => 0,
+          'weight' => '0',
         ),
         'nodeblock-15521' => array(
           'module' => 'nodeblock',
-          'delta' => 15521,
+          'delta' => '15521',
           'region' => 'sidebar_second',
-          'weight' => 1,
-        ),
-        'wsuser-wsuser_member_count_block' => array(
-          'module' => 'wsuser',
-          'delta' => 'wsuser_member_count_block',
-          'region' => 'highlight',
-          'weight' => 0,
-        ),
-        'views-map_slideshow-block_1' => array(
-          'module' => 'views',
-          'delta' => 'map_slideshow-block_1',
-          'region' => 'content_top',
-          'weight' => 0,
+          'weight' => '1',
         ),
       ),
     ),
