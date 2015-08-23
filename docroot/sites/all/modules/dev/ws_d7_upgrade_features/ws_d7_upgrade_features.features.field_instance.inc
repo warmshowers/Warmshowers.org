@@ -104,15 +104,23 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => -2,
+        'weight' => -10,
+      ),
+      'highlight' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(
+          'trim_length' => 150,
+        ),
+        'type' => 'text_trimmed',
+        'weight' => -1,
       ),
       'teaser' => array(
         'label' => 'hidden',
         'module' => 'text',
         'settings' => array(
-          'trim_length' => 600,
+          'trim_length' => 200,
         ),
-        'trim_length' => 1200,
         'type' => 'text_summary_or_trimmed',
         'weight' => -2,
       ),
@@ -146,9 +154,8 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'display' => array(
       'default' => array(
         'label' => 'inline',
-        'module' => 'text',
         'settings' => array(),
-        'type' => 'text_default',
+        'type' => 'hidden',
         'weight' => -5,
       ),
       'full' => array(
@@ -160,6 +167,12 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         ),
         'type' => 'image',
         'weight' => 1,
+      ),
+      'highlight' => array(
+        'label' => 'inline',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 10,
       ),
       'rss' => array(
         'label' => 'hidden',
@@ -193,13 +206,9 @@ function ws_d7_upgrade_features_field_default_field_instances() {
       ),
       'teaser' => array(
         'label' => 'hidden',
-        'module' => 'image',
-        'settings' => array(
-          'image_link' => '',
-          'image_style' => '',
-        ),
-        'type' => 'image',
-        'weight' => 1,
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 5,
       ),
       'token' => array(
         'label' => 'hidden',
@@ -255,9 +264,10 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'display' => array(
       'default' => array(
         'label' => 'hidden',
+        'module' => 'list',
         'settings' => array(),
-        'type' => 'hidden',
-        'weight' => -1,
+        'type' => 'list_default',
+        'weight' => -2,
       ),
       'full' => array(
         'label' => 'inline',
@@ -266,11 +276,16 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'type' => 'text_default',
         'weight' => -1,
       ),
+      'highlight' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -1,
+      ),
       'teaser' => array(
         'label' => 'inline',
-        'module' => 'text',
         'settings' => array(),
-        'type' => 'text_default',
+        'type' => 'hidden',
         'weight' => -1,
       ),
     ),
@@ -303,9 +318,15 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'display' => array(
       'default' => array(
         'label' => 'inline',
-        'module' => 'text',
-        'settings' => array(),
-        'type' => 'text_default',
+        'module' => 'date',
+        'settings' => array(
+          'format_type' => 'short',
+          'fromto' => 'both',
+          'multiple_from' => '',
+          'multiple_number' => '',
+          'multiple_to' => '',
+        ),
+        'type' => 'date_default',
         'weight' => -1,
       ),
       'full' => array(
@@ -322,6 +343,12 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'type' => 'date_default',
         'weight' => 0,
       ),
+      'highlight' => array(
+        'label' => 'inline',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -1,
+      ),
       'teaser' => array(
         'label' => 'inline',
         'module' => 'date',
@@ -331,10 +358,9 @@ function ws_d7_upgrade_features_field_default_field_instances() {
           'multiple_from' => '',
           'multiple_number' => '',
           'multiple_to' => '',
-          'show_repeat_rule' => 'show',
         ),
         'type' => 'date_default',
-        'weight' => 0,
+        'weight' => -4,
       ),
     ),
     'entity_type' => 'node',
@@ -380,13 +406,10 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'description' => '',
     'display' => array(
       'default' => array(
-        'label' => 'hidden',
-        'module' => 'image',
-        'settings' => array(
-          'image_link' => '',
-          'image_style' => '',
-        ),
-        'type' => 'image',
+        'label' => 'inline',
+        'module' => 'user_reference',
+        'settings' => array(),
+        'type' => 'user_reference_default',
         'weight' => -2,
       ),
       'full' => array(
@@ -395,6 +418,13 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'settings' => array(),
         'type' => 'user_reference_default',
         'weight' => -6,
+      ),
+      'highlight' => array(
+        'label' => 'hidden',
+        'module' => 'user_reference',
+        'settings' => array(),
+        'type' => 'user_reference_default',
+        'weight' => -2,
       ),
       'teaser' => array(
         'label' => 'inline',
@@ -440,11 +470,11 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'description' => '',
     'display' => array(
       'default' => array(
-        'label' => 'hidden',
+        'label' => 'inline',
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 31,
+        'weight' => 0,
       ),
       'full' => array(
         'label' => 'inline',
@@ -452,6 +482,12 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'settings' => array(),
         'type' => 'text_default',
         'weight' => -5,
+      ),
+      'highlight' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 31,
       ),
       'rss' => array(
         'label' => 'inline',
@@ -476,9 +512,9 @@ function ws_d7_upgrade_features_field_default_field_instances() {
       ),
       'teaser' => array(
         'label' => 'inline',
-        'module' => 'text',
+        'module' => 'list',
         'settings' => array(),
-        'type' => 'text_default',
+        'type' => 'list_default',
         'weight' => -5,
       ),
       'token' => array(
@@ -518,9 +554,8 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'display' => array(
       'default' => array(
         'label' => 'hidden',
-        'module' => 'file',
         'settings' => array(),
-        'type' => 'file_table',
+        'type' => 'hidden',
         'weight' => 0,
       ),
       'full' => array(
@@ -528,6 +563,12 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'module' => 'file',
         'settings' => array(),
         'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'highlight' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
         'weight' => 0,
       ),
       'rss' => array(
@@ -539,7 +580,6 @@ function ws_d7_upgrade_features_field_default_field_instances() {
       ),
       'teaser' => array(
         'label' => 'hidden',
-        'module' => NULL,
         'settings' => array(),
         'type' => 'hidden',
         'weight' => 0,
