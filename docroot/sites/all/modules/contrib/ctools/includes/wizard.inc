@@ -213,9 +213,12 @@ function ctools_wizard_wrapper(&$form, &$form_state) {
         }
         $title = l($title, $path[0], $options);
       }
-      $trail[] = '<span class="' . $class . '">' . $title . '</span>';
+      $trail[$id] = '<span class="' . $class . '">' . $title . '</span>';
     }
   }
+
+  // Allow other modules to alter the trail.
+  drupal_alter('ctools_wizard_trail', $trail, $form_info);
 
   // Display the trail if instructed to do so.
   if (!empty($form_info['show trail'])) {

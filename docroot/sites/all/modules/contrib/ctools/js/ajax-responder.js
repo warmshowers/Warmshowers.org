@@ -8,9 +8,10 @@
   Drupal.CTools = Drupal.CTools || {};
   Drupal.CTools.AJAX = Drupal.CTools.AJAX || {};
   Drupal.CTools.AJAX.commands = Drupal.CTools.AJAX.commands || {};
-  Drupal.CTools.AJAX.commandCache = Drupal.CTools.AJAX.comandCache || {} ;
+  Drupal.CTools.AJAX.commandCache = Drupal.CTools.AJAX.commandCache || {};
   Drupal.CTools.AJAX.scripts = {};
   Drupal.CTools.AJAX.css = {};
+  Drupal.settings.CToolsUrlIsAjaxTrusted = Drupal.settings.CToolsUrlIsAjaxTrusted || {};
 
   /**
    * Success callback for an ajax request.
@@ -21,6 +22,7 @@
    * Drupal.CTools.AJAX.commands space.
    */
   Drupal.CTools.AJAX.respond = function(data) {
+    var i;
     for (i in data) {
       if (data[i]['command'] && Drupal.CTools.AJAX.commands[data[i]['command']]) {
         Drupal.CTools.AJAX.commands[data[i]['command']](data[i]);
@@ -33,36 +35,42 @@
    */
   Drupal.CTools.AJAX.warmCache = function () {
     // Store this expression for a minor speed improvement.
-    $this = $(this);
-    var old_url = $this.attr('href');
+    var $this = $(this),
+        old_url = $this.attr('href');
     // If we are currently fetching, or if we have fetched this already which is
     // ideal for things like pagers, where the previous page might already have
     // been seen in the cache.
-    if ($this.hasClass('ctools-fetching') || Drupal.CTools.AJAX.commandCache[old_url]) {
+    if ($this.hasClass('ctools-fetching') || !Drupal.CTools.AJAX.urlIsLocal(old_url) || Drupal.CTools.AJAX.commandCache[old_url]) {
       return false;
     }
 
     // Grab all the links that match this url and add the fetching class.
     // This allows the caching system to grab each url once and only once
     // instead of grabbing the url once per <a>.
-    var $objects = $('a[href="' + old_url + '"]')
+    var $objects = $('a[href="' + old_url + '"]');
     $objects.addClass('ctools-fetching');
     try {
-      url = Drupal.CTools.AJAX.urlReplaceNojs(url);
-      $.ajax({
+      var url = Drupal.CTools.AJAX.urlReplaceNojs(url);
+      var ajaxOptions = {
         type: "POST",
         url: url,
         data: { 'js': 1, 'ctools_ajax': 1},
         global: true,
         success: function (data) {
+          if (!Drupal.CTools.AJAX.isAjaxResponseTrusted(ajaxOptions.cXhr, url)) {
+            return this.error(ajaxOptions.cXhr);
+          }
+
           Drupal.CTools.AJAX.commandCache[old_url] = data;
           $objects.addClass('ctools-cache-warmed').trigger('ctools-cache-warm', [data]);
         },
+        beforeSend: Drupal.CTools.AJAX.beforeSend,
         complete: function() {
           $objects.removeClass('ctools-fetching');
         },
         dataType: 'json'
-      });
+      };
+      $.ajax(ajaxOptions);
     }
     catch (err) {
       $objects.removeClass('ctools-fetching');
@@ -76,7 +84,7 @@
    * Cachable click handler to fetch the commands out of the cache or from url.
    */
   Drupal.CTools.AJAX.clickAJAXCacheLink = function () {
-    $this = $(this);
+    var $this = $(this);
     if ($this.hasClass('ctools-fetching')) {
       $this.bind('ctools-cache-warm', function (event, data) {
         Drupal.CTools.AJAX.respond(data);
@@ -104,7 +112,9 @@
     }
 
     var url = $(this).attr('href');
-    var object = $(this);
+    if (!Drupal.CTools.AJAX.urlIsLocal(url)) {
+      return false;
+    }
     $(this).addClass('ctools-ajaxing');
     try {
       url = Drupal.CTools.AJAX.urlReplaceNojs(url);
@@ -113,7 +123,8 @@
         url: url,
         data: { 'js': 1, 'ctools_ajax': 1},
         global: true,
-        success: Drupal.CTools.AJAX.respond,
+        success: Drupal.CTools.AJAX.success,
+        beforeSend: Drupal.CTools.AJAX.beforeSend,
         error: function(xhr) {
           Drupal.CTools.AJAX.handleErrors(xhr, url);
         },
@@ -146,16 +157,16 @@
 
     var url = Drupal.CTools.AJAX.findURL(this);
     $(this).addClass('ctools-ajaxing');
-    var object = $(this);
     try {
       if (url) {
-        url = Drupal.CTools.AJAX.urlReplaceNojs(url);;
+        url = Drupal.CTools.AJAX.urlReplaceNojs(url);
         $.ajax({
           type: "POST",
           url: url,
           data: { 'js': 1, 'ctools_ajax': 1},
           global: true,
-          success: Drupal.CTools.AJAX.respond,
+          success: Drupal.CTools.AJAX.success,
+          beforeSend: Drupal.CTools.AJAX.beforeSend,
           error: function(xhr) {
             Drupal.CTools.AJAX.handleErrors(xhr, url);
           },
@@ -180,13 +191,34 @@
   };
 
   /**
+   * Helper method to stash the xhr object so it is available in the success callback.
+   */
+  Drupal.CTools.AJAX.beforeSend = function(xhr) {
+    this.cXhr = xhr;
+  };
+
+  /**
+   * Respond wrapper that checks security of the request.
+   */
+  Drupal.CTools.AJAX.success = function(data) {
+    if (data !== null && !Drupal.CTools.AJAX.isAjaxResponseTrusted(this.cXhr, this.url)) {
+      return this.error(this.cXhr);
+    }
+    Drupal.CTools.AJAX.respond(data);
+  };
+
+  Drupal.CTools.AJAX.isAjaxResponseTrusted = function(xhr, url) {
+    return Drupal.settings.CToolsUrlIsAjaxTrusted[url] || (Drupal.CTools.AJAX.urlIsLocal(url) && xhr.getResponseHeader('X-Drupal-Ajax-Token') === '1');
+  };
+
+  /**
    * Event handler to submit an AJAX form.
    *
    * Using a secondary event ensures that our form submission is last, which
    * is needed when submitting wysiwyg controlled forms, for example.
    */
   Drupal.CTools.AJAX.ajaxSubmit = function (form, url) {
-    $form = $(form);
+    var $form = $(form);
 
     if ($form.hasClass('ctools-ajaxing')) {
       return false;
@@ -202,7 +234,12 @@
         url: url,
         data: { 'js': 1, 'ctools_ajax': 1},
         global: true,
-        success: Drupal.CTools.AJAX.respond,
+        success: function(data) {
+          Drupal.CTools.AJAX.success.apply(ajaxOptions, [data]);
+        },
+        beforeSend: function (xhr) {
+          Drupal.CTools.AJAX.beforeSend.apply(ajaxOptions, [xhr]);
+        },
         error: function(xhr) {
           Drupal.CTools.AJAX.handleErrors(xhr, url);
         },
@@ -217,8 +254,14 @@
       // the submit to support this and use the proper response.
       if ($form.attr('enctype') == 'multipart/form-data') {
         $form.append('<input type="hidden" name="ctools_multipart" value="1">');
-        ajaxIframeOptions = {
-          success: Drupal.CTools.AJAX.iFrameJsonRespond,
+        var ajaxIframeOptions = {
+          success: function(data) {
+            if (!Drupal.CTools.AJAX.isAjaxResponseTrusted(ajaxOptions.cXhr, url)) {
+              return this.error(ajaxOptions.cXhr);
+            }
+
+            Drupal.CTools.AJAX.iFrameJsonRespond(data);
+          },
           iframe: true
         };
         ajaxOptions = $.extend(ajaxOptions, ajaxIframeOptions);
@@ -240,7 +283,7 @@
   Drupal.CTools.AJAX.iFrameJsonRespond = function(data) {
     var myJson = eval(data);
     Drupal.CTools.AJAX.respond(myJson);
-  }
+  };
 
   /**
    * Display error in a more fashion way
@@ -270,7 +313,7 @@
     }
 
     alert(Drupal.t("An error occurred at @path.\n\nError Description: @error", {'@path': path, '@error': error_text}));
-  }
+  };
 
   /**
    * Generic replacement for change handler to execute ajax method.
@@ -282,8 +325,8 @@
 
     var url = Drupal.CTools.AJAX.findURL(this);
     $(this).addClass('ctools-ajaxing');
-    var object = $(this);
-    var form_id = $(object).parents('form').get(0).id;
+    var $object = $(this);
+    var form_id = $object.parents('form').get(0).id;
     try {
       if (url) {
         url = Drupal.CTools.AJAX.urlReplaceNojs(url);
@@ -292,7 +335,8 @@
           url: url,
           data: {'ctools_changed': $(this).val(), 'js': 1, 'ctools_ajax': 1 },
           global: true,
-          success: Drupal.CTools.AJAX.respond,
+          success: Drupal.CTools.AJAX.success,
+          beforeSend: Drupal.CTools.AJAX.beforeSend,
           error: function(xhr) {
             Drupal.CTools.AJAX.handleErrors(xhr, url);
           },
@@ -306,7 +350,7 @@
         });
       }
       else {
-        if ($(object).hasClass('ctools-ajax-submit-onchange')) {
+        if ($object.hasClass('ctools-ajax-submit-onchange')) {
           $('form#' + form_id).submit();
         }
         return false;
@@ -338,7 +382,7 @@
         }
         url += $(this).val();
       });
-    return url;
+    return Drupal.CTools.AJAX.urlIsLocal(url) ? url : '/';
   };
 
   Drupal.CTools.AJAX.getPath = function (link) {
@@ -352,7 +396,7 @@
     }
 
     return link;
-  }
+  };
 
   Drupal.CTools.AJAX.commands.prepend = function(data) {
     $(data.selector).prepend(data.data);
@@ -420,9 +464,10 @@
     // Build a list of css files already loaded:
     $('link:not(.ctools-temporary-css)').each(function () {
       if ($(this).attr('type') == 'text/css') {
-        var link = Drupal.CTools.AJAX.getPath($(this).attr('href'));
-        if (link) {
-          Drupal.CTools.AJAX.css[link] = $(this).attr('href');
+        var href = $(this).attr('href');
+        var link = Drupal.CTools.AJAX.getPath(href);
+        if (link && Drupal.CTools.AJAX.urlIsLocal(href)) {
+          Drupal.CTools.AJAX.css[link] = href;
         }
       }
     });
@@ -448,7 +493,6 @@
 
   Drupal.CTools.AJAX.commands.scripts = function(data) {
     // Build a list of scripts already loaded:
-    var scripts = {};
     $('script').each(function () {
       var link = Drupal.CTools.AJAX.getPath($(this).attr('src'));
       if (link) {
@@ -456,8 +500,8 @@
       }
     });
 
-    var html = '';
-    var head = document.getElementsByTagName('head')[0];
+    var html = '',
+        head = document.getElementsByTagName('head')[0];
     for (var i = 0; i < data.argument.length; i++) {
       var link = Drupal.CTools.AJAX.getPath(data.argument[i]);
       if (!Drupal.CTools.AJAX.scripts[link]) {
@@ -501,8 +545,16 @@
   Drupal.CTools.AJAX.commands.redirect = function(data) {
     if (data.delay > 0) {
       setTimeout(function () {
-        location.href = data.url;
+        if (data.new_window) {
+          window.open(data.url, '_blank');
+        }
+        else {
+          location.href = data.url;
+        }
       }, data.delay);
+    }
+    else if (data.new_window) {
+      window.open(data.url, '_blank');
     }
     else {
       location.href = data.url;
@@ -515,11 +567,11 @@
 
   Drupal.CTools.AJAX.commands.submit = function(data) {
     $(data.selector).submit();
-  }
+  };
 
   /**
    * Replacing 'nojs' with 'ajax' in the URL allows for an easy method to let
-   * the server detect when it needs to degrade gracefully. 
+   * the server detect when it needs to degrade gracefully.
    * There are five scenarios to check for:
    * 1. /nojs/
    * 2. /nojs$ - The end of a URL string.
@@ -531,8 +583,82 @@
    *      E.g.: path/nojs#myfragment
    */
   Drupal.CTools.AJAX.urlReplaceNojs = function(url) {
-    return url.replace(/\/nojs(\/|$|\?|&|#)/g, '/ajax$1');
-  }
+    var new_url = url.replace(/\/nojs(\/|$|\?|&|#)/g, '/ajax$1');
+
+    // If the 'nojs' version of the URL is trusted, also trust the 'ajax'
+    // version.
+    if (Drupal.settings.CToolsUrlIsAjaxTrusted[url]) {
+      Drupal.settings.CToolsUrlIsAjaxTrusted[new_url] = true;
+    }
+    return new_url;
+  };
+
+  /**
+  * Returns the passed in URL as an absolute URL.
+  *
+  * @param url
+  *   The URL string to be normalized to an absolute URL.
+  *
+  * @return
+  *   The normalized, absolute URL.
+   *
+   * @see https://github.com/angular/angular.js/blob/v1.4.4/src/ng/urlUtils.js
+   * @see https://grack.com/blog/2009/11/17/absolutizing-url-in-javascript
+   * @see https://github.com/jquery/jquery-ui/blob/1.11.4/ui/tabs.js#L53
+  */
+  Drupal.CTools.AJAX.absoluteUrl = function (url) {
+    var urlParsingNode = document.createElement('a');
+
+    // Decode the URL first; this is required by IE <= 6. Decoding non-UTF-8
+    // strings may throw an exception.
+    try {
+      url = decodeURIComponent(url);
+    } catch (e) {}
+
+    urlParsingNode.setAttribute('href', url);
+
+    // IE <= 7 normalizes the URL when assigned to the anchor node similar to
+    // the other browsers.
+    return urlParsingNode.cloneNode(false).href;
+  };
+
+  /**
+   * Returns true if the URL is within Drupal's base path.
+   *
+   * @param url
+   *   The URL string to be tested.
+   *
+   * @return
+   *   Boolean true if local, or false if the url may be external or have a scheme.
+   *
+   * @see https://github.com/jquery/jquery-ui/blob/1.11.4/ui/tabs.js#L58
+   */
+  Drupal.CTools.AJAX.urlIsLocal = function (url) {
+    // Always use browser-derived absolute URLs in the comparison, to avoid
+    // attempts to break out of the base path using directory traversal.
+    var absoluteUrl = Drupal.CTools.AJAX.absoluteUrl(url);
+
+    var protocol = location.protocol;
+
+    // Consider URLs that match this site's base URL but use HTTPS instead of HTTP
+    // as local as well.
+    if (protocol === 'http:' && absoluteUrl.indexOf('https:') === 0) {
+      protocol = 'https:';
+    }
+    var baseUrl = protocol + '//' + location.host + Drupal.settings.basePath.slice(0, -1);
+
+    // Decoding non-UTF-8 strings may throw an exception.
+    try {
+      absoluteUrl = decodeURIComponent(absoluteUrl);
+    } catch (e) {}
+    try {
+      baseUrl = decodeURIComponent(baseUrl);
+    } catch (e) {}
+
+    // The given URL matches the site's base URL, or has a path under the site's
+    // base URL.
+    return absoluteUrl === baseUrl || absoluteUrl.indexOf(baseUrl + '/') === 0;
+  };
 
   /**
    * Bind links that will open modals to the appropriate function.

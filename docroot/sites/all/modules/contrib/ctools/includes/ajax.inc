@@ -17,7 +17,7 @@ define('CTOOLS_AJAX_INCLUDED', 1);
  * spiffy functionality is necessary.
  *
  * Each command is an object. $object->command is the type of command and
- * will be used to find the function (it will correllate directly to
+ * will be used to find the function (it will correlate directly to
  * a function in the Drupal.CTools.AJAX.Command space). The object can
  * contain any other data that the command needs to process.
  *
@@ -46,7 +46,7 @@ define('CTOOLS_AJAX_INCLUDED', 1);
  *   - selector: The CSS selector. This can be any selector jquery uses in $().
  *
  * - changed
- *   - selector: The CSS selector. This selector will have 'changed' added as a clas.
+ *   - selector: The CSS selector. This selector will have 'changed' added as a class.
  *   - star: If set, will add a star to this selector. It must be within the 'selector' above.
  *
  * - alert
@@ -391,7 +391,7 @@ function ctools_ajax_command_data($selector, $name, $value) {
 /**
  * Force a table to be restriped.
  *
- * This is usually used after a table has been modifed by a replace or append
+ * This is usually used after a table has been modified by a replace or append
  * command.
  *
  * @param $selector
@@ -414,12 +414,15 @@ function ctools_ajax_command_restripe($selector) {
  *   A delay before applying the redirection, in milliseconds.
  * @param $options
  *   An array of options to pass to the url() function.
+ * @param $new_window
+ *   A bool to determine if the URL should open in a new window.
  */
-function ctools_ajax_command_redirect($url, $delay = 0, $options = array()) {
+function ctools_ajax_command_redirect($url, $delay = 0, $options = array(), $new_window = FALSE) {
   return array(
     'command' => 'redirect',
     'url' => url($url, $options),
     'delay' => $delay,
+    'new_window' => $new_window,
   );
 }
 
@@ -454,6 +457,10 @@ function ctools_ajax_command_submit($selector) {
  * to the AJAX requester.
  */
 function ctools_ajax_render($commands = array()) {
+  // Although ajax_deliver() does this, some contributed and custom modules
+  // render AJAX responses without using that delivery callback.
+  ctools_ajax_set_verification_header();
+
   $js_files = array();
   $settings = ctools_process_js_files($js_files, 'header');
   $settings += ctools_process_js_files($js_files, 'footer');
@@ -516,6 +523,25 @@ function ctools_ajax_render($commands = array()) {
     drupal_json($commands);
   }
   exit;
+}
+
+/**
+ * Sets a response header for ajax.js to trust the response body.
+ *
+ * It is not safe to invoke JS commands within user-uploaded files, so this
+ * header protects against those being invoked.
+ *
+ * @see Drupal.ajax.ajax.options.success()
+ */
+function ctools_ajax_set_verification_header() {
+  $set = &ctools_static(__FUNCTION__);
+
+  if (!isset($set)) {
+    // User-uploaded files cannot set any response headers, so the token value
+    // does not need to be hard to guess.
+    drupal_set_header('X-Drupal-Ajax-Token: 1');
+    $set = TRUE;
+  }
 }
 
 /**
@@ -587,7 +613,34 @@ function ctools_ajax_associate_url_to_element(&$form, &$form_element, $dest, $ty
   );
 }
 
+/**
+ * Function that controls if ctools_ajax_page_preprocess() will run.
+ *
+ * Useful if not using Drupal's core CSS/JS handling & you wish to override it.
+ * If skipping the page_preprocess function you must provide the scripts and css
+ * files loaded on this page as a JS setting in the footer under CToolsAJAX.
+ *
+ * @param $value
+ *   Bool; set to FALSE to disable ctools_ajax_page_preprocess() from running.
+ */
+function ctools_ajax_run_page_preprocess($value = TRUE) {
+  $run_hook = &ctools_static('ctools_ajax_page_preprocess', TRUE);
+  $run_hook = $value;
+}
+
+/**
+ * Implement hook_preprocess_page. Process variables for page.tpl.php
+ *
+ * @param $variables
+ *   The existing theme data structure.
+ */
 function ctools_ajax_page_preprocess(&$variables) {
+  // See if we will be running this hook.
+  $run_hook = &ctools_static(__FUNCTION__, TRUE);
+  if (!$run_hook) {
+    return;
+  }
+
   $js_files = $css_files = array();
   ctools_process_js_files($js_files, 'header');
   ctools_process_js_files($js_files, 'footer');
@@ -606,11 +659,23 @@ function ctools_ajax_page_preprocess(&$variables) {
 
 /**
  * Create a list of javascript files that are on the page.
+ *
+ * @param $js_files
+ *   Array of js files that are loaded on this page.
+ * @param $scope
+ *   String usually containing header or footer.
+ * @param $scripts
+ *   (Optional) array returned from drupal_add_js(). If NULL then it will load
+ *   the array from drupal_add_js for the given scope.
+ * @return array $settings
+ *   The JS 'setting' array for the given scope.
  */
-function ctools_process_js_files(&$js_files, $scope) {
+function ctools_process_js_files(&$js_files, $scope, $scripts = NULL) {
   // Automatically extract any 'settings' added via drupal_add_js() and make
   // them the first command.
-  $scripts = drupal_add_js(NULL, NULL, $scope);
+  if (empty($scripts)) {
+    $scripts = drupal_add_js(NULL, NULL, $scope);
+  }
 
   // Get replacements that are going to be made by contrib modules and take
   // them into account so we don't double-load scripts.
@@ -635,7 +700,7 @@ function ctools_process_js_files(&$js_files, $scope) {
         // If JS preprocessing is off, we still need to output the scripts.
         // Additionally, go through any remaining scripts if JS preprocessing is on and output the non-cached ones.
         foreach ($data as $path => $info) {
-          // If the script is being replaced, take that replacment into account.
+          // If the script is being replaced, take that replacement into account.
           $final_path = isset($replacements[$type][$path]) ? $replacements[$type][$path] : $path;
           $js_files[base_path() . $final_path] = TRUE;
         }
@@ -647,6 +712,13 @@ function ctools_process_js_files(&$js_files, $scope) {
 
 /**
  * Create a list of CSS files to add to the page.
+ *
+ * @param $css_files
+ *   Array of css files that are loaded on this page. Passed by reference and
+ *   previous values are wiped.
+ * @param $css
+ *   Array returned from drupal_add_css() or $variables['css'] from
+ *   hook_preprocess_page.
  */
 function ctools_process_css_files(&$css_files, $css) {
   // Go through all CSS files that are being added to the page and catalog them.

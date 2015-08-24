@@ -1,11 +1,13 @@
 <?php
 
 function views_bulk_operations_user_roles_action_info() {
-  return array('views_bulk_operations_user_roles_action' => array(
-    'type' => 'user',
-    'description' => t('Modify user roles'),
-    'configurable' => TRUE,
-  ));
+  if (user_access('administer users') || user_access('execute Modify user roles (views_bulk_operations_user_roles_action)')) {
+    return array('views_bulk_operations_user_roles_action' => array(
+      'type' => 'user',
+      'description' => t('Modify user roles'),
+      'configurable' => TRUE,
+    ));
+  }
 }
 
 function views_bulk_operations_user_roles_action_form($context) {

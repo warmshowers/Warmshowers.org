@@ -62,7 +62,7 @@ function page_manager_search_menu_alter(&$items, $task) {
   // Go through each search module item.
   foreach (module_implements('search') as $name) {
     // Do not bother with search menu items that should not have search tabs.
-    if (!module_invoke($name, 'search', 'name')) {
+    if (!module_invoke($name, 'search', 'name', NULL, TRUE)) {
       continue;
     }
 

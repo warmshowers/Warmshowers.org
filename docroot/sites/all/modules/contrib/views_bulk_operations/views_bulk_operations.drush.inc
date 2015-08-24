@@ -52,7 +52,7 @@ function drush_views_bulk_operations_list() {
   session_save_session(FALSE);
 
   // Find all VBO views and their associated operations.
-  $rows = array(array(sprintf('%5s', dt('VID')), dt('NAME'), dt('DESCRIPTION'), dt('OPERATIONS')));
+  $rows = array(array(sprintf('%5s', dt('VID')), dt('NAME (DISPLAY)'), dt('DESCRIPTION'), dt('OPERATIONS')));
   foreach (views_get_all_views() as $name => $view) {
     foreach (array_keys($view->display) as $display) {
       $display_options = $view->display[$display]->display_options;
@@ -62,13 +62,14 @@ function drush_views_bulk_operations_list() {
         foreach ($view->style_plugin->get_selected_operations() as $operation => $label) {
           $operations[] = $label .' ('. $operation .')';
         }
-        $operations[] = "---------------";
+        $operations[] = '';
         $rows[] = array(
           empty($view->vid) ? sprintf('%5s', '---') : sprintf('%5d', $view->vid),
-          $view->name,
+          sprintf('%s (%s)', $view->name, $display),
           $view->description,
           implode("\n", $operations),
         );
+        $view->destroy();
       }
     }
   }

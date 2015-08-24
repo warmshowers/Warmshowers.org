@@ -209,20 +209,18 @@ class views_bulk_operations_plugin_style extends views_plugin_style_table {
     // We build the groups here to pass them to the node_selector function through the form.
     $this->sets = $this->render_grouping($this->view->result, $this->options['grouping']);
 
-    // Append suffix to avoid clashing between multiple VBOs on same page.
-    static $form_suffix;
-    if (isset($form_suffix)) {
-      $form_suffix++;
-    }
-    else {
-      $form_suffix = 1;
-    }
-    $this->form_id = 'views_bulk_operations_form__' . $form_suffix;
+    // Create a form ID for the form using the name and display of the view.
+    $parts = array(
+      'views_bulk_operations_form',
+      $this->view->name,
+      $this->view->current_display,
+    );
+    $this->form_id = implode('_', $parts);
 
     // Populate hashed results for selection.
     $this->result = array();
     foreach ($this->view->result as $row) {
-      $this->result[_views_bulk_operations_hash_object($row)] = $row;
+      $this->result[_views_bulk_operations_hash_object($row, $this->view)] = $row;
     }
     if ($this->options['preserve_selection']) {
       $view_id = _views_bulk_operations_view_id($this->view);
@@ -378,7 +376,7 @@ class views_bulk_operations_plugin_style extends views_plugin_style_table {
       foreach (array('callback', 'behavior', 'aggregate', 'permissions', 'hooks', 'form properties') as $attribute) {
         if (isset($static_actions[$action->callback][$attribute])) $actions[$action->aid][$attribute] = $static_actions[$action->callback][$attribute];
       }
-      if (isset($static_actions[$action->callback['parameters']])) {
+      if (isset($static_actions[$action->callback]['parameters'])) {
         $actions[$action->aid]['parameters'] = array_merge($actions[$action->aid]['parameters'], $static_actions[$action->callback]['parameters']);
       }
     }

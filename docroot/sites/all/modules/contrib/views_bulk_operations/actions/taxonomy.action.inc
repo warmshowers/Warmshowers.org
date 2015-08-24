@@ -169,6 +169,9 @@ function views_bulk_operations_taxonomy_action_form($context) {
     ),
     '#required' => TRUE,
     '#weight' => -2,
+    '#description' => t('Note that <strong>Replace existing terms with selected ones</strong> will cause all existing terms on the node to be deleted first, 
+                         then the new, selected terms will be added. <strong>Replace terms within same vocabulary</strong> will delete existing terms within
+                         the selected terms\' vocabularies only, and will leave other existing terms untouched.'),
   );
   return $form;
 }

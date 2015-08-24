@@ -42,7 +42,9 @@ function ctools_context_create_user($empty, $data = NULL, $conf = FALSE) {
     if ($data['type'] == 'current') {
       global $user;
       $data = $user;
-      $data->logged_in_user = TRUE;
+      if (user_is_logged_in()) {
+        $data->logged_in_user = TRUE;
+      }
     }
     else {
       $data = user_load(array('uid' => $data['uid']));

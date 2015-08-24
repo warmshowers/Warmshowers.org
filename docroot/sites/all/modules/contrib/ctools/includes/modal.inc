@@ -196,7 +196,7 @@ function ctools_modal_form_wrapper($form_id, &$form_state) {
   );
 
   $output = ctools_build_form($form_id, $form_state);
-  if (!empty($form_state['ajax']) && empty($form_state['executed'])) {
+  if (!empty($form_state['ajax']) && (!$form_state['executed'] || $form_state['rebuild'])) {
     return ctools_modal_form_render($form_state, $output);
   }
 

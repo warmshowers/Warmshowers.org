@@ -72,6 +72,7 @@ function views_bulk_operations_content_taxonomy_action_form($context) {
     drupal_set_message(t('The selected nodes do not have any Content Taxonomy fields. Please select other nodes and try again.'), 'error');
     return array();
   }
+
   $form['fields'] = array(
     '#type' => 'fieldset',
     '#title' => t('Content Taxonomy fields'),
