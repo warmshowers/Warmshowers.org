@@ -69,23 +69,23 @@ function ws_d7_upgrade_features_context_default_contexts() {
           'region' => 'highlighted',
           'weight' => '-10',
         ),
+        'views-recent_feedback-recent_feedback' => array(
+          'module' => 'views',
+          'delta' => 'recent_feedback-recent_feedback',
+          'region' => 'highlighted',
+          'weight' => '-8',
+        ),
         'views-a0e2a8ab6066d8f20b8c3c1b25cf9735' => array(
           'module' => 'views',
           'delta' => 'a0e2a8ab6066d8f20b8c3c1b25cf9735',
           'region' => 'highlighted',
           'weight' => '-7',
         ),
-        'donations_thermometer-thermometer' => array(
-          'module' => 'donations_thermometer',
-          'delta' => 'thermometer',
+        'nodeblock-24977' => array(
+          'module' => 'nodeblock',
+          'delta' => '24977',
           'region' => 'highlighted',
           'weight' => '-6',
-        ),
-        'views-recent_feedback-recent_feedback' => array(
-          'module' => 'views',
-          'delta' => 'recent_feedback-recent_feedback',
-          'region' => 'highlighted',
-          'weight' => '-8',
         ),
         'wsmap-wsmap_map' => array(
           'module' => 'wsmap',
