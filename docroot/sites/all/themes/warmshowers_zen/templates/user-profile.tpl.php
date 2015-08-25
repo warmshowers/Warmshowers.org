@@ -39,7 +39,8 @@
   <h1><?php print t('About this Member'); ?></h1>
 
   <div class="account-body">
-    <?php print check_markup($account->comments); ?>
+    <?php // the filter_format "filtered html" has machine name 1 in our upgraded drupal site ?>
+    <?php print check_markup($account->comments, 1); ?>
   </div>
 
   <?php // @TODO @TODO @TODO @TODO @TODO Aboslutely must render the full node.
