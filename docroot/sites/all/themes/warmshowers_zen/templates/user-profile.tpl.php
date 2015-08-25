@@ -66,7 +66,7 @@
         <h4><?php print t('This host may offer'); ?></h4>
 
         <ul>
-          <?php print render($user_profile['services']); ?>
+          <?php print $variables['services']; ?>
         </ul>
       <?php endif; ?>
     </div>
