@@ -50,6 +50,7 @@ function ws_views_features_strongarm() {
     'feedback_block' => TRUE,
     'photo_contest' => TRUE,
     'comments_review' => TRUE,
+    'uc_orders_user' => TRUE,
   );
   $export['views_defaults'] = $strongarm;
 
