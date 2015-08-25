@@ -602,15 +602,6 @@ function ws_permisssions_features_user_default_permissions() {
     'module' => 'uc_product',
   );
 
-  // Exported permission: 'administer realname'.
-  $permissions['administer realname'] = array(
-    'name' => 'administer realname',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'realname',
-  );
-
   // Exported permission: 'administer recurring fees'.
   $permissions['administer recurring fees'] = array(
     'name' => 'administer recurring fees',
