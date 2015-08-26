@@ -74,7 +74,7 @@
 
     <div class="recommendations">
       <h2><?php print t('Feedback'); ?></h2>
-      <?php print views_embed_view('user_referrals_by_referee', 'block_1', $account->uid); ?>
+      <?php print render($user_profile['member_feedback_user_feedback']); ?>
     </div>
   </div>
 </section>
