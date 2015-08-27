@@ -66,19 +66,19 @@
 </div>
 
 <div class="member-actions"><?php
-if ($account->uid != $GLOBALS['user']->uid) {
-	print theme('linkbutton', array(
-      'link' => array(
-      'title' => t('Send Message'),
-      // Note that this href is dependent on the setting of BASE URL PATH
-      // in the privatemsg settings. It needs to be set to user/%user/messages
-      // for this to work.
-      'href' => 'messages/new/' . $account->uid,
-      'classes'=> 'rounded light',
-    )
-    )
-  );
-}
+  if ($account->uid != $GLOBALS['user']->uid) {
+    print theme('linkbutton', array(
+        'link' => array(
+          'title' => t('Send Message'),
+          // Note that this href is dependent on the setting of BASE URL PATH
+          // in the privatemsg settings. It needs to be set to user/%user/messages
+          // for this to work.
+          'href' => "user/{$GLOBALS['user']->uid}/messages/new/{$account->uid}",
+          'classes'=> 'rounded light',
+        )
+      )
+    );
+  }
 else {
 	print theme('linkbutton', array('link' => array('title' => t('Update'), 'href' => 'user/' . $account->uid . '/edit','classes'=> 'rounded light',)));
 	print theme('linkbutton', array('link' => array('title' => t('Set Location'), 'href' => 'user/' . $account->uid . '/location','classes'=> 'rounded light',)));
