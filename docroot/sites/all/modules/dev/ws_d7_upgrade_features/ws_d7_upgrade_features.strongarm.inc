@@ -13,6 +13,53 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'ant_forum';
+  $strongarm->value = '0';
+  $export['ant_forum'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ant_pattern_forum';
+  $strongarm->value = '';
+  $export['ant_pattern_forum'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ant_pattern_trust_referral';
+  $strongarm->value = '<?php
+  $uid = $node->field_member_i_trust[\'und\'][0][\'uid\'];
+  $account =  user_load( $uid);
+  $title = "Feedback for {$account->fullname} - username {$account->name} ({$uid})";
+  return $title;
+?>';
+  $export['ant_pattern_trust_referral'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ant_php_forum';
+  $strongarm->value = 0;
+  $export['ant_php_forum'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ant_php_trust_referral';
+  $strongarm->value = 1;
+  $export['ant_php_trust_referral'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'ant_trust_referral';
+  $strongarm->value = '1';
+  $export['ant_trust_referral'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'comment_anonymous_trust_referral';
   $strongarm->value = 0;
   $export['comment_anonymous_trust_referral'] = $strongarm;

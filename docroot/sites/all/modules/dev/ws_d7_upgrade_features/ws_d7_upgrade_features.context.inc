@@ -2058,37 +2058,9 @@ function ws_d7_upgrade_features_context_default_contexts() {
   $context->condition_mode = 1;
   $export['search_results'] = $context;
 
-  $context = new stdClass();
-  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
-  $context->api_version = 3;
-  $context->name = 'thermometer';
-  $context->description = 'Temporary thermometer page';
-  $context->tag = '';
-  $context->conditions = array(
-    'path' => array(
-      'values' => array(
-        'node/89333' => 'node/89333',
-      ),
-    ),
-  );
-  $context->reactions = array(
-    'block' => array(
-      'blocks' => array(
-        'donations_thermometer-0' => array(
-          'module' => 'donations_thermometer',
-          'delta' => 0,
-          'region' => 'content_bottom',
-          'weight' => 0,
-        ),
-      ),
-    ),
-  );
-  $context->condition_mode = 1;
 
   // Translatables
   // Included for use with string extractors like potx.
-  t('Temporary thermometer page');
-  $export['thermometer'] = $context;
 
   $context = new stdClass();
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
