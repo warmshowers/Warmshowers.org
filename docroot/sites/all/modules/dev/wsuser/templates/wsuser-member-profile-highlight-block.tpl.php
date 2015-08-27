@@ -6,7 +6,7 @@
  * Available variables:
  *  - $user_picture: An already rendered user picture or a scolding message if not present.
  *  - $stats: An already rendered list of custom user stats.
- *  - user_profile: Standard user profile fields variables.
+ *  - $fullname: and other variables from wsuser
  */
 ?>
 <div class="profile-highlight">
