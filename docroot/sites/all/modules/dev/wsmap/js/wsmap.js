@@ -216,19 +216,21 @@
       }
 
       function setMapLocationToCountry(countryCode) {
-        // Ajax GET request for autocompletion
-        url = '/location_country_locator_service' + '/' + countryCode;
-        $.get(url, "", function (data) {
-          var res = Drupal.parseJson(data);
-          var area = parseFloat(res.area) / 1000;
-          var basecalc = Math.log(area) / Math.log(4);
-          var mapCountry = res.country_code;
-          var zoom = specificZoomSettings[mapCountry];
+        var url = 'location_country_locator_service' + '/' + countryCode;
+        $.getJSON(url)
+          .done(function(res) {
+            var area = parseFloat(res.area) / 1000;
+            var basecalc = Math.log(area) / Math.log(4);
+            var mapCountry = res.country_code;
+            var zoom = specificZoomSettings[mapCountry];
 
-          if (!zoom) {
-            zoom = Math.round(10 - basecalc);
-          }
-          zoomToSpecific(res.country, res.latitude, res.longitude, zoom);
+            if (!zoom) {
+              zoom = Math.round(10 - basecalc);
+            }
+            zoomToSpecific(res.country, res.latitude, res.longitude, zoom);
+        })
+        .fail(function( jqxhr, textStatus, error ) {
+          var x = 1;
         });
       }
 
