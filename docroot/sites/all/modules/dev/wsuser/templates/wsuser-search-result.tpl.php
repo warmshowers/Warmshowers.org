@@ -36,10 +36,10 @@
   </div>
   <?php endif ?>
   <div class="wssearch-description"><a href="<?php print $url; ?>"><?php print $fullname; ?></a>
-    <?php print t('Location'); ?>: <?php print $location_link; ?>
+    <?php print "($available) " . t('Location'); ?>: <?php print $location_link; ?>
   </div>
   <div class="wssearch-about">
 
-    <?php print $about_me; ?>
+    <?php print "$about_me"; ?>
   </div>
 </li>
