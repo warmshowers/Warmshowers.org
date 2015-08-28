@@ -2058,10 +2058,6 @@ function ws_d7_upgrade_features_context_default_contexts() {
   $context->condition_mode = 1;
   $export['search_results'] = $context;
 
-
-  // Translatables
-  // Included for use with string extractors like potx.
-
   $context = new stdClass();
   $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
   $context->api_version = 3;
