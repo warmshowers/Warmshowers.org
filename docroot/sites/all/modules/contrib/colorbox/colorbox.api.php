@@ -27,3 +27,18 @@ function hook_colorbox_settings_alter(&$settings, &$style) {
     $style = 'mystyle';
   }
 }
+
+/**
+ * Allows to override activation of Colobox for the current URL.
+ *
+ * @param $active
+ *   A boolean indicating whether colorbox should be active for the current
+ *   URL or not.
+ */
+function hook_colorbox_active_alter(&$active) {
+  $path = drupal_get_path_alias($_GET['q']);
+  if (drupal_match_path($path, 'admin/config/colorbox_test')) {
+    // Enable colorbox for this URL.
+    $active = TRUE;
+  }
+}

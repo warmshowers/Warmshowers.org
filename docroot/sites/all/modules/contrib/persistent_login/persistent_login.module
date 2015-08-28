@@ -126,8 +126,18 @@ function persistent_login_form_alter(&$form, $form_state, $form_id) {
     // - Visitors can create accounts and no administrator approval is required.
     // - E-mail verification is not required when a visitor creates an account.
     // - The form is not being executed by a user administrator.
-    if (!variable_get('user_email_verification', 1) && variable_get('user_register', 1) == 1 && !user_access('administer users')) {
+    if (!variable_get('user_email_verification', TRUE)
+      && variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL) == USER_REGISTER_VISITORS
+      && !user_access('administer users')
+    ) {
       $alter_form = TRUE;
+    }
+
+    if (module_exists('logintoboggan') && !variable_get('logintoboggan_immediate_login_on_register', TRUE)) {
+      $alter_form = FALSE;
+    }
+    if (module_exists('user_registrationpassword') && variable_get('user_registrationpassword_registration', USER_REGISTRATIONPASS_VERIFICATION_PASS) != USER_REGISTRATIONPASS_NO_VERIFICATION) {
+      $alter_form = FALSE;
     }
   }
   if (!$alter_form) {
@@ -225,33 +235,58 @@ function persistent_login_user_logout($account) {
 }
 
 /**
+ * Implements hook_field_extra_fields().
+ */
+function persistent_login_field_extra_fields() {
+  $extra = array();
+  $extra['user']['user']['display'] = array(
+    'security' => array(
+      'label' => t('Security'),
+      'description' => t('Information on Persistent Login usage.'),
+      'weight' => 0,
+    ),
+  );
+  return $extra;
+}
+
+/**
  * Implements hook_user_view().
  */
 function persistent_login_user_view($account, $view_mode) {
   global $user;
+
   if ($user->uid == $account->uid || user_access('administer persistent login')) {
+
+    $settings = field_extra_fields_get_display('user', 'user', $view_mode);
+    if (empty($settings['security']['visible'])) {
+      return;
+    }
+
     $n = db_query('SELECT COUNT(*) FROM {persistent_login} WHERE uid = :uid AND (expires = 0 OR expires > :expires)', array(':uid' => $account->uid, ':expires' => REQUEST_TIME))->fetchField();
     if ($n > 0) {
       if (!isset($account->content['security'])) {
         $account->content['security'] = array();
       }
       $account->content['security'] += array(
-            '#type' => 'user_profile_category',
-            '#title' => t('Security'),
-            '#weight' => 10,
-          );
+        '#type' => 'user_profile_category',
+        '#title' => t('Security'),
+        '#weight' => $settings['security']['weight'],
+      );
       $account->content['security']['persistent_login'] = array(
-            '#type' => 'user_profile_item',
-            '#title' => t('Remembered logins'),
-            '#markup' => t('@acct %n persistent login session(s) created with the "Remember Me" login option on this site.  If you no longer trust the computer(s) on which these remembered sessions were created or think your account has been compromised for any reason, you can !erase_link.  This will not log you out of your current session but you will have to provide your username and password to log in the next time you visit this site.',
-              array(
-                '@acct' => (($user->uid == $account->uid) ? t('You have') : t('User @user has', array('@user' => $account->name))),
-                '%n' => $n,
-                '!erase_link' => l(t('erase persistent logins now'), 'persistent_login/erase/' . $account->uid, array(), drupal_get_destination()),
-              )
-            ),
-            '#attributes' => array('class' => 'logins'),
-          );
+        '#type' => 'user_profile_item',
+        '#title' => t('Remembered logins'),
+        '#attributes' => array('class' => 'logins'),
+        '#markup' =>
+          format_plural(
+            $n,
+            '@account a persistent login session created with the "Remember Me" login option on this site.  If you no longer trust the computer on which this remembered session was created or think your account has been compromised for any reason, you can !erase_link.  This will not log you out of your current session but you will have to provide your username and password to log in the next time you visit this site.',
+            '@account @count persistent login sessions created with the "Remember Me" login option on this site.  If you no longer trust the computers on which these remembered sessions were created or think your account has been compromised for any reason, you can !erase_link.  This will not log you out of your current session but you will have to provide your username and password to log in the next time you visit this site.',
+          array(
+            '@account' => (($user->uid == $account->uid) ? t('You have') : t('User @user has', array('@user' => $account->name))),
+            '!erase_link' => l(t('erase persistent logins now'), 'persistent_login/erase/' . $account->uid, array(), drupal_get_destination()),
+          )
+        ),
+      );
     }
   }
 }
@@ -354,7 +389,7 @@ function _persistent_login_check() {
 
     // now, any outcome requires this
     require_once DRUPAL_ROOT . '/includes/common.inc';
-    require_once DRUPAL_ROOT . '/includes/path.inc';
+    require_once DRUPAL_ROOT . '/' . variable_get('path_inc', 'includes/path.inc');
     require_once DRUPAL_ROOT . '/includes/theme.inc';
 
     if ($r['pl_token'] === $token) {
@@ -393,7 +428,7 @@ function _persistent_login_check() {
 
       // Only welcome the user back once per session.
       if (empty($_SESSION['persistent_login_welcomed']) && variable_get('persistent_login_welcome', TRUE)) {
-        drupal_set_message(t('Welcome back, %name.', array('%name' => $r['name'])));
+        drupal_set_message(t('Welcome back, %name.', array('%name' => format_username($account))));
       }
       $_SESSION['persistent_login_welcomed'] = TRUE;
 
@@ -523,35 +558,18 @@ function _persistent_login_get_cookie_name() {
  *  The path of the page to check.
  *
  * @return
- *  0 - Page should be insecure.
- *  1 - Page should be secure.
+ *  FALSE - Page should be insecure.
+ *  TRUE - Page should be secure.
  */
 function _persistent_login_match($path) {
-  $secure = variable_get('persistent_login_secure', 1);
+  $secure = (bool) variable_get('persistent_login_secure', 1);
   $pages = trim(variable_get('persistent_login_pages', PERSISTENT_LOGIN_SECURE_PATHS));
 
   if ($pages) {
-    $front = variable_get('site_frontpage', 'node');
-    $regexp = ('/^(?:' .
-      preg_replace(
-        array(
-          '/(\r\n?|\n)/',
-          '/\\\\\*/',
-          '/(^|\|)\\\\<front\\\\>($|\|)/',
-        ),
-        array(
-          '|',
-          '.*',
-          '\1' . preg_quote($front, '/') . '\2',
-        ),
-        preg_quote($pages, '/')
-      )
-      . ')$/'
-    );
-    return !($secure xor preg_match($regexp, $path));
+    return !($secure xor drupal_match_path($path, $pages));
   }
   else {
-    return 0;
+    return FALSE;
   }
 }
 

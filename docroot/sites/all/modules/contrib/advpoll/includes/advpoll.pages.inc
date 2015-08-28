@@ -399,7 +399,7 @@ function advpoll_clear_votes_confirm_form_submit($form, &$form_state) {
   $nid = (int) check_plain(arg(1));
   db_delete('votingapi_vote')
     ->condition('entity_id', $nid)
-    ->condition('entity_type', 'advpoll')
+    ->condition('entity_type', 'node')
     ->execute();
   drupal_goto('node/' . $nid);
 }
@@ -494,7 +494,7 @@ function advpoll_promote_writein_form_submit($form, &$form_state) {
       $lang = $node->language;
 
       if (!isset($node->advpoll_choice[$lang])) {
-        $lang = 'und';
+        $lang = LANGUAGE_NONE;
       }
 
       $node_choices = $node->advpoll_choice[$lang];
@@ -522,7 +522,7 @@ function advpoll_merge_writein_form($form, &$form_state, $node) {
   $lang = $node->language;
 
   if (!isset($node->advpoll_choice[$node->language])) {
-    $lang = 'und';
+    $lang = LANGUAGE_NONE;
   }
 
   $choices = $node->advpoll_choice[$lang];
@@ -584,7 +584,7 @@ function advpoll_merge_writein_form_submit($form, &$form_state) {
   $lang = $form_state['build_info']['args'][0]->language;
 
   if (!isset($form_state['build_info']['args'][0]->advpoll_choice[$lang])) {
-    $lang = 'und';
+    $lang = LANGUAGE_NONE;
   }
 
   $merge_from = strtolower($form['merge_writein']['choices']['#value']);
@@ -636,7 +636,7 @@ function advpoll_merge_writein_form_submit($form, &$form_state) {
     $lang = $node->language;
 
     if (!isset($node->advpoll_choice[$node->language])) {
-      $lang = 'und';
+      $lang = LANGUAGE_NONE;
     }
     $node_choices = $node->advpoll_choice[$lang];
     $updated_choices = array();
