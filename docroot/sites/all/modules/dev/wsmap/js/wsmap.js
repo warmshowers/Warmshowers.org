@@ -61,7 +61,6 @@
         $('#edit-map-submit').click(function (event) {
           event.preventDefault();
           var country = $('#edit-country').val();
-          //var city = $('#edit-city').val();
           var city = $('[name=city]').val();
           var location = city.split('|');
           if (!city) {
@@ -229,9 +228,6 @@
             }
             zoomToSpecific(res.country, res.latitude, res.longitude, zoom);
         })
-        .fail(function( jqxhr, textStatus, error ) {
-          var x = 1;
-        });
       }
 
 
