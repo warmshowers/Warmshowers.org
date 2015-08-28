@@ -207,14 +207,6 @@ function theme_linkbuttons($variables) {
  */
 function wsuser_tokens($type, $tokens, $data = array(), $options = array()) {
 
-  $url_options = array('absolute' => TRUE);
-  if (isset($options['language'])) {
-    $url_options['language'] = $options['language'];
-    $language_code = $options['language']->language;
-  }
-  else {
-    $language_code = NULL;
-  }
   $sanitize = !empty($options['sanitize']);
 
   $replacements = array();
@@ -267,7 +259,6 @@ function wsuser_tokens($type, $tokens, $data = array(), $options = array()) {
           $replacements[$original] = $sanitize ? filter_xss($account->city) : $account->city;
           break;
       }
-
     }
   }
   return $replacements;
@@ -399,24 +390,28 @@ function wsuser_mail($key, &$message, $params) {
 
   $account = $params['account'];
   $langcode = $account->language;
+  $langobj = new stdClass();
+  $langobj->language = $langcode;
+  $langobj->domain = '';  // Prevents complaint from locale.inc:437 that tries to use it
+  $options = array('language' => $langobj);
 
   switch ($key) {
     case 'logintoboggan_resend_validation':
-      $message['subject'] .= token_replace(i18n_variable_get('user_mail_register_no_approval_required_subject', $langcode, "No subject"), array('user' => $account), array('language' => $langcode));
-      $message['body'][] = token_replace(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, "No body"), array('user'), array('language' => $langcode));
+      $message['subject'] .= token_replace(i18n_variable_get('user_mail_register_no_approval_required_subject', $langcode, "No subject"), array('user' => $account), array('language' => $options));
+      $message['body'][] = token_replace(i18n_variable_get('user_mail_register_no_approval_required_body', $langcode, "No body"), array('user'), $options);
       break;
 
     // Availability reminders and notifications. Assumes the variable will be properly set!
     // That makes this inaccessible to translators, unfortunately. Yuckie.
     // And it will require a UI to update.
     case 'notavailable_reminder':
-      $message['subject'] .= token_replace(i18n_variable_get('wsuser_notavailable_reminder_subject', $langcode, 'Your Warmshowers account is still marked unavailable'), array('user' => $account), array('language' => $langcode));
-      $message['body'][] = token_replace(i18n_variable_get('wsuser_notavailable_reminder_body', $langcode, 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'), array('user' => $account), array('language' => $langcode));
+      $message['subject'] .= token_replace(i18n_variable_get('wsuser_notavailable_reminder_subject', $langcode, 'Your Warmshowers account is still marked unavailable'), array('user' => $account), $options);
+      $message['body'][] = token_replace(i18n_variable_get('wsuser_notavailable_reminder_body', $langcode, 'If you are once again available to host, please log into Warmshowers.org and update your account. Thanks!'), array('user' => $account), $options);
       break;
 
     case 'become_available_notification':
-      $message['subject'] .= token_replace(i18n_variable_get('wsuser_become_available_notification_subject', $langcode, 'Your Warmshowers account is now marked as available'), array('user' => $account), array('language' => $langcode));
-      $message['body'][] = token_replace(i18n_variable_get('wsuser_become_available_notification_body', $langcode, 'Your account has been automatically updated to available to host because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. Thanks!'), array('user' => $account), array('language' => $langcode));
+      $message['subject'] .= token_replace(i18n_variable_get('wsuser_become_available_notification_subject', $langcode, 'Your Warmshowers account is now marked as available'), array('user' => $account), $options);
+      $message['body'][] = token_replace(i18n_variable_get('wsuser_become_available_notification_body', $langcode, 'Your account has been automatically updated to available to host because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. Thanks!'), array('user' => $account), $options);
       break;
   }
 }
@@ -2033,11 +2028,10 @@ function _wsuser_queue_notavailable_reminders() {
  * Set up cron queues for wsuser.
  */
 function wsuser_cron_queue_info() {
-  return array(
-    'wsuser_process_notavailable_reminders' => array(
-      'worker callback' => '_wsuser_send_notavailable_reminders',
-    ),
+  $queues['wsuser_process_notavailable_reminders'] = array(
+    'worker callback' => '_wsuser_send_notavailable_reminders',
   );
+  return $queues;
 }
 
 /**
@@ -2049,7 +2043,6 @@ function _wsuser_send_notavailable_reminders($job) {
 
   $languages = language_list();
   $row = $job['arguments'][0];
-  $now = REQUEST_TIME;
 
   drupal_mail('wsuser', 'notavailable_reminder', $row->mail, $languages[$row->language], array('account' => user_load($row->uid)));
 }
@@ -2186,7 +2179,7 @@ function _wsuser_process_users_that_become_available() {
   $now = REQUEST_TIME;
 
   // Select for notification all unavailable users that set a 'become available' date that has passed.
-  $result = db_query(
+  $result = db_query_range(
     'SELECT u.mail, u.language, u.uid, u.name, ws.fullname
     FROM {users} u, {wsuser} ws
     WHERE u.uid = ws.uid
@@ -2194,6 +2187,7 @@ function _wsuser_process_users_that_become_available() {
     AND ws.becomeavailable IS NOT NULL
     AND ws.becomeavailable <> 0
     AND ws.becomeavailable < :now',
+    0, variable_get('wsuser_become_available_users_max', 10),
     array(':now' => $now), array('fetch' => PDO::FETCH_OBJ));
 
   // Update these users to available to host and notify them via email.
