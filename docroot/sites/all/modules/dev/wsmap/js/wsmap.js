@@ -61,7 +61,8 @@
         $('#edit-map-submit').click(function (event) {
           event.preventDefault();
           var country = $('#edit-country').val();
-          var city = $('#edit-city').val();
+          //var city = $('#edit-city').val();
+          var city = $('[name=city]').val();
           var location = city.split('|');
           if (!city) {
             setMapLocationToCountry(country);
