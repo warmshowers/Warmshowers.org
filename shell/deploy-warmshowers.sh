@@ -1,9 +1,22 @@
 #!/bin/sh
 
-DEPLOY_TO=/var/www/docroot
+
+# deploy_config.sh can contain:
+# DEPLOY_TO="/var/www/warmshowers.org/docroot"
+# FILES_DIR_GROUP=www-data
+
+DEPLOY_TO=/var/www/warmshowers.org/docroot
+FILES_DIR_GROUP=www-data
+
+if [ -f ./deploy_config.sh ] ; then
+  . ./deploy_config.sh
+fi
+
+echo "Deploying to $DEPLOY_TO"
 
 # Ensure files directory is writable.
-chmod -R 0775 ${DEPLOY_TO}/sites/default/files
+sudo chgrp -R $FILES_DIR_GROUP ${DEPLOY_TO}/files
+sudo chmod -R ug+rw $DEPLOY_TO/files
 
 # Remove robots.txt file, we let the robotstxt module handle this.
 rm -f ${DEPLOY_TO}/robots.txt
@@ -14,7 +27,7 @@ drush -r ${DEPLOY_TO} updb -y
 echo -e "\033[32;40mRunning registry rebuild...\033[0m"
 drush -r ${DEPLOY_TO} rr -y
 echo -e "\033[32;40mCompiling sass...\033[0m"
-cd ${DEPLOY_TO}/sites/all/themes/warmshowers_zen && compass compile --production
+cd ${DEPLOY_TO}/sites/all/themes/warmshowers_zen && compass compile
 echo -e "\033[32;40mReverting features...\033[0m"
 drush -r ${DEPLOY_TO} fra -y
 
