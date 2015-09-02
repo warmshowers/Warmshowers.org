@@ -1,7 +1,7 @@
 #language:en
-Feature:I can log in to Warmshowers
+Feature: Logging into the website
   In order to access member-only content
-  As an authenticated user 
+  As an un-authenticated user 
   I can log in to Warmshowers
 
 Background:
@@ -46,7 +46,6 @@ Scenario: I can login to Warmshowers using Facebook
   When I click the Facebook Connect button
   Then I see the main Warmshowers page as an authenticated user
 
-#This doesn't seem to work right now
 @smoke
 Scenario: I can have Warmshowers remember my login information
   And I am on the User Account page
@@ -55,7 +54,7 @@ Scenario: I can have Warmshowers remember my login information
   When I check the Remember Me checkbox
   And I click the Log In button
   Then I see the main Warmshowers page as an authenticated user
-  And my login information will be stored for my next visit
+  And I will be logged in automatically on my next visit
 
 #Validation/Fail Scenarios
 @smoke
