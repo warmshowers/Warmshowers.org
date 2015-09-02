@@ -13,7 +13,7 @@ Scenario: I can log in to Warmshowers using my username
   And the Log in tab
   When I enter my Warmshowers username in the Username or E-mail Address field
   And I enter a correct matching password in the Password field
-  And I click the Log In buttonwsup
+  And I click the Log In button
   Then I see the main page as an authenticated user.
 
 @smoke
