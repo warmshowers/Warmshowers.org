@@ -101,9 +101,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Děkujeme, že jste se registroval/registrovala na Warmshowers.org.
 
-Kliknutím <a href="[user:one-time-login-url]">sem</a> ověříte správnost vaší e-mailové adresy a aktivujete tím svůj účet. (Nemůžete-li na odkaz kliknout, zkopírujte ho a vložte do adresního řádku vašeho prohlížeče:
+Kliknutím <a href="[user:validate-url]">sem</a> ověříte správnost vaší e-mailové adresy a aktivujete tím svůj účet. (Nemůžete-li na odkaz kliknout, zkopírujte ho a vložte do adresního řádku vašeho prohlížeče:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Po ověření výše uvedeným odkazem se budete moci přihlásit na [site:login-url] za použití uživatelského jména a hesla, které jste si zvolil/zvolila:
 
@@ -399,9 +399,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Danke für die Registrierung auf Warmshowers.org.
 
-Bitte <a href="[user:one-time-login-url]">klicken Sie hier,</a> um Ihre Mailadresse zu bestätigen und Ihr Konto zu aktivieren. (Falls Sie nicht auf diesen Link klicken können, fügen Sie bitte diesen Link in Ihren Browser ein:
+Bitte <a href="[user:validate-url]">klicken Sie hier,</a> um Ihre Mailadresse zu bestätigen und Ihr Konto zu aktivieren. (Falls Sie nicht auf diesen Link klicken können, fügen Sie bitte diesen Link in Ihren Browser ein:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Nachdem Sie Ihr Konto mit dem obenstehenden Link validiert haben, können Sie sich einloggen in [site:login-url] mittels dem folgenden Benutzernamen und dem Passwort, das Sie eingegeben haben:
 
@@ -733,9 +733,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Thank you for registering at Warmshowers.org.
 
-Please <a href="[user:one-time-login-url]">click here</a> to validate your email address and enable your account. (If you can\'t click that link, please copy and paste this link into your browser:
+Please <a href="[user:validate-url]">click here</a> to validate your email address and enable your account. (If you can\'t click that link, please copy and paste this link into your browser:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 After you validate with the link above you will be able to log in to [site:login-url] using the following username and the password you entered:
 
@@ -989,9 +989,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Gracias por registrarte en Warmshowers.org.
 
-Por favor <a href="[user:one-time-login-url]">click aqui</a> para validar tu dirección de correo electrónico y habilitar tu cuenta.
+Por favor <a href="[user:validate-url]">click aqui</a> para validar tu dirección de correo electrónico y habilitar tu cuenta.
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Después de hacerlo, podrás acceder a tu cuenta en [site:login-url] usando los siguientes nombre de usuario y contraseña (que podrás cambiar después):
 
@@ -1248,7 +1248,7 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 از عضویت شما در
  Warmshowers.org
  متشکریم و بهتون خوشامد میگوییم.
-لطفا برای تایید صحت آدرس ایمیل تان <a href="[user:one-time-login-url]">اینجا</a> را کلیک کنید تا حساب شما فعال شود.
+لطفا برای تایید صحت آدرس ایمیل تان <a href="[user:validate-url]">اینجا</a> را کلیک کنید تا حساب شما فعال شود.
 اگر کلیک کردن آن ممکن نشد ، لطفا لینک زیر  را در نوار آدرس مرورگر خود کپی کنید:
 [user:one-time-login-url]
 بعد از تایید شدن از طریق لینک فوق ، شما خواهید توانست با استفاده از کلمه کاربری و کلمه رمز زیر به
@@ -1572,9 +1572,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Merci de vous être inscrit à Warmshowers.org
 
-Veuillez <a href="[user:one-time-login-url]">cliquez ici</a> pour valider votre adresse e-mail et votre inscription.
+Veuillez <a href="[user:validate-url]">cliquez ici</a> pour valider votre adresse e-mail et votre inscription.
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Après avoir validé votre adresse en utilisant le lien ci-dessus, vous pourrez vous identifier sur le site avec l\'identifiant et le mot de passe suivants :
 
@@ -1810,9 +1810,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Grazie per aver effettuato la registrazione su Warmshowers.org.
 
-Ti preghiamo <a href="[user:one-time-login-url]">di cliccare qui</a> per registrare il tuo indirizzo email e abilitare il tuo account. (Se non è possibile aprire il collegamento, copia e incolla l\'indirizzo sul tuo motore di ricerca:
+Ti preghiamo <a href="[user:validate-url]">di cliccare qui</a> per registrare il tuo indirizzo email e abilitare il tuo account. (Se non è possibile aprire il collegamento, copia e incolla l\'indirizzo sul tuo motore di ricerca:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Dopo aver convalidato la tua registrazione, sarai autorizzata/o ad effettuare il login su [site:login-url] usando i seguenti nome utente e password (da te scelti):
 
@@ -2013,9 +2013,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Warmshowers.orgにご登録いただき、ありがとうございます。
 
-<a href="[user:one-time-login-url]">ここをクリック</a>してあなたのメールアドレスとアカウントを有効化して下さい。（もし上のリンクをクリックできない場合は、以下のリンクをコピーし、ブラウザにペーストして下さい）
+<a href="[user:validate-url]">ここをクリック</a>してあなたのメールアドレスとアカウントを有効化して下さい。（もし上のリンクをクリックできない場合は、以下のリンクをコピーし、ブラウザにペーストして下さい）
 
-[user:one-time-login-url]
+[user:validate-url]
 
 上のリンクでアカウントを有効化すると、下記のユーザー名と入力されたパスワードで[site:login-url]にログインできるようになります:
 
@@ -2309,9 +2309,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
   'user_mail_register_no_approval_required_body' => '[user:name],
 Dziękujemy za rejestrację na Warmshowers.org.
 
-Kliknij <a href="[user:one-time-login-url]">tutaj</a>, aby potwierdzić swój adres e-mail i uaktywnić konto. Jeśli nie możesz kliknąć w link, skopiuj go i wklej do przeglądarki:
+Kliknij <a href="[user:validate-url]">tutaj</a>, aby potwierdzić swój adres e-mail i uaktywnić konto. Jeśli nie możesz kliknąć w link, skopiuj go i wklej do przeglądarki:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Po potwierdzeniu kliknięciem w link powyżej będziesz mógł się zalogować na [site:login-url] wykorzystując następujące dane, które podałeś:
 
@@ -2534,9 +2534,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Obrigado por se inscrever no WarmShowers.org.
 
-Por favor <a href="[user:one-time-login-url]">clique aqui</a> para validar seu endereço de e-mail e habilitar sua conta.
+Por favor <a href="[user:validate-url]">clique aqui</a> para validar seu endereço de e-mail e habilitar sua conta.
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Depois de validar sua conta você poderá efetuar login em [site:login-url] usando o seguinte nome de usuário e senha:
 
@@ -2806,9 +2806,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Спасибо за регистрацию на сайте Warmshowers.org.
 
-Пожалуйста, перейдите по <a href="[user:one-time-login-url]">ссылке</a> для подтверждения и активации вашего профиля. Если вы не можете перейти по ссылке, пожалуйста, скопируйте и вставьте  в адресную строку вашего браузера следующее:
+Пожалуйста, перейдите по <a href="[user:validate-url]">ссылке</a> для подтверждения и активации вашего профиля. Если вы не можете перейти по ссылке, пожалуйста, скопируйте и вставьте  в адресную строку вашего браузера следующее:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 После активации вашего профиля по вышеприведенной ссылке вы сможете войти [site:login-url] используя ваше имя пользователя и пароль:
 
@@ -3073,9 +3073,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Хвала Вам што сте се пријавили на Warmshowers.org.
 
-Молим вас идите не <a href="[user:one-time-login-url]">овде</a>  како бисте потврдили вашу електронску адреси и како бисте покренули ваш налог. (Уколико нисте у могућности да продужите пратећи ту везу, молим да је препишете и упишете у ваш претраживач:
+Молим вас идите не <a href="[user:validate-url]">овде</a>  како бисте потврдили вашу електронску адреси и како бисте покренули ваш налог. (Уколико нисте у могућности да продужите пратећи ту везу, молим да је препишете и упишете у ваш претраживач:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Након што потврдите користећи везу изнад, бићете у могућности да се пријавите на нашу интернете страницу [site:login-url] користећи корисничко име и лозинку које можете видети у наставку:
 
@@ -3336,11 +3336,11 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 Tack för din registrering på Warmshowers.org.
 
-<a href=”[user:one-time-login-url]">Klicka här</a> för att bekräfta din mailadress och aktivera ditt konto.
+<a href=”[user:validate-url]">Klicka här</a> för att bekräfta din mailadress och aktivera ditt konto.
 (Om du inte kan klicka på länken kan du istället kopiera och klistra in denna länk i din
 webbläsare:
 
-[user:one-time-login-url]
+[user:validate-url]
 
 Efter att du bekräftat ditt konto genom länken ovan kommer du att kunna logga in på ditt
 konto med följande användarnamn och lösenord:
@@ -3627,9 +3627,9 @@ After logging in, you will be redirected to [user:edit-url] so you can change yo
 
 非常感谢您注册 Warmshowers.org
 
-请点击 <a href="[user:one-time-login-url]">这里</a>验证您的邮件地址，激活您的帐号（如果此链接不能点击，请复制下面的链接到您浏览器的地址栏，并按下回车键）。
+请点击 <a href="[user:validate-url]">这里</a>验证您的邮件地址，激活您的帐号（如果此链接不能点击，请复制下面的链接到您浏览器的地址栏，并按下回车键）。
 
-[user:one-time-login-url]
+[user:validate-url]
 
 在完成验证后，您可以使用下面的用户名登录并且使用WarmShowers了：
 
