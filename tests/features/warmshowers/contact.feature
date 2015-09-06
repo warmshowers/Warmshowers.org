@@ -1,5 +1,5 @@
 #language:en
-Feature: Using the contact form
+Feature: Use the contact form
   As an authenticated or unauthenticated user
   I can contact Warmshowers
 
@@ -12,17 +12,17 @@ Feature: Using the contact form
     And I click the Send Email button
     Then I see the main Warmshowers page
     And a modal with "Your message has been sent"
-    And an email will be sent to Warmshowers Admin with my message.
+    And an email will be sent to Warmshowers Admin with my message
 
   @smoke
-  Scenario: Failing to submit contact form with empty fields
+  Scenario: Submit contact form with empty fields
     Given I am on the page "contact"
     When I click the Send Email button
     Then I see the Contact page with empty field highlighted
     And a modal with "[empty field] field is required."
-    And my message will not be sent.
+    And my message will not be sent
 
-  Scenario: Failing to submit contact form with an invalid email address
+  Scenario: Submit contact form with an invalid email address
     Given I am on the page "contact"
     And I have entered values in all required fields
     When I enter a value that does not follow the correct pattern for an email address in the Your Email Address field

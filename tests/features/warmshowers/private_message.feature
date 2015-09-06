@@ -1,5 +1,5 @@
 #language:en
-Feature:I can exchange private messages with other Warmshowers users
+Feature: Send private messages
   In order to interact with other Warmshowers users
   As an authenticated user
   I can send and receive private messages
@@ -8,64 +8,65 @@ Background:
   Given I am an authenticated user
 
 @smoke
-Scenario: I can use the Send Message button on a user's profile to reach the Write New Message form
-  And I am viewing another user's profile
-  When I click on the Send Message button in the location sidebar
-  Then I see the Write New Message form for the user.
+Scenario: Use the Send Message button
+  Given I am on another user's profile
+  When I click on the "Send Message" button in the "Location" sidebar
+  Then I see the "Write New Message" form page
+  And I see the text "Write new message to [User]:" at the top of the page
 
-Scenario: I can reach the Write New Message form for the original author of a forum thread
-  And I have entered a thread in the forums section
-  When I click the Send Author a Message link at the bottom of the original post
-  Then I will see the New Message form with the appropriate recipient.
+Scenario: Send forum topic author a message
+  Given I am on the "Reporting bugs or suspected bugs" topic page
+  When I click the "Send Author a Message" link at the bottom of the original post
+  Then I see the "Write New Message" form page
+  And I see the text "Write new message to [User]:" at the top of the page
+  And I see the subject field prefilled with the name of the form topic
 
 @smoke
-Scenario: I can send a private message
-  And I have reached the Write New Message form with a given member as recipient
-  When I enter text into the message field
+Scenario: Send a private message
+  Given I am on the "Write New Message" form page
+  When I enter text into the subject field
+  And I enter text into the message field
   And I click Send Message
-  Then I will see the sent message open in the Messages tab of my profile
+  Then I will see the sent message open in the "Read message" page
   And I will see a modal with "A message has been sent to [user]"
-  And the other user will receive the message in their WS inbox
+  And the other user will receive the message on their "Message inbox" page
   And the other user will receive an email notifying them of the message
 
 @smoke
-Scenario: I can read private messages I have received
-  And I am viewing the Messages tab within my profile
-  And Inbox in the submenu
-  When I click on the message subject
-  Then I will see the message text
+Scenario: Read private messages
+  And I am on the "Message inbox" page
+  When I click on a message subject
+  Then I will see the message open in the "Read message" page
 
-Scenario: I can read private messages I have sent
-  And I am viewing the Messages tab within my profile
-  And Sent Messages in the submenu
-  When I click on the message subject
-  Then I will see the message text
+Scenario: Read sent private messages
+  And I am on the "Sent messages" page
+  When I click on a message subject
+  Then I will see the message open in the "Read message" page
 
-Scenario: I can read private messages I have received but not replied to
-  And I am viewing the Messages tab within my profile
-  And Unanswered Requests in the submenu
-  When I click on the message subject
-  Then I will see the message text
+Scenario: Read unread private messages
+  And I am on the "Unanswered Requests" page
+  When I click on a message subject
+  Then I will see the message open in the "Read message" page
 
 @smoke
-Scenario: I can reply to a privage message
-  And I am viewing a private message received from another user
-  When I enter text into the Reply field
-  And I click Send Message
-  Then I will see the reply below the preceding message in the Messages/Read Message tab
+Scenario: Reply to a privage message
+  And I am viewing a private message on the "Read message" page
+  When I enter text into the "Reply Message" field
+  And I click the "Send Message" button
+  Then I will see the reply below the original message on the "Read message" page
   And I will see a modal with "A message has been sent to [user]"
-  And the other user will receive the message in their WS inbox
+  And the other user will receive the message on their "Message inbox" page
   And the other user will receive an email notifying them of the message
 
-Scenario: I can clear an unsent reply
-  And I am viewing an existing message thread
-  And I have entered text in the Reply field
+Scenario: Clear an unsent reply
+  And I am viewing a private message on the "Read message" page
+  And I have entered text into the "Reply Message" field
   But I have not sent the message
-  When I click the Clear link at the bottom of the thread
+  When I click the "Clear" link at the bottom of the thread
   Then my entered text will no longer appear in the Reply field.
 
 @smoke
-Scenario: I can attach files to a message
+Scenario: Attach files to a message
   And I have entered message body text for a new message or reply
   When I click on the File Attachments link
   And I click Choose File
