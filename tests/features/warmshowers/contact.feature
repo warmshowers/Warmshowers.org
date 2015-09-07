@@ -1,6 +1,5 @@
 #language:en
 Feature: Use the contact form
-  As an authenticated or unauthenticated user
   I can contact Warmshowers
 
   # Should the sender receive an email confirmation?

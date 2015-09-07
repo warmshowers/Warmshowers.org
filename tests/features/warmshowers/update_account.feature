@@ -7,7 +7,7 @@ Feature: Update account information
 
 Background:
   Given I am an authenticated user
-  And I am at the profile edit page
+  And I am at the "Profile edit" page
 
 @smoke
 Scenario: Select a country from the select menu field

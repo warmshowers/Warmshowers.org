@@ -5,9 +5,12 @@ Feature: Creating an account
   As a new user
   I can create an account
 
+Background:
+  Given I am an unauthenticated user
+
 @fail @smoke
 Scenario: Can NOT create an account using existing username
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter a username with an existing account
   And complete all required fields
   And I click the Create New Account button
@@ -17,7 +20,7 @@ Scenario: Can NOT create an account using existing username
 
 @fail @smoke
 Scenario: Can NOT create a new account using an existing email address
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter an email address with an existing account
   And complete all required fields
   And I click the Create New Account button
@@ -27,7 +30,7 @@ Scenario: Can NOT create a new account using an existing email address
 
 @fail @smoke
 Scenario: Can NOT create an account without a valid email address
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter a value that does not match the pattern for an email address in the Email Address field
   And I enter the same value in the Confirm Email Address field
   And I complete all other required fields
@@ -38,7 +41,7 @@ Scenario: Can NOT create an account without a valid email address
 
 @fail @smoke
 Scenario: Can NOT create an account with non-matching Email Addresses
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter an email address in the Email Address field
   And I enter a different email address in the Confirm Email Address field
   And complete all required fields
@@ -49,7 +52,7 @@ Scenario: Can NOT create an account with non-matching Email Addresses
 
 @fail @smoke
 Scenario: Can NOT create an account with non-matching Passwords
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter a value in the Password field
   And I enter a different value in the Confirm Password field
   And complete all required fields
@@ -60,7 +63,7 @@ Scenario: Can NOT create an account with non-matching Passwords
 
 @fail @smoke
 Scenario: Can NOT create an account with fewer than 15 words of About You text
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter fewer than 15 words of text in the About You field
   And complete all required fields
   And I click the Create New Account button
@@ -73,7 +76,7 @@ Scenario: Can NOT create an account with fewer than 15 words of About You text
 
 @fail @smoke
 Scenario: Can NOT create an account without completing all required fields
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I fail to complete all required fields
   And I click the Create New Account button
   Then I will see the Create Account form with empty field(s) highlighted
@@ -81,7 +84,7 @@ Scenario: Can NOT create an account without completing all required fields
   And the account will not be created
 
 Scenario: Can NOT submit an invalid URL in the Website field
-  Given I am on the Create Account page
+  And I am on the Create Account page
   When I enter a value in the Website field that does not match the pattern for a URL
   And I complete all required fields
   And I click the Create New Account button
@@ -91,7 +94,7 @@ Scenario: Can NOT submit an invalid URL in the Website field
 
 @smoke @mail
 Scenario: Complete the registration form
-  Given I am at the Create New Account page
+  And I am at the Create New Account page
   When I enter an available username in the Username field
   And I enter a valid email address in the Email Address field
   And I reenter the email address in the Confirm Email Address field
@@ -112,7 +115,7 @@ Scenario: Complete the registration form
 
 @smoke
 Scenario: Validate an account
-  Given I have completed the registration form
+  And I have completed the registration form
   And I receive a validation email
   When I click on the validation link
   Then I should see the Welcome, New Member page

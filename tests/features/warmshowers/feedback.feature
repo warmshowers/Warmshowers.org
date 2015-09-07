@@ -1,64 +1,79 @@
 #language:en
-Feature:I can give, receive, and access feedback information about Warmshowers users
+Feature: Give feedback to users
   In order to contribute to the Warmshowers community
   As an authenticated user 
-  I can use feedback on Warmshowers members
+  I can use give feedback Warmshowers members
 
 Background:
   Given I am an authenticated user
 
-#Currently this link goes to a page called recommendations_of_me - it should probably direct instead to the feedback tab to improve navigation.
 @nav
-Scenario: I can see feedback about a user by using the link in the profile summary
-  And I am on a profile page (my own or other user's)
-  When I click on the Feedback link in the green profile summary area
-  Then I see the feedback tab
+Scenario: See feedback link
+  And I am on another user's "Profile" page
+  When I click on the "Feedback" link in the green "User stats" summary area
+  Then I see the "Feedback" page
 
 @nav
-Scenario: I can see feedback using tab navigation
-  And I am on a profile page (my own or other user's)
+Scenario: See feedback tab
+  And I am on another user's "Profile" page
   When I click the feedback tab
-  Then I see feedback by and about the user.
+  Then I see feedback by and about the user
 
-#This link doesn't seem to do anything, nor should it as the feedback given is already listed on this page.
-Scenario: I can view feedback given by a user
-  And I have accessed a user's feedback page using tab navigation
+Scenario: View feedback for a user
+  And I am on another user's "Feedback" page
+  Then I see a "List of feedback" for the user
+
+Scenario: View feedback by a user
+  And I am on another user's "Feedback" page
   When I click on the link "View feedback [user] has given"
-  Then I will see feedback given by that user.
+  Then I see a "List of feedback" given by the user
 
 @nav
-Scenario: I can access the Create Feedback form for another user
-  And I am on another user's profile page
-  When I click on the Provide Feedback button in the Actions sidebar
-  Then I see the Create Feedback form for the user.
+Scenario: Access the Create Feedback form
+  And I am on another user's "Profile" page
+  When I click on the "Provide Feedback" button in the "Actions" sidebar
+  Then I see the "Create Feedback" form for the user
 
-#The sender of feedback receives an email, but the recipient doesn't seem to get theirs.
 @smoke @mail
-Scenario: I can create feedback for another user
-  And I am on the Create Feedback form for a user
-  When I select a feedback type from the dropdown menu
-  And I enter at least 10 words of text in the experience input field
-  And I select the role for the user I am offering feedback about using the radio buttons
-  And I click Submit
+Scenario: Create positive feedback
+  And I am on the "Create Feedback" form for a user
+  When I select "Positive" from the "Overall experience with [user]" select menu
+  And I enter at least 10 words of text in the "Please tell about your experience with this member" input field
+  And I select the "Guest" from the "Feedback is for" radio fields
+  And I click the "Submit" button
   Then I see my published feedback
   And a modal with "Feedback Feedback for [user] has been created."
   And I will receive an email notification with:
   """
   An email has been sent to [user] letting them know about your feedback.
   """
+  And the user will receive an email notification with:
+  """
+  No idea what the message is meant to be.
+  """
 
-Scenario: I can edit feedback I have created from item view
-  And I am viewing published feedback I created
-  When I click the Edit tab
+@smoke @mail
+Scenario: Create negative feedback
+  And I am on the "Create Feedback" form for a user
+  When I select "Negative" from the "Overall experience with [user]" select menu
+  And I enter at least 10 words of text in the "Please tell about your experience with this member" input field
+  And I select the "Guest" from the "Feedback is for" radio fields
+  And I click the "Submit" button
+  Then I see my published feedback
+  And a modal with "Feedback Feedback for [user] has been created."
+
+Scenario: Edit feedback from item view
+  And I am on a "Feedback post" page 
+  When I click the "Edit" tab
   And make desired changes to form fields
-  And click submit
-  Then I see my updated published feedback 
+  And I click the "Submit" button
+  Then I see my feedback updated
   And a modal with "Feedback Feedback for [user] has been updated."
 
-Scenario: I can edit feedback I created from the feedback listing
-  And I am viewing the feedback listing page for a user
-  When I click the Edit link to the right of the feedback item I want to change
-  And click submit
+Scenario: Edit feedback from the feedback listing
+  And I am on another user's "Feedback" page
+  When I click the "Edit" link to the right of the feedback item I want to change
+  And I click the "Submit" button
   Then I see my updated published feedback 
   And a modal with "Feedback Feedback for [user] has been updated."
 
