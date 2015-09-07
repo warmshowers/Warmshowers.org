@@ -11,7 +11,14 @@
 ?>
 <div class="profile-highlight">
   <div class="profile-image">
-    <?php print $user_picture; ?>
+    <?php
+    if (($account->uid != $GLOBALS['user']->uid) || !empty($account->picture)) {
+      print theme('user_picture', array('account' => $account, 'user_picture_style' => variable_get('user_picture_style_profiles', 'profile_picture')));
+    } else {
+      print '<p class="photo-scolding">' . t('You have not uploaded a picture yet. Please upload a picture to improve your chances to find hosts or guests. !link', array('!link' => l(t('Upload your picture by editing your profile.'), 'user/' . $account->uid . '/edit'))) . '</p>';
+
+    }
+    ?>
   </div>
 
   <div class="name-title">

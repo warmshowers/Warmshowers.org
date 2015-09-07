@@ -448,56 +448,56 @@ function warmshowers_zen_sanitized_username($variables) {
 /**
  * Override template_preprocess_user_picture().
  *
- * Copied from imagecache_profiles.module
+ * Mostly copied from imagecache_profiles.module
  * (imagecache_profiles_preprocess_user_picture) and adjusted for colorbox.
  * Requires colorbox and imagecache_profiles modules.
- *
- * @TODO: Must check this function thoroughly, a lot has changed regarding profile pictures.
  *
  * @param $variables
  */
 function warmshowers_zen_preprocess_user_picture(&$variables) {
-  $default = isset($variables['picture']) ? $variables['picture'] : NULL;
-
   if (variable_get('user_pictures', 0)) {
     $account = $variables['account'];
-
-    if (isset($account->imagecache_preset)) {
-      // Manually set preset (e.g. Views)
-      $preset = $account->imagecache_preset;
-    }
-    elseif (variable_get('user_picture_imagecache_profiles_default', '')) {
-      // Default user picture preset.
-      $preset = variable_get('user_picture_imagecache_profiles_default', '');
-    }
-
-    if (!empty($account->picture->uri) && file_exists($account->picture->uri)) {
-      $picture = $account->picture;
+    if (!empty($account->picture->uri)) {
+      $filepath = $account->picture->uri;
     }
     elseif (variable_get('user_picture_default', '')) {
-      $picture = variable_get('user_picture_default', '');
+      $filepath = file_create_url(variable_get('user_picture_default', ''));
     }
 
-    if (isset($picture)) {
-      $name = (!empty($account->name) && user_access('access user profiles')) ? $account->name : t("WS Member");
-      list($name) = preg_split('/@/', $name);
-      $alt = t("@user's picture", array('@user' => $name));
-      if (isset($preset)) {
-        $preset = is_numeric($preset) ? imagecache_preset($preset) : imagecache_preset_by_name($preset);
-      }
-      if (empty($preset)) {
-        // TODO: this line is removing the picture that may potentially be there
-        // It's probably because there is no preset and there should be
-        $variables['picture'] = $default; //theme('image', $picture, $alt, $alt, '', FALSE);
-      }
-      else {
-        if (!empty($account->uid)) {
-          $variables['picture'] = theme('colorbox_imagefield_no_gallery', $preset['presetname'], $picture, $alt, $alt);
-        }
+    if (isset($variables['user_picture_style'])) {
+      $style = $variables['user_picture_style'];
+    }
+    elseif (isset($account->picture->style_name)) {
+      $style = $account->picture->style_name;
+    }
+    elseif (isset($account->user_picture_style)) {
+      $style = $account->user_picture_style;
+    }
+
+
+    if (isset($filepath) && !empty($style) && file_valid_uri($filepath)) {
+      if (user_access('access user profiles')) {
+        $caption = t("@user's picture", array('@user' => format_username($account)));
+        $variables['user_picture'] = theme('colorbox_imagefield', array(
+            'image' => array('path' => $filepath, 'style_name' => $style, 'alt' => $caption, 'title' => $caption),
+            'path' => file_create_url($account->picture->uri),
+            'title' => $caption,
+            'gid' => -1,)
+        );
+      } else {
+        $caption = t("@user's picture", array('@user' => t('WS Member')));
+        $variables['user_picture'] = theme('image_style', array(
+          'style_name' => $style,
+          'path' => $filepath,
+          'alt' => $caption,
+          'title' => $caption,
+        ));
+
       }
     }
   }
 }
+
 
 /**
  * Override theming of donations thermometer
