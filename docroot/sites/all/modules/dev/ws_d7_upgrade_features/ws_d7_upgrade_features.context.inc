@@ -2120,5 +2120,38 @@ function ws_d7_upgrade_features_context_default_contexts() {
   t('front page for unauthenticated users');
   $export['unauthenticated_front'] = $context;
 
+  $context = new stdClass();
+  $context->disabled = FALSE; /* Edit this to true to make a default context disabled initially */
+  $context->api_version = 3;
+  $context->name = 'user_register_page';
+  $context->description = 'User Register Page';
+  $context->tag = 'all languages';
+  $context->conditions = array(
+    'path' => array(
+      'values' => array(
+        'user/register' => 'user/register',
+      ),
+    ),
+  );
+  $context->reactions = array(
+    'block' => array(
+      'blocks' => array(
+        'wsuser-wsuser_registration_help' => array(
+          'module' => 'wsuser',
+          'delta' => 'wsuser_registration_help',
+          'region' => 'help',
+          'weight' => '-10',
+        ),
+      ),
+    ),
+  );
+  $context->condition_mode = 1;
+
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('User Register Page');
+  t('all languages');
+  $export['user_register_page'] = $context;
+
   return $export;
 }
