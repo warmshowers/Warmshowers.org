@@ -215,7 +215,7 @@ Randy Fay
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  Účet uživatele [user:name] zrušen',
   'user_picture_guidelines' => 'Rádi bychom viděli <i>vaši fotografii</i>, třeba na kole nebo ve vašem bydlišti. Není to vůbec povinné, ale bylo by to fajn. Náhodný výběr fotografií se rovněž objevuje na hlavní stránce. <i>Jestliže vložíte fotografii a ta se hned neobjeví, použijte funkci “tvrdé obnovy”. (Stiskněte klávesu SHIFT a klikněte na tlačítko Obnovit (REFRESH) ve vašem prohlížeči.)</i>',
-  'user_registration_help' => '<h3> Vítejte! Než budete pokračovat, přečtěte si následující informace</h3>
+  'wsuser_registration_help' => '<h3> Vítejte! Než budete pokračovat, přečtěte si následující informace</h3>
 Těší nás, že se chcete přihlásit do Warm Showers! Vložení informací o vás netrvá dlouho. Poté vám pošleme ověřovací e-mail – musíte kliknout na odkaz v něm uvedený. Ale v současnosti, v miliardách antispamových filtrů, se může stát, že náš e-mail nedostanete, jestliže si nás nepřidáte do vašeho „whitelistu“ (seznam důvěryhodných odesílatelů), a tím by váš účet nikdy nevznikl. Tak tedy…
 
 <ol><li>
@@ -511,7 +511,7 @@ Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  Ihr Kont ([user:name]) wurde gelöscht',
   'user_picture_guidelines' => 'Wir würden uns über ein Bild von <i>Ihnen</i> freuen, vielleicht eines, wo Sie in Ihrer Gegend Fahrrad fahren. Dies ist natürlich völlig freiwillig aber kann unterhaltsam sein. <i>Falls Sie ein neues Bild hochladen und es nicht sofort angezeigt wird, aktualisieren Sie die Seite in Ihrem Browser.</i>
 ',
-  'user_registration_help' => '<h3>Willkommen! Bitte lesen Sie dies, bevor Sie unten fortfahren</h3>
+  'wsuser_registration_help' => '<h3>Willkommen! Bitte lesen Sie dies, bevor Sie unten fortfahren</h3>
 Wir sind froh, dass Sie sich bei Warmshowers anmelden wollen! In einer Mitnute können Sie all Ihre Informationen eingeben, wonach wir Ihnen eine Bestätigungsmail senden. Danach müssen Sie auf den Link in dieser Mail klicken. Vielleicht müssen Sie uns zuerst zu Ihrer \'\'Liste vertrauenswürdiger Absender\'\' (oder ähnlich) hinzufügen, damit unsere Mails nicht im Spam-Ordner landen, oder Sie senden uns einfach eine Mail mit dem Betreff "test".
 <ol>
 <li>Bitte schauen Sie sich <a href="/the_rules" target="_blank">die Regeln</a> an und tun Sie dies erneut, wann immer Sie Zweifel haben.</li>
@@ -848,7 +848,7 @@ Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] account deleted',
   'user_picture_guidelines' => 'We\'d like a picture of <i>you</i>, perhaps cycling or at your location. This is entirely optional, of course, but can be fun and helps guests or hosts know more about you. Random pictures show on the front page as well. <i>If you upload a new picture and it doesn\'t show up right away, do a shift-refresh on your browser. (Hold down the SHIFT key and click the REFRESH button on your browser.)</i>
 ',
-  'user_registration_help' => '<h3>Welcome! Please read this before continuing below</h3>
+  'wsuser_registration_help' => '<h3>Welcome! Please read this before continuing below</h3>
 We\'re glad you want to sign up for Warm Showers! In a minute we\'re going to have you enter all your information, and then we\'ll send you a validation email - you have to click a link in that email. But of course in these days of billions of spam filters, you might not get the email if you don\'t add us to your spam whitelist, and then your account will never be enabled. So....
 
 <ol><li>
@@ -1089,7 +1089,7 @@ Randy Fay
 Webmaster Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers.org: [user:name] cuenta cancelada',
   'user_picture_guidelines' => 'Queremos una foto de  <i>ti</i>, tal vez montando en bici o a tu casa. Este is opcional, pero divertido, también. Fotos al azar  aparecen en la página principal. ',
-  'user_registration_help' => '<h3>¡Bienvenido! Por favor, lee esto antes de seguir adelante</h3>
+  'wsuser_registration_help' => '<h3>¡Bienvenido! Por favor, lee esto antes de seguir adelante</h3>
 ¡Nos complace tu registro en WarmShowers! Te pedimos un minuto para que rellenes toda tu información. Luego te enviaremos un e-mail con un enlace de validación. Por supuesto que con la cantidad de filtros anti-spam es posible que nuestro correo no te aparezca si no nos añades a tu lista de correos autorizados. Es importante que verifiques que nuestro correo no se ha filtrado.
 
 
@@ -1360,7 +1360,7 @@ Warmshowers.org webmaster
 Warmshowers.org ',
   'user_mail_status_deleted_subject' => 'Warmshowers:  حساب [user:name] حذف گردید.',
   'user_picture_guidelines' => 'ما دوستداریم عکسی از<i> شما</i> داشته باشیم ، احتمالا در حال دوچرخه سواری  و یا در خانه تان.  البته این کاملا ً اختیاری است ،  ولی میتواند سرگرم کننده باشد. زیرا ما در صفحه اول سایت از بین عکسهای اعضا ، عکسهایی را  بطور اتفاقی اتخاب کرده و به نمایش می گذاریم. اگر یک عکس جدید بارگذاری کردید ولی همچنان  عکس قدیمی به نمایش درآمد، یک  shift-refresh   روی مرورگر خود انجام دهید.( کلید  SHIFT  را فشرده نهداشته و همزمان  نمایه REFRESH   را کلیک کنید.) </i>',
-  'user_registration_help' => '<h3>خوش آمدید! لطفا ً قبل از ادامه ، مطلب زیر را بخوانید. </h3>
+  'wsuser_registration_help' => '<h3>خوش آمدید! لطفا ً قبل از ادامه ، مطلب زیر را بخوانید. </h3>
 ما خوشحالیم که شما میخواهید در وارم شاورز عضو شوید! تا دقایقی دیگر ، شما اطلاعات خود را وارد خواهید کرد، و سپس ما یک ایمیل  تاییدی به شما خواهیم فرستاد –  شما باید یک لینک در این ایمیل را کلیک کنید. ولی البته این روزها با وجود میلیونها فیلتر مختلف ، ممکن است ایمیل ما یه صندوق ورودی  ایمیل شما نرود، و در صورتی که این ایمیل به شما نرسد ، نم نویسی و عضویت شما هیچوقت کامل  نمی شود.   مگر اینکه قبلا  آدرس  ایمیل ما را به  عنوان ایمیل  قابل اعتماد ( غیر مزاحم) در لیست سفید وارد کرده باشیدد و یا در دفترچه آدرسها، در ایمیل خود، ثبت کرده باشید.بنابر این...
 
 <ol><li>
@@ -1671,7 +1671,7 @@ Warmshowers.org webmaster',
   'user_picture_guidelines' => 'Instructions pour les photos:<br>
 Nous aimerions avoir une photo de <i>vous</i>, sur votre vélo ou chez vous. Rien d\'obligatoire, bien sûr, mais cela peut être amusant. Sur la page d\'accueil, vous pouvez voir des photos prises au hasard. <i>Si vous téléchargez une nouvelle photo, et qu\'elle n\'apparait pas immédiatement, il faut rafraîchir votre affichage. (Maintenir la touche Maj enfoncée, et cliquer sur le bouton "actualiser la page courante" de votre navigateur)</i>
 ',
-  'user_registration_help' => '<h3>Bienvenue! Veuillez lire ceci avant de poursuivre</h3>
+  'wsuser_registration_help' => '<h3>Bienvenue! Veuillez lire ceci avant de poursuivre</h3>
 Nous sommes heureux de vous accueillir à Warm Showers ! Nous allons vous demander quelques renseignements, et nous vous enverrons un e-mail de validation, avec un lien sur lequel vous devrez cliquer pour valider définitivement votre inscription. Cependant avec les filtres destinés à éliminer les spams (e-mails non sollicités), vous risquez fort de ne pas recevoir cet e-mail si vous ne nous avez pas inscrit dans votre "liste des contacts autorisés". Dans ce cas, votre inscription ne sera jamais validée. Alors ...
 
 <ol><li>
@@ -1923,7 +1923,7 @@ Randy Fay
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] account cancellato',
   'user_picture_guidelines' => 'Inviaci una foto di <i>Te</i>, con la tua bici o a casa tua. Si tratta di una scelta del tutto opzionale ma può rivelarsi divertente. Foto di questo tipo appaiono anche sulla pagina principale. <i>Se carichi una nuova foto e non diventa visibile entro pochi istanti, premi shift-refresh (shift+aggiorna) sul tuo motore di ricerca. (Tieni premuto il pulsante SHIFT e clicca su REFRESH/AGGIORNA.)</i>',
-  'user_registration_help' => '<h3>Benvenuta/o! Per favore leggi qui prima di procedere</h3>
+  'wsuser_registration_help' => '<h3>Benvenuta/o! Per favore leggi qui prima di procedere</h3>
 Siamo felici che tu abbia deciso di far parte della comunità Warm Showers! Fra pochi istanti potrai inserire i tuoi dettagli e subito dopo riceverai una email di conferma – dovrai cliccare sul collegamento per attivare il tuo account. Ma attenzione, perchè con tutti i filtri antispam che abbiamo oggigiorno, potresti non ricevere mai questa email se prima non aggiungi Warm Showers alla Lista Bianca nella casella dello spam! Quindi …
 
 <ol><li>
@@ -2131,7 +2131,7 @@ Warmshowers:  [user:name]さんのアカウントは削除されました
 ',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name]さんのアカウントは削除されました',
   'user_picture_guidelines' => '私たちは、あなたが、地元でサイクリングしているような<i>あなた</i>の写真を望んでいます。これは完全に任意のオプションですが、あれば楽しいものです。これはフロントページのランダムな写真にも表示されます。 <i>もし新しい写真をアップロードした場合、すぐには表示されません。ブラウザでシフトキーを押しながら再読み込みのボタンを押してみて下さい。</i>',
-  'user_registration_help' => '<h3>ようこそ! 以下を良く読んでからお進みください</h3>
+  'wsuser_registration_help' => '<h3>ようこそ! 以下を良く読んでからお進みください</h3>
 Warm Showersに登録しようとして頂き、大変うれしく思います!
 ここでは、まずあなたに、あなたの情報を入力していただいた後、こちらから確認メールをお送りします。次に、そのメールのリンクをクリックして頂く必要があります。しかし、最近のスパムフィルタは何十億とありますので、もし私たちのアドレスをあなたのスパム・ホワイトリストに追加しないと、あなたは確認メールを受け取れない場合があるかも知れません。この場合、あなたは永遠にあなたのアカウントを有効にできないことになってしまいます....
 <ol><li>
@@ -2420,7 +2420,7 @@ Randy Fay
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] konto usunięte',
   'user_picture_guidelines' => 'Chcielibyśmy, abyś dodał <i>swoje</i> zdjęcie, na rowerze albo w domu,  w którym przyjmować będziesz gości. Jest to oczywiście opcja całkowicie dobrowolna, ale naszym zdaniem całkiem przyjemna. Losowe zdjęcia ukazują się także na pierwszej stronie. <i>Jeśli załadowałeś nowe zdjęcie, a nie pojawiło się ono od razu na stronie, odśwież widok w przeglądarce (shift + odśwież). (Naciśnij guzik SHIFT na klawiaturze, a następnie przycisk ODŚWIEŻ w przeglądarce.)</i>',
-  'user_registration_help' => '<h3>Witaj! Przeczytaj zanim pójdziesz dalej</h3>
+  'wsuser_registration_help' => '<h3>Witaj! Przeczytaj zanim pójdziesz dalej</h3>
 Cieszymy się, że chcesz dołączyć do społeczności Warm Showers! Za chwilę poprosimy Cię, abyś wprowadził informacje o sobie, a następnie wyślemy Ci e-mail potwierdzający - należy kliknąć w link w mailu.  W dzisiejszych czasach milionów filtrów antyspamowych możesz jednak nie dostać naszej wiadomości, jeśli nie dodasz nas do listy zaufanych odbiorców, a wtedy Twoje konto nigdy nie zostanie stworzone. Więc ....
 
 <ol><li>
@@ -2639,7 +2639,7 @@ Randy Fay - webmaster WarmShowers.org',
   'user_mail_status_deleted_subject' => 'WarmShowers.org: conta [user:name] excluída',
   'user_picture_guidelines' => 'Queremos uma foto com você, seja em sua casa ou pedalando, por exemplo. Carregar a foto é totalmente opcional mas pode ser divertido e dá uma ideia de quem você para os membros que te contatam. Além disso, as fotos de todos os membros aparecem aleatoriamente na página inicial. Se você enviar uma nova foto e ela não aparecer imediatamente, dê o comando de recarregar completamente a página no navegador (Aperte &lt;ctrl&gt;+&lt;F5&gt;)
 ',
-  'user_registration_help' => '<h3>Bem vindo! Por favor leia antes de continuar a inscrição</h3>
+  'wsuser_registration_help' => '<h3>Bem vindo! Por favor leia antes de continuar a inscrição</h3>
 Estamos felizes Nós estamos contentes que você quer  participar dos Chuveiros Quentes (Warm Showers)! Dentro de instantes você entrará com toda a sua informação, então lhe enviaremos um e-mail de validação - você deve abrir um link que estará neste e-mail. Hoje em dia, com milhões de filtros de Spam, pode ser que você não receba o e-mail caso não nos adicione aos seus contatos, e dessa forma sua conta não será habilitada. Então...
 <ol>
   <li>Agora mesmo, antes de completar o formulário, adicione o endereço <em>wsl@warmshowers.org</em> aos contatos ou &quot;lista branca&quot; de seu e-mail. Se você não nos adicionar, poderá acabar não recebendo o e-mail de validação com a sua senha, e assim não efetivará sua inscrição.</li>
@@ -2919,7 +2919,7 @@ Admin use:
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  профиль [user:name] удален',
   'user_picture_guidelines' => 'Мы были бы рады видеть <i>ваше</i> фото. Было бы хорошо - вместе с велосипедом, в ваших краях. Это целиком на ваше усмотрение, но было бы приятно – фотографии пользователей в случайном порядке показываются на стартовой странице. <i>Если вы загружаете новую фотографию и она не отображается, сделайте принудительное обновление страницы (зажмите клавишу SHIFT и нажмите кнопку ОБНОВИТЬ в вашем браузере).</i>',
-  'user_registration_help' => '<h3>Добро пожаловать! Пожалуйста, прочитайте вначале этот текст </h3>
+  'wsuser_registration_help' => '<h3>Добро пожаловать! Пожалуйста, прочитайте вначале этот текст </h3>
 Мы рады, что вы хотите стать участником Warm Showers! Вам необходимо ввести информацию о себе, и далее мы пришлем вам письмо-подтверждение регистрации. Пожалуйста, перейдите по ссылке, которая будет указана в письме. Но, обратите внимание – в наши дни многие письма блокируются спам-фильтрами, и вы можете не увидеть письмо-подтверждение в вашем почтовом ящике, если не добавите заранее наш адрес в «белый список». В этом случае ваша регистрация не будет завершена. Поэтому…
 
 <ol><li>
@@ -3179,7 +3179,7 @@ Randy Fay
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] налог је обрисан',
   'user_picture_guidelines' => 'Волели бисмо фотографију на којој сте <i>Ви</i>, најбоље како се возите бициклом у вашој околини. Ово је потпуно добровољно наравно, али може бити забавно. Случајно одабране фотографије се показују на насловној страни наше интернет странице такође. <i>Уколико поставите вашу фотографију и не приказује се одма на начин како треба, потребно је да освежите ваш интернет претраживач. (Држећи тастер SHIFT и притисните REFRESH дугме у вашем претраживачу.)</i>',
-  'user_registration_help' => '<h3>Добродошли! Молим Вас да најпре прочитате ово пре него што наставите да читате било шта друго што је у наставку</h3>
+  'wsuser_registration_help' => '<h3>Добродошли! Молим Вас да најпре прочитате ово пре него што наставите да читате било шта друго што је у наставку</h3>
 Драго нам је да сте одлучили да се прикључите Warm Showers заједници! За који минут ћемо тражити од Вас да унесете све Ваше податке, након чега ћемо Вам послати електронску поруку за потврду, у којем морате да пратите упутства како би се процес регистрације правилно завршио. Наравно у данашње време, милиони нежељених електронских порука круже светском мрежом свакодневно, тако да постоји могућност да ће и наша електронска порука бити жртва неких од система заштите тако да је потребно да нашу електронску адресу означите као прихватљиву како ваш систем заштите у будућности не би одбијао наше поруке, уколико то не учините постаји могућност да ваш налог на нашој интернет страници остане заувек неактиван, дакле...
 <ol><li>Сада, пре него пошаљете овај формулар, молим Вас додајте електронску адресу wsl@warmshowers.org у вашу белу листу (листу дозвољених адреса) вашег филтра СПАМ порука, или једноставно пошаљите једну кратку електронску поруку на нашу адресу са насловом поруке "test" Уколико не учините овако, постоји могућност да не примите електронску поруку за потврду ваше електронске адресе, што за последицу може имати да нећете бити у могућности да се пријавите на систем.</li>
 <li>Молим Вас да погледате <a href="/the_rules" target="_blank">Правила</a> и не заборавите  их проверите ponovo сваког пута када сте у недоумици око нечега што има везе са нашом заједницом.</li>
@@ -3459,7 +3459,7 @@ Randy Fay
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] - konto raderat',
   'user_picture_guidelines' => 'Vi vill gärna ha en bild på <i>dig</i>, kanske när du cyklar eller är du bor. Det här är så klart helt frivilligt men kan vara roligt. Slumpmässiga bilder visas även på förstasidan. <i>Om du laddar upp en ny bild och den inte visas direkt, testa att uppdatera sidan så ska den dyka upp. (Håll ner skift-tangenten och klicka på R på tangentbordet.)</i>',
-  'user_registration_help' => '<h3>Välkommen! Var god läs igenom detta innan du fortsätter.</h3> Tack för att du vill vara en del av Warm Showers! Alldeles strax kommer du att få ange dina uppgifter, därefter kommer vi att skicka ett bekräftelsemail med en länk som du behöver klicka på. För att undvika att vårt mail hamnar i ditt spam-filter är det säkrast att lägga till vår mailadress i din adressbok. Om inte, kanske du inte får mailet vilket betyder att ditt konto inte kan aktiveras. Därför…  <ol><li> Innan du fyller i formuläret, var god lägg till wsl@warmshowers.org i din adressbok. Instruktioner för hur man vanligtvis gör det finns <a href=”/spam_filters" target="_blank">här</a>. Om du inte gör detta, kanske du inte får bekräftelsemailet med ditt lösenord som behövs för att bli registrerad.</li> <li>Läs igenom <a href="/the_rules" target=”_blank">våra regler</a> och kom ihåg att gå tillbaka till dem om du känner dig osäker på något.</li> <li>När du registrerar dig, kom ihåg att det betyder att du planerar att erbjuda ditt värdskap, åtminstone någon gång i framtiden. Glöm inte att det här är en hemsida för ömsesidig gästvänlighet. (Om du är på resande fot eller av annan anledning inte kan vara värd för tillfället kryssar du i ”för tillfället ej tillgänglig”-rutan för att senare kryssa ur rutan vid tillfälle.) </li> <li>Minderåriga är inte tillåtna att använda denna sida, så fortsätt inte om inte har åldern inne.</li> <li>Kom ihåg att vi har en <a href="/faq" target=”_blank">Vanliga frågor</a> sida, som kanske kan svara på eventuella frågor du har. Kom ihåg att leta där först om du någon gång får problem med att logga in på sidan.</li> <li>Är du oroad över vem som kan se informationen du lägger upp? Hemsidan är konstruerad på så vis att din profil enbart kan visas av inloggade medlemmar. Din mailadress är alltid dold, även för de andra medlemmarna.</li> <li>Din personliga säkerhet är väldigt viktig för oss. Läs igenom sidan <a href=”/personal-security">Personlig säkerhet</a> för mer information om ämnet</li> <li>Vår <a target="_blank" href="/privacy">Sekretesspolicy</a> påminner dig om att din profil endast är synlig för andra medlemmar och att bara medlemmar kan kontakta dig via hemsidan.</li> <li>Genom att registrera dig accepterar du våra<a target="_blank" href="/terms">Användarvillkor</a> vilka betonar att <strong>du ensam ansvarar för dina interaktioner med andra Warmshowers-medlemmar.</strong></li> </ol> <br/><br/> Det var allt! Fortsätt nedan för att fullfölja din registrering. <hr/>',
+  'wsuser_registration_help' => '<h3>Välkommen! Var god läs igenom detta innan du fortsätter.</h3> Tack för att du vill vara en del av Warm Showers! Alldeles strax kommer du att få ange dina uppgifter, därefter kommer vi att skicka ett bekräftelsemail med en länk som du behöver klicka på. För att undvika att vårt mail hamnar i ditt spam-filter är det säkrast att lägga till vår mailadress i din adressbok. Om inte, kanske du inte får mailet vilket betyder att ditt konto inte kan aktiveras. Därför…  <ol><li> Innan du fyller i formuläret, var god lägg till wsl@warmshowers.org i din adressbok. Instruktioner för hur man vanligtvis gör det finns <a href=”/spam_filters" target="_blank">här</a>. Om du inte gör detta, kanske du inte får bekräftelsemailet med ditt lösenord som behövs för att bli registrerad.</li> <li>Läs igenom <a href="/the_rules" target=”_blank">våra regler</a> och kom ihåg att gå tillbaka till dem om du känner dig osäker på något.</li> <li>När du registrerar dig, kom ihåg att det betyder att du planerar att erbjuda ditt värdskap, åtminstone någon gång i framtiden. Glöm inte att det här är en hemsida för ömsesidig gästvänlighet. (Om du är på resande fot eller av annan anledning inte kan vara värd för tillfället kryssar du i ”för tillfället ej tillgänglig”-rutan för att senare kryssa ur rutan vid tillfälle.) </li> <li>Minderåriga är inte tillåtna att använda denna sida, så fortsätt inte om inte har åldern inne.</li> <li>Kom ihåg att vi har en <a href="/faq" target=”_blank">Vanliga frågor</a> sida, som kanske kan svara på eventuella frågor du har. Kom ihåg att leta där först om du någon gång får problem med att logga in på sidan.</li> <li>Är du oroad över vem som kan se informationen du lägger upp? Hemsidan är konstruerad på så vis att din profil enbart kan visas av inloggade medlemmar. Din mailadress är alltid dold, även för de andra medlemmarna.</li> <li>Din personliga säkerhet är väldigt viktig för oss. Läs igenom sidan <a href=”/personal-security">Personlig säkerhet</a> för mer information om ämnet</li> <li>Vår <a target="_blank" href="/privacy">Sekretesspolicy</a> påminner dig om att din profil endast är synlig för andra medlemmar och att bara medlemmar kan kontakta dig via hemsidan.</li> <li>Genom att registrera dig accepterar du våra<a target="_blank" href="/terms">Användarvillkor</a> vilka betonar att <strong>du ensam ansvarar för dina interaktioner med andra Warmshowers-medlemmar.</strong></li> </ol> <br/><br/> Det var allt! Fortsätt nedan för att fullfölja din registrering. <hr/>',
 );
   $realm_variables['language']['tr'] = array(
   'contact_form_information' => '<p>You are welcome to contact us here via email.</p>
@@ -3736,7 +3736,7 @@ Warmshowers.org
 ',
   'user_mail_status_deleted_subject' => 'Warmshowers: 您的账户 [user:name]已经被删除',
   'user_picture_guidelines' => '您可以上传<i>您自己</i>的一张照片，如果是您在当地骑车的有趣照片就最好啦！照片自愿上传，上传的照片也会随机显示在首页上。<i>如果您上传一张新照片后不能马上显示，请Shift+F5强制刷新页面。</i>',
-  'user_registration_help' => '<h3>欢迎您的加入！在进行下一步操作之前，请仔细阅读下面的内容</h3>
+  'wsuser_registration_help' => '<h3>欢迎您的加入！在进行下一步操作之前，请仔细阅读下面的内容</h3>
 我们非常高兴您能加入WarmShowers社区。在您填写完所有内容并且提交后，我们会发送给您一封验证E-mail，此邮件中包含一个验证链接，请点击此链接完成验证。如果不完成验证，您将无法登录使用WarmShowers网站。根据当时的服务器负载和网络情况，邮件一般会在几十秒至十几分钟左右发送给您，如果您没有收到新邮件，请检查您的垃圾邮件箱，如果还是没有，那就是被邮件服务器当作垃圾邮件过滤掉啦……
 
 <ol><li>
