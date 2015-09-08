@@ -606,6 +606,94 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance:
+  // 'privatemsg_message-privatemsg_message-field_pm_attachment'
+  $field_instances['privatemsg_message-privatemsg_message-field_pm_attachment'] = array(
+    'bundle' => 'privatemsg_message',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_default',
+        'weight' => 1,
+      ),
+    ),
+    'entity_type' => 'privatemsg_message',
+    'field_name' => 'field_pm_attachment',
+    'label' => 'Optional File Attachment',
+    'required' => 0,
+    'settings' => array(
+      'description_field' => 1,
+      'file_directory' => 'pm_attachment',
+      'file_extensions' => 'jpg jpeg gif png txt doc docx xls xlsx pdf ppt pps odt ods odp psd kml kmz gpx',
+      'max_filesize' => '',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'file_generic',
+      'weight' => 1,
+    ),
+  );
+
+  // Exported field_instance:
+  // 'privatemsg_message-privatemsg_message-field_pm_image'
+  $field_instances['privatemsg_message-privatemsg_message-field_pm_image'] = array(
+    'bundle' => 'privatemsg_message',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'colorbox',
+        'settings' => array(
+          'colorbox_caption' => 'auto',
+          'colorbox_caption_custom' => '',
+          'colorbox_gallery' => 'none',
+          'colorbox_gallery_custom' => '',
+          'colorbox_image_style' => '',
+          'colorbox_multivalue_index' => NULL,
+          'colorbox_node_style' => 'medium',
+          'colorbox_node_style_first' => '',
+        ),
+        'type' => 'colorbox',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'privatemsg_message',
+    'field_name' => 'field_pm_image',
+    'label' => 'Optional Picture',
+    'required' => 0,
+    'settings' => array(
+      'alt_field' => 0,
+      'default_image' => 0,
+      'file_directory' => 'pm_image',
+      'file_extensions' => 'png gif jpg jpeg',
+      'max_filesize' => '',
+      'max_resolution' => '1024x1024',
+      'min_resolution' => '',
+      'title_field' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'active' => 1,
+      'module' => 'image',
+      'settings' => array(
+        'preview_image_style' => 'thumbnail',
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'image_image',
+      'weight' => 0,
+    ),
+  );
+
   // Translatables
   // Included for use with string extractors like potx.
   t('Cart button label');
@@ -613,7 +701,9 @@ function ws_d7_upgrade_features_field_default_field_instances() {
   t('Feedback is for');
   t('File attachments');
   t('Member');
+  t('Optional File Attachment');
   t('Optional Photos');
+  t('Optional Picture');
   t('Overall Experience');
   t('Please tell about your experience with this member');
   t('Specify the label for the add-to-cart button.');
