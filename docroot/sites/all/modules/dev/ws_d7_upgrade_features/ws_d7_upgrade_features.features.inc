@@ -272,6 +272,22 @@ function ws_d7_upgrade_features_image_default_styles() {
     ),
   );
 
+  // Exported image style: mobile_photo_456.
+  $styles['mobile_photo_456'] = array(
+    'label' => 'mobile_photo_456',
+    'effects' => array(
+      17 => array(
+        'name' => 'image_scale',
+        'data' => array(
+          'width' => 456,
+          'height' => '',
+          'upscale' => 1,
+        ),
+        'weight' => 0,
+      ),
+    ),
+  );
+
   return $styles;
 }
 
