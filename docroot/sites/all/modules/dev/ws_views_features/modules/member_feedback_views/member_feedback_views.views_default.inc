@@ -208,14 +208,6 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['uid']['exclude'] = TRUE;
   $handler->display->display_options['fields']['uid']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['uid']['link_to_user'] = FALSE;
-  /* Field: Warmshowers: Full Name */
-  $handler->display->display_options['fields']['fullname_1']['id'] = 'fullname_1';
-  $handler->display->display_options['fields']['fullname_1']['table'] = 'wsuser';
-  $handler->display->display_options['fields']['fullname_1']['field'] = 'fullname';
-  $handler->display->display_options['fields']['fullname_1']['relationship'] = 'field_member_i_trust_uid';
-  $handler->display->display_options['fields']['fullname_1']['label'] = 'Feedback received by';
-  $handler->display->display_options['fields']['fullname_1']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['fullname_1']['element_label_colon'] = FALSE;
   /* Field: Content: Nid */
   $handler->display->display_options['fields']['nid']['id'] = 'nid';
   $handler->display->display_options['fields']['nid']['table'] = 'node';
@@ -297,14 +289,6 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['uid']['exclude'] = TRUE;
   $handler->display->display_options['fields']['uid']['element_label_colon'] = FALSE;
   $handler->display->display_options['fields']['uid']['link_to_user'] = FALSE;
-  /* Field: Warmshowers: Full Name */
-  $handler->display->display_options['fields']['fullname_1']['id'] = 'fullname_1';
-  $handler->display->display_options['fields']['fullname_1']['table'] = 'wsuser';
-  $handler->display->display_options['fields']['fullname_1']['field'] = 'fullname';
-  $handler->display->display_options['fields']['fullname_1']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['fullname_1']['label'] = 'Feedback given by';
-  $handler->display->display_options['fields']['fullname_1']['exclude'] = TRUE;
-  $handler->display->display_options['fields']['fullname_1']['element_label_colon'] = FALSE;
   /* Field: Content: Nid */
   $handler->display->display_options['fields']['nid']['id'] = 'nid';
   $handler->display->display_options['fields']['nid']['table'] = 'node';
@@ -463,10 +447,8 @@ function member_feedback_views_views_default_views() {
     t('Feedback received by user.'),
     t('To leave feedback for a member, visit their profile page and click the "Provide Feedback" button in the "Actions" block on their profile page.
 '),
-    t('Feedback received by'),
     t('Feedback given'),
     t('Feedback given by user.'),
-    t('Feedback given by'),
     t('User feedback'),
     t('Most recent feedback for a user.'),
     t('To leave feedback for a member..........'),
