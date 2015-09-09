@@ -667,12 +667,11 @@ function _user_location_geocode($location = array(), $account) {
     }
 
     // Try geonames web service with zip
-//    if (strlen($location['postal_code']) && $geonames_postal_code_result = location_geonames_geocoder($location )) {
     $geonames_result = _user_location_geonames_geocoder($location);
     if ($geonames_result) {
-      watchdog('geocode', "Geonames accuracy=%source result for user=%name details=%details", array(
+      watchdog('geocode', "Geonames accuracy=%source result for !link details=%details", array(
         '%source' => $geonames_result['source'],
-        '%name' => $location['name'],
+        '!link' => l(filter_xss($account->name), "user/{$account->uid}"),
         '%details' => drupal_json_encode($geonames_result)
       ));
 
@@ -683,10 +682,10 @@ function _user_location_geocode($location = array(), $account) {
     $stripped_location['postal_code'] = '';
     $stripped_location['street'] = '';
     if ($google_result = _user_location_google_geocoder($stripped_location)) {
-      watchdog('geocode', "Google stripped accuracy=%accuracy result for user=%user, details=%details",
+      watchdog('geocode', "Google stripped accuracy=%accuracy result for !link, details=%details",
         array(
           'accuracy' => $google_result['source'],
-          '%user' => $location['name'],
+          '!link' => l(filter_xss($account->name), "user/{$account->uid}"),
           '%details' => drupal_json_encode($google_result)
         ));
 
@@ -694,8 +693,8 @@ function _user_location_geocode($location = array(), $account) {
     }
 
     if ($db_result = _user_location_geocode_from_db($location, $account)) {
-      watchdog('geocode', "Database accuracy=%accuracy for user %user, details=%details", array(
-        '%user' => $location['name'],
+      watchdog('geocode', "Database accuracy=%accuracy for !link, details=%details", array(
+        '!link' => l(filter_xss($account->name), "user/{$account->uid}"),
         '%accuracy' => $db_result['source'],
         '%details' => drupal_json_encode($db_result)
       ));
@@ -750,7 +749,7 @@ function _user_location_geocode_from_db($location) {
       ':city' => $location['city'],
       ':province' => $provinces[$location['province']]
     ))
-    ->fetchField();
+    ->fetchObject();
   if (!empty($row)) {
     return array(
       'latitude' => $row->latitude,
@@ -854,7 +853,7 @@ function _user_location_google_geocoder($location = array()) {
   // However, key is not required
   // $fullurl .= "&key=${key}";
 
-  $results = drupal_http_request($fullurl);
+  $results = drupal_http_request($fullurl, array('timeout' => 10));
 
   if ($results->code != 200) {
     watchdog('geocode', "Google geocoder failed with code=@code, fullurl=%fullurl, results=%results", array(
@@ -984,7 +983,7 @@ function _user_location_geonames_geocoder($location = array()) {
 
   $fullurl = 'http://prado.ws.geonames.org/postalCodeSearch?' . $location_string;
 
-  $result = drupal_http_request($fullurl);
+  $result = drupal_http_request($fullurl, array('timeout' => 10));
 
   if ($result->code != 200) {
     watchdog('geocode', "Geonames.org geocode failed for %fullurl, details=%details", array(
@@ -1031,9 +1030,9 @@ function _user_location_geonames_geocoder($location = array()) {
    See: http://www.geonames.org/export/index.html#countrysubdiv
    */
 
-  if ($params['GEONAMES']['CODE1']['LAT'] != 0) {
-    $location['latitude'] = floatval($params['GEONAMES']['CODE1']['LAT']);
-    $location['longitude'] = floatval($params['GEONAMES']['CODE1']['LNG']);
+  if (!empty($params['GEONAMES0']['CODE1']['LAT'])) {
+    $location['latitude'] = floatval($params['GEONAMES0']['CODE1']['LAT']);
+    $location['longitude'] = floatval($params['GEONAMES0']['CODE1']['LNG']);
     $location['source'] = 3;
     $location['geocoding_source'] = 'geonames_postal_code';
     $location['geonames_return'] = $params;
@@ -1074,7 +1073,7 @@ function _user_location_latlon_placename_geonames($location = array()) {
 
 
   $query = 'http://prado.ws.geonames.org/search?' . $location_string;
-  $result = drupal_http_request($query);
+  $result = drupal_http_request($query, array('timeout' => 10));
 
   //TODO: Need to module_load_include('data = $result->data', 'user_location', '');
 
