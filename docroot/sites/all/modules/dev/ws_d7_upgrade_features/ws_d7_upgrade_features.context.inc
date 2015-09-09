@@ -2083,24 +2083,24 @@ function ws_d7_upgrade_features_context_default_contexts() {
           'module' => 'warmshowers_site',
           'delta' => 'ws_member_stats_block',
           'region' => 'highlighted',
-          'weight' => '-72',
+          'weight' => '-70',
         ),
         'warmshowers_site-ws_anonymous_welcome_message' => array(
           'module' => 'warmshowers_site',
           'delta' => 'ws_anonymous_welcome_message',
           'region' => 'highlighted',
-          'weight' => '-71',
+          'weight' => '-70',
+        ),
+        'views-map_slideshow-front' => array(
+          'module' => 'views',
+          'delta' => 'map_slideshow-front',
+          'region' => 'content',
+          'weight' => '-10',
         ),
         'nodeblock-15526' => array(
           'module' => 'nodeblock',
           'delta' => '15526',
           'region' => 'sidebar_first',
-          'weight' => '0',
-        ),
-        'views-photo_contest-block_2' => array(
-          'module' => 'views',
-          'delta' => 'photo_contest-block_2',
-          'region' => 'sidebar_second',
           'weight' => '0',
         ),
         'nodeblock-15521' => array(
