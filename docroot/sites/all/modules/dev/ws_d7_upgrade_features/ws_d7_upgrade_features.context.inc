@@ -2083,13 +2083,13 @@ function ws_d7_upgrade_features_context_default_contexts() {
           'module' => 'warmshowers_site',
           'delta' => 'ws_member_stats_block',
           'region' => 'highlighted',
-          'weight' => '-70',
+          'weight' => '-72',
         ),
         'warmshowers_site-ws_anonymous_welcome_message' => array(
           'module' => 'warmshowers_site',
           'delta' => 'ws_anonymous_welcome_message',
           'region' => 'highlighted',
-          'weight' => '-70',
+          'weight' => '-71',
         ),
         'views-map_slideshow-front' => array(
           'module' => 'views',
