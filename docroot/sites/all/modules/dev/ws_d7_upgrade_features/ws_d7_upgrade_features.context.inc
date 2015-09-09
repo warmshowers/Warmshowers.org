@@ -2109,6 +2109,12 @@ function ws_d7_upgrade_features_context_default_contexts() {
           'region' => 'sidebar_second',
           'weight' => '1',
         ),
+        'nodeblock-24977' => array(
+          'module' => 'nodeblock',
+          'delta' => '24977',
+          'region' => 'sidebar_second',
+          'weight' => '2',
+        ),
       ),
     ),
   );
