@@ -14,47 +14,54 @@ Scenario: Select a country from the select menu field
   When I select a country using the dropdown menu
   Then the State/Province dropdown menu will populate with an appropriate list of states or provinces
 
+@rules
 Scenario: Change city, state, and country
   When I change my country
   And I select a new state
   And I choose a new city
-  Then I should see a map of my new location on the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
+  And I should see a map of my new location on the profile page
 
-@smoke
+@smoke @rules
 Scenario: Change profile picture
   When I click the Choose File button
-  And select a file with size less than 20000 KB
-  And click the save button
-  Then my photo should appear on the profile page
+  And I  a file with size less than 20000 KB
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
+  And I should see my photo on my "Profile" page
 
+@rules
 Scenario: Delete profile picture
   When I check the delete picture checkbox
-  And click the save button
-  Then my photo should no longer appear on the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
+  Then I should not see my photo on my "Profile" page
 
-@smoke
+@smoke @rules
 Scenario: Change password
   When I enter a value in the password field
   And I enter the same value in the confirm password field
-  And I click the save button
-  Then I should see the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And I see a modal with "The changes have been saved."
 
+@rules
 Scenario: Change street address
   When I enter a street address
   And the Not Currently Available checkbox is not selected
-  And I click the save button
-  Then I should see the profile page 
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And my street address in the location sidebar
   And a map showing my location in the location sidebar
   And I see a modal with "The changes have been saved."
 
-@smoke
+@smoke @rules
 Scenario: Set account to unavailable
   When I check the Not Currently Available box
   And I select a date in the future
-  And I click the save button
-  Then I should see the Profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And hosting information should read:
   """
   This member has marked themselves as not currently available for hosting, so their hosting information is not displayed. Expected return [return date]
@@ -66,11 +73,11 @@ Scenario: Set account to unavailable
   Please read the FAQ for more information.
   """
 
-@smoke
+@smoke @rules
 Scenario: Set account to available
   When I deselect the Not Currently Available checkbox
-  And I click the save button
-  Then I should see the Profile Page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And my hosting information and offerings hould be visible in the main content area
   And my address and phone number should appear in the location sidebar (if entered)
   And I should see a modal with: 
@@ -78,27 +85,32 @@ Scenario: Set account to available
   You have unchecked 'Not Currently Available' so your location will be shown on the map and you may receive guest requests.
   """
 
+@rules
 Scenario: Enter referral information
   When I enter a value in the "How you hear about Warmshowers" field
-  And I click the save button
-  Then I should see the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And a modal indicating that changes are saved
 
+@rules
 Scenario: Opt out of nonessential emails
   When I check the box to opt out of nonessential emails
-  And I click the save button
-  Then I should see the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And a modal indicating that changes are saved
 
+@rules
 Scenario: Change default time zone
   When I select a timezone from the dropdown menu
-  And I click the save button
-  Then I should see the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And I see a modal with "The changes have been saved."
 
+@rules
 Scenario: Change hosting information and services
   When I change values for preferred notice, maximum guests, distances to nearby hotels, campgrounds, bike shops, and/or services I am willing to provide to guests in the appropriate form fields/checkboxes
-  Then I should see the profile page
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
   And I see a modal with "The changes have been saved."
   And if I am available to host, this information will be visible on my profile
 

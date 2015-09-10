@@ -92,7 +92,7 @@ Scenario: Can NOT submit an invalid URL in the Website field
   And a modal with "Please enter a valid URL (with http:// on the front) for your website"
   And the account will not be created
 
-@smoke @mail
+@smoke @mail @rules
 Scenario: Complete the registration form
   And I am at the Create New Account page
   When I enter an available username in the Username field
@@ -112,6 +112,7 @@ Scenario: Complete the registration form
   """
   And I should see the New Member Validation Instructions page
   And I should receive a validation email
+  And I should be redirected to the "Validate account information" page
 
 @smoke
 Scenario: Validate an account

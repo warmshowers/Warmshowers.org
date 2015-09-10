@@ -34,7 +34,7 @@ Scenario: Access the Create Feedback form
   When I click on the "Provide Feedback" button in the "Actions" sidebar
   Then I see the "Create Feedback" form for the user
 
-@smoke @mail
+@smoke @mail @rules
 Scenario: Create positive feedback
   And I am on the "Create Feedback" form for a user
   When I select "Positive" from the "Overall experience with [user]" select menu
@@ -52,7 +52,7 @@ Scenario: Create positive feedback
   No idea what the message is meant to be.
   """
 
-@smoke @mail
+@smoke @mail @rules
 Scenario: Create negative feedback
   And I am on the "Create Feedback" form for a user
   When I select "Negative" from the "Overall experience with [user]" select menu
