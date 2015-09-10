@@ -10,6 +10,151 @@
 function ws_d7_upgrade_features_field_default_field_instances() {
   $field_instances = array();
 
+  // Exported field_instance: 'node-block-body'
+  $field_instances['node-block-body'] = array(
+    'bundle' => 'block',
+    'default_value' => NULL,
+    'deleted' => 0,
+    'description' => 'Intended to be deployed as a block',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(),
+        'type' => 'text_default',
+        'weight' => -3,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => 'text',
+        'settings' => array(
+          'trim_length' => 600,
+        ),
+        'trim_length' => 1200,
+        'type' => 'text_summary_or_trimmed',
+        'weight' => -3,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'body',
+    'label' => 'Block Contents',
+    'required' => 0,
+    'settings' => array(
+      'display_summary' => TRUE,
+      'text_processing' => 1,
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'text',
+      'settings' => array(
+        'rows' => 20,
+        'summary_rows' => 5,
+      ),
+      'type' => 'text_textarea_with_summary',
+      'weight' => -3,
+    ),
+  );
+
+  // Exported field_instance: 'node-block-field_contest_photo'
+  $field_instances['node-block-field_contest_photo'] = array(
+    'bundle' => 'block',
+    'default_value' => '',
+    'deleted' => 0,
+    'description' => 'Add photos for content',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 1,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -2,
+      ),
+      'rss' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => -2,
+      ),
+      'search_index' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => -2,
+      ),
+      'search_result' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => -2,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -2,
+      ),
+      'token' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => -2,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_contest_photo',
+    'label' => 'Optional Photos',
+    'required' => 0,
+    'settings' => array(
+      'alt_field' => 0,
+      'default_image' => 0,
+      'file_directory' => 'recommendation_photo/[uid]',
+      'file_extensions' => 'jpg jpeg gif png',
+      'max_filesize' => '10MB',
+      'max_resolution' => 0,
+      'min_resolution' => 0,
+      'title_field' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -2,
+    'widget' => array(
+      'active' => 0,
+      'module' => 'image',
+      'settings' => array(
+        'preview_image_style' => 'thumbnail',
+        'progress_indicator' => 'bar',
+        'use_default_image' => 0,
+      ),
+      'type' => 'image_image',
+      'weight' => -2,
+    ),
+    'widget_type' => 'imagefield_widget',
+  );
+
   // Exported field_instance: 'node-product-field_cart_button_label'
   $field_instances['node-product-field_cart_button_label'] = array(
     'bundle' => 'product',
@@ -696,10 +841,13 @@ function ws_d7_upgrade_features_field_default_field_instances() {
 
   // Translatables
   // Included for use with string extractors like potx.
+  t('Add photos for content');
+  t('Block Contents');
   t('Cart button label');
   t('Date We Met');
   t('Feedback is for');
   t('File attachments');
+  t('Intended to be deployed as a block');
   t('Member');
   t('Optional File Attachment');
   t('Optional Photos');
