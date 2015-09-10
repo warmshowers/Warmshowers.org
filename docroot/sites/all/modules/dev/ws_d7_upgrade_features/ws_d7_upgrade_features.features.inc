@@ -165,6 +165,22 @@ function ws_d7_upgrade_features_image_default_styles() {
     ),
   );
 
+  // Exported image style: mobile_photo_456.
+  $styles['mobile_photo_456'] = array(
+    'label' => 'mobile_photo_456',
+    'effects' => array(
+      17 => array(
+        'name' => 'image_scale',
+        'data' => array(
+          'width' => 456,
+          'height' => '',
+          'upscale' => 1,
+        ),
+        'weight' => 0,
+      ),
+    ),
+  );
+
   // Exported image style: mobile_photo_4x3.
   $styles['mobile_photo_4x3'] = array(
     'label' => 'mobile_photo_4x3',
@@ -272,22 +288,6 @@ function ws_d7_upgrade_features_image_default_styles() {
     ),
   );
 
-  // Exported image style: mobile_photo_456.
-  $styles['mobile_photo_456'] = array(
-    'label' => 'mobile_photo_456',
-    'effects' => array(
-      17 => array(
-        'name' => 'image_scale',
-        'data' => array(
-          'width' => 456,
-          'height' => '',
-          'upscale' => 1,
-        ),
-        'weight' => 0,
-      ),
-    ),
-  );
-
   return $styles;
 }
 
@@ -296,6 +296,14 @@ function ws_d7_upgrade_features_image_default_styles() {
  */
 function ws_d7_upgrade_features_node_info() {
   $items = array(
+    'block' => array(
+      'name' => t('Block'),
+      'base' => 'node_content',
+      'description' => t('Intended to be deployed as a block'),
+      'has_title' => '1',
+      'title_label' => t('Block Title'),
+      'help' => '',
+    ),
     'trust_referral' => array(
       'name' => t('Feedback'),
       'base' => 'node_content',
