@@ -112,7 +112,7 @@
           $.ajax({
             url: '/services/rest/hosts/by_location',
             type: 'post',
-            beforeSend: function(xhrObj){
+            beforeSend: function (xhrObj) {
               xhrObj.setRequestHeader("X-CSRF-Token", Drupal.settings.wsmap.csrf_token);
             },
             data: {
@@ -204,9 +204,9 @@
         var status = Drupal.t('All %total hosts in this map area are shown.', {'%total': parsed.status.totalresults});
         if (i < parsed.status.totalresults) {
           status = Drupal.t('Only %done of %total hosts in this map area were loaded.', {
-            '%done': i,
-            '%total': parsed.status.totalresults
-          }) + '<br/>' + Drupal.t('Zoom in or move the map to see more detail.');
+              '%done': i,
+              '%total': parsed.status.totalresults
+            }) + '<br/>' + Drupal.t('Zoom in or move the map to see more detail.');
         }
         $('#wsmap-load-status').html(status);
 
@@ -217,7 +217,7 @@
       function setMapLocationToCountry(countryCode) {
         var url = 'location_country_locator_service' + '/' + countryCode;
         $.getJSON(url)
-          .done(function(res) {
+          .done(function (res) {
             var area = parseFloat(res.area) / 1000;
             var basecalc = Math.log(area) / Math.log(4);
             var mapCountry = res.country_code;
@@ -227,7 +227,7 @@
               zoom = Math.round(10 - basecalc);
             }
             zoomToSpecific(res.country, res.latitude, res.longitude, zoom);
-        })
+          })
       }
 
 
@@ -263,20 +263,6 @@
       function unloadAdvCycling() {
         if (adventure_cycling_overlay) {
           adventure_cycling_overlay.setMap(null);
-        }
-      }
-
-      function toggleMap() { //expand and contract map
-        if ($('#mapholder').css("width") == '100%') {  //if fully expanded
-          $('#sidebar-left').css("display", "block");
-          $('#expandText').html(Drupal.t('Expand Map'));
-          $('#mapholder').animate({width: '' + mapwidth + '%'}, {duration: 1000});
-          $('#nearby-hosts').css("display", "block");
-        } else {
-          $('#sidebar-left').css("display", "none");
-          $('#expandText').html(Drupal.t('Collapse Map'));
-          $('#nearby-hosts').css("display", "none");
-          $('#mapholder').animate({width: "100%"}, {duration: 1000});
         }
       }
 
@@ -317,97 +303,80 @@
         html += '</div>';  // End wsmap-infowindow
         return html;
       }
+
       /**
        * Initialize map behaviors for the dashboard page
        */
       function addMapBehaviors() {
-        // Grab css vars upon page load to reuse
         var originalMapHeight = $('#wsmap_map').height();
-        var originalMapBlockHeight = $('div.block-wsmap').height();
-        var originalSectionTop = $("body.with-highlight #navigation .section").css('top');
-        if (originalSectionTop != null) {
-          var shrunkenSectionTop = Number(originalSectionTop.substr(0, originalSectionTop.length - 2) + 191) + "px";
-        }
-
+        var sidebar = $('aside.first');
+        var highlighted = $('.region-highlighted');
+        var map = $('#main');
         $("#expand_map").click(function () {
-          $(".region-sidebar-first .section").hide(1000);
-          $(".region-highlight").hide(1000);
-          $("body.with-highlight #navigation .section").hide(1000);
-          $(".sidebar-first #content").animate({
-            marginLeft: "0px",
-            width: "100%"
-          }, 1000, function () {
-            $("#collapse_map").show().css("display", "block");
-            $("body.with-highlight #navigation .section").css("top", shrunkenSectionTop);
-            $("body.with-highlight #navigation .section").show("fast");
-          });
+          highlighted.hide(1000);
+          sidebar.hide(1000);
+          $('#tab-area').hide();
+
+          var height = map.height();
           // If the window can handle, let's expand the height too
-          if ($(window).height() - 150 > $('#wsmap_map').height()) {
-            $("#wsmap_map").animate({
-              'height': $(window).height() - 150 + 'px'
-            }, 1000);
-
-            $("#content .block-wsmap").animate({
-              'height': $(window).height() - 130 + 'px'
-            }, 1000);
-
+          if ($(window).height() - 150 > height) {
+            height = $(window).height() - 150;
           }
+
+          map.css({
+            float: 'none',
+            width: '100%',
+            marginLeft: '0px',
+            height: height + 'px'
+          }).animate(1000, function () {
+            $("#collapse_map").show().css("display", "block");
+          });
+
 
           return false;
         });
 
         $("#collapse_map").click(function () {
-          $("body.with-highlight #navigation .section").hide(1000);
-          $(".region-sidebar-first .section").show(1000);
-          $(".region-highlight").show(1000);
-          $(".sidebar-first #content").animate({
-            marginLeft: '240px',
-            width: '720px'
-          }, 1000, function () {
-            $("#expand_map").show();
-            $("#collapse_map").hide();
-            $("body.with-highlight #navigation .section").css("top", originalSectionTop);
-            $("body.with-highlight #navigation .section").show("fast");
-          });
+          //$("body.with-highlight #navigation .section").hide(1000);
+          sidebar.show(1000);
+          highlighted.show(1000);
+          map.css({
+            float: 'left',
+            width: '75%',
+            marginLeft: '25%',
+            height: originalMapHeight + 'px'
+          }).animate(1000);
+          $('#collapse_map').hide();
 
-          // If the height was expanded on expansion, let's collapse to original height
-          if ($('#wsmap_map').height() > originalMapHeight) {
-            $("#wsmap_map").animate({
-              'height': originalMapHeight + 'px'
-            }, 1000);
-            $("#content .block-wsmap").animate({
-              'height': originalMapBlockHeight + 'px'
-            }, 1000);
-
-          }
-
-          return false;
         });
 
-        // Toogle checkbox for showing/hiding Adventure Cycling KML
-        $('#adv_cyc_checkbox').click(function () {
-          if ($(this).is(':checked')) {
-            loadAdvCycling(Drupal.settings.wsmap.advCycKML)
-          } else {
-            unloadAdvCycling();
-          }
-        });
-
-        // Toggle opacity of markers
-        $('#hide_markers_checkbox').click(function () {
-          if ($(this).is(':checked')) {
-            marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity * Drupal.settings.wsmap.marker_dimming_factor;
-            marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity * Drupal.settings.wsmap.marker_dimming_factor;
-            ;
-          } else {
-            marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity;
-            marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity;
-          }
-          // Force redraw
-          marker_refresh_required = true;
-          google.maps.event.trigger(map, 'idle');
-        })
+        return false;
       }
+
+
+// Toogle checkbox for showing/hiding Adventure Cycling KML
+      $('#adv_cyc_checkbox').click(function () {
+        if ($(this).is(':checked')) {
+          loadAdvCycling(Drupal.settings.wsmap.advCycKML)
+        } else {
+          unloadAdvCycling();
+        }
+      });
+
+// Toggle opacity of markers
+      $('#hide_markers_checkbox').click(function () {
+        if ($(this).is(':checked')) {
+          marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity * Drupal.settings.wsmap.marker_dimming_factor;
+          marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity * Drupal.settings.wsmap.marker_dimming_factor;
+          ;
+        } else {
+          marker_base_opacity = Drupal.settings.wsmap.marker_base_opacity;
+          marker_combined_opacity = Drupal.settings.wsmap.marker_combined_opacity;
+        }
+        // Force redraw
+        marker_refresh_required = true;
+        google.maps.event.trigger(map, 'idle');
+      });
     }
   }
 
