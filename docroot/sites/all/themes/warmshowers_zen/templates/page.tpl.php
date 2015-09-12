@@ -120,7 +120,7 @@
 
       <div id="footer-wrapper" class="footer-wrapper">
         <footer id="footer" class="footer container responsive">
-          <h2 class="footer__title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h2>
+          <h1 class="footer__title" dir=""><?php print t('Hospitality For Touring Cyclists Worldwide'); ?> </h1>
 
           <nav class="footer__social-menu">
             <ul class="menu">
