@@ -109,7 +109,13 @@ function ws_services_services_resources() {
 function _ws_services_hosts_by_location($data) {
   $hosts = wsmap_get_hosts_by_location($data['minlat'], $data['maxlat'], $data['minlon'], $data['maxlon'], $data['centerlat'], $data['centerlon'], $data['limit']);
   foreach ($hosts['accounts'] as &$account) {
-    foreach (_ws_services_profile_pictures($account->picture) as $key => $value) {
+    $uri = "";
+    if (!empty($account->picture)) {
+      $file = file_load($account->picture);
+      $uri = $file->uri;
+    }
+
+    foreach (_ws_services_profile_pictures($uri) as $key => $value) {
       $account->$key = $value;
     }
   }
@@ -193,15 +199,20 @@ function _ws_services_hosts_by_keyword($data) {
  * @return array
  */
 function _ws_services_profile_pictures($picture_path) {
-  $file_directory_path = variable_get("file_directory_path");
-  $profile_presets = variable_get('wsuser_profile_image_presets', array('mobile_profile_photo_std', 'profile_picture', 'mobile_photo_456'));
+  $profile_presets = variable_get('wsuser_profile_image_presets', array('mobile_profile_photo_std', 'profile_picture', 'mobile_photo_456', 'map_infoWindow'));
   $pictures = array();
-  if (!empty($picture_path)) {
-    // Oddly, image_style_url wants only $picture_path from the root of the public files dir
-    $picture_path = preg_replace("/^{$file_directory_path}\//", '', $picture_path);
-    foreach ($profile_presets as $preset) {
-      $pictures["profile_image_{$preset}"] = image_style_url($preset, $picture_path);
-    }
+  if (empty($picture_path)) {
+    $picture_path = variable_get('user_picture_default');
+  }
+  foreach ($profile_presets as $preset) {
+    $uri = image_style_path($preset, $picture_path);
+    // Unfortunately, image_style_url() actually forces generation of the derivative,
+    // but it's the only place where the token is added. So we steal this from
+    // image_style_url() to create a proper image link.
+    $token_query = array(IMAGE_DERIVATIVE_TOKEN => image_style_path_token($preset, $picture_path));
+    $file_url = file_create_url($uri);
+    $file_url .= (strpos($file_url, '?') !== FALSE ? '&' : '?') . drupal_http_build_query($token_query);
+    $pictures["profile_image_{$preset}"] = $file_url;
   }
   return $pictures;
 }
