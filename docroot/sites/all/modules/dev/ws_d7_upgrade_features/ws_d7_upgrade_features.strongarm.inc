@@ -13,6 +13,13 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'admin_theme';
+  $strongarm->value = 'seven';
+  $export['admin_theme'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'ant_block';
   $strongarm->value = '0';
   $export['ant_block'] = $strongarm;
@@ -203,6 +210,53 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm->name = 'comment_trust_referral';
   $strongarm->value = '0';
   $export['comment_trust_referral'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'field_bundle_settings_node__block';
+  $strongarm->value = array(
+    'view_modes' => array(),
+    'extra_fields' => array(
+      'form' => array(
+        'title' => array(
+          'weight' => '-5',
+        ),
+        'body' => array(
+          'weight' => '-3',
+        ),
+        'revision_information' => array(
+          'weight' => '0',
+        ),
+        'author' => array(
+          'weight' => '1',
+        ),
+        'options' => array(
+          'weight' => '2',
+        ),
+        'comment_settings' => array(
+          'weight' => '4',
+        ),
+        'language' => array(
+          'weight' => '-4',
+        ),
+        'translation' => array(
+          'weight' => '5',
+        ),
+        'menu' => array(
+          'weight' => '6',
+        ),
+        'path' => array(
+          'weight' => '3',
+        ),
+        'nodewords' => array(
+          'weight' => '-1',
+        ),
+      ),
+      'display' => array(),
+    ),
+  );
+  $export['field_bundle_settings_node__block'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
@@ -501,6 +555,13 @@ Disallow: /?q=user/logout/
   $strongarm->name = 'slack_username';
   $strongarm->value = 'Warmshowers.org';
   $export['slack_username'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'theme_default';
+  $strongarm->value = 'warmshowers_zen';
+  $export['theme_default'] = $strongarm;
 
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
