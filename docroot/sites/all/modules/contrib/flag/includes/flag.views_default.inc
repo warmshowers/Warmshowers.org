@@ -8,7 +8,7 @@
 /**
  * Implements hook_views_default_views().
  */
-function flag_bookmark_views_default_views() {
+function flag_views_default_views() {
   // Only setup views for the "bookmarks" flag.
   // If it's been deleted, don't create any views.
   $flag = flag_get_flag('bookmarks');
@@ -109,8 +109,9 @@ function flag_bookmark_views_default_views() {
   );
 
   $access = array(
-    'type' => 'perm',
-    'perm' => 'flag bookmarks',
+    'type' => 'role',
+    'role' => drupal_map_assoc($flag->roles['flag']),
+    'perm' => '',
   );
 
   // Additional fields and style options if comment exists.
@@ -156,7 +157,7 @@ function flag_bookmark_views_default_views() {
       'label' => 'bookmarks_user',
       'required' => 1,
       'id' => 'uid',
-      'table' => 'flagging',
+      'table' => 'flag_content',
       'field' => 'uid',
       'relationship' => 'flag_content_rel',
     ),
@@ -193,7 +194,7 @@ function flag_bookmark_views_default_views() {
 
   $view = new view;
   $view->name = 'flag_bookmarks_tab';
-  $view->description = "Provides a tab on all users' profile pages containing bookmarks for that user.";
+  $view->description = 'Provides a tab on all user\'s profile pages containing bookmarks for that user.';
   $view->tag = 'flag';
   $view->view_php = '';
   $view->base_table = 'node';
@@ -238,7 +239,7 @@ function flag_bookmark_views_default_views() {
     'ops' => array(
       'label' => 'Ops',
       'id' => 'ops',
-      'table' => 'flagging',
+      'table' => 'flag_content',
       'field' => 'ops',
       'relationship' => 'flag_content_rel',
     ),
@@ -246,7 +247,7 @@ function flag_bookmark_views_default_views() {
 
   $view = new view;
   $view->name = 'flag_' . $flag->name;
-  $view->description = "A page listing the current user's bookmarks at /bookmarks.";
+  $view->description = 'A page listing the current user\'s bookmarks at /bookmarks.';
   $view->tag = 'flag';
   $view->view_php = '';
   $view->base_table = 'node';

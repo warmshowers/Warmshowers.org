@@ -50,14 +50,13 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
           $new_field = array(
             'label' => $field['label'],
             'id' => 'ops',
-            'table' => 'flagging',
+            'table' => 'flag_content',
             'field' => 'ops',
             'relationship' => 'flag_content_rel',
           );
           $new_rel = 'flag_content_rel';
           $flag_content_rel_user = 'current';
           break;
-
         case 'count':
           $new_field = array(
             'label' => $field['label'],
@@ -68,7 +67,6 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
           );
           $new_rel = 'flag_counts_rel';
           break;
-
         case 'name':
           $new_field = array(
             'label' => $field['label'],
@@ -87,7 +85,7 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
     case 'exposed_filter':
       switch ($id) {
         case 'uid':
-          // The flagging uid filter means "Include content only flagged by
+          // The flag_content uid filter means "Include content only flagged by
           // the current user". In D6, this is no longer a filter, but instead
           // part of the relationship. Make the relationship join on the uid.
           if ($field['value'] == '***CURRENT_USER***') {
@@ -97,14 +95,13 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
           // Remove the old filter.
           $view->set_item('default', $type, $id, NULL);
           break;
-
         case 'timestamp':
           $new_field = array(
             'operator' => $field['operator'],
             'value' => flag_views_convert_timestamp_value($field['value']),
             'group' => 0,
             'id' => 'timestamp',
-            'table' => 'flagging',
+            'table' => 'flag_content',
             'field' => 'timestamp',
             'relationship' => 'flag_content_rel',
             'exposed' => $type == 'exposed_filter' ? 1 : 0,
@@ -112,7 +109,6 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
           $new_rel = 'flag_content_rel';
           drupal_set_message(t('Flag is not able to convert the <em>Flagged time</em> filter. It\'s value is currently empty, but needs to be populated to work properly.'), 'warning');
           break;
-
         case 'count':
           $new_field = array(
             'operator' => $field['operator'],
@@ -155,12 +151,11 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
           );
           $new_rel = 'flag_counts_rel';
           break;
-
         case 'timestamp':
           $new_field = array(
             'order' => $field['sortorder'],
             'id' => 'timestamp',
-            'table' => 'flagging',
+            'table' => 'flag_content',
             'field' => 'timestamp',
             'relationship' => 'flag_content_rel',
           );
@@ -208,7 +203,7 @@ function flag_views_convert($display, $type, &$view, $field, $id) {
         'label' => isset($flag_name) ? $flag_name . ' user' : 'user',
         'required' => 0,
         'id' => 'uid',
-        'table' => 'flagging',
+        'table' => 'flag_content',
         'field' => 'uid',
         'relationship' => 'flag_content_rel',
       );
