@@ -295,10 +295,6 @@
         for (var i = 0; i < hostcount; i++) {
           var host = markers[markerPositions[position][i]].host;
 
-          if (host.profile_ == "") {
-            host.picture = '/files/default_picture.jpg';
-          }
-
           html += '<div class="wsmap-infowindow-host">';
           html += '<div class="wsmap-infowindow-picture"><img src="' + host.profile_image_map_infoWindow + '"></div>';
           html += '<div class="wsmap-infowindow-hostinfo">';
