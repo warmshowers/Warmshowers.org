@@ -534,7 +534,7 @@ Disallow: /?q=user/logout/
       'meta' => 'meta',
     ),
     'zen_rebuild_registry' => 0,
-    'zen_wireframes' => 1,
+    'zen_wireframes' => 0,
   );
   $export['theme_warmshowers_zen_settings'] = $strongarm;
 
