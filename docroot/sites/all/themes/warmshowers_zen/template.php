@@ -560,7 +560,8 @@ function warmshowers_zen_uc_cart_complete_sale($variables) {
 
   $title = t('Thanks for your support');
 
-  $product = array_shift(array_values($order->products));
+  $products = array_values($order->products);
+  $product = array_shift($products);
   $model = $product->model;
 
   drupal_set_title($title);
