@@ -1,13 +1,13 @@
 <?php
 /**
  * @file
- * ws_permisssions_features.features.user_role.inc
+ * ws_permissions_features.features.user_role.inc
  */
 
 /**
  * Implements hook_user_default_roles().
  */
-function ws_permisssions_features_user_default_roles() {
+function ws_permissions_features_user_default_roles() {
   $roles = array();
 
   // Exported role: Board Extra - Like board member.

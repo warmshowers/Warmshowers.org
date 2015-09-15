@@ -1,13 +1,13 @@
 <?php
 /**
  * @file
- * ws_permisssions_features.features.user_permission.inc
+ * ws_permissions_features.features.user_permission.inc
  */
 
 /**
  * Implements hook_user_default_permissions().
  */
-function ws_permisssions_features_user_default_permissions() {
+function ws_permissions_features_user_default_permissions() {
   $permissions = array();
 
   // Exported permission: 'access administration menu'.
