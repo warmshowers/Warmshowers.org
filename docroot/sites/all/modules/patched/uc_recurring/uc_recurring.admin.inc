@@ -539,7 +539,8 @@ function uc_recurring_order_information($order_id) {
     $condition = db_and();
     $condition->condition('o.order_id', $renewal_orders, 'IN');
 
-    $output .= drupal_render(uc_recurring_order_admin($condition, TRUE));
+    $build = uc_recurring_order_admin($condition, TRUE);
+    $output .= drupal_render($build);
   }
   else {
     $output = t('No recurring fees associated with this order');
