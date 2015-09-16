@@ -383,6 +383,7 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm->value = array(
     'default-system' => 'HTMLMailSystem',
     'htmlmail' => 'HTMLMailSystem',
+    'mailaview' => 'HTMLMailSystem',
   );
   $export['mail_system'] = $strongarm;
 
