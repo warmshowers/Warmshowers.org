@@ -411,12 +411,15 @@ function _smart_ip_database_reset_update_submit($form, &$form_state) {
  * Submit handler to update the Maxmind binary file.
  */
 function _smart_ip_bin_database_update_submit($form, &$form_state) {
-  // Utility functions for loading database from external sources
-  module_load_include('inc', 'smart_ip', 'includes/smart_ip.utility');
-  // Force the update even if the database is up-to-date
-  smart_ip_maxmind_bin_db_update($form_state['values']['smart_ip_maxmind_license'], FALSE, TRUE);
-  $form_state['storage']['smart_ip_db_message'] = t('The Maxmind binary database has been updated.');
-  $form_state['rebuild'] = TRUE;
+  global $_smart_ip_db_update_access;
+  if (!$_smart_ip_db_update_access) {
+    // Utility functions for loading database from external sources
+    module_load_include('inc', 'smart_ip', 'includes/smart_ip.utility');
+    // Force the update even if the database is up-to-date
+    smart_ip_maxmind_bin_db_update($form_state['values']['smart_ip_maxmind_license'], FALSE, TRUE);
+    $form_state['storage']['smart_ip_db_message'] = t('The Maxmind binary database has been updated.');
+    $form_state['rebuild'] = TRUE;
+  }
 }
 
 /**
@@ -458,6 +461,13 @@ function _smart_ip_lookup_submit($form, &$form_state) {
 function smart_ip_admin_settings_validate($form, &$form_state) {
   $list = check_plain($form_state['values']['smart_ip_allowed_pages']);
   $form_state['values']['smart_ip_allowed_pages'] = str_replace('&lt;front&gt;', '<front>', $list);
+  
+  if ($form_state['values']['smart_ip_source'] == 'local_db') {
+    $db_path = drupal_realpath(file_stream_wrapper_uri_normalize('private://smart_ip'));
+    if (empty($db_path)) {
+      form_set_error('smart_ip_source', t('Please define the "Private file system path" !here.', array('!here' => l(t('here'), 'admin/config/media/file-system'))));
+    }
+  }
   if ($form_state['values']['smart_ip_source'] == 'mod_geoip' && !isset($_SERVER['GEOIP_COUNTRY_NAME'])) {
     form_set_error('smart_ip_source', t("Maxmind's Apache module mod_geoip is not installed in your server."));
   }

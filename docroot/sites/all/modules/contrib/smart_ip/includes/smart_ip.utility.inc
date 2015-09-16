@@ -225,7 +225,7 @@ function smart_ip_store_location_csv(&$context) {
       $estimated_progress = floor(100 * ($current_pointer / $last_pointer));
       // Update our progress information.
       $context['finished'] = $estimated_progress / 100;
-      $context['message']  = t('Parsing %location at line number: @value of @end', array(
+      $context['message']  = t('Parsing %location at file pointer number: @value of @end', array(
         '%location' => basename($context['results']['#location_csv_file']), 
         '@value'    => $current_pointer,
         '@end'      => $last_pointer,
@@ -309,7 +309,7 @@ function smart_ip_update_database(&$context) {
       $estimated_progress = floor(100 * ($current_pointer / $last_pointer)) - 2;
       // Update our progress information.
       $context['finished'] = $estimated_progress / 100;
-      $context['message']  = t('Parsing %blocks at line number: @value of @end', array(
+      $context['message']  = t('Parsing %blocks at file pointer number: @value of @end', array(
         '%blocks' => basename($context['results']['#blocks_csv_file']),
         '@value'  => $current_pointer,
         '@end'    => $last_pointer,
@@ -501,16 +501,15 @@ function smart_ip_maxmind_bin_db_update($license = '', $cron_run = FALSE, $force
  * prior to the most recently available version.
  */
 function smart_ip_maxmind_bin_db_up_to_date() {
-  // backtrack our time calculations
-  $time = strtotime('midnight');
-  $dow = date('w', $time) - 3; // D-day (download day)
-  if ($dow > 0) {
-    $dow += 4;
+  $time_now = strtotime('midnight');
+  $bin_last_update_time   = strtotime('midnight', variable_get('smart_ip_maxmind_bin_db_last_update', 0));
+  $time_of_most_recent_db = $bin_last_update_time + (7 * 86400);
+  $day_now = date('w', $time_now);
+  $is_download_day = FALSE;
+  if ($bin_last_update_time == 0 || $day_now == 3) {
+    $is_download_day = TRUE;
   }
-  $time_of_most_recent_db = $time - ($dow * 86400);
-  $bin_last_update_time = strtotime('midnight', variable_get('smart_ip_maxmind_bin_db_last_update', 0));
-
-  if ($bin_last_update_time < $time_of_most_recent_db) {
+  if (($time_now - $time_of_most_recent_db) >= 0 && $is_download_day) {
     return FALSE;
   }
   return TRUE;

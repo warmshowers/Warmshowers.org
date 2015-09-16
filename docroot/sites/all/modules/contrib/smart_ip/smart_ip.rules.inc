@@ -35,7 +35,18 @@ function smart_ip_rules_condition_info() {
         'description' => t('The region ID to check for.'), 
       ),
     ),
-  ); 
+  );
+  $items['smart_ip_condition_in_region_name'] = array(
+    'label' => t('IP address is in region name'),
+    'group' => t('Smart IP'),
+    'parameter' => array(
+      'regname' => array(
+        'type' => 'text',
+        'label' => t('Region Name'),
+        'description' => t('The region name to check for.'), 
+      ),
+    ),
+  );	
   $items['smart_ip_condition_in_city'] = array(
     'label' => t('IP address is in city'),
     'group' => t('Smart IP'),
@@ -63,7 +74,7 @@ function smart_ip_country_list() {
  */
 function smart_ip_condition_in_country($countries) {
   $location = smart_ip_get_current_visitor_location_data();
-  if (isset($countries[$location['country_code']])) {
+  if (isset($location['country_code']) && isset($countries[$location['country_code']])) {
     return TRUE;
   }
   return FALSE;
@@ -75,7 +86,18 @@ function smart_ip_condition_in_country($countries) {
 function smart_ip_condition_in_region($regid) {
   $location = smart_ip_get_current_visitor_location_data();
   if ($location['region_code'] == $regid) {
-    return TRUE;
+	  return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Condition implementation for IP address in region name.
+ */
+function smart_ip_condition_in_region_name($regname) {
+  $location = smart_ip_get_current_visitor_location_data();
+  if ($location['region'] == $regname) {
+	  return TRUE;
   }
   return FALSE;
 }

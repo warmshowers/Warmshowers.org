@@ -12,19 +12,27 @@
 
   Drupal.behaviors.uc_stripe = {
     attach: function (context) {
-      var submitButton = $('#uc-cart-checkout-form #edit-continue');
+      var submitButton = $('.uc-cart-checkout-form #edit-continue');
+
+      var cc_container = $('.payment-details-credit');
+      var cc_num = cc_container.find(':input[id*="edit-panes-payment-details-cc-numbe"]');
+      var cc_cvv = cc_container.find(':input[id*="edit-panes-payment-details-cc-cv"]');
 
       // When this behavior fires, we can clean the form so it will behave properly,
       // Remove 'name' from sensitive form elements so there's no way they can be submitted.
-      $('#edit-panes-payment-details-cc-number').removeAttr('name').removeAttr('disabled');
-      $('#edit-panes-payment-details-cc-cvv').removeAttr('name').removeAttr('disabled');
+      cc_num.removeAttr('name').removeAttr('disabled');
+      cc_cvv.removeAttr('name').removeAttr('disabled');
+      var cc_val_val = cc_num.val();
+        if (cc_val_val.indexOf('Last 4')) {
+            cc_num.val('');
+        }
       $('span#stripe-nojs-warning').parent().hide();
 
       // JS must enable the button; otherwise form might disclose cc info. It starts disabled
-      $('#edit-continue').attr('disabled', false);
+      submitButton.attr('disabled', false);
 
       submitButton.click(function (e) {
-        if ($('#edit-panes-payment-payment-method-credit').is(':checked')) {
+        if ($(':input[name="panes[payment][payment_method]"]').val() == 'credit') {
 
           if (Drupal.uc_stripe.systemClicked == false) {
             e.preventDefault();
@@ -35,10 +43,10 @@
 
 
           Stripe.createToken({
-            number: $('#edit-panes-payment-details-cc-number').val(),
-            cvc: $('#edit-panes-payment-details-cc-cvv').val(),
-            exp_month: $('#edit-panes-payment-details-cc-exp-month').val(),
-            exp_year: $('#edit-panes-payment-details-cc-exp-year').val()
+            number: cc_num.val(),
+            cvc: cc_cvv.val(),
+            exp_month: $(':input[name="panes[payment][details][cc_exp_month]"]').val(),
+            exp_year: $(':input[name="panes[payment][details][cc_exp_year]"]').val()
           }, function (status, response) {
             if (response.error) {
 
@@ -65,11 +73,11 @@
               // Since we're now submitting, make sure that uc_credit doesn't
               // find values it objects to; after "fixing" set the name back on the
               // form element.
-              $('#edit-panes-payment-details-cc-number')
+              cc_num
                 .css('visibility', 'hidden')
                 .val('555555555555' + response.card.last4)
                 .attr('name', 'panes[payment][details][cc_number]');
-              $("#edit-panes-payment-details-cc-cvv")
+              cc_cvv
                 .css('visibility', 'hidden')
                 .val('999')
                 .attr('name', 'panes[payment][details][cc_cvv]');

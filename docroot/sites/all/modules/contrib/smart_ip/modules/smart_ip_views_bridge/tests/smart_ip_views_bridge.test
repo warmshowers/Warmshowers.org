@@ -1,0 +1,283 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Functionality tests for Smart IP Views Bridge.
+ *
+ * @ingroup smart_ip_views_bridge
+ */
+
+/**
+ * Unit tests for Smart IP Views Bridge functions.
+ */
+class SmartIPViewsBridgeUnitTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Smart IP Views Bridge unit tests',
+      'description' => 'Unit tests for Smart IP Views Bridge functions.',
+      'group'  => 'Smart IP Views Bridge',
+    );
+  }
+
+  public function setUp() {
+    // Enable required modules for the test
+    parent::setUp('smart_ip_views_bridge', 'views', 'smart_ip');
+  }
+}
+
+/**
+ * Helper test class with some added functions for testing.
+ */
+class SmartIPViewsBridgeTestHelper extends DrupalWebTestCase {
+  protected $admin_user;
+
+  function setUp() {
+    // Call parent::setUp() allowing test cases to pass further modules.
+    $modules = func_get_args();
+    $modules = array_merge(array('smart_ip_views_bridge', 'views', 'smart_ip'), $modules);
+    call_user_func_array(array('parent', 'setUp'), $modules);
+    
+    // Disable Smart IP auto update and use of IPinfodb service
+    variable_set('smart_ip_use_ipinfodb_service', FALSE);
+    variable_set('smart_ip_auto_update', FALSE);
+
+    // Create and log in our user. The user has the arbitrary privilege
+    // which the code uses to grant access.
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer blocks', 
+      'administer content types',
+      'create page content',
+      'access administration pages',
+      'access content',
+      'access content overview',
+      'administer nodes',    
+      'administer site configuration', 
+      'administer views',
+    ));
+    $this->drupalLogin($this->admin_user);
+    // Create CCK fields at Page content type
+    $this->drupalGet('admin/structure/types/manage/page/fields');
+    // Create singleton CCK text field for City
+    $field_label = t('City');
+    $edit = array (
+      'fields[_add_new_field][label]'       => $field_label,
+      'fields[_add_new_field][field_name]'  => 'city',
+      'fields[_add_new_field][type]'        => 'text',
+      'fields[_add_new_field][widget_type]' => 'text_textfield',
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+    // There are no settings for this, so just press the button.
+    $this->drupalPost(NULL, array(), t('Save field settings'));
+
+    // Using all the default settings, so press the button.
+    $this->drupalPost(NULL, array(), t('Save settings'));
+    $this->assertText(t('Saved @name configuration.', array('@name' => $field_label)));
+    
+    // Now we're back on the field-add page.
+    $this->drupalGet('admin/structure/types/manage/page/fields');
+    // Create singleton CCK text field for Country
+    $field_label = t('Country');
+    $edit = array (
+      'fields[_add_new_field][label]'       => $field_label,
+      'fields[_add_new_field][field_name]'  => 'country',
+      'fields[_add_new_field][type]'        => 'list_text',
+      'fields[_add_new_field][widget_type]' => 'options_select',
+    );
+    $this->drupalPost(NULL, $edit, t('Save'));
+    // There are no settings for this, so just press the button.
+    $this->drupalPost(NULL, array(), t('Save field settings'));
+
+    // Add some countries to the list for this settings, then press the button.
+    $this->drupalPost(NULL, array(
+      'field[settings][allowed_values]' => "PH|Philippines\nUS|United States",
+    ), t('Save settings'));
+    $this->assertText(t('Saved @name configuration.', array('@name' => $field_label)));
+    
+    // Add some contents to be queried at Views
+    // Content 1
+    $this->drupalGet('node/add/page');
+    $content_items = array(
+      'title' => 'Content 1',
+      'field_city[und][0][value]' => 'Manila',
+      'field_country[und]' => 'PH',
+    );
+    $this->drupalPost(NULL, $content_items, t('Save'));
+    // Content 2
+    $this->drupalGet('node/add/page');
+    $content_items = array(
+      'title' => 'Content 2',
+      'field_city[und][0][value]' => 'Manila',
+      'field_country[und]' => 'PH',
+    );
+    $this->drupalPost(NULL, $content_items, t('Save'));
+    // Content 3
+    $this->drupalGet('node/add/page');
+    $content_items = array(
+      'title' => 'Content 3',
+      'field_city[und][0][value]' => 'Texas',
+      'field_country[und]' => 'US',
+    );
+    $this->drupalPost(NULL, $content_items, t('Save'));
+    // Check if the 3 contents stored
+    $this->drupalGet('admin/content');
+    $this->assertText('Content 1');
+    $this->assertText('Content 2');
+    $this->assertText('Content 3');
+
+    // Define our admin user Smart IP Session variables
+    $_SESSION['smart_ip']['location'] = array(
+      'country'      => 'Philippines',
+      'country_code' => 'PH',
+      'region'       => 'Manila Chartered City',
+      'region_code'  => 'D9',
+      'city'         => 'Manila',
+      'zip'          => '1000',
+      'latitude'     => '14.5872',
+      'longitude'    => '120.9667',
+    );
+    $_SESSION['device_geolocation'] = TRUE;
+  }
+}
+
+/**
+ * Test basic Smart IP Views Bridge functionality.
+ */
+class SmartIPViewsBridgeFunctionalTestCase extends SmartIPViewsBridgeTestHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'Smart IP Views Bridge basic tests',
+      'description' => 'Test basic Smart IP Views Bridge functionality.',
+      'group' => 'Smart IP Views Bridge',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('views_ui', 'device_geolocation');
+  }
+
+  /**
+   * Basic functional testing of Smart IP Views Bridge at Views edit page.
+   */
+  function testViewsEdit() {
+    $this->drupalGet('admin/structure/views/add');
+    $new_views_info = array(
+      'human_name' => t('Smart IP'),
+      'name'       => 'smart_ip',
+      'page[create]'  => FALSE,
+      'block[create]' => TRUE,
+      'block[title]'  => t('Sample Smart IP Views Block'),
+    );
+    $this->drupalPost(NULL, $new_views_info, t('Continue & edit'));
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->assertText(t('Smart IP: City'));
+    $this->assertText(t('Smart IP: Coordinates'));
+    $this->assertText(t('Smart IP: Country'));
+    $this->assertText(t('Smart IP: Latitude'));
+    $this->assertText(t('Smart IP: Longitude'));
+    $this->assertText(t('Smart IP: Region'));
+    $this->assertText(t('Smart IP: ZIP code'));
+    $fields_items = array(
+      'name[smartip.coordinates]' => TRUE,
+      'name[smartip.latitude]'    => TRUE,
+      'name[smartip.longitude]'   => TRUE,
+      'name[smartip.country]'     => TRUE,
+      'name[smartip.region]'      => TRUE,
+    );
+    // Add Smart IP Coordinates field
+    $this->drupalPost(NULL, array('name[smartip.coordinates]' => TRUE), t('Add and configure fields'));
+    $this->assertText(t('Decimal degrees format'));
+    $this->assertText(t('Degrees, minutes, seconds format'));
+    $this->drupalPost(NULL, array('options[style]' => 'dms', 'options[label]' => t('Your Coordinates')), t('Apply'));
+    // Add Smart IP Latitude field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.latitude]' => TRUE), t('Add and configure fields'));
+    $this->assertText(t('Decimal degrees format'));
+    $this->assertText(t('Degrees, minutes, seconds format'));
+    $this->drupalPost(NULL, array('options[label]' => t('Your Latitude')), t('Apply'));
+    // Add Smart IP Longitude field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.longitude]' => TRUE), t('Add and configure fields'));
+    $this->assertText(t('Decimal degrees format'));
+    $this->assertText(t('Degrees, minutes, seconds format'));
+    $this->drupalPost(NULL, array('options[label]' => t('Your Longitude')), t('Apply'));
+    // Add Smart IP Country field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.country]' => TRUE), t('Add and configure fields'));
+    $this->assertText(t('Country name'));
+    $this->assertText(t('ISO 3166 2-character country code'));
+    $this->drupalPost(NULL, array('options[label]' => t('Your Country')), t('Apply'));
+    // Add Smart IP Country code field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.country]' => TRUE), t('Add and configure fields'));
+    $this->drupalPost(NULL, array('options[style]' => 'code', 'options[label]' => t('Your Country code')), t('Apply'));
+    // Add Smart IP Region field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.region]' => TRUE), t('Add and configure fields'));
+    $this->assertText(t('Region name'));
+    $this->assertText(t('Region code (FIPS)'));
+    $this->drupalPost(NULL, array('options[label]' => t('Your Region')), t('Apply'));
+    // Add Smart IP Region code field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.region]' => TRUE), t('Add and configure fields'));
+    $this->drupalPost(NULL, array('options[style]' => 'code', 'options[label]' => t('Your Region code')), t('Apply'));
+    // Add Smart IP City field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.city]' => TRUE), t('Add and configure fields'));
+    $this->drupalPost(NULL, array('options[label]' => t('Your City')), t('Apply'));
+    // Add Smart IP ZIP code field
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/field');
+    $this->drupalPost(NULL, array('name[smartip.zip]' => TRUE), t('Add and configure fields'));
+    $this->drupalPost(NULL, array('options[label]' => t('Your ZIP code')), t('Apply'));
+    
+    // Add Smart IP Country Views filters
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/filter');
+    $this->drupalPost(NULL, array('name[field_data_field_country.field_country_value]' => TRUE), t('Add and configure filter criteria'));
+    $this->assertText(t("Smart IP: visitor's country"));
+    $this->assertText(t("Smart IP: visitor's country code"));
+    $this->assertText(t("Smart IP: visitor's region"));
+    $this->assertText(t("Smart IP: visitor's region code"));
+    $this->assertText(t("Smart IP: visitor's city"));
+    $this->assertText(t("Smart IP: visitor's zip"));
+    $this->drupalPost(NULL, array('options[operator]' => 'in', 'options[value][smart_ip.location.country_code]' => TRUE), t('Apply'));
+    // Add Smart IP City Views filters
+    $this->drupalGet('admin/structure/views/nojs/add-item/smart_ip/block/filter');
+    $this->drupalPost(NULL, array('name[field_data_field_city.field_city_value]' => TRUE), t('Add and configure filter criteria'));
+    $this->assertText('smart_ip][location][country');
+    $this->assertText('smart_ip][location][country_code');
+    $this->assertText('smart_ip][location][region');
+    $this->assertText('smart_ip][location][region_code');
+    $this->assertText('smart_ip][location][city');
+    $this->assertText('smart_ip][location][zip');
+    $this->drupalPost(NULL, array('options[operator]' => '=', 'options[value]' => 'smart_ip][location][city'), t('Apply'));
+    
+    // Save the Views block
+    $this->drupalGet('admin/structure/views/view/smart_ip/edit');
+    $this->drupalPost(NULL, array(), t('Save'));
+    
+    // Enable the Views block
+    $this->drupalGet('admin/structure/block');
+    $this->drupalPost(NULL, array(
+      'blocks[views_smart_ip-block][region]' => 'sidebar_first',
+      'blocks[device_geolocation_visitor_geolocation][region]' => 'sidebar_second',
+    ), t('Save blocks'));
+    $this->drupalGet('node');
+  }
+}
+
+/*
+ * Unit tests for the Views Proximity for Smart IP Views Bridge.
+ */
+/* class SmartIPViewsBridgeProximityViewsTestCase extends SmartIPViewsBridgeTestHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'Smart IP Views Bridge Proximity Views',
+      'description' => 'Unit tests for the Views Proximity for Smart IP Views Bridge.',
+      'group' => 'Smart IP Views Bridge',
+    );
+  }
+
+  function testViewsProximity() {
+    
+  }
+} */
