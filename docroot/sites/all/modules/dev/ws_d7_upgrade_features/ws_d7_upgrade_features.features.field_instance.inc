@@ -366,6 +366,64 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-product-uc_product_image'
+  $field_instances['node-product-uc_product_image'] = array(
+    'bundle' => 'product',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 7,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'module' => 'uc_product',
+        'settings' => array(),
+        'type' => 'uc_product_image',
+        'weight' => -3,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => 'uc_product',
+        'settings' => array(),
+        'type' => 'uc_product_image',
+        'weight' => 2,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'uc_product_image',
+    'label' => 'Image',
+    'required' => FALSE,
+    'settings' => array(
+      'alt_field' => 0,
+      'default_image' => 0,
+      'file_directory' => '',
+      'file_extensions' => 'png gif jpg jpeg',
+      'max_filesize' => '',
+      'max_resolution' => '',
+      'min_resolution' => '',
+      'title_field' => 0,
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -2,
+    'widget' => array(
+      'module' => 'image',
+      'settings' => array(
+        'preview_image_style' => 'thumbnail',
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'image_image',
+      'weight' => 31,
+    ),
+  );
+
   // Exported field_instance: 'node-trust_referral-body'
   $field_instances['node-trust_referral-body'] = array(
     'bundle' => 'trust_referral',
@@ -599,6 +657,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
           'multiple_from' => '',
           'multiple_number' => '',
           'multiple_to' => '',
+          'show_remaining_days' => FALSE,
         ),
         'type' => 'date_default',
         'weight' => -1,
@@ -612,6 +671,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
           'multiple_from' => '',
           'multiple_number' => '',
           'multiple_to' => '',
+          'show_remaining_days' => FALSE,
           'show_repeat_rule' => 'show',
         ),
         'type' => 'date_default',
@@ -632,6 +692,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
           'multiple_from' => '',
           'multiple_number' => '',
           'multiple_to' => '',
+          'show_remaining_days' => FALSE,
         ),
         'type' => 'date_default',
         'weight' => -4,
@@ -820,66 +881,6 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'widget_type' => 'optionwidgets_select',
   );
 
-  // Exported field_instance: 'node-trust_referral-upload'
-  $field_instances['node-trust_referral-upload'] = array(
-    'bundle' => 'trust_referral',
-    'deleted' => 0,
-    'description' => '',
-    'display' => array(
-      'default' => array(
-        'label' => 'hidden',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-      'full' => array(
-        'label' => 'hidden',
-        'module' => 'file',
-        'settings' => array(),
-        'type' => 'file_table',
-        'weight' => 0,
-      ),
-      'highlight' => array(
-        'label' => 'hidden',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-      'rss' => array(
-        'label' => 'hidden',
-        'module' => 'file',
-        'settings' => array(),
-        'type' => 'file_table',
-        'weight' => 0,
-      ),
-      'teaser' => array(
-        'label' => 'hidden',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
-      ),
-    ),
-    'entity_type' => 'node',
-    'field_name' => 'upload',
-    'label' => 'File attachments',
-    'required' => 0,
-    'settings' => array(
-      'description_field' => 1,
-      'file_directory' => '',
-      'file_extensions' => 'jpg jpeg gif png txt doc docx xls xlsx pdf ppt pps odt ods odp psd kml kmz gpx',
-      'max_filesize' => '15 MB',
-      'user_register_form' => FALSE,
-    ),
-    'widget' => array(
-      'module' => 'file',
-      'settings' => array(
-        'progress_indicator' => 'throbber',
-      ),
-      'type' => 'file_generic',
-      'weight' => 1,
-    ),
-  );
-
   // Exported field_instance:
   // 'privatemsg_message-privatemsg_message-field_pm_attachment'
   $field_instances['privatemsg_message-privatemsg_message-field_pm_attachment'] = array(
@@ -977,7 +978,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
   t('Cart button label');
   t('Date We Met');
   t('Feedback is for');
-  t('File attachments');
+  t('Image');
   t('Intended to be deployed as a block');
   t('Member');
   t('Optional File Attachment');
