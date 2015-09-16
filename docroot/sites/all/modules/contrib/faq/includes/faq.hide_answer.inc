@@ -2,57 +2,65 @@
 
 /**
  * @file
- * FAQ page callbacks for the "new page" layouts.
+ * FAQ page callbacks for the "hide answer" layouts.
  */
 
 /**
- * Create FAQ page if set to show the answer in a new page.
+ * Create FAQ page if set to show/hide answer when question is clicked.
  *
  * @param array &$variables
  *   Array reference of arguments given to the theme() function.
  */
-function template_preprocess_faq_new_page(&$variables) {
-  $items = array();
+function template_preprocess_faq_hide_answer(&$variables) {
   $data = $variables['data'];
+  $this_page = $_GET['q'];
 
+  // Fetch configuration.
+  $teaser = variable_get('faq_use_teaser', FALSE);
+  $links = variable_get('faq_show_node_links', FALSE);
+  $disable_node_links = variable_get('faq_disable_node_links', FALSE);
+
+  $nodes = array();
+  $count = 0;
   foreach ($data as $node) {
-    $items[] = l($node->title, "node/$node->nid");
+    $anchor = 'n' . $node->nid;
+    faq_view_question($nodes[$count], $node, $this_page, $anchor);
+    faq_view_answer($nodes[$count], $node, array(), $teaser, $links);
+    $count++;
   }
-
-  $list_style = variable_get('faq_question_listing', 'ul');
-  $variables['list_style'] = $list_style;
-  $variables['list_items'] = $items;
-
-  $variables['list'] = theme('item_list',
-    array(
-      'items' => $items,
-      'title' => NULL,
-      'type' => $list_style,
-      'attributes' => array("class" => "faq-question-listing"),
-    )
-  );
+  $variables['use_teaser'] = $teaser;
+  $variables['nodes'] = $nodes;
 }
 
 /**
- * Create categorized FAQ page if set to show answer in a new page.
+ * Create categorized FAQ page if set to show answer when question is clicked.
  *
  * @param array &$variables
  *   Array reference of arguments given to the theme() function.
  */
-function template_preprocess_faq_category_new_page(&$variables) {
+function template_preprocess_faq_category_hide_answer(&$variables) {
   $data = $variables['data'];
   $category_display = $variables['category_display'];
   $term = $variables['term'];
   $parent_term = $variables['parent_term'];
   $class = $variables['class'];
-  $this_page = $_GET['q'];
 
   // Fetch configuration.
+  $teaser = variable_get('faq_use_teaser', FALSE);
+  $variables['use_teaser'] = $teaser;
+  $links = variable_get('faq_show_node_links', FALSE);
+  $disable_node_links = variable_get('faq_disable_node_links', FALSE);
   $display_faq_count = variable_get('faq_count', FALSE);
   $hide_child_terms = variable_get('faq_hide_child_terms', FALSE);
   $show_term_page_children = variable_get('faq_show_term_page_children', FALSE);
+  $default_sorting = variable_get('faq_default_sorting', 'DESC');
 
   // Initialise some variables.
+  $default_weight = 0;
+  if ($default_sorting != 'DESC') {
+    $default_weight = 1000000;
+  }
+  $this_page = $_GET['q'];
   $get_child_terms = 0;
   // Check if we're on a faq page.
   if (arg(0) == 'faq-page') {
@@ -66,12 +74,6 @@ function template_preprocess_faq_category_new_page(&$variables) {
   elseif (!empty($parent_term)) {
     $get_child_terms = $parent_term->tid;
     $show_term_page_children = TRUE;
-  }
-
-  $default_sorting = variable_get('faq_default_sorting', 'DESC');
-  $default_weight = 0;
-  if ($default_sorting != 'DESC') {
-    $default_weight = 1000000;
   }
 
   // Get number of questions, and account for hidden sub-categories.
@@ -89,15 +91,16 @@ function template_preprocess_faq_category_new_page(&$variables) {
 
   // Configure header.
   $variables['category_depth'] = $term->depth;
+  $variables['category_name'] = check_plain(faq_tt("taxonomy:term:$term->tid:name", $term->name));
   if ($category_display == 'hide_qa') {
-    $variables['header_title'] = l($term->name, "faq-page/$term->tid");
+    $variables['header_title'] = l(faq_tt("taxonomy:term:$term->tid:name", $term->name), "faq-page/$term->tid");
   }
   else {
-    $variables['header_title'] = check_plain($term->name);
+    $variables['header_title'] = check_plain(faq_tt("taxonomy:term:$term->tid:name", $term->name));
   }
 
   // Configure category description.
-  $variables['description'] = check_markup($term->description);
+  $variables['description'] = check_markup(faq_tt("taxonomy:term:$term->tid:description", $term->description));
 
   // Get list of sub-categories if necessary.
   $child_categories = array();
@@ -118,7 +121,7 @@ function template_preprocess_faq_category_new_page(&$variables) {
   // Configure sub-category bodies (theme recursively).
   $variables['subcat_body_list'] = array();
   if (($get_child_terms && $category_display == 'categories_inline') || ((($show_term_page_children && $this_page != 'faq-page') || $hide_child_terms) && $category_display == 'hide_qa')) {
-    $variables['subcat_body_list'] = faq_get_child_categories_faqs($term, 'faq_category_new_page', $default_weight, $default_sorting, $category_display, $variables['class'], $parent_term);
+    $variables['subcat_body_list'] = faq_get_child_categories_faqs($term, 'faq_category_hide_answer', $default_weight, $default_sorting, $category_display, $variables['class'], $parent_term);
   }
 
   if (!count($data)) {
@@ -132,9 +135,12 @@ function template_preprocess_faq_category_new_page(&$variables) {
     if (!$hide_child_terms) {
       $count++;
     }
-    $nodes[] = l($node->title, "node/$node->nid");
+    $node_var = array();
+    $anchor = 't' . $term->tid . 'n' . $node->nid;
+    faq_view_question($node_var, $node, $this_page, $anchor);
+    faq_view_answer($node_var, $node, array(), $teaser, $links);
+    $nodes[] = $node_var;
   }
-  $variables['question_list'] = $nodes;
-  $variables['question_list_style'] = variable_get('faq_question_listing', 'ul');
+  $variables['nodes'] = $nodes;
   $variables['question_count'] = $count;
 }

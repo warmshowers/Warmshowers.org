@@ -74,8 +74,9 @@ function faq_node_access($node, $op, $account = NULL) {
  */
 function faq_menu() {
   $items = array();
+  $faq_path = variable_get('faq_path', 'faq-page');
 
-  $items['faq-page'] = array(
+  $items[$faq_path] = array(
     'title' => 'Frequently Asked Questions',
     'page callback' => 'faq_page',
     'access callback' => 'user_access',
@@ -84,10 +85,7 @@ function faq_menu() {
     'type' => MENU_SUGGESTED_ITEM,
   );
 
-  // This is for Warmshowers D7 upgrade only and should be replaced with an alias after upgrade
-  $items['faq'] = $items['faq-page'];
-
-  $items['faq-page/list'] = array(
+  $items[$faq_path . '/list'] = array(
     'title' => 'List',
     'page callback' => 'faq_page',
     'access callback' => 'user_access',
@@ -96,7 +94,7 @@ function faq_menu() {
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
 
-  $items['faq-page/order'] = array(
+  $items[$faq_path . '/order'] = array(
     'title' => 'Order',
     'description' => 'Allows the user to configure the order of questions and answers on a FAQ page.',
     'file' => 'faq.admin.inc',
@@ -108,7 +106,7 @@ function faq_menu() {
     'weight' => -8,
   );
 
-  $items['faq-page/%'] = array(
+  $items[$faq_path . '/%'] = array(
     'title' => 'Frequently Asked Questions',
     'page callback' => 'faq_page',
     'page arguments' => array(1),
@@ -117,7 +115,7 @@ function faq_menu() {
     'type' => MENU_CALLBACK,
   );
 
-  $items['faq-page/%/list'] = array(
+  $items[$faq_path . '/%/list'] = array(
     'title' => 'List',
     'page callback' => 'faq_page',
     'page arguments' => array(1),
@@ -127,7 +125,7 @@ function faq_menu() {
     'weight' => -10,
   );
 
-  $items['faq-page/%/order'] = array(
+  $items[$faq_path . '/%/order'] = array(
     'title' => 'Order',
     'description' => 'Allows the user to configure the order of questions and answers on a FAQ page.',
     'file' => 'faq.admin.inc',
@@ -221,6 +219,14 @@ function faq_form($node, $form_state) {
   $form['title']['#description'] = t('Question to be answered.  This will appear in all question listings, such as the FAQ blocks.');
 
   return $form;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function faq_form_faq_general_settings_form_alter(&$form, &$form_state) {
+  $form['#validate'][] = 'faq_general_settings_form_validate';
+  $form['#submit'][] = 'faq_general_settings_form_submit';
 }
 
 /**
@@ -421,7 +427,7 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
   $output = $output_answers = '';
   drupal_add_css(drupal_get_path('module', 'faq') . '/faq.css');
   if (arg(0) == 'faq-page') {
-    drupal_set_title(variable_get('faq_title', 'Frequently Asked Questions'));
+    drupal_set_title(t(variable_get('faq_title', 'Frequently Asked Questions')));
   }
   if (!module_exists("taxonomy")) {
     $tid = 0;
@@ -429,8 +435,6 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
 
   // Configure the breadcrumb trail.
   if (!empty($tid) && $current_term = taxonomy_term_load($tid)) {
-    $current_term = _faq_get_translated_term($current_term);
-
     if (variable_get('faq_auto_generate_alias', TRUE) && !drupal_lookup_path('alias', arg(0) . '/' . $tid) && module_exists('pathauto')) {
       $alias = pathauto_create_alias('faq', 'insert', arg(0) . '/' . arg(1), array('term' => $current_term));
       if ($alias) {
@@ -473,11 +477,13 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
     $default_sorting = variable_get('faq_default_sorting', 'DESC');
 
     $query = db_select('node', 'n');
-    $query->leftJoin('faq_weights', 'w', '(n.nid = w.nid)');
-    $query->addTag('node_access');
-    $query->fields('n', array('nid'))
+    $weight_alias = $query->leftJoin('faq_weights', 'w', '%alias.nid=n.nid');
+    $query
+      ->addTag('node_access')
+      ->fields('n', array('nid'))
       ->condition('n.type', 'faq')
-      ->condition('n.status', 1);
+      ->condition('n.status', 1)
+      ->condition(db_or()->condition("$weight_alias.tid", 0)->isNull("$weight_alias.tid"));
 
     $default_weight = 0;
     if ($default_sorting == 'ASC') {
@@ -500,6 +506,9 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
     }
     else {
       $query->orderBy('n.created', 'DESC');
+    }
+    if (module_exists('i18n_select')) {
+      $query->condition('n.language', i18n_select_langcodes());
     }
 
     // Only need the nid column.
@@ -536,10 +545,9 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
     // If we're viewing a specific category/term.
     if (!empty($tid)) {
       if ($term = taxonomy_term_load($tid)) {
-        $term = _faq_get_translated_term($term);
-        $title = variable_get('faq_title', 'Frequently Asked Questions');
+        $title = t(variable_get('faq_title', 'Frequently Asked Questions'));
         if (arg(0) == 'faq-page' && is_numeric(arg(1))) {
-          drupal_set_title($title . ($title ? ' - ' : '') . $term->name);
+          drupal_set_title($title . ($title ? ' - ' : '') . faq_tt("taxonomy:term:$term->tid:name", $term->name));
         }
         _display_faq_by_category($faq_display, $category_display, $term, 0, $output, $output_answers);
         return theme('faq_page', array('content' => $output, 'answers' => $output_answers));
@@ -577,12 +585,15 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
           $tree = taxonomy_get_tree($vid, 0, NULL, TRUE);
         }
 
+        if (function_exists('i18n_taxonomy_localize_terms')) {
+          $tree = i18n_taxonomy_localize_terms($tree);
+        }
+
         foreach ($tree as $term) {
           switch ($category_display) {
             case 'hide_qa':
             case 'categories_inline':
               if (faq_taxonomy_term_count_nodes($term->tid)) {
-                $term = _faq_get_translated_term($term);
                 _display_faq_by_category($faq_display, $category_display, $term, 1, $output, $output_answers);
               }
               break;
@@ -605,7 +616,7 @@ function faq_page($tid = 0, $faq_display = '', $category_display = '') {
     }
   }
 
-  $faq_description = variable_get('faq_description', '');
+  $faq_description = t(variable_get('faq_description', ''));
   $format = variable_get('faq_description_format', 0);
   if ($format) {
     $faq_description = check_markup($faq_description, $format);
@@ -677,6 +688,12 @@ function _display_faq_by_category($faq_display, $category_display, $term, $displ
   }
   else {
     $query->orderBy('n.created', 'DESC');
+  }
+  if (module_exists('i18n_select')) {
+    $query->condition('n.language', i18n_select_langcodes());
+    if (module_exists('i18n_taxonomy')) {
+      $query->condition("{$td_alias}.language", i18n_select_langcodes());
+    }
   }
 
   // We only want the first column, which is nid, so that we can load all
@@ -917,7 +934,6 @@ function faq_block_view($delta) {
           foreach ($vocabularies as $vocab) {
             foreach (taxonomy_get_tree($vocab->vid) as $term) {
               if (faq_taxonomy_term_count_nodes($term->tid)) {
-                $term = _faq_get_translated_term($term);
                 $terms[$term->name] = $term->tid;
               }
             }
@@ -927,7 +943,7 @@ function faq_block_view($delta) {
           $block['subject'] = t('FAQ Categories');
           $items = array();
           foreach ($terms as $name => $tid) {
-            $items[] = l($name, 'faq-page/' . $tid);
+            $items[] = l(faq_tt("taxonomy:term:$tid:name", $name), 'faq-page/' . $tid);
           }
           $list_style = variable_get('faq_category_listing', 'ul');
           $block['content'] = theme('item_list',
@@ -970,7 +986,6 @@ function _get_indented_faq_terms($vid, $tid) {
 
   foreach ($tree as $term) {
 
-    $term = _faq_get_translated_term($term);
     $tree_count = faq_taxonomy_term_count_nodes($term->tid);
 
     if ($tree_count) {
@@ -984,7 +999,7 @@ function _get_indented_faq_terms($vid, $tid) {
       $desc = '';
       if (!empty($term->description)) {
         $desc = '<div class="faq-qa-description">';
-        $desc .= check_markup($term->description) . "</div>";
+        $desc .= check_markup(faq_tt("taxonomy:term:$term->tid:description", $term->description)) . "</div>";
       }
 
       // See if this term has any nodes itself, should it be a link?
@@ -1014,14 +1029,14 @@ function _get_indented_faq_terms($vid, $tid) {
           if ($hide_child_terms) {
             $count = $tree_count;
           }
-          $cur_item = $term_image . l($term->name, $path) . " ($count) " . $desc;
+          $cur_item = $term_image . l(faq_tt("taxonomy:term:$term->tid:name", $term->name), $path) . " ($count) " . $desc;
         }
         else {
-          $cur_item = $term_image . l($term->name, $path) . $desc;
+          $cur_item = $term_image . l(faq_tt("taxonomy:term:$term->tid:name", $term->name), $path) . $desc;
         }
       }
       else {
-        $cur_item = $term_image . check_plain($term->name) . $desc;
+        $cur_item = $term_image . check_plain(faq_tt("taxonomy:term:$term->tid:name", $term->name)) . $desc;
       }
       if (!empty($term_image)) {
         $cur_item .= '<div class="clear-block"></div>';
@@ -1108,9 +1123,9 @@ function faq_get_faq_list() {
   else {
     $query->orderBy('n.created', 'DESC');
   }
-//  if (module_exists('i18n_select')) {
-//    $query->condition('n.language', i18n_select_langcodes());
-//  }
+  if (module_exists('i18n_select')) {
+    $query->condition('n.language', i18n_select_langcodes());
+  }
 
   // We only want the first column, which is nid, so that we can load all
   // related nodes.
@@ -1348,6 +1363,10 @@ function faq_get_child_categories_faqs($term, $theme_function, $default_weight, 
 
   $list = taxonomy_get_children($term->tid);
 
+  if (function_exists('i18n_taxonomy_localize_terms')) {
+    $list = i18n_taxonomy_localize_terms($list);
+  }
+
   if (!is_array($list)) {
     return '';
   }
@@ -1387,10 +1406,12 @@ function faq_get_child_categories_faqs($term, $theme_function, $default_weight, 
       else {
         $query->orderBy('n.created', 'DESC');
       }
-//      if (module_exists('i18n_select')) {
-//        $query->condition('n.language', i18n_select_langcodes());
-//        $query->condition("{$td_alias}.language", i18n_select_langcodes());
-//      }
+      if (module_exists('i18n_select')) {
+        $query->condition('n.language', i18n_select_langcodes());
+        if (module_exists('i18n_taxonomy')) {
+          $query->condition("{$td_alias}.language", i18n_select_langcodes());
+        }
+      }
 
       // We only want the first column, which is nid, so that we can load all
       // related nodes.
@@ -1426,10 +1447,13 @@ function faq_view_child_category_headers($term) {
   $child_categories = array();
   $list = taxonomy_get_children($term->tid);
 
+  if (function_exists('i18n_taxonomy_localize_terms')) {
+    $list = i18n_taxonomy_localize_terms($list);
+  }
+
   foreach ($list as $tid => $child_term) {
     $term_node_count = faq_taxonomy_term_count_nodes($child_term->tid);
     if ($term_node_count) {
-      $child_term = _faq_get_translated_term($child_term);
 
       // Get taxonomy image.
       $term_image = '';
@@ -1437,8 +1461,8 @@ function faq_view_child_category_headers($term) {
         $term_image = taxonomy_image_display($child_term->tid, array('class' => 'faq-tax-image'));
       }
 
-      $term_vars['link'] = l($child_term->name, "faq-page/$child_term->tid");
-      $term_vars['description'] = check_markup($child_term->description);
+      $term_vars['link'] = l(faq_tt("taxonomy:term:$child_term->tid:name", $child_term->name), "faq-page/$child_term->tid");
+      $term_vars['description'] = check_markup(faq_tt("taxonomy:term:$child_term->tid:description", $child_term->description));
       $term_vars['count'] = $term_node_count;
       $term_vars['term_image'] = $term_image;
       $child_categories[] = $term_vars;
@@ -1595,14 +1619,13 @@ function faq_set_breadcrumb($term = NULL) {
   $breadcrumb = array();
   if (variable_get('faq_custom_breadcrumbs', TRUE)) {
     if (module_exists("taxonomy") && $term) {
-      $term = _faq_get_translated_term($term);
-      $breadcrumb[] = l($term->name, 'faq-page/' . $term->tid);
+      $breadcrumb[] = l(faq_tt("taxonomy:term:$term->tid:name", $term->name), 'faq-page/' . $term->tid);
       while ($parents = taxonomy_get_parents($term->tid)) {
         $term = array_shift($parents);
-        $breadcrumb[] = l($term->name, 'faq-page/' . $term->tid);
+        $breadcrumb[] = l(faq_tt("taxonomy:term:$term->tid:name", $term->name), 'faq-page/' . $term->tid);
       }
     }
-    $breadcrumb[] = l(variable_get('faq_title', 'Frequently Asked Questions'), 'faq-page');
+    $breadcrumb[] = l(t(variable_get('faq_title', 'Frequently Asked Questions')), 'faq-page');
     $breadcrumb[] = l(t('Home'), NULL, array('attributes' => array('title' => variable_get('site_name', ''))));
     $breadcrumb = array_reverse($breadcrumb);
     return drupal_set_breadcrumb($breadcrumb);
@@ -1632,20 +1655,10 @@ function faq_preprocess_page(&$variables) {
 }
 
 /**
- * Return translated term
- *
- * @param $term
- *
- * @return
- *   Translated term or original if i18n_taxonomy not available
+ * Helper function for when i18ntaxonomy module is not installed.
  */
-function _faq_get_translated_term($term) {
-  $langcode = $GLOBALS['language_content']->language;
-
-  if (function_exists('i18n_taxonomy_localize_terms')) {
-    $term = i18n_taxonomy_localize_terms($term, $langcode);
-  }
-  return $term;
+function faq_tt($string_id, $default, $language = NULL) {
+  return function_exists('tt') ? tt($string_id, $default, $language) : $default;
 }
 
 /**
