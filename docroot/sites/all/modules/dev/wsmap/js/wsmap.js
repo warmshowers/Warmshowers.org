@@ -295,12 +295,8 @@
         for (var i = 0; i < hostcount; i++) {
           var host = markers[markerPositions[position][i]].host;
 
-          if (host.picture == "") {
-            host.picture = '/files/default_picture.jpg';
-          }
-
           html += '<div class="wsmap-infowindow-host">';
-          html += '<div class="wsmap-infowindow-picture"><img src="/files/imagecache/map_infoWindow/' + host.picture + '"></div>';
+          html += '<div class="wsmap-infowindow-picture"><img src="' + host.profile_image_map_infoWindow + '"></div>';
           html += '<div class="wsmap-infowindow-hostinfo">';
           var cboxlink = "/user/" + host.uid;
           var link = cboxlink;
