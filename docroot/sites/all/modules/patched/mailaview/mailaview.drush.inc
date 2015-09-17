@@ -24,6 +24,7 @@ function mailaview_drush_command() {
     'options' => array(
       'view' => 'the name of the view',
       'display' => 'the id of the display',
+      'args' => 'comma-separated list of arguments',
       'to' => 'a comma separated list of email addresses to mail',
       'subject' => '(optional) the email subject to use, otherwise the view title is used',
     ),
@@ -43,7 +44,6 @@ function mailaview_drush_mailaview() {
   $display_id = drush_get_option('display');
   $to = drush_get_option('to');
   $emails = explode(",", $to);
-  // @todo Implement 'args' drush option.
   $args = drush_get_option('args', array());
   $subject = drush_get_option('subject', NULL);
   // Check if there is such view.
