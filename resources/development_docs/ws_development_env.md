@@ -74,23 +74,23 @@ The files directory has user pictures and some other random things. In general i
 way too much work to download and use a files tarball, so we use the excellent
 [stage_file_proxy](https://drupal.org/project/stage_file_proxy) to fill the gap. 
 This module points at Warmshowers.org to get and display pictures from there. 
-It does not work for everything, and at this writing is not working for anything
-in the D7 upgrade.
+It may not work for everything, but works pretty well currently, even with user
+pictures. Your mileage may vary.
 
 ### Add hostnames into /etc/hosts
 
-I use the hostname warmshowers.dev (and es.warmshowers.dev, fr.warmshowers.dev,
+I use the hostname wsupg.dev (and es.wsupg.dev, fr.wsupg.dev,
 etc.) to access the site. You'll need to add those to your local hosts file.
 
 My hosts file has this stanza:
 
 ```
-127.0.0.1 warmshowers.dev
-127.0.0.1 es.warmshowers.dev www.warmshowers.dev
-127.0.0.1 fr.warmshowers.dev
-127.0.0.1 pt.warmshowers.dev
-127.0.0.1 de.warmshowers.dev
-127.0.0.1 it.warmshowers.dev
+127.0.0.1 wsupg.dev
+127.0.0.1 es.wsupg.dev www.wsupg.dev
+127.0.0.1 fr.wsupg.dev
+127.0.0.1 pt.wsupg.dev
+127.0.0.1 de.wsupg.dev
+127.0.0.1 it.wsupg.dev
 ```
 
 ### Add configuration for the site to Apache
@@ -105,12 +105,12 @@ I use something like this:
 ```
 NameVirtualHost *
 <VirtualHost *>
-	ServerName warmshowers.dev
-	ServerAlias *.warmshowers.dev
-	ServerAdmin randy@randyfay.com
+	ServerName wsupg.dev
+	ServerAlias *.wsupg.dev
+	ServerAdmin nobody@nowhere.com
 
-	DocumentRoot /Users/rfay/workspace/warmshowers/docroot
-	<Directory /Users/rfay/workspace/warmshowers/docroot>
+	DocumentRoot /Users/rfay/workspace/wsupg/docroot
+	<Directory /Users/rfay/workspace/wsupg/docroot>
 		Options FollowSymLinks
 		AllowOverride All
 		Order allow,deny
@@ -129,7 +129,7 @@ Restart apache to make it read the configuration. On most systems this would be
 ### Setup a Drush alias for the site (Optional)
 
 To facilitate development using Drush, it's useful to have a Drush alias for
-interacting with the site, so you can run `drush @warmshowers.dev status`
+interacting with the site, so you can run `drush @wsupg.dev status`
 instead of having to `cd` into the warmshowers directory to use Drush.
 
 1. Copy the file in `/assets/rebuild/warmshowers.aliases.drushrc.php` to `~/
@@ -184,11 +184,6 @@ a clean state. The process takes anywhere from 5-15 minutes depending on your
 hardware.
 
 Windows users: use caution as the above has been tested only in Linux and Mac OS X.
-
-### Automated tests
-
-Check out `docroot/sites/default/behat-tests` for more information on running
-tests for the Warmshowers dev environment.
 
 ### Notes
 
