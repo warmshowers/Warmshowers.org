@@ -10,12 +10,6 @@
 function ws_permissions_features_user_default_roles() {
   $roles = array();
 
-  // Exported role: Board Extra - Like board member.
-  $roles['Board Extra - Like board member'] = array(
-    'name' => 'Board Extra - Like board member',
-    'weight' => 0,
-  );
-
   // Exported role: Board Member.
   $roles['Board Member'] = array(
     'name' => 'Board Member',
@@ -121,12 +115,6 @@ function ws_permissions_features_user_default_roles() {
   // Exported role: registrar.
   $roles['registrar'] = array(
     'name' => 'registrar',
-    'weight' => 0,
-  );
-
-  // Exported role: super-admin.
-  $roles['super-admin'] = array(
-    'name' => 'super-admin',
     'weight' => 0,
   );
 

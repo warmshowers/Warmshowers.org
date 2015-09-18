@@ -777,15 +777,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'rules',
   );
 
-  // Exported permission: 'change inactive user settings'.
-  $permissions['change inactive user settings'] = array(
-    'name' => 'change inactive user settings',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'inactive_user',
-  );
-
   // Exported permission: 'change own username'.
   $permissions['change own username'] = array(
     'name' => 'change own username',
@@ -1654,70 +1645,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'privatemsg_filter',
   );
 
-  // Exported permission: 'flag important_to_translate'.
-  $permissions['flag important_to_translate'] = array(
-    'name' => 'flag important_to_translate',
-    'roles' => array(
-      'Translator' => 'Translator',
-      'administrator' => 'administrator',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'flag member_hosted_me'.
-  $permissions['flag member_hosted_me'] = array(
-    'name' => 'flag member_hosted_me',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'flag obsolete'.
-  $permissions['flag obsolete'] = array(
-    'name' => 'flag obsolete',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'flag responsive_member'.
-  $permissions['flag responsive_member'] = array(
-    'name' => 'flag responsive_member',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'flag spam_comment'.
-  $permissions['flag spam_comment'] = array(
-    'name' => 'flag spam_comment',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'flag spam_node'.
-  $permissions['flag spam_node'] = array(
-    'name' => 'flag spam_node',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'flag unresponsive_member'.
-  $permissions['flag unresponsive_member'] = array(
-    'name' => 'flag unresponsive_member',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
   // Exported permission: 'flush caches'.
   $permissions['flush caches'] = array(
     'name' => 'flush caches',
@@ -1969,13 +1896,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'better_formats',
   );
 
-  // Exported permission: 'show format selection for flagging'.
-  $permissions['show format selection for flagging'] = array(
-    'name' => 'show format selection for flagging',
-    'roles' => array(),
-    'module' => 'better_formats',
-  );
-
   // Exported permission: 'show format selection for node'.
   $permissions['show format selection for node'] = array(
     'name' => 'show format selection for node',
@@ -2133,70 +2053,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
     ),
     'module' => 'uc_order',
-  );
-
-  // Exported permission: 'unflag important_to_translate'.
-  $permissions['unflag important_to_translate'] = array(
-    'name' => 'unflag important_to_translate',
-    'roles' => array(
-      'Translator' => 'Translator',
-      'administrator' => 'administrator',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'unflag member_hosted_me'.
-  $permissions['unflag member_hosted_me'] = array(
-    'name' => 'unflag member_hosted_me',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'unflag obsolete'.
-  $permissions['unflag obsolete'] = array(
-    'name' => 'unflag obsolete',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'unflag responsive_member'.
-  $permissions['unflag responsive_member'] = array(
-    'name' => 'unflag responsive_member',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'unflag spam_comment'.
-  $permissions['unflag spam_comment'] = array(
-    'name' => 'unflag spam_comment',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'unflag spam_node'.
-  $permissions['unflag spam_node'] = array(
-    'name' => 'unflag spam_node',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
-  );
-
-  // Exported permission: 'unflag unresponsive_member'.
-  $permissions['unflag unresponsive_member'] = array(
-    'name' => 'unflag unresponsive_member',
-    'roles' => array(
-      'authenticated user' => 'authenticated user',
-    ),
-    'module' => 'flag',
   );
 
   // Exported permission: 'use PHP for title patterns'.
