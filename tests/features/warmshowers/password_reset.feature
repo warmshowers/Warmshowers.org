@@ -5,7 +5,7 @@ Feature:I can log in to Warmshowers
   I can log in to Warmshowers
 
 Background:
-  Given I am an authenticated user
+  Given I am an authenticated user and not logged in. 
 
 @smoke
 Scenario: I can request a new password
