@@ -53,11 +53,11 @@ Scenario: I can access the Request Password page using the link in the failed lo
 Scenario: I can NOT request a password using an invalid username or email address
   And I am on the User Account page
   And the Request New Password tab
-  When I enter an invalid username or password
+  When I enter an invalid username or e-mail address
   And I click the Email New Password button
   Then I see the Request Password page with username field highlighted
   And a modal with:
   """
-  Sorry, [incorrect username/password] is not recognized as a user name or an e-mail address.
+  Sorry, [incorrect username/e-mail address] is not recognized as a user name or an e-mail address.
   """
 
