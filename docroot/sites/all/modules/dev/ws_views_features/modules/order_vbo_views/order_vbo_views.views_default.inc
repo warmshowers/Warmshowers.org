@@ -30,6 +30,8 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['exposed_form']['type'] = 'basic';
   $handler->display->display_options['pager']['type'] = 'full';
   $handler->display->display_options['pager']['options']['items_per_page'] = 50;
+  $handler->display->display_options['style_plugin'] = 'default';
+  $handler->display->display_options['row_plugin'] = 'fields';
   /* Relationship: Order: Customer */
   $handler->display->display_options['relationships']['uid']['id'] = 'uid';
   $handler->display->display_options['relationships']['uid']['table'] = 'uc_orders';
@@ -224,6 +226,8 @@ function order_vbo_views_views_default_views() {
   /* Display: Feed */
   $handler = $view->new_display('feed', 'Feed', 'orders_feed');
   $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['style_plugin'] = 'rss';
+  $handler->display->display_options['row_plugin'] = 'rss_fields';
   $handler->display->display_options['path'] = 'admin/store/orders_vbo/feed';
   $handler->display->display_options['displays'] = array(
     'orders_vbo' => 'orders_vbo',
@@ -241,8 +245,10 @@ function order_vbo_views_views_default_views() {
     26 => 26,
   );
   $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'default';
   $handler->display->display_options['defaults']['style_options'] = FALSE;
   $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['row_plugin'] = 'fields';
   $handler->display->display_options['defaults']['row_options'] = FALSE;
   $handler->display->display_options['defaults']['fields'] = FALSE;
   /* Field: Broken/missing handler */
@@ -324,7 +330,7 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['fields']['country']['table'] = 'user_location';
   $handler->display->display_options['fields']['country']['field'] = 'country';
   $handler->display->display_options['fields']['country']['relationship'] = 'uid';
-  /* Field: Comments: Comment */
+  /* Field: Order comments: Comment */
   $handler->display->display_options['fields']['message']['id'] = 'message';
   $handler->display->display_options['fields']['message']['table'] = 'uc_order_comments';
   $handler->display->display_options['fields']['message']['field'] = 'message';
