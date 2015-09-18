@@ -5,7 +5,7 @@ Feature: Give feedback to users
   I can use give feedback Warmshowers members
 
 Background:
-  Given I am an authenticated user
+  Given I am an "authenticated" user
 
 @nav
 Scenario: See feedback link
@@ -58,129 +58,76 @@ Scenario: Create negative feedback
   When I select "Negative" from the "Overall experience with [user]" select menu
   And I enter at least 10 words of text in the "Please tell about your experience with this member" input field
   And I select the "Guest" from the "Feedback is for" radio fields
-  And I click the "Submit" button
+  And I click the "Save" button
   Then I see my published feedback
   And a modal with "Feedback Feedback for [user] has been created."
 
-Scenario: Edit feedback from item view
-  And I am on a "Feedback post" page 
-  When I click the "Edit" tab
-  And make desired changes to form fields
-  And I click the "Submit" button
-  Then I see my feedback updated
-  And a modal with "Feedback Feedback for [user] has been updated."
+Scenario: Edit feedback
+  And I am on a "Feedback edit" form
+  When I enter "Feedback has been changed" in the "Please tell about your experience with this member" field
+  And I click the "Save" button
+  Then I see the "Feedback listing" page
+  And I see the text "Feedback has been changed" on the page
+  And I see a modal with "Feedback Feedback for [user] has been updated."
 
 Scenario: Edit feedback from the feedback listing
-  And I am on another user's "Feedback" page
-  When I click the "Edit" link to the right of the feedback item I want to change
-  And I click the "Submit" button
-  Then I see my updated published feedback 
-  And a modal with "Feedback Feedback for [user] has been updated."
+  And I am on another user's "Feedback listing" form
+  And I have given feedback for the user
+  When I click the "Edit" link to the right of the feedback I have given
+  And I enter "Feedback has been changed" in the "Please tell about your experience with this member" field
+  And I click the "Save" button
+  And I see a modal with "Feedback Feedback for [user] has been updated."
+  And I click the "View" link to the right of the feedback page
+  Then I see the "Feedback listing" page
+  And I see the text "Feedback has been changed" on the page
 
-Scenario: I can view a feedback item I created from the feedback listing
-  And I am viewing the feedback listing page for a user
-  When I click the View link to the right of the feedback item I want to see
-  Then I see the item view for the published feedback.
-
-Scenario: I can delete feedback I created from the feedback listing
-  And I am viewing the feedback listing page for a user
-  When I click the Delete link to the right of the feedback item I want to remove
+@smoke
+Scenario: Delete feedback
+  And I am on a "Feedback edit" form
+  When I click the "Delete" button at the bottom of the form
   And I see the message "This action cannot be undone."
-  And I click the Delete button
-  Then I see the updated feedback listing for the user
-  And my deleted feedback item does not appear in the listing.
+  And I click the "Delete" button
+  Then I see the "Home" page
+  And I see a modal with "Feedback Feedback for [user] has been deleted."
+
+# ISSUE: THIS SCENARIO CAN'T BE REALISTICALLY TESTED WITH VIEWS CACHING ENABLED
+Scenario: Delete feedback from the feedback listing
+  And I am on another user's "Feedback listing" page
+  And I have given feedback for the user
+  When I click the "Delete" link to the right of the feedback I have given
+  And I see the message "This action cannot be undone."
+  And I click the "Delete" button
+  Then I see the "Feedback listing" page
+  #And my deleted feedback item does not appear in the listing.
   And a modal with "Feedback Feedback for [user] has been deleted."
 
-#Deleted feedback is removed from the feedback list, but still appears on the profile page and the front page.
-Scenario: I can delete feedback I created from the edit form
-  And I am viewing the edit feedback for for a feedback item I created
-  And the user has more than one item of feedback
-  When I click the Delete button at the bottom of the form
-  And I see the message "This action cannot be undone."
-  And I click the Delete button
-  Then I see the updated feedback listing for the user
-  And a modal with "Feedback Feedback for [user] has been deleted."
-  But my deleted feedback item does not appear in the listing.
+Scenario: Attach an image to feedback
+  And I am on a "Feedback edit" form
+  When I click the "Browser image select" button
+  And I select a "2MB image" file
+  And I click the "Upload" button
+  And I enter "Image description summary" into the "Image description" field
+  And I click the "Save" button
+  Then I see the "Feedback listing" page
+  And I will see a thumbnail of the "2MB image" file
 
-#Not sure having a separate functionality for empty feedback is necessary/helpful. Probably should direct to the blank feedback page instead.
-Scenario: I can delete feedback I created from the edit form when it is a user's only feedback
-  And I am viewing the edit feedback for for a feedback item I created
-  And the user has only one feedback item
-  When I click the Delete button at the bottom of the form
-  And I see the message "This action cannot be undone."
-  And I click the Delete button
-  Then I see the main page
-  And a modal with "Feedback Feedback for [user] has been deleted."
-
-Scenario: I can select an input format for my feedback
-  And I am viewing the create or edit feedback form
-  When I click the Input Format link
-  Then I can select the Filtered HTML or Plain Text radio button
-  And I can read more about formatting options by clicking the More Information about Formatting Options link
-
-Scenario: I can view changes when editing a feedback item
-  And I have created a thread-opening post
-  And I have entered the edit form for that post
-  When I click View Changes
-  Then I will see a side-by-side list of changes made by edits to the post.
-
-Scenario: I can preview a feedback item before submitting
-  And I am in the Create Feedback or Edit Feedback area
-  And I have completed required fields
-  When I click the Preview button
-  Then I will see a preview of my post above the Create/Reply form
-  And if I have uploaded an image to my post I will see fields for additional information. 
-
-Scenario: I can attach an image to a feedback item
-  And I have entered the Create Feedback or Edit Feedback form
-  When I click Choose File
-  And I select a file of appropriate type and size
-  And I click Upload
-  Then I will see a thumbnail of my image
-  And I will see a field for Description text.
-
-Scenario: I can add information to an image uploaded to a feedback item
-  And I have entered the Create Feedback or Edit Feedback form
+Scenario: Remove an image from feedback
+  And I am on a "Feedback edit" form
   And I have uploaded an image
-  When I see the text field for Description text
-  And I enter text as desired
-  And I submit my post
-  Then my Description text will appear as a tooltip when a user hovers over my uploaded image.
+  When I click the "Remove" button to the right of the image
+  Then I will no longer see the image
 
-Scenario: I can remove an image from a feedback item
-  And I have entered the Create Feedback or Edit Feedback form
-  And I have uploaded an image
-  When I see the text field for Description text
-  And I click the Remove button
-  Then the image will no longer appear in the Image table
+Scenario: Reorder feedback images
+  And I am on a "Feedback edit" form
+  And I have uploaded two images
+  When I click the "move cross" to the left of the "first image" name
+  And I drag the file down below the "second image"
+  And I click the "Save" button
+  Then I will see the "second image" shown above the "first image"
 
-Scenario: I can add additional images to a feedback item
-  And I have entered the Create Feedback or Edit Feedback form
-  And I have uploaded files to fill up default spaces in the Image table
-  When I click the Add Another Item button
-  Then I will see an additional row in the Image table
-
-Scenario:I can reorder attachments to a post
-  And I have entered the Create Feedback or Edit Feedback form
-  And I have entered values for required fields
-  And I have attached two or more files to my feedback item
-  When I click the cross at the left of the file name
-  And I drag the file(s) into the desired order
-  And I click Submit
-  Then my post will be published with images shown in desired order.
-
-#Sidebar navigation
-@nav
-Scenario: I can access the contact form for site admin through the Feedback form
-  And I have entered the Create Feedback or Edit Feedback form
-  When I click on the Via the Contact Form link in the sidebar
-  Then I see the contact form to reach site admin.
-
-@nav
-Scenario: I can read about what to do about negative interactions
-  And I have entered the Create Feedback or Edit Feedback form
-  When I click on the  "What if I have a problem with a Warmshowers host or guest" link in the sidebar
-  Then I see the FAQ item on this subject.
+Scenario: Feedback hints block
+  And I am on the "Create Feedback" form for a user
+  Then I see a side bar block with the title "Feedback Hints"
 
 #Validation/Failure Scenarios:
 @smoke
