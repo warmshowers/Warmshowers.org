@@ -78,7 +78,7 @@ Scenario: Log in with an incorrect username
   """
 
 @smoke @fail
-Scenario: I can NOT log in to Warmshowers with an incorrect password
+Scenario: Log in with an incorrect password
   Given I am an unauthenticated user
   And I am on the "User Login" page
   When I enter my Warmshowers username in the "Username or E-mail Address" field

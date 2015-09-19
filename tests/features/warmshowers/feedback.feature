@@ -36,7 +36,7 @@ Scenario: Access the Create Feedback form
 
 @smoke @mail @rules
 Scenario: Create positive feedback
-  And I am on the "Create Feedback" form for a user
+  And I am on the "Create Feedback" form
   When I select "Positive" from the "Overall experience with [user]" select menu
   And I enter at least 10 words of text in the "Please tell about your experience with this member" input field
   And I select the "Guest" from the "Feedback is for" radio fields
@@ -54,7 +54,7 @@ Scenario: Create positive feedback
 
 @smoke @mail @rules
 Scenario: Create negative feedback
-  And I am on the "Create Feedback" form for a user
+  And I am on the "Create Feedback" form
   When I select "Negative" from the "Overall experience with [user]" select menu
   And I enter at least 10 words of text in the "Please tell about your experience with this member" input field
   And I select the "Guest" from the "Feedback is for" radio fields
@@ -129,41 +129,25 @@ Scenario: Feedback hints block
   And I am on the "Create Feedback" form for a user
   Then I see a side bar block with the title "Feedback Hints"
 
-#Validation/Failure Scenarios:
-@smoke
-Scenario: I can NOT publish feedback with less than 10 words of text
-  And I am on the Create Feedback form for a user
-  When I select a feedback type from the dropdown menu
-  And I enter fewer than 10 words of text in the experience input field
-  And I select the role for the user I am offering feedback about using the radio buttons
-  And I click Submit
+@smoke @fail
+Scenario: Feedback with less than 10 words
+  And I am on the "Create Feedback" form
+  And I enter fewer than 10 words in the "Please tell about your experience with this member" field
+  When I select "Guest" from the "Feedback is for" radio buttons
+  And I click the "Submit" button
   Then I see the feedback form
-  And a modal with:
+  And I see a modal with:
   """
   The Please tell about your experience with this member of your Feedback is too short. You need at least 10 words.
   """
-  And my feedback is not published
 
-@smoke
-Scenario: I can NOT upload a file with incorrect filetype
-  And I am in the Create Feedback or Edit Feedback Area
-  And I have completed required fields
-  When I click Choose File
-  And I select a file of incorrect filetype
-  Then I will see the upload area highlighted in red
-  And the message:
+@smoke @fail
+Scenario: Feedback type
+  And I am on the "Create Feedback" form
+  And I enter 10 words in the "Please tell about your experience with this member" field
+  When I click the "Submit" button
+  Then I see the feedback form
+  And I see a modal with:
   """
-  The selected file [file path] cannot be uploaded. Only files with the following extensions are allowed: jpg, jpeg.
+  Feedback is for field is required.
   """
-
-#The system currently DOES allow cumulative totals exceeding the limit. Couldn't find a single file big enough to see if the max limit works on individual file uploads.
-#This scenario is a guess about proper functionality.
-@smoke
-Scenario: I can NOT attach file(s) exceeding the maximum upload size of 15 mb.
-  And I have entered values for required files
-  When I click Choose File
-  And I select file(s) exceeding the 15 mb limit
-  And I click Upload
-  And I click the Submit button
-  Then I should see a modal informing me that my attachments have exceeded the maximum upload allowance
-  And my feedback will not be published
