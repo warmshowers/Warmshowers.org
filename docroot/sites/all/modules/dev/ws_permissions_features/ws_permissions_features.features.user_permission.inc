@@ -347,13 +347,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'css_injector',
   );
 
-  // Exported permission: 'administer donations thermometer'.
-  $permissions['administer donations thermometer'] = array(
-    'name' => 'administer donations thermometer',
-    'roles' => array(),
-    'module' => 'donations_thermometer',
-  );
-
   // Exported permission: 'administer environment indicator settings'.
   $permissions['administer environment indicator settings'] = array(
     'name' => 'administer environment indicator settings',
