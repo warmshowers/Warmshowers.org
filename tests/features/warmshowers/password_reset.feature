@@ -31,7 +31,7 @@ Scenario: Reset password
   You have just used your one-time login link. It is no longer necessary to use this link to login. Please change your password.
   """
 
-# Message needs checking please
+# Message wording needs checking please
 @smoke
 Scenario: Change password
   And I have clicked the "One-time login" button

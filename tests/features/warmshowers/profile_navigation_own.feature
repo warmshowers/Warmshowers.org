@@ -39,7 +39,7 @@ Scenario: Click the Update link
 @nav
 Scenario: Click the Set Location link
   When I click the "Set Location" button in the location sidebar
-  Then I see the "Profile Edit" page
+  Then I see the "Map My Home Location" page
 
 @nav
 Scenario: Click the Upload your Picture link

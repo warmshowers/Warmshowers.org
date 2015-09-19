@@ -7,7 +7,7 @@ Feature: Update account information
 
 Background:
   Given I am an authenticated user
-  And I am at the "Profile edit" page
+  And I am on the "Profile edit" page
 
 @smoke
 Scenario: Select a country from the select menu field
@@ -58,7 +58,7 @@ Scenario: Change street address
 
 @smoke @rules
 Scenario: Set account to unavailable
-  When I check the Not Currently Available box
+  When I check the "Not Currently Available" box
   And I select a date in the future
   And I click the "Submit" button
   Then I should be redirected to my "Profile" page
@@ -113,6 +113,14 @@ Scenario: Change hosting information and services
   Then I should be redirected to my "Profile" page
   And I see a modal with "The changes have been saved."
   And if I am available to host, this information will be visible on my profile
+
+@rules
+Scenario: Add multiple languages to profile
+  When I enter "English, French & Spanish" in the "Languages spoken" Spoken field
+  And I click the "Submit" button
+  Then I should be redirected to my "Profile" page
+  And I see a modal with "The changes have been saved."
+  Then I see my languages will be visible in the green summary area of my profile page.
 
 @fail @smoke
 Scenario: Can NOT change username to another existing username

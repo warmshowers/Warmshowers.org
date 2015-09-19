@@ -4,7 +4,7 @@ Feature: Navigate around a users's profile page
   As a registered user
   I can navigate the site starting from any user's profile page
 
-Background: 	
+Background:
   Given I am on the another user's "Profile" page
 
 @fail smoke
@@ -33,3 +33,7 @@ Scenario: View a user's personal website
   When I click the personal website link in the green profile summary area
   Then a new window opens to display the user's website
 
+@map
+Scenario: View users's location on map
+  When I click the small map in the location sidebar
+  Then I see a modal with a map showing a "map marker" at the user's location
