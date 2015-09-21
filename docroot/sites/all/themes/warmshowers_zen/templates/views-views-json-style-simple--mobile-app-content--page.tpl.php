@@ -19,14 +19,19 @@ $jsonp_prefix = $options['jsonp_prefix'];
 // It gets executed, but the result gets discarded. So doing this transformation
 // from 2012-09-01T05:00 to a timestamp here.
 foreach ($rows['recommendations'] as &$item) {
-  if (!empty($item['recommendation']['field_hosting_date_value'])) {
-    $item['recommendation']['field_hosting_date_value'] = strtotime($item['recommendation']['field_hosting_date_value']);
+  if (!empty($item['recommendation']['field_hosting_date'])) {
+    $item['recommendation']['field_hosting_date'] = strtotime($item['recommendation']['field_hosting_date']);
+  }
+  foreach (array_keys($item['recommendation']) as $key) {
+    if (strpos($key, 'field_') === 0) {
+      $item['recommendation'][$key . '_value'] = $item['recommendation'][$key];
+    }
   }
 }
 
 if ($view->override_path) {
 	// We're inside a live preview where the JSON is pretty-printed.
-	$json = _views_json_encode_formatted($rows);
+	$json = _views_json_encode_formatted($rows, array());
 	if ($jsonp_prefix) $json = "$jsonp_prefix($json)";
 	print "<code>$json</code>";
 }
