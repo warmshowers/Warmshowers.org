@@ -120,5 +120,43 @@ function ws_rules_feature_default_rules_configuration() {
       "DO" : [ { "redirect" : { "url" : "[account:url]", "force" : "0" } } ]
     }
   }');
+  $items['uc_cart_e_mail_admin_checkout_notification_cloned_'] = entity_import('rules_config', '{ "uc_cart_e_mail_admin_checkout_notification_cloned_" : {
+      "LABEL" : "E-mail admin checkout notification (cloned)",
+      "PLUGIN" : "reaction rule",
+      "OWNER" : "rules",
+      "REQUIRES" : [ "rules", "uc_order", "uc_cart" ],
+      "ON" : { "uc_checkout_complete" : [] },
+      "DO" : [
+        { "uc_order_email_invoice" : {
+            "order" : [ "order" ],
+            "from" : "\\u0022Warmshowers.org Donations\\u0022 \\u003Crandy+wsl@warmshowers.org\\u003E",
+            "addresses" : "randy+wsl@warmshowers.org",
+            "subject" : "New Donation [order:total] [order:email] #newdonation",
+            "template" : "admin",
+            "view" : "admin-mail"
+          }
+        }
+      ]
+    }
+  }');
+  $items['uc_cart_e_mail_customer_checkout_notification_cloned_'] = entity_import('rules_config', '{ "uc_cart_e_mail_customer_checkout_notification_cloned_" : {
+      "LABEL" : "E-mail customer checkout notification (cloned)",
+      "PLUGIN" : "reaction rule",
+      "OWNER" : "rules",
+      "REQUIRES" : [ "rules", "uc_order", "uc_cart" ],
+      "ON" : { "uc_checkout_complete" : [] },
+      "DO" : [
+        { "uc_order_email_invoice" : {
+            "order" : [ "order" ],
+            "from" : "\\u0022Warmshowers.org Donations\\u0022 \\u003Crandy+wsl@warmshowers.org\\u003E",
+            "addresses" : "[order:email]",
+            "subject" : "Thank you for your Warmshowers.org Donation!",
+            "template" : "customer",
+            "view" : "checkout-mail"
+          }
+        }
+      ]
+    }
+  }');
   return $items;
 }
