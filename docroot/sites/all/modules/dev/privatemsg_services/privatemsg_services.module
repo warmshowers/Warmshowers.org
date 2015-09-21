@@ -92,21 +92,13 @@ function _privatemsg_services_get($type = 'inbox', $offset = NULL, $limit = NULL
   $query = _privatemsg_assemble_query('list', $user, $type);
   if (!empty($offset) || !empty($limit)) {
     $query->limit($limit);
-
-    // It appears that ->range() does not work in D7
-//    $query->range($offset, $limit);
   }
   $msgs = $query->execute();
 
   $messages = array();
   foreach ($msgs as $msg) {
     $thread = privatemsg_thread_load($msg->thread_id);
-    $participants = array();
-    foreach ($thread['participants'] as $account) {
-      $participants[] = array('uid' => $account->uid, 'name' => $account->name, 'fullname' => $account->fullname);
-    }
-    $msg->participants = $participants;
-
+    $msg->participants = _privatemsg_services_participants_list($thread);
     $messages[] = $msg;
   }
 
@@ -247,7 +239,11 @@ function _privatemsg_services_get_thread($thread_id, $offset = 0) {
   }
 
   // Return the full thread.
-  return _privatemsg_services_thread_load($thread_id, $account, $offset);
+  $result = _privatemsg_services_thread_load($thread_id, $account, $offset);
+  if (empty($result['messages'])) {
+    return services_error(t('This user has no access to thread (no messages found)'), 403);
+  }
+  return $result;
 }
 
 /**
@@ -259,25 +255,44 @@ function _privatemsg_services_get_thread($thread_id, $offset = 0) {
  * @return array[]
  *   An array of messages in a thread.
  */
-function _privatemsg_services_thread_load($pmtid) {
-  $thread = privatemsg_thread_load($pmtid);
+function _privatemsg_services_thread_load($pmtid, $account, $offset) {
+  $thread = privatemsg_thread_load($pmtid, $account, $offset);
 
   $result = array(
     'pmtid'        => $thread['thread_id'],
     'subject'      => $thread['subject'],
-    'participants' => $thread['participants'],
+    'participants' => _privatemsg_services_participants_list($thread),
     'messages'     => array(),
   );
 
-  foreach ($thread['messages'] as $message) {
-    $result['messages'][] = array(
-      'mid'       => $message->mid,
-      'author'    => $message->author->uid,
-      'timestamp' => $message->timestamp,
-      'body'      => $message->body,
-      'is_new'    => $message->is_new,
-    );
+  if (!empty($thread['message_count'])) {
+    foreach ($thread['messages'] as $message) {
+      $result['messages'][] = array(
+        'mid' => $message->mid,
+        'author' => $message->author->uid,
+        'timestamp' => $message->timestamp,
+        'body' => $message->body,
+        'is_new' => $message->is_new,
+      );
+    }
   }
 
   return $result;
+}
+
+/**
+ * Get simplified participants list; the one in the thread presents all kinds
+ * of data not needed and exposes inappropriate data.
+ *
+ * @param $thread
+ *
+ * @return array
+ *   List of participants with uid, name, fullname
+ */
+function _privatemsg_services_participants_list($thread) {
+  $participants = array();
+  foreach ($thread['participants'] as $account) {
+    $participants[] = array('uid' => $account->uid, 'name' => $account->name, 'fullname' => $account->fullname);
+  }
+  return $participants;
 }
