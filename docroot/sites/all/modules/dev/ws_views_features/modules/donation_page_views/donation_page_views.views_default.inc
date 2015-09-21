@@ -112,6 +112,10 @@ Transparency information: All governance documents are in the <a href="https://w
   $handler->display->display_options['fields']['body_1']['field'] = 'body';
   $handler->display->display_options['fields']['body_1']['label'] = '';
   $handler->display->display_options['fields']['body_1']['element_label_colon'] = FALSE;
+  /* Sort criterion: Content: Weight (field_product_weight) */
+  $handler->display->display_options['sorts']['field_product_weight_value']['id'] = 'field_product_weight_value';
+  $handler->display->display_options['sorts']['field_product_weight_value']['table'] = 'field_data_field_product_weight';
+  $handler->display->display_options['sorts']['field_product_weight_value']['field'] = 'field_product_weight_value';
   /* Filter criterion: Content: Type */
   $handler->display->display_options['filters']['type']['id'] = 'type';
   $handler->display->display_options['filters']['type']['table'] = 'node';
