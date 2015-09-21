@@ -1,0 +1,92 @@
+<?php
+
+/**
+ * Implenents hook_menu().
+ */
+function mailaview_menu() {
+  return array(
+    'mailaview' => array(
+      'title' => 'View mailaview template',
+      'access arguments' => array('test mailaview templates'),
+      'page callback' => 'mailaview_test_template',
+      'page arguments' => array(1, 2),
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Implements hook_permissions().
+ */
+function mailaview_permissions() {
+  return array(
+    'test mailaview templates' => array(
+      'title' => 'Test Mail-a-view templates',
+    ),
+  );
+}
+
+/**
+ * Provides a quick way for an admin to test a view as it will be rendered.
+ */
+function mailaview_test_template($view_id, $display_id) {
+  $view = NULL;
+  $markup = mailaview_render_view($view_id, $display_id, $view);
+  $message = HTMLMailSystem::format(array(
+    'module' => 'mailaview',
+    'to' => variable_get('site_mail', ''),
+    'subject' => $view->get_title(),
+    'key' => $view_id,
+    'body' => $markup));
+  echo $message['body'];
+}
+
+/**
+ * Send an email.
+ */
+function mailaview_sendmail($emails, $view, $subject) {
+  $params = array(
+    'view' => $view,
+    'subject' => $subject
+  );
+  foreach ((array)$emails as $email) {
+    drupal_mail('mailaview', 'mailaview', $email, language_default(), $params);
+  }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function mailaview_mail($key, &$message, $params) {
+  switch($key) {
+    case 'mailaview':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['view'];
+      break;
+  }
+}
+
+/**
+ * Render a view.
+ */
+function mailaview_render_view($view_id, $display_id, &$view = NULL, $args = array()) {
+  $view = views_get_view($view_id, TRUE);
+  if (!$view) {
+    return FALSE;
+  }
+  $view->set_display($display_id);
+  // Pass arguments to the view.
+  if (!empty($args)) {
+    $view_arguments = explode("\n", $args);
+    $view_arguments = array_map('trim', $view_arguments);
+    $view_arguments = array_filter($view_arguments, 'strlen');
+    $view->set_arguments($view_arguments);
+  }
+
+  $view->pre_execute();
+  $view->hide_admin_links = TRUE;
+  $output = $view->display_handler->execute();
+  $view->post_execute();
+
+  return $output;
+}
