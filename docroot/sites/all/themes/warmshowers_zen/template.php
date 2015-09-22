@@ -581,3 +581,30 @@ function warmshowers_zen_uc_cart_complete_sale($variables) {
   return $message;
 
 }
+
+/**
+ * Theme menu_link to get around two problems:
+ * 1. <front> is not handled correctly by Drupal, see https://www.drupal.org/node/1578832
+ * 2. We have menu pointing to 'user', whose actual path is user/UID
+ * So this uses a variation of the theme approach in https://www.drupal.org/node/1571058#comment-6788662
+ * @param $variables
+ * @return string
+ */
+function warmshowers_zen_menu_link($variables) {
+  $element = $variables['element'];
+  $sub_menu = '';
+
+  if (
+    ($element['#href'] == '<front>' && drupal_is_front_page())
+    ||
+    ($element['#href'] == request_path())
+  ) {
+    $element['#attributes']['class'][] = 'active-trail';
+  }
+
+  if ($element['#below']) {
+    $sub_menu = drupal_render($element['#below']);
+  }
+  $output = l($element['#title'], $element['#href'], $element['#localized_options']);
+  return '<li' . drupal_attributes($element['#attributes']) . '>' . $output . $sub_menu . "</li>\n";
+}
