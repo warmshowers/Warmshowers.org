@@ -287,6 +287,7 @@
        */
       Drupal.theme.prototype.wsmap_infoWindow = function (marker) {
         var html = '<div class="wsmap-infowindow">';
+        var default_picture = Drupal.settings.wsmap.user_picture_default;
         position = marker.host.position;
         hostcount = marker.hostcount;
         if (hostcount > 1) {
@@ -294,7 +295,9 @@
         }
         for (var i = 0; i < hostcount; i++) {
           var host = markers[markerPositions[position][i]].host;
-
+          if (!host.profile_image_map_infoWindow) {
+            host.profile_image_map_infoWindow = default_picture;
+          }
           html += '<div class="wsmap-infowindow-host">';
           html += '<div class="wsmap-infowindow-picture"><img src="' + host.profile_image_map_infoWindow + '"></div>';
           html += '<div class="wsmap-infowindow-hostinfo">';
