@@ -23,8 +23,8 @@
  * @see wsuser_preprocess_wsuser_member_contact_location()
  */
 
-// If looking at own account:
-if ($is_self) {
+// If looking at own account or admin viewing:
+if ($is_self || user_access('administer users')) {
   if (wsuser_is_current_donor_member($account)) {
     $role_desc = wsuser_highest_donation_level($account);
     $rid = key($role_desc);
