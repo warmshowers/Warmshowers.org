@@ -23,9 +23,9 @@
       cc_num.removeAttr('name').removeAttr('disabled');
       cc_cvv.removeAttr('name').removeAttr('disabled');
       var cc_val_val = cc_num.val();
-        if (cc_val_val.indexOf('Last 4')) {
-            cc_num.val('');
-        }
+      if (cc_val_val && cc_val_val.indexOf('Last 4')) {
+          cc_num.val('');
+      }
       $('span#stripe-nojs-warning').parent().hide();
 
       // JS must enable the button; otherwise form might disclose cc info. It starts disabled
