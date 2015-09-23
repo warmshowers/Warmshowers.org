@@ -18,18 +18,23 @@
       var cc_num = cc_container.find(':input[id*="edit-panes-payment-details-cc-numbe"]');
       var cc_cvv = cc_container.find(':input[id*="edit-panes-payment-details-cc-cv"]');
 
+      $('span#stripe-nojs-warning').parent().hide();
+
+      // JS must enable the button; otherwise form might disclose cc info. It starts disabled
+      submitButton.attr('disabled', false);
+      if (!cc_container.size()) {
+        // If no credit card container on screen, we have nothing more to do.
+        return;
+      }
+
       // When this behavior fires, we can clean the form so it will behave properly,
       // Remove 'name' from sensitive form elements so there's no way they can be submitted.
       cc_num.removeAttr('name').removeAttr('disabled');
       cc_cvv.removeAttr('name').removeAttr('disabled');
       var cc_val_val = cc_num.val();
-        if (cc_val_val.indexOf('Last 4')) {
-            cc_num.val('');
-        }
-      $('span#stripe-nojs-warning').parent().hide();
-
-      // JS must enable the button; otherwise form might disclose cc info. It starts disabled
-      submitButton.attr('disabled', false);
+      if (cc_val_val && cc_val_val.indexOf('Last 4')) {
+          cc_num.val('');
+      }
 
       submitButton.click(function (e) {
         if ($(':input[name="panes[payment][payment_method]"]').val() == 'credit') {

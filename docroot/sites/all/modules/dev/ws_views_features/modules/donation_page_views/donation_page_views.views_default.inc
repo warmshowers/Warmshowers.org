@@ -69,18 +69,18 @@ function donation_page_views_views_default_views() {
 Signing up for any of these donation levels means you will not receive email appeals or on-site donation appeals for a year. ';
   $handler->display->display_options['header']['text']['format'] = '1';
   /* Footer: Global: Text area */
-  $handler->display->display_options['footer']['text']['id'] = 'area';
+  $handler->display->display_options['footer']['text']['id'] = 'text';
   $handler->display->display_options['footer']['text']['table'] = 'views';
   $handler->display->display_options['footer']['text']['field'] = 'area';
-  $handler->display->display_options['footer']['text']['content'] = 'Donations are <a href="https://www.warmshowers.org/faq#t58n84444">tax-deductible in the USA.</a> More questions? Read the <a href="https://www.warmshowers.org/faq/donations-and-membership-levels">Donation/Membership FAQ</a>. 
+  $handler->display->display_options['footer']['text']['content'] = 'Donations are <a href="/faq#t58n84444">tax-deductible in the USA.</a> More questions? Read the <a href="/faq/donations-and-membership-levels">Donation/Membership FAQ</a>. 
 
 If you would prefer to <strong>send us a check</strong> (US Dollars please), Warmshowers.org Foundation, 848 Montclair Drive, Palisade, CO 81526, USA. Thanks!
 
-You\'re welcome to contact us any time via the <a href="/contact">Contact Form</a>, email (wsl@warmshowers.org), or phone (+1 970.462.7450).
+You\'re welcome to contact us any time via the <a href="/contact">Contact Form</a>, email (wsl@warmshowers.org).
 
-(The Warmshowers.org Foundation is a certified nonprofit 501(c)(3) with the US government, US EIN is&nbsp;46-1370418<span style="font-size: 12px;">, phone +1 970.462.7450, view <a href="https://www.warmshowers.org/node/72676">the IRS letter</a>, verify its status at the </span><a href="http://apps.irs.gov/app/eos/pub78Search.do?ein1=46-1370418&amp;names=&amp;city=&amp;state=All...&amp;country=US&amp;deductibility=all&amp;dispatchMethod=searchCharities&amp;submitName=Search" style="font-size: 12px;">IRS website</a>.)
+(The Warmshowers.org Foundation is a certified nonprofit 501(c)(3) with the US government, US EIN is&nbsp;46-1370418<span style="font-size: 12px;">, phone +1 970.462.7450, view <a href="/node/72676">the IRS letter</a>, verify its status at the </span><a href="http://apps.irs.gov/app/eos/pub78Search.do?ein1=46-1370418&amp;names=&amp;city=&amp;state=All...&amp;country=US&amp;deductibility=all&amp;dispatchMethod=searchCharities&amp;submitName=Search" style="font-size: 12px;">IRS website</a>.)
 
-Transparency information: All governance documents are in the <a href="https://www.warmshowers.org/forums/site-administratorsdesigngovernancevolunteers/leadership-council">leadership forum</a>. <a href="https://www.warmshowers.org/annual_report_2014">January 2015 Annual Report</a>, <a href="https://www.warmshowers.org/node/82734">2015 budget</a>, <a href="https://www.warmshowers.org/content/warmshowers-now-nonprofit-corporation">Articles of Incorporation and Bylaws</a>, <a href="https://www.warmshowers.org/board">Board of Directors information</a>.';
+Transparency information: All governance documents are in the <a href="/forums/site-administratorsdesigngovernancevolunteers/leadership-council">leadership forum</a>. <a href="/annual_report_2014">January 2015 Annual Report</a>, <a href="/node/82734">2015 budget</a>, <a href="/content/warmshowers-now-nonprofit-corporation">Articles of Incorporation and Bylaws</a>, <a href="/board">Board of Directors information</a>.';
   $handler->display->display_options['footer']['text']['format'] = '1';
   /* Field: Content: Amount Description */
   $handler->display->display_options['fields']['field_amount_description']['id'] = 'field_amount_description';
@@ -112,6 +112,10 @@ Transparency information: All governance documents are in the <a href="https://w
   $handler->display->display_options['fields']['body_1']['field'] = 'body';
   $handler->display->display_options['fields']['body_1']['label'] = '';
   $handler->display->display_options['fields']['body_1']['element_label_colon'] = FALSE;
+  /* Sort criterion: Content: Weight (field_product_weight) */
+  $handler->display->display_options['sorts']['field_product_weight_value']['id'] = 'field_product_weight_value';
+  $handler->display->display_options['sorts']['field_product_weight_value']['table'] = 'field_data_field_product_weight';
+  $handler->display->display_options['sorts']['field_product_weight_value']['field'] = 'field_product_weight_value';
   /* Filter criterion: Content: Type */
   $handler->display->display_options['filters']['type']['id'] = 'type';
   $handler->display->display_options['filters']['type']['table'] = 'node';
@@ -148,15 +152,15 @@ Transparency information: All governance documents are in the <a href="https://w
     t('Your donation to the Warmshowers.org Foundation lets us improve and maintain the site, support the community, and continue to let hosts and guests develop lifelong friendships. Thanks! Questions about donations and how we use your generous donations? <a href="/faq/donations-and-membership-levels">Donation Level FAQs</a>. <b>All transactions are protected by secure encrypted https, and you can pay with debit/credit card or PayPal. Your card information is secure and does not travel through this site in either case.</b>
 
 Signing up for any of these donation levels means you will not receive email appeals or on-site donation appeals for a year. '),
-    t('Donations are <a href="https://www.warmshowers.org/faq#t58n84444">tax-deductible in the USA.</a> More questions? Read the <a href="https://www.warmshowers.org/faq/donations-and-membership-levels">Donation/Membership FAQ</a>. 
+    t('Donations are <a href="/faq#t58n84444">tax-deductible in the USA.</a> More questions? Read the <a href="/faq/donations-and-membership-levels">Donation/Membership FAQ</a>. 
 
 If you would prefer to <strong>send us a check</strong> (US Dollars please), Warmshowers.org Foundation, 848 Montclair Drive, Palisade, CO 81526, USA. Thanks!
 
-You\'re welcome to contact us any time via the <a href="/contact">Contact Form</a>, email (wsl@warmshowers.org), or phone (+1 970.462.7450).
+You\'re welcome to contact us any time via the <a href="/contact">Contact Form</a>, email (wsl@warmshowers.org).
 
-(The Warmshowers.org Foundation is a certified nonprofit 501(c)(3) with the US government, US EIN is&nbsp;46-1370418<span style="font-size: 12px;">, phone +1 970.462.7450, view <a href="https://www.warmshowers.org/node/72676">the IRS letter</a>, verify its status at the </span><a href="http://apps.irs.gov/app/eos/pub78Search.do?ein1=46-1370418&amp;names=&amp;city=&amp;state=All...&amp;country=US&amp;deductibility=all&amp;dispatchMethod=searchCharities&amp;submitName=Search" style="font-size: 12px;">IRS website</a>.)
+(The Warmshowers.org Foundation is a certified nonprofit 501(c)(3) with the US government, US EIN is&nbsp;46-1370418<span style="font-size: 12px;">, phone +1 970.462.7450, view <a href="/node/72676">the IRS letter</a>, verify its status at the </span><a href="http://apps.irs.gov/app/eos/pub78Search.do?ein1=46-1370418&amp;names=&amp;city=&amp;state=All...&amp;country=US&amp;deductibility=all&amp;dispatchMethod=searchCharities&amp;submitName=Search" style="font-size: 12px;">IRS website</a>.)
 
-Transparency information: All governance documents are in the <a href="https://www.warmshowers.org/forums/site-administratorsdesigngovernancevolunteers/leadership-council">leadership forum</a>. <a href="https://www.warmshowers.org/annual_report_2014">January 2015 Annual Report</a>, <a href="https://www.warmshowers.org/node/82734">2015 budget</a>, <a href="https://www.warmshowers.org/content/warmshowers-now-nonprofit-corporation">Articles of Incorporation and Bylaws</a>, <a href="https://www.warmshowers.org/board">Board of Directors information</a>.'),
+Transparency information: All governance documents are in the <a href="/forums/site-administratorsdesigngovernancevolunteers/leadership-council">leadership forum</a>. <a href="/annual_report_2014">January 2015 Annual Report</a>, <a href="/node/82734">2015 budget</a>, <a href="/content/warmshowers-now-nonprofit-corporation">Articles of Incorporation and Bylaws</a>, <a href="/board">Board of Directors information</a>.'),
     t('Donation'),
     t('.'),
     t(','),
