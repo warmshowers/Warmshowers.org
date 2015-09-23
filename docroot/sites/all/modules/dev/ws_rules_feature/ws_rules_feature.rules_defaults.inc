@@ -110,16 +110,6 @@ function ws_rules_feature_default_rules_configuration() {
       ]
     }
   }');
-  $items['rules_user_redirection'] = entity_import('rules_config', '{ "rules_user_redirection" : {
-      "LABEL" : "Redirect to profile on account save",
-      "PLUGIN" : "reaction rule",
-      "OWNER" : "rules",
-      "TAGS" : [ "User" ],
-      "REQUIRES" : [ "rules" ],
-      "ON" : { "user_update" : [] },
-      "DO" : [ { "redirect" : { "url" : "[account:url]", "force" : "0" } } ]
-    }
-  }');
   $items['uc_cart_e_mail_admin_checkout_notification_cloned_'] = entity_import('rules_config', '{ "uc_cart_e_mail_admin_checkout_notification_cloned_" : {
       "LABEL" : "E-mail admin checkout notification (cloned)",
       "PLUGIN" : "reaction rule",
