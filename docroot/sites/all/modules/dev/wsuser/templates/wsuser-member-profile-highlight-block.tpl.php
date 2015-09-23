@@ -9,7 +9,7 @@
  *  - $fullname: and other variables from wsuser
  */
 ?>
-<div class="profile-highlight">
+<div class="profile-highlight clearfix">
   <div class="profile-image">
     <?php
     if (($account->uid != $GLOBALS['user']->uid) || !empty($account->picture)) {
