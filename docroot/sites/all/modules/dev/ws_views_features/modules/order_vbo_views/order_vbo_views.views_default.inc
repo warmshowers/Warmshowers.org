@@ -24,28 +24,111 @@ function order_vbo_views_views_default_views() {
   $handler = $view->new_display('default', 'Defaults', 'default');
   $handler->display->display_options['title'] = 'Orders VBO';
   $handler->display->display_options['use_more_always'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
+  $handler->display->display_options['access']['type'] = 'role';
+  $handler->display->display_options['access']['role'] = array(
+    3 => '3',
+  );
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['exposed_form']['type'] = 'basic';
   $handler->display->display_options['pager']['type'] = 'full';
   $handler->display->display_options['pager']['options']['items_per_page'] = 50;
-  $handler->display->display_options['style_plugin'] = 'default';
-  $handler->display->display_options['row_plugin'] = 'fields';
-  /* Relationship: Order: Customer */
-  $handler->display->display_options['relationships']['uid']['id'] = 'uid';
-  $handler->display->display_options['relationships']['uid']['table'] = 'uc_orders';
-  $handler->display->display_options['relationships']['uid']['field'] = 'uid';
-  $handler->display->display_options['relationships']['uid']['label'] = 'Order user';
-  $handler->display->display_options['relationships']['uid']['required'] = TRUE;
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'counter' => 'counter',
+    'order_id' => 'order_id',
+    'uid' => 'uid',
+    'created' => 'created',
+    'primary_email' => 'primary_email',
+    'modified' => 'modified',
+    'order_status' => 'order_status',
+    'order_total' => 'order_total',
+    'created_1' => 'created_1',
+  );
+  $handler->display->display_options['style_options']['default'] = 'modified';
+  $handler->display->display_options['style_options']['info'] = array(
+    'counter' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'order_id' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'uid' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'created' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'primary_email' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'modified' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'order_status' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'order_total' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'created_1' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
   /* Field: Global: View result counter */
   $handler->display->display_options['fields']['counter']['id'] = 'counter';
   $handler->display->display_options['fields']['counter']['table'] = 'views';
   $handler->display->display_options['fields']['counter']['field'] = 'counter';
+  /* Field: Order: Order ID */
+  $handler->display->display_options['fields']['order_id']['id'] = 'order_id';
+  $handler->display->display_options['fields']['order_id']['table'] = 'uc_orders';
+  $handler->display->display_options['fields']['order_id']['field'] = 'order_id';
+  $handler->display->display_options['fields']['order_id']['link_to_order'] = 1;
+  /* Field: User: Uid */
+  $handler->display->display_options['fields']['uid']['id'] = 'uid';
+  $handler->display->display_options['fields']['uid']['table'] = 'users';
+  $handler->display->display_options['fields']['uid']['field'] = 'uid';
   /* Field: Order: Creation date */
   $handler->display->display_options['fields']['created']['id'] = 'created';
   $handler->display->display_options['fields']['created']['table'] = 'uc_orders';
   $handler->display->display_options['fields']['created']['field'] = 'created';
+  $handler->display->display_options['fields']['created']['label'] = 'Order Creation';
+  $handler->display->display_options['fields']['created']['date_format'] = 'short';
+  $handler->display->display_options['fields']['created']['second_date_format'] = 'privatemsg_current_day';
   /* Field: Order: Email address */
   $handler->display->display_options['fields']['primary_email']['id'] = 'primary_email';
   $handler->display->display_options['fields']['primary_email']['table'] = 'uc_orders';
@@ -55,12 +138,9 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['fields']['modified']['id'] = 'modified';
   $handler->display->display_options['fields']['modified']['table'] = 'uc_orders';
   $handler->display->display_options['fields']['modified']['field'] = 'modified';
-  $handler->display->display_options['fields']['modified']['label'] = 'Modification date';
-  /* Field: Order: Order ID */
-  $handler->display->display_options['fields']['order_id']['id'] = 'order_id';
-  $handler->display->display_options['fields']['order_id']['table'] = 'uc_orders';
-  $handler->display->display_options['fields']['order_id']['field'] = 'order_id';
-  $handler->display->display_options['fields']['order_id']['link_to_order'] = 1;
+  $handler->display->display_options['fields']['modified']['label'] = 'Order Mod';
+  $handler->display->display_options['fields']['modified']['date_format'] = 'short';
+  $handler->display->display_options['fields']['modified']['second_date_format'] = 'privatemsg_current_day';
   /* Field: Order: Order status */
   $handler->display->display_options['fields']['order_status']['id'] = 'order_status';
   $handler->display->display_options['fields']['order_status']['table'] = 'uc_orders';
@@ -72,66 +152,12 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['fields']['order_total']['field'] = 'order_total';
   $handler->display->display_options['fields']['order_total']['label'] = 'Total';
   $handler->display->display_options['fields']['order_total']['precision'] = '0';
-  /* Field: Broken/missing handler */
-  $handler->display->display_options['fields']['uid']['id'] = 'uid';
-  $handler->display->display_options['fields']['uid']['table'] = 'uc_orders';
-  $handler->display->display_options['fields']['uid']['field'] = 'uid';
-  $handler->display->display_options['fields']['uid']['label'] = 'Uid';
   /* Field: User: Created date */
   $handler->display->display_options['fields']['created_1']['id'] = 'created_1';
   $handler->display->display_options['fields']['created_1']['table'] = 'users';
   $handler->display->display_options['fields']['created_1']['field'] = 'created';
   $handler->display->display_options['fields']['created_1']['relationship'] = 'uid';
   $handler->display->display_options['fields']['created_1']['label'] = 'User creation date';
-  /* Field: Warmshowers: Full Name */
-  $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
-  $handler->display->display_options['fields']['fullname']['table'] = 'wsuser';
-  $handler->display->display_options['fields']['fullname']['field'] = 'fullname';
-  $handler->display->display_options['fields']['fullname']['relationship'] = 'uid';
-  /* Field: User: Name */
-  $handler->display->display_options['fields']['name']['id'] = 'name';
-  $handler->display->display_options['fields']['name']['table'] = 'users';
-  $handler->display->display_options['fields']['name']['field'] = 'name';
-  $handler->display->display_options['fields']['name']['relationship'] = 'uid';
-  /* Field: Warmshowers: City */
-  $handler->display->display_options['fields']['city']['id'] = 'city';
-  $handler->display->display_options['fields']['city']['table'] = 'user_location';
-  $handler->display->display_options['fields']['city']['field'] = 'city';
-  $handler->display->display_options['fields']['city']['relationship'] = 'uid';
-  /* Field: Warmshowers: State or Province */
-  $handler->display->display_options['fields']['province']['id'] = 'province';
-  $handler->display->display_options['fields']['province']['table'] = 'user_location';
-  $handler->display->display_options['fields']['province']['field'] = 'province';
-  $handler->display->display_options['fields']['province']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['province']['label'] = 'State';
-  /* Field: Warmshowers: Country */
-  $handler->display->display_options['fields']['country']['id'] = 'country';
-  $handler->display->display_options['fields']['country']['table'] = 'user_location';
-  $handler->display->display_options['fields']['country']['field'] = 'country';
-  $handler->display->display_options['fields']['country']['relationship'] = 'uid';
-  /* Field: UC Recurring Fees: Status */
-  $handler->display->display_options['fields']['status']['id'] = 'status';
-  $handler->display->display_options['fields']['status']['table'] = 'uc_recurring_users';
-  $handler->display->display_options['fields']['status']['field'] = 'status';
-  $handler->display->display_options['fields']['status']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['status']['label'] = 'Recurring Status';
-  /* Field: UC Recurring Fees: Next Charge Date */
-  $handler->display->display_options['fields']['next_charge']['id'] = 'next_charge';
-  $handler->display->display_options['fields']['next_charge']['table'] = 'uc_recurring_users';
-  $handler->display->display_options['fields']['next_charge']['field'] = 'next_charge';
-  $handler->display->display_options['fields']['next_charge']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['next_charge']['label'] = 'Next Charge';
-  /* Field: UC Recurring Fees: Product Fee ID */
-  $handler->display->display_options['fields']['pfid']['id'] = 'pfid';
-  $handler->display->display_options['fields']['pfid']['table'] = 'uc_recurring_users';
-  $handler->display->display_options['fields']['pfid']['field'] = 'pfid';
-  $handler->display->display_options['fields']['pfid']['relationship'] = 'uid';
-  /* Field: UC Recurring Fees: Regular Interval */
-  $handler->display->display_options['fields']['regular_interval']['id'] = 'regular_interval';
-  $handler->display->display_options['fields']['regular_interval']['table'] = 'uc_recurring_users';
-  $handler->display->display_options['fields']['regular_interval']['field'] = 'regular_interval';
-  $handler->display->display_options['fields']['regular_interval']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['regular_interval']['label'] = 'Recurring Interval';
   /* Filter criterion: Order: Order status */
   $handler->display->display_options['filters']['order_status']['id'] = 'order_status';
   $handler->display->display_options['filters']['order_status']['table'] = 'uc_orders';
@@ -154,32 +180,6 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['filters']['order_total']['expose']['use_operator'] = TRUE;
   $handler->display->display_options['filters']['order_total']['expose']['operator'] = 'order_total_op';
   $handler->display->display_options['filters']['order_total']['expose']['identifier'] = 'order_total';
-  /* Filter criterion: UC Recurring Fees: Status */
-  $handler->display->display_options['filters']['status']['id'] = 'status';
-  $handler->display->display_options['filters']['status']['table'] = 'uc_recurring_users';
-  $handler->display->display_options['filters']['status']['field'] = 'status';
-  $handler->display->display_options['filters']['status']['relationship'] = 'uid';
-  $handler->display->display_options['filters']['status']['group'] = '0';
-  $handler->display->display_options['filters']['status']['exposed'] = TRUE;
-  $handler->display->display_options['filters']['status']['expose']['operator_id'] = 'status_op';
-  $handler->display->display_options['filters']['status']['expose']['label'] = 'Recurring';
-  $handler->display->display_options['filters']['status']['expose']['use_operator'] = TRUE;
-  $handler->display->display_options['filters']['status']['expose']['operator'] = 'status_op';
-  $handler->display->display_options['filters']['status']['expose']['identifier'] = 'status';
-  /* Filter criterion: User: Created date */
-  $handler->display->display_options['filters']['created']['id'] = 'created';
-  $handler->display->display_options['filters']['created']['table'] = 'users';
-  $handler->display->display_options['filters']['created']['field'] = 'created';
-  $handler->display->display_options['filters']['created']['relationship'] = 'uid';
-  $handler->display->display_options['filters']['created']['operator'] = 'between';
-  $handler->display->display_options['filters']['created']['value']['value'] = '2015-01-01';
-  $handler->display->display_options['filters']['created']['group'] = '0';
-  $handler->display->display_options['filters']['created']['exposed'] = TRUE;
-  $handler->display->display_options['filters']['created']['expose']['operator_id'] = 'created_op';
-  $handler->display->display_options['filters']['created']['expose']['label'] = 'User Created date';
-  $handler->display->display_options['filters']['created']['expose']['use_operator'] = TRUE;
-  $handler->display->display_options['filters']['created']['expose']['operator'] = 'created_op';
-  $handler->display->display_options['filters']['created']['expose']['identifier'] = 'created';
   /* Filter criterion: Order: Last modified */
   $handler->display->display_options['filters']['modified']['id'] = 'modified';
   $handler->display->display_options['filters']['modified']['table'] = 'uc_orders';
@@ -216,23 +216,15 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['filters']['payment_method']['expose']['operator'] = 'payment_method_op';
   $handler->display->display_options['filters']['payment_method']['expose']['identifier'] = 'payment_method';
 
-  /* Display: Page */
-  $handler = $view->new_display('page', 'Page', 'orders_vbo');
+  /* Display: Order VBO Page */
+  $handler = $view->new_display('page', 'Order VBO Page', 'orders_vbo');
   $handler->display->display_options['path'] = 'admin/store/orders/orders_vbo';
   $handler->display->display_options['menu']['type'] = 'normal';
   $handler->display->display_options['menu']['title'] = 'Orders VBO';
   $handler->display->display_options['menu']['weight'] = '-20';
-
-  /* Display: Feed */
-  $handler = $view->new_display('feed', 'Feed', 'orders_feed');
-  $handler->display->display_options['pager']['type'] = 'full';
-  $handler->display->display_options['style_plugin'] = 'rss';
-  $handler->display->display_options['row_plugin'] = 'rss_fields';
-  $handler->display->display_options['path'] = 'admin/store/orders_vbo/feed';
-  $handler->display->display_options['displays'] = array(
-    'orders_vbo' => 'orders_vbo',
-    'default' => 0,
-  );
+  $handler->display->display_options['menu']['name'] = 'management';
+  $handler->display->display_options['menu']['context'] = 0;
+  $handler->display->display_options['menu']['context_only_inline'] = 0;
 
   /* Display: Order Comments */
   $handler = $view->new_display('page', 'Order Comments', 'donation_comments');
@@ -241,22 +233,137 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['defaults']['access'] = FALSE;
   $handler->display->display_options['access']['type'] = 'role';
   $handler->display->display_options['access']['role'] = array(
-    27 => 27,
-    26 => 26,
+    3 => '3',
+    26 => '26',
   );
   $handler->display->display_options['defaults']['style_plugin'] = FALSE;
-  $handler->display->display_options['style_plugin'] = 'default';
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'uid' => 'uid',
+    'created' => 'created',
+    'primary_email' => 'primary_email',
+    'modified' => 'modified',
+    'fullname' => 'fullname',
+    'order_total' => 'order_total',
+    'order_id' => 'order_id',
+    'order_status' => 'order_status',
+    'created_1' => 'created_1',
+    'name' => 'name',
+    'city' => 'city',
+    'province' => 'province',
+    'country' => 'country',
+    'message' => 'message',
+  );
+  $handler->display->display_options['style_options']['default'] = 'modified';
+  $handler->display->display_options['style_options']['info'] = array(
+    'uid' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'created' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'primary_email' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'modified' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'desc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'fullname' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'order_total' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'order_id' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'order_status' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'created_1' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'name' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'city' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'province' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'country' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'message' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
   $handler->display->display_options['defaults']['style_options'] = FALSE;
   $handler->display->display_options['defaults']['row_plugin'] = FALSE;
-  $handler->display->display_options['row_plugin'] = 'fields';
   $handler->display->display_options['defaults']['row_options'] = FALSE;
   $handler->display->display_options['defaults']['fields'] = FALSE;
-  /* Field: Broken/missing handler */
+  /* Field: User: Uid */
   $handler->display->display_options['fields']['uid']['id'] = 'uid';
-  $handler->display->display_options['fields']['uid']['table'] = 'uc_orders';
+  $handler->display->display_options['fields']['uid']['table'] = 'users';
   $handler->display->display_options['fields']['uid']['field'] = 'uid';
-  $handler->display->display_options['fields']['uid']['label'] = 'Uid';
-  $handler->display->display_options['fields']['uid']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['uid']['relationship'] = 'uid';
   /* Field: Order: Creation date */
   $handler->display->display_options['fields']['created']['id'] = 'created';
   $handler->display->display_options['fields']['created']['table'] = 'uc_orders';
@@ -276,13 +383,6 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['fields']['modified']['field'] = 'modified';
   $handler->display->display_options['fields']['modified']['label'] = 'Modification date';
   $handler->display->display_options['fields']['modified']['exclude'] = TRUE;
-  /* Field: Warmshowers: Full Name */
-  $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
-  $handler->display->display_options['fields']['fullname']['table'] = 'wsuser';
-  $handler->display->display_options['fields']['fullname']['field'] = 'fullname';
-  $handler->display->display_options['fields']['fullname']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['fullname']['alter']['make_link'] = TRUE;
-  $handler->display->display_options['fields']['fullname']['alter']['path'] = 'user/[uid]';
   /* Field: Order: Order total */
   $handler->display->display_options['fields']['order_total']['id'] = 'order_total';
   $handler->display->display_options['fields']['order_total']['table'] = 'uc_orders';
@@ -314,22 +414,6 @@ function order_vbo_views_views_default_views() {
   $handler->display->display_options['fields']['name']['field'] = 'name';
   $handler->display->display_options['fields']['name']['relationship'] = 'uid';
   $handler->display->display_options['fields']['name']['exclude'] = TRUE;
-  /* Field: Warmshowers: City */
-  $handler->display->display_options['fields']['city']['id'] = 'city';
-  $handler->display->display_options['fields']['city']['table'] = 'user_location';
-  $handler->display->display_options['fields']['city']['field'] = 'city';
-  $handler->display->display_options['fields']['city']['relationship'] = 'uid';
-  /* Field: Warmshowers: State or Province */
-  $handler->display->display_options['fields']['province']['id'] = 'province';
-  $handler->display->display_options['fields']['province']['table'] = 'user_location';
-  $handler->display->display_options['fields']['province']['field'] = 'province';
-  $handler->display->display_options['fields']['province']['relationship'] = 'uid';
-  $handler->display->display_options['fields']['province']['label'] = 'State';
-  /* Field: Warmshowers: Country */
-  $handler->display->display_options['fields']['country']['id'] = 'country';
-  $handler->display->display_options['fields']['country']['table'] = 'user_location';
-  $handler->display->display_options['fields']['country']['field'] = 'country';
-  $handler->display->display_options['fields']['country']['relationship'] = 'uid';
   /* Field: Order comments: Comment */
   $handler->display->display_options['fields']['message']['id'] = 'message';
   $handler->display->display_options['fields']['message']['table'] = 'uc_order_comments';
@@ -378,41 +462,30 @@ function order_vbo_views_views_default_views() {
     t('‹ previous'),
     t('next ›'),
     t('last »'),
-    t('Order user'),
     t('View result counter'),
-    t('Creation date'),
-    t('Email address'),
-    t('Modification date'),
     t('Order ID'),
+    t('Uid'),
+    t('Order Creation'),
+    t('Email address'),
+    t('Order Mod'),
     t('Status'),
     t('Total'),
     t('.'),
     t(','),
-    t('Uid'),
     t('User creation date'),
-    t('Full Name'),
-    t('Name'),
-    t('City'),
-    t('State'),
-    t('Country'),
-    t('Recurring Status'),
-    t('Next Charge'),
-    t('Product Fee ID'),
-    t('Recurring Interval'),
     t('Order Status'),
     t('Order Total'),
-    t('Recurring'),
-    t('User Created date'),
     t('Order date'),
     t('Payment method'),
-    t('Page'),
-    t('Feed'),
+    t('Order VBO Page'),
     t('Order Comments'),
     t('Donation Comments'),
     t('Donation date'),
+    t('Modification date'),
     t('Donation'),
     t('Donation ID'),
     t('Member join date'),
+    t('Name'),
     t('Comment'),
   );
   $export['order_vbo'] = $view;
