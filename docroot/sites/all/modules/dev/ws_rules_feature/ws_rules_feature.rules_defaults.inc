@@ -114,8 +114,8 @@ function ws_rules_feature_default_rules_configuration() {
       "LABEL" : "E-mail admin checkout notification (cloned)",
       "PLUGIN" : "reaction rule",
       "OWNER" : "rules",
-      "REQUIRES" : [ "rules", "uc_order", "uc_cart" ],
-      "ON" : { "uc_checkout_complete" : [] },
+      "REQUIRES" : [ "rules", "uc_order", "uc_payment" ],
+      "ON" : { "uc_payment_entered" : [] },
       "DO" : [
         { "uc_order_email_invoice" : {
             "order" : [ "order" ],
@@ -133,8 +133,11 @@ function ws_rules_feature_default_rules_configuration() {
       "LABEL" : "E-mail customer checkout notification (cloned)",
       "PLUGIN" : "reaction rule",
       "OWNER" : "rules",
-      "REQUIRES" : [ "rules", "uc_order", "uc_cart" ],
-      "ON" : { "uc_checkout_complete" : [] },
+      "REQUIRES" : [ "rules", "uc_order", "uc_payment" ],
+      "ON" : { "uc_payment_entered" : [] },
+      "IF" : [
+        { "NOT data_is" : { "data" : [ "order:payment-method" ], "value" : "free_order" } }
+      ],
       "DO" : [
         { "uc_order_email_invoice" : {
             "order" : [ "order" ],
