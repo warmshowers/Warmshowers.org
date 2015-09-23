@@ -32,7 +32,8 @@ function uc_optional_checkout_review_form_uc_cart_checkout_form_alter(&$form, &$
  * Submit handler
  */
 function uc_optional_checkout_review_uc_cart_checkout_form_submit($form, &$form_state) {
-  if (variable_get('uc_optional_checkout_review', FALSE)) {
+  // NB: we explicitely check the form_id because of #2314427 (uc_payafter)
+  if (variable_get('uc_optional_checkout_review', FALSE) && $form['#form_id'] == 'uc_cart_checkout_form') {
     $order = uc_order_load($_SESSION['cart_order']);
 
     if ($order->payment_method == 'paypal_wps') {
@@ -40,7 +41,9 @@ function uc_optional_checkout_review_uc_cart_checkout_form_submit($form, &$form_
       drupal_prepare_form('uc_paypal_wps_form', $wps_form, $form_state, $order);
       $wps_url = $wps_form['#action'] . '?';
       foreach (element_children($wps_form) as $key) {
-        $wps_url .= urlencode($key) . '=' . urlencode($wps_form[$key]['#value']) . '&';
+        if (isset($wps_form[$key]['#value'])) {
+          $wps_url .= urlencode($key) . '=' . urlencode($wps_form[$key]['#value']) . '&';
+        }
       }
       $wps_url = trim($wps_url, '&');
       drupal_goto($wps_url);
@@ -48,7 +51,27 @@ function uc_optional_checkout_review_uc_cart_checkout_form_submit($form, &$form_
     else {
       $form_state['values']['op'] = t('Submit order');
       $form_state['uc_order'] = $order;
+
+      $uc_credit_enabled = module_exists('uc_credit');
+
+      // c.f. http://drupal.org/node/1519042
+      if ($uc_credit_enabled && isset($_SESSION['sescrd'])) {
+        $_POST['sescrd'] = base64_encode($_SESSION['sescrd']);
+      }
+
       drupal_form_submit('uc_cart_checkout_review_form', $form_state);
+
+      // Ensure that if the checkout fails we don't get redirected to the
+      // review page.
+      if ($uc_credit_enabled && $form_state['redirect'] == $form_state['storage']['base_path'] . '/checkout/review') {
+        // @see uc_credit_form_uc_cart_checkout_review_form_alter().
+        // Send them back to the checkout form to put in their details again.
+        drupal_set_message(t('To protect our customers from identity theft, credit card details are erased when a browser refreshes on the checkout page.  Please enter your card details again and re-submit the form.'), 'error');
+        $_SESSION['clear_cc'] = TRUE;
+        unset($_SESSION['cc_pay']);
+        $form_state['redirect'] = $form_state['storage']['base_path'] . '/checkout';
+      }
+
       $form_state['programmed'] = FALSE;
     }
   }
