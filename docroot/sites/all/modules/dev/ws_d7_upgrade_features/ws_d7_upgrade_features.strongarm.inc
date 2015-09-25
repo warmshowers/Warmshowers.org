@@ -208,7 +208,7 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
   $strongarm->name = 'comment_trust_referral';
-  $strongarm->value = '0';
+  $strongarm->value = '1';
   $export['comment_trust_referral'] = $strongarm;
 
   $strongarm = new stdClass();

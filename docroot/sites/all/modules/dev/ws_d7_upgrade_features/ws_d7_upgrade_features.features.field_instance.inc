@@ -366,6 +366,193 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     ),
   );
 
+  // Exported field_instance: 'node-product-field_image_cache'
+  $field_instances['node-product-field_image_cache'] = array(
+    'bundle' => 'product',
+    'default_value' => '',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'image',
+        'settings' => array(
+          'image_link' => '',
+          'image_style' => '',
+        ),
+        'type' => 'image',
+        'weight' => 32,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -1,
+      ),
+      'rss' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -1,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => -1,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_image_cache',
+    'label' => 'Image',
+    'required' => 0,
+    'settings' => array(
+      'alt_field' => 1,
+      'default_image' => 0,
+      'file_directory' => '',
+      'file_extensions' => 'gif jpg png',
+      'max_filesize' => 0,
+      'max_resolution' => 0,
+      'min_resolution' => 0,
+      'title_field' => 1,
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -1,
+    'widget' => array(
+      'active' => 0,
+      'module' => 'image',
+      'settings' => array(
+        'preview_image_style' => 'thumbnail',
+        'progress_indicator' => NULL,
+        'use_default_image' => NULL,
+      ),
+      'type' => 'image_image',
+      'weight' => -1,
+    ),
+    'widget_type' => 'imagefield_widget',
+  );
+
+  // Exported field_instance: 'node-product-field_product_weight'
+  $field_instances['node-product-field_product_weight'] = array(
+    'bundle' => 'product',
+    'default_value' => array(
+      0 => array(
+        'value' => '',
+        '_error_element' => 'default_value_widget][field_product_weight][0][value',
+      ),
+    ),
+    'deleted' => 0,
+    'description' => 'Used to change presentation order in views.',
+    'display' => array(
+      'default' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+      'full' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+      'rss' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+      'search_index' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+      'search_result' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+      'teaser' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+      'token' => array(
+        'label' => 'above',
+        'module' => 'number',
+        'settings' => array(
+          'decimal_separator' => '.',
+          'prefix_suffix' => TRUE,
+          'scale' => 0,
+          'thousand_separator' => '',
+        ),
+        'type' => 'number_integer',
+        'weight' => -3,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'field_product_weight',
+    'label' => 'Weight',
+    'required' => 0,
+    'settings' => array(
+      'max' => '',
+      'min' => '',
+      'prefix' => '',
+      'suffix' => '',
+      'user_register_form' => FALSE,
+    ),
+    'weight' => -3,
+    'widget' => array(
+      'active' => 0,
+      'module' => 'number',
+      'settings' => array(
+        'default_value_php' => NULL,
+      ),
+      'type' => 'number',
+      'weight' => -3,
+    ),
+    'widget_type' => 'number',
+  );
+
   // Exported field_instance: 'node-product-uc_product_image'
   $field_instances['node-product-uc_product_image'] = array(
     'bundle' => 'product',
@@ -421,6 +608,62 @@ function ws_d7_upgrade_features_field_default_field_instances() {
       ),
       'type' => 'image_image',
       'weight' => 31,
+    ),
+  );
+
+  // Exported field_instance: 'node-product-upload'
+  $field_instances['node-product-upload'] = array(
+    'bundle' => 'product',
+    'deleted' => 0,
+    'description' => '',
+    'display' => array(
+      'default' => array(
+        'label' => 'hidden',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'rss' => array(
+        'label' => 'hidden',
+        'module' => 'file',
+        'settings' => array(),
+        'type' => 'file_table',
+        'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'module' => NULL,
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 0,
+      ),
+    ),
+    'entity_type' => 'node',
+    'field_name' => 'upload',
+    'label' => 'File attachments',
+    'required' => 0,
+    'settings' => array(
+      'description_field' => 1,
+      'file_directory' => '',
+      'file_extensions' => 'jpg jpeg gif png txt doc docx xls xlsx pdf ppt pps odt ods odp psd kml kmz gpx',
+      'max_filesize' => '15 MB',
+      'user_register_form' => FALSE,
+    ),
+    'widget' => array(
+      'module' => 'file',
+      'settings' => array(
+        'progress_indicator' => 'throbber',
+      ),
+      'type' => 'file_generic',
+      'weight' => 1,
     ),
   );
 
@@ -555,7 +798,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     ),
     'entity_type' => 'node',
     'field_name' => 'field_contest_photo',
-    'label' => 'Optional Photos',
+    'label' => 'Photo',
     'required' => 0,
     'settings' => array(
       'alt_field' => 0,
@@ -563,8 +806,8 @@ function ws_d7_upgrade_features_field_default_field_instances() {
       'file_directory' => 'recommendation_photo/[uid]',
       'file_extensions' => 'jpg jpeg',
       'max_filesize' => '15M',
-      'max_resolution' => 0,
-      'min_resolution' => 0,
+      'max_resolution' => '',
+      'min_resolution' => '',
       'title_field' => 0,
       'user_register_form' => FALSE,
     ),
@@ -575,7 +818,6 @@ function ws_d7_upgrade_features_field_default_field_instances() {
       'settings' => array(
         'preview_image_style' => 'thumbnail',
         'progress_indicator' => 'bar',
-        'use_default_image' => 0,
       ),
       'type' => 'image_image',
       'weight' => 1,
@@ -978,6 +1220,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
   t('Cart button label');
   t('Date We Met');
   t('Feedback is for');
+  t('File attachments');
   t('Image');
   t('Intended to be deployed as a block');
   t('Member');
@@ -985,9 +1228,12 @@ function ws_d7_upgrade_features_field_default_field_instances() {
   t('Optional Photos');
   t('Optional Picture');
   t('Overall Experience');
+  t('Photo');
   t('Please tell about your experience with this member');
   t('Specify the label for the add-to-cart button.');
   t('This is a way for one member to leave feedback for another.  If you\'ve stayed with someone as host, or hosted someone who\'s a good guest, please put a reference for them here. It will show up on their member page.  And your story will be visible in the "all references area" too. ');
+  t('Used to change presentation order in views.');
+  t('Weight');
   t('You can add as many photos of your host or guest as you like.');
 
   return $field_instances;
