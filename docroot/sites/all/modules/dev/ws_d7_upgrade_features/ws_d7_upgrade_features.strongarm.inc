@@ -365,6 +365,15 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'jammer_revision_log_textarea_unset_node_types';
+  $strongarm->value = array(
+    'trust_referral' => 'trust_referral',
+  );
+  $export['jammer_revision_log_textarea_unset_node_types'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'language_content_type_block';
   $strongarm->value = '2';
   $export['language_content_type_block'] = $strongarm;
