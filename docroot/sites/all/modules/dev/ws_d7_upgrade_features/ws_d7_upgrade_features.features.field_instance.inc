@@ -1160,57 +1160,6 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     ),
   );
 
-  // Exported field_instance:
-  // 'privatemsg_message-privatemsg_message-field_pm_image'
-  $field_instances['privatemsg_message-privatemsg_message-field_pm_image'] = array(
-    'bundle' => 'privatemsg_message',
-    'deleted' => 0,
-    'description' => '',
-    'display' => array(
-      'default' => array(
-        'label' => 'hidden',
-        'module' => 'colorbox',
-        'settings' => array(
-          'colorbox_caption' => 'auto',
-          'colorbox_caption_custom' => '',
-          'colorbox_gallery' => 'none',
-          'colorbox_gallery_custom' => '',
-          'colorbox_image_style' => '',
-          'colorbox_multivalue_index' => NULL,
-          'colorbox_node_style' => 'medium',
-          'colorbox_node_style_first' => '',
-        ),
-        'type' => 'colorbox',
-        'weight' => 0,
-      ),
-    ),
-    'entity_type' => 'privatemsg_message',
-    'field_name' => 'field_pm_image',
-    'label' => 'Optional Picture',
-    'required' => 0,
-    'settings' => array(
-      'alt_field' => 0,
-      'default_image' => 0,
-      'file_directory' => 'pm_image',
-      'file_extensions' => 'png gif jpg jpeg',
-      'max_filesize' => '',
-      'max_resolution' => '1024x1024',
-      'min_resolution' => '',
-      'title_field' => 0,
-      'user_register_form' => FALSE,
-    ),
-    'widget' => array(
-      'active' => 1,
-      'module' => 'image',
-      'settings' => array(
-        'preview_image_style' => 'thumbnail',
-        'progress_indicator' => 'throbber',
-      ),
-      'type' => 'image_image',
-      'weight' => 0,
-    ),
-  );
-
   // Translatables
   // Included for use with string extractors like potx.
   t('Add photos for content');
@@ -1226,7 +1175,6 @@ function ws_d7_upgrade_features_field_default_field_instances() {
   t('Member');
   t('Optional File Attachment');
   t('Optional Photos');
-  t('Optional Picture');
   t('Overall Experience');
   t('Photo');
   t('Please tell about your experience with this member');

@@ -27,12 +27,6 @@ function ws_d7_upgrade_features_default_fe_block_settings() {
         'theme' => 'warmshowers_zen',
         'weight' => 0,
       ),
-      'zen' => array(
-        'region' => '',
-        'status' => 0,
-        'theme' => 'zen',
-        'weight' => 0,
-      ),
     ),
     'title' => '<none>',
     'visibility' => 0,
