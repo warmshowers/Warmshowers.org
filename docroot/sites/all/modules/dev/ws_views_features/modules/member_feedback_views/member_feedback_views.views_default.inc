@@ -279,6 +279,14 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['pager']['type'] = 'none';
   $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['defaults']['header'] = FALSE;
+  $handler->display->display_options['defaults']['empty'] = FALSE;
+  /* No results behavior: Global: Text area */
+  $handler->display->display_options['empty']['text']['id'] = 'text';
+  $handler->display->display_options['empty']['text']['table'] = 'views';
+  $handler->display->display_options['empty']['text']['field'] = 'area';
+  $handler->display->display_options['empty']['text']['empty'] = TRUE;
+  $handler->display->display_options['empty']['text']['content'] = 'This member has not yet given any feedback.';
+  $handler->display->display_options['empty']['text']['format'] = '1';
   $handler->display->display_options['defaults']['fields'] = FALSE;
   /* Field: User: Uid */
   $handler->display->display_options['fields']['uid']['id'] = 'uid';
@@ -449,6 +457,7 @@ function member_feedback_views_views_default_views() {
 '),
     t('Feedback given'),
     t('Feedback given by user.'),
+    t('This member has not yet given any feedback.'),
     t('User feedback'),
     t('Most recent feedback for a user.'),
     t('To leave feedback for a member..........'),
