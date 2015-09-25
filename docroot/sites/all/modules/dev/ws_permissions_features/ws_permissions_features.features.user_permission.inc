@@ -1942,9 +1942,10 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['show format tips'] = array(
     'name' => 'show format tips',
     'roles' => array(
+      'Translator' => 'Translator',
       'administrator' => 'administrator',
-      'anonymous user' => 'anonymous user',
-      'authenticated user' => 'authenticated user',
+      'editor' => 'editor',
+      'registrar' => 'registrar',
     ),
     'module' => 'better_formats',
   );
@@ -1953,9 +1954,10 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['show more format tips link'] = array(
     'name' => 'show more format tips link',
     'roles' => array(
+      'Translator' => 'Translator',
       'administrator' => 'administrator',
-      'anonymous user' => 'anonymous user',
-      'authenticated user' => 'authenticated user',
+      'editor' => 'editor',
+      'registrar' => 'registrar',
     ),
     'module' => 'better_formats',
   );
