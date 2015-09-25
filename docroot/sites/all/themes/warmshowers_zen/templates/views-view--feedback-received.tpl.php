@@ -38,7 +38,7 @@
     <div class="view-header">
       <?php print $header; ?>
       <h3 id="feedback_received"><?php print t("Feedback received by @fullname", array('@fullname' => $account->fullname)); ?></h3>
-      <a href="#feedback_given"><?php print t("View feedback @fullname has given", array('@fullname' => $account->fullname)); ?></a>
+      <a href="#feedback_given" class="feedback_given_link"><?php print t("View feedback @fullname has given", array('@fullname' => $account->fullname)); ?></a>
     </div>
   <?php endif; ?>
 
