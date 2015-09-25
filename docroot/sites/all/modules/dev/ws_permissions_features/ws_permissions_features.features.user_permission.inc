@@ -284,7 +284,6 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['administer comment notify'] = array(
     'name' => 'administer comment notify',
     'roles' => array(
-      'Translator' => 'Translator',
       'administrator' => 'administrator',
     ),
     'module' => 'comment_notify',
@@ -768,6 +767,15 @@ function ws_permissions_features_user_default_permissions() {
     'name' => 'bypass rules access',
     'roles' => array(),
     'module' => 'rules',
+  );
+
+  // Exported permission: 'cancel account'.
+  $permissions['cancel account'] = array(
+    'name' => 'cancel account',
+    'roles' => array(
+      'authenticated user' => 'authenticated user',
+    ),
+    'module' => 'user',
   );
 
   // Exported permission: 'change own username'.
@@ -1780,7 +1788,6 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['read privatemsg'] = array(
     'name' => 'read privatemsg',
     'roles' => array(
-      'Translator' => 'Translator',
       'administrator' => 'administrator',
       'authenticated user' => 'authenticated user',
     ),
@@ -1798,7 +1805,6 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['reply only privatemsg'] = array(
     'name' => 'reply only privatemsg',
     'roles' => array(
-      'Translator' => 'Translator',
       'administrator' => 'administrator',
       'authenticated user' => 'authenticated user',
     ),
@@ -2016,6 +2022,7 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['translate content'] = array(
     'name' => 'translate content',
     'roles' => array(
+      'Translator' => 'Translator',
       'administrator' => 'administrator',
     ),
     'module' => 'translation',
@@ -2332,7 +2339,6 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['write privatemsg'] = array(
     'name' => 'write privatemsg',
     'roles' => array(
-      'Translator' => 'Translator',
       'administrator' => 'administrator',
       'authenticated user' => 'authenticated user',
     ),
