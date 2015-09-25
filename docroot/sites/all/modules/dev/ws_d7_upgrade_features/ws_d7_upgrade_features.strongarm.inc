@@ -367,7 +367,9 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm->api_version = 1;
   $strongarm->name = 'jammer_revision_log_textarea_unset_node_types';
   $strongarm->value = array(
+    'contest_photo' => 'contest_photo',
     'trust_referral' => 'trust_referral',
+    'forum' => 'forum',
   );
   $export['jammer_revision_log_textarea_unset_node_types'] = $strongarm;
 
