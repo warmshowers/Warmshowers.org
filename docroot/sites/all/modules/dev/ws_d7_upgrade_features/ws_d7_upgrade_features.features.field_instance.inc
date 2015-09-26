@@ -679,7 +679,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'module' => 'text',
         'settings' => array(),
         'type' => 'text_default',
-        'weight' => -10,
+        'weight' => 4,
       ),
       'highlight' => array(
         'label' => 'hidden',
@@ -728,10 +728,20 @@ function ws_d7_upgrade_features_field_default_field_instances() {
     'description' => 'You can add as many photos of your host or guest as you like.',
     'display' => array(
       'default' => array(
-        'label' => 'inline',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => -5,
+        'label' => 'hidden',
+        'module' => 'colorbox',
+        'settings' => array(
+          'colorbox_caption' => 'auto',
+          'colorbox_caption_custom' => '',
+          'colorbox_gallery' => 'post',
+          'colorbox_gallery_custom' => '',
+          'colorbox_image_style' => '',
+          'colorbox_multivalue_index' => NULL,
+          'colorbox_node_style' => 'medium',
+          'colorbox_node_style_first' => '',
+        ),
+        'type' => 'colorbox',
+        'weight' => 7,
       ),
       'full' => array(
         'label' => 'hidden',
@@ -841,7 +851,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => -2,
+        'weight' => 5,
       ),
       'full' => array(
         'label' => 'inline',
@@ -902,7 +912,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
           'show_remaining_days' => FALSE,
         ),
         'type' => 'date_default',
-        'weight' => -1,
+        'weight' => 6,
       ),
       'full' => array(
         'label' => 'inline',
@@ -987,7 +997,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'module' => 'user_reference',
         'settings' => array(),
         'type' => 'user_reference_default',
-        'weight' => -2,
+        'weight' => 2,
       ),
       'full' => array(
         'label' => 'inline',
@@ -1051,7 +1061,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'module' => 'list',
         'settings' => array(),
         'type' => 'list_default',
-        'weight' => 0,
+        'weight' => 3,
       ),
       'full' => array(
         'label' => 'inline',
