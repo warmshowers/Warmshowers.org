@@ -1,5 +1,5 @@
 #language:en
-Feature: Homepage for unauthenticated userss
+Feature: Homepage for unauthenticated users
   In order to learn more about Warmshowers
   As an unauthenticated user
   I can use content and navigation on the Warmshowers Homepage
