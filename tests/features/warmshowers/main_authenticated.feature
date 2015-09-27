@@ -1,12 +1,12 @@
 #language:en
-Feature: Authenticated homepage
+Feature: Homepage for authenticated users
   In order to access Warmshowers features
   As an authenticated user
   I can use content and navigation on the Warmshowers Homepage
 
 Background:
   Given I am on the "Home" page
-  And I am an authenticated user
+  And I am an "authenticated" user
 
 @nav
 Scenario: View profile dashboard button
