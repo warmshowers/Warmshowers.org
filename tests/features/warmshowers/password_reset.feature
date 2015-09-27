@@ -1,62 +1,67 @@
 #language:en
-Feature:I can log in to Warmshowers
-  In order to access member-only content
-  As an authenticated user 
-  I can log in to Warmshowers
+Feature: Resetting a password
 
 Background:
-  Given I am an authenticated user and not logged in. 
+  Given I am an authenticated user
+  And I am not logged in
 
 @smoke
-Scenario: I can request a new password
-  And I am on the User Account page
-  And the Request New Password tab
-  When I enter my Warmshowers username or email address in the Username or E-mail Address field
-  And I click the Email New Password button
-  Then I see the User Account/Log In page
-  And a modal with "Further instructions have been sent to your e-mail address."
-  And I will receive an email with a password token.
+Scenario: Request new password
+  And I am on the "Password reset" page
+  When I enter my "email address" in the "Username or E-mail Address" field
+  And I click the "Email New Password" button
+  Then I see the "Log In" page
+  And I see a modal with "Further instructions have been sent to your e-mail address."
+  And I receive an email with a password token
 
 @smoke
-Scenario: I can use a password token to rest my Warmshowers password
-  And I have received an email with a password token
-  When I click on the link in my email
+Scenario: Reset password
+  And I have received an email with a "password token"
+  When I click on the "password reset" link in the email
   And I see the page with:
   """
   Reset password
   This is a one-time login for [user] and will expire on [date].
   """
-  And I click the Log In button
+  And I click the "Log In" button
   Then I will be logged in
-  And I will see the Edit Profile page
+  And I will see the my "Profile" page
   And a modal with:
   """
   You have just used your one-time login link. It is no longer necessary to use this link to login. Please change your password.
   """
-  And I can change my password.
+
+# Message wording needs checking please
+@smoke
+Scenario: Change password
+  And I have clicked the "One-time login" button
+  When I enter a new password in the "password" field
+  And I click the "Save" button
+  Then I see a modal with:
+  """
+  Your new password has been saved."
+  """
 
 @nav
-Scenario: I can find out how to whitelist Warmshowers in my email settings by using the link on the Request Password page
-  And I am on the User Account page
-  And the Request New Password tab
-  When I click on the Details on How to Do it are Here link
-  Then I will see the Spam Filters page with directions.
+Scenario: Navigate to email whitelist help page
+  And I am on the "Password reset" page
+  When I click on the "Details on How to Do it are Here" link
+  Then I will see the "Spam Filters" page with directions.
 
 @nav
-Scenario: I can access the Request Password page using the link in the failed login modal
-  And I have entered an incorrect username or password on the Log In page
-  When I click the Have you Forgotten your Password? link
-  Then I see the User Account page
-  And the Request New Password tab.
+Scenario: Navigate to Password reset page following failed login
+  And I am on the "User login" page
+  And I enter an incorrect username in the "Username or Email Address" field
+  And I click the "Log In" button
+  When I click the "Have you Forgotten your Password?" link
+  Then I see the "Password reset" page
   
-#Validation/Fail Scenarios
-Scenario: I can NOT request a password using an invalid username or email address
-  And I am on the User Account page
-  And the Request New Password tab
-  When I enter an invalid username or e-mail address
-  And I click the Email New Password button
-  Then I see the Request Password page with username field highlighted
-  And a modal with:
+@smoke @fail
+Scenario: Request password with invalid email address
+  And I am on the "Password reset" page
+  When I enter an invalid "email address" in the "Username or E-mail Address" field
+  And I click the "Email New Password" button
+  Then I see a modal with:
   """
   Sorry, [incorrect username/e-mail address] is not recognized as a user name or an e-mail address.
   """

@@ -1,44 +1,40 @@
 #language:en
-
-Feature: I can access Warmshowers in supported languages
+Feature: Language negotiation
   In order to access Warmshowers content in my language
-  As an authenticated or unauthenticated user
-  I can access Warmshowers content in my language
+  As a user
+  I can access content in my language
 
-Scenario: I can choose a language to see the site
-  Given I am on any Warmshowers page
-  When I select a language from the dropdown menu in the header
-  Then I see the site text translated into my chosen language
+Background:
+  Given I am on the "English" language site
 
-Scenario: I can let other Warmshowers users know what languages I speak
-  Given I am on the Create New Account or Edit Account page
-  When I enter language(s) in the Languages Spoken field
-  And I complete required fields
-  And I submit the form
-  Then my languages will be visible in the green summary area of my profile page.
+@smoke
+Scenario: Change language to French
+  And I am on the "Contact" page
+  When I select "French" from the language dropdown menu in the header
+  Then I see the "page title" changed to "Contactez-nous"
 
-@mail
-Scenario: I can select a language in which to receive Warmshowers emails
-  Given I am on the Create New Account or Edit Account page
-  When I select or change a language from the Language dropdown menu
-  And I complete required fields
-  And I submit the form
-  Then email communication from Warmshowers will be written in my chosen language.
+@smoke
+Scenario: Change language to Spanish
+  And I am on the "Home" page
+  When I select "Spanish" from the language dropdown menu in the header
+  Then I see the "page title" changed to "Contacto"
 
-#Currently doesn't actually require button click- not sure if the button should just be removed, or if this is an unexpected behavior?
-Scenario: I can translate my About Message to my chosen language
-  Given I am viewing a profile page (my own or another user's)
-  When I select a language from the dropdown menu
-  And I click the adjacent Translate To button
-  Then I see the user's About message translated below
+@smoke
+Scenario: Choose language for Warmshowers emails
+  And I have set "English" as my "main language"
+  And I am an "authenticated" user
+  And I am on the "Profile edit" page
+  When I select "French (Francais)" from the Language dropdown menu
+  And I click the "Save" button
+  Then I see a modal with "The changes have been saved."
 
-#I was not able to figure out what this selector does - possibly non-latin character selector? Or something that is not visible to the user. Leaving incomplete for now.
+@mail @smoke
+Scenario: Receive Warmshowers emails in choosen language
+  And I have set "French" as my "main language"
+  When I receive a "Warmshowers notification email" in my inbox
+  Then I see it written in "French"
 
-#Scenario: I can indicate the language of my forum post
-#  Given I am an authenticated user
-#  And I am in the Forums area
-#  And the Create Forum Topic area
-#  And I have completed required fields
-#  When I select a language from the dropdown menu
-#  And I click Submit
-#  Then
+Scenario: Translate profile page
+  And I am on the another user's "Profile" page
+  When I select a "Francais" from the language dropdown menu
+  Then I see the user's About message translated into French
