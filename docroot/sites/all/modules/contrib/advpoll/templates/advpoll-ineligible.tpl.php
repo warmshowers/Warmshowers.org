@@ -23,12 +23,10 @@
  *   max_choices:     (int) How many choices a user can select per vote.
  *   show_results:    When to display results - aftervote, afterclose or never.
  *   electoral:       Boolean - voting restricted to users in an electoral list.
- *   show_votes:      Boolean - allow user with appropriate permission to view 
- *                    voting node page.
  *   write_in:        Boolean - all write-in voting.
  *   block:           Boolean - Poll can be displayed as a block.
  */
 ?>
 <div class="poll">
-    <div class="ineligible"><p><?php print t('You are not eligible to vote in this poll.'); ?>
+    <div class="ineligible"><p><?php print t('You are not eligible to vote in this poll.'); ?></p></div>
 </div>

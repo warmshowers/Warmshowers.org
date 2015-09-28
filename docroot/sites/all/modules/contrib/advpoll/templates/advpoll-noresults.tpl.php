@@ -35,8 +35,6 @@
  *   max_choices:     (int) How many choices a user can select per vote.
  *   show_results:    When to display results - aftervote, afterclose or never.
  *   electoral:       Boolean - voting restricted to users in an electoral list.
- *   show_votes:      Boolean - allow user with appropriate permission to view 
- *                    voting node page.
  *   write_in:        Boolean - all write-in voting.
  *   block:           Boolean - Poll can be displayed as a block.
  */
@@ -48,7 +46,7 @@
     <?php endif; ?>
     
     <?php if ($data->show_results == 'afterclose'): ?>
-        <?php $date = date('F j, Y g:ia', $data->end_date); ?>
+        <?php $date = format_date($data->end_date, 'long'); ?>
         <p><?php print t('The results of this poll will be available after @date.', array('@date' => $date)); ?></p>
     <?php endif; ?>
 

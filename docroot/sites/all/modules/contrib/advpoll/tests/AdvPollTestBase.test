@@ -1,0 +1,158 @@
+<?php
+
+/**
+ * @file Advanced Poll Test Base.
+ */
+
+abstract class AdvPollTestBase extends DrupalWebTestCase {
+
+  /**
+   * @var
+   */
+  var $admin;
+
+  /**
+   * @var
+   */
+var $poll_admin;
+
+  /**
+   * @var
+   */
+  var $voter_a;
+
+  /**
+   * @var
+   */
+  var $voter_b;
+
+  /**
+   * Setup the testing environment.
+   */
+  public function setUp() {
+    // Enable required modules.
+    parent::setUp('field', 'field_sql_storage', 'number',
+                  'options', 'list',
+                  'votingapi',
+                  'date_api', 'date', 'date_popup',
+                  'advpoll_field', 'advpoll');
+
+    // Create some users.
+    $this->createUsers();
+  }
+
+  /**
+   * Create users.
+   */
+  protected function createUsers() {
+    $this->admin = $this->drupalCreateUser(array(
+      'administer polls',
+      'inspect all votes',
+    ));
+
+    $this->poll_admin = $this->drupalCreateUser(array(
+      'show vote results',
+      'access electoral list',
+      'add write-ins',
+      'show write-ins',
+    ));
+
+    $this->voter_a = $this->drupalCreateUser(array(
+      'vote on polls',
+      'cancel own vote',
+    ));
+
+    $this->voter_b = $this->drupalCreateUser(array(
+      'vote on polls',
+      'cancel own vote',
+    ));
+  }
+
+  /**
+   * Generate a advpoll node.
+   *
+   * @param int $total_choices
+   *  Optional. The total number of choices in the poll.
+   * @param int $max_choices
+   *  Optional. The maximum number of choices a user may select.
+   * @param string $results
+   *  Optional. If and when to display poll results.
+   *    - 'aftervote': Display the results after the user votes.
+   *    - 'afterclose': Display results only after closing the poll.
+   *    - 'never': Never display the results to users.
+   * @param string $status
+   *  Optional. The status of the poll. Must be one of the following:
+   *    - 'open': The poll is open and accepting votes.
+   *    - 'closed': The poll is closed and not accepting votes.
+   *
+   * @returns
+   *  The poll node.
+   */
+  protected function createPoll($total_choices = 5,
+                                $max_choices = 1,
+                                $results = 'aftervote',
+                                $status = 'open') {
+    // Generate some poll choices.
+    $options = array();
+    for ($i = 0; $i < $total_choices; $i++) {
+      $options[] = $this->randomName();
+    }
+
+    $poll_node = new StdClass();
+
+    // Information for base node
+    $poll_node->type = 'advpoll';
+    $poll_node->uid = $this->admin->uid;
+    $poll_node->status = 1;
+    $poll_node->is_new = TRUE;
+    $poll_node->promote = 1;
+    $poll_node->sticky = 0;
+    $poll_node->title = $this->randomName(16);
+    $poll_node->comment = 0;
+    $poll_node->active = 1;
+    $poll_node->language = LANGUAGE_NONE;
+
+    // Loop through the options and create them
+    foreach ($options as $option) {
+      $poll_node->advpoll_choice[LANGUAGE_NONE][] = array(
+        // Random id (uses the same method as the module) - advpoll_node_presave ensure it's unique
+        'choice_id' => dechex(time() * rand(5, 50)),
+        'choice' => $option,
+        'write_in' => 0,
+      );
+    }
+
+    // Set some additional poll options.
+    $poll_node->advpoll_max_choices[LANGUAGE_NONE][0]['value'] = $max_choices;
+    $poll_node->advpoll_closed[LANGUAGE_NONE][0]['value'] = $status;
+    $poll_node->advpoll_results[LANGUAGE_NONE][0]['value'] = $results;
+
+    // Save the new poll.
+    node_save($poll_node);
+
+    // Return the node.
+    return $poll_node;
+  }
+
+  /**
+   * Close the poll with the given node id.
+   *
+   * @param int $poll_id
+   *  The node ID of the poll to close.
+   */
+  protected function closePoll($poll_id){
+    // Load the poll node.
+    $node = node_load($poll_id);
+
+    // Return FALSE if node wasn't loaded or we loaded the wrong type.
+    if (empty($node) || $node->type != 'advpoll') {
+      return FALSE;
+    }
+
+    // Close the poll.
+    $node->advpoll_closed[LANGUAGE_NONE][0]['value'] = 'closed';
+
+    // Save the node.
+    return node_save($node);
+  }
+}

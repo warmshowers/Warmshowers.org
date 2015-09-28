@@ -3,11 +3,13 @@
 /**
  * @file
  * Install file for Advanced Poll
- * Much thanks to the example modules. MW
- * 
- * */
+ */
+
+/**
+ * Implements hook_schema().
+ */
 function advpoll_schema() {
-  // Install electoral list table
+  // Install electoral list table.
   $schema['advpoll_electoral_list'] = array(
     'fields' => array(
       'nid' => array(
@@ -29,9 +31,12 @@ function advpoll_schema() {
   return $schema;
 }
 
+/**
+ * Implements hook_install().
+ */
 function advpoll_install() {
 
-// fetch the t function for use in install
+// Fetch the t function for use in install
   $t = get_t();
 
   // We define the node type as an associative array.
@@ -103,8 +108,10 @@ function advpoll_uninstall() {
 
 
   if ($nid) {
-
-    db_delete('votingapi_vote')->condition('entity_id', $nid, 'IN')->execute();
+    db_delete('votingapi_vote')
+        ->condition('entity_id', $nid, 'IN')
+        ->condition('entity_type', 'node')
+        ->execute();
 
     // Delete all the nodes at once
     // http://api.drupal.org/api/function/node_delete_multiple/7
@@ -132,6 +139,11 @@ function advpoll_uninstall() {
   // Purge all field infromation
   // http://api.drupal.org/api/function/field_purge_batch/7
   field_purge_batch(1000);
+
+  // Delete precision and rounding method variables.
+  variable_del('advpoll_percentage_precision');
+  variable_del('percentage_rounding_method');
+
 }
 
 /**
@@ -158,9 +170,7 @@ function _advpoll_installed_fields() {
       'field_name' => 'advpoll_choice',
       'foreign keys' => array(),
       'indexes' => array(
-        'choice' => array(
-          0 => 'choice',
-        ),
+        'choice' => array(),
       ),
       'module' => 'advpoll_field',
       'settings' => array(),
@@ -190,9 +200,7 @@ function _advpoll_installed_fields() {
       'field_name' => 'advpoll_behavior',
       'foreign keys' => array(),
       'indexes' => array(
-        'value' => array(
-          0 => 'value',
-        ),
+        'value' => array('value'),
       ),
       'module' => 'list',
       'settings' => array(
@@ -214,9 +222,7 @@ function _advpoll_installed_fields() {
       'field_name' => 'advpoll_closed',
       'foreign keys' => array(),
       'indexes' => array(
-        'value' => array(
-          0 => 'value',
-        ),
+        'value' => array('value'),
       ),
       'module' => 'list',
       'settings' => array(
@@ -280,9 +286,7 @@ function _advpoll_installed_fields() {
       'field_name' => 'advpoll_mode',
       'foreign keys' => array(),
       'indexes' => array(
-        'value' => array(
-          0 => 'value',
-        ),
+        'value' => array('value'),
       ),
       'module' => 'list',
       'settings' => array(
@@ -305,16 +309,13 @@ function _advpoll_installed_fields() {
       'field_name' => 'advpoll_options',
       'foreign keys' => array(),
       'indexes' => array(
-        'value' => array(
-          0 => 'value',
-        ),
+        'value' => array('value'),
       ),
       'module' => 'list',
       'settings' => array(
         'allowed_values' => array(
           'writein' => $t('Allow users to cast write-in votes'),
           'electoral' => $t('Restrict voting to electoral list'),
-          'showvotes' => $t('Show individual votes'),
           'block' => $t('Generate a block for this poll'),
         ),
         'allowed_values_function' => '',
@@ -331,16 +332,14 @@ function _advpoll_installed_fields() {
       'field_name' => 'advpoll_results',
       'foreign keys' => array(),
       'indexes' => array(
-        'value' => array(
-          0 => 'value',
-        ),
+        'value' => array('value'),
       ),
       'module' => 'list',
       'settings' => array(
         'allowed_values' => array(
           'aftervote' => $t('After voting'),
           'afterclose' => $t('After poll is closed'),
-          'never' => 'Never',
+          'never' => $t('Never'),
         ),
         'allowed_values_function' => '',
       ),
@@ -802,4 +801,56 @@ function _advpoll_installed_instances() {
       ),
     ),
   );
+}
+
+/**
+ * Removes Show votes option.
+ */
+function advpoll_update_7000() {
+  db_delete('field_data_advpoll_options')
+      ->condition('advpoll_options_value', 'showvotes')
+      ->execute();
+  // fetch the t function for use in install
+  $t = get_t();
+
+  // Remove options that are no longer valid from initial build and replace
+  // only with valid options.
+  $field = array(
+    'field_name' => 'advpoll_options',
+    'settings' => array(
+      'allowed_values' => array(
+        'writein' => $t('Allow users to cast write-in votes'),
+        'electoral' => $t('Restrict voting to electoral list'),
+        'block' => $t('Generate a block for this poll'),
+      ),
+      'allowed_values_function' => '',
+    ),
+  );
+  field_update_field($field);
+}
+
+/**
+ * Change entity type of cast votes to node.
+ */
+function advpoll_update_7002() {
+  db_update('votingapi_vote')
+      ->fields(array(
+        'entity_type' => 'node'
+      ))
+      ->condition('entity_type', 'advpoll', '=')
+      ->execute();
+}
+
+/**
+ * Changed menu paths need a menu rebuild.
+ */
+function advpoll_update_7004() {
+  menu_rebuild();
+}
+
+/**
+ * Changed menu paths need a menu rebuild.
+ */
+function advpoll_update_7006() {
+  menu_rebuild();
 }

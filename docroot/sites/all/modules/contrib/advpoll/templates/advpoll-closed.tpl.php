@@ -22,16 +22,14 @@
  *   max_choices:     (int) How many choices a user can select per vote.
  *   show_results:    When to display results - aftervote, afterclose or never.
  *   electoral:       Boolean - voting restricted to users in an electoral list.
- *   show_votes:      Boolean - allow user with appropriate permission to view 
- *                    voting node page.
  *   write_in:        Boolean - all write-in voting.
  *   block:           Boolean - Poll can be displayed as a block.
  */
 ?>
 <div class="poll">
     <div class="poll-closed">
-    <?php if ($data->start_date > time()): ?>
-        <?php $date = date('F j, Y g:ia', $data->start_date); ?>
+    <?php if ($data->start_date && $data->start_date > time()): ?>
+        <?php $date = format_date($data->start_date, 'long'); ?>
        <p><?php print t('This poll will open on @date.', array('@date' => $date)); ?></p>
     <?php else: ?>
        <p><?php print t('Thank you for participating.  The poll is now closed.'); ?></p>

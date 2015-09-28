@@ -3,7 +3,10 @@
 /**
  * @file
  * Default template for wrapping bar results - includes count of votes.
- *
+ * Note: Users with permission to inspect all votes are assumed to be able to
+ * see write-ins as part of the inspection.
+ * 
+ * 
  * Variables available:
  * - $total: Total number of votes.
  * - $rows: An ordered array with the results of each candidate/choice.
@@ -17,12 +20,19 @@
 <div class="run-off-poll" id="advpoll-<?php print $nid; ?>">
     <ol>
         <?php for($i = 0; $i < count($rows); $i++): ?>
-        <li><?php print $rows[$i]['choice']; ?>
-        <?php if ($i == 0): ?>
-            (<?php print $percentage; ?>%)
-        <?php endif; ?>
-        </li>
-        
+          <?php if (($rows[$i]['write_in'] && _advpoll_show_writeins_access()) || !$rows[$i]['write_in']): ?>
+            <li><?php 
+                  $title = $rows[$i]['choice']; 
+                  if ($rows[$i]['write_in']) {
+                    $title .= ' '.t('(Write-in)');
+                  }
+                  print $title;
+                 ?>
+            <?php if ($i == 0): ?>
+                (<?php print $percentage; ?>%)
+            <?php endif; ?>
+            </li>
+          <?php endif; ?>
         <?php endfor; ?>
     </ol>
     <?php if (user_access('inspect all votes')): ?>
@@ -33,7 +43,12 @@
         <?php for($i = 0; $i < count($rows); $i++): ?>
             <?php $i%2 ? $stripe = 'even': $stripe = 'odd'; ?>
         <tr class="<?php print $stripe; ?>">
-            <td><?php print $rows[$i]['choice']; ?></td>
+            <td><?php 
+                  $title = $rows[$i]['choice']; 
+                  if ($rows[$i]['write_in']) {
+                    $title .= ' '.t('(Write-in)');
+                  }
+                  print $title; ?></td>
             <td><?php print $rows[$i]['votes']; ?></td>
         </tr>
         <?php endfor; ?>
