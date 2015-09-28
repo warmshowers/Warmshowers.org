@@ -79,13 +79,16 @@ function privatemsg_list_js($form, $form_state) {
 }
 
 function privatemsg_delete($form, $form_state, $thread, $message) {
+
+  $url_prefix = privatemsg_get_dynamic_url_prefix();
+
   $form['pmid'] = array(
     '#type' => 'value',
     '#value' => $message->mid,
   );
   $form['delete_destination'] = array(
     '#type' => 'value',
-    '#value' => count($thread['messages']) > 1 ? 'messages/view/' . $message->thread_id : 'messages',
+    '#value' => count($thread['messages']) > 1 ? $url_prefix . '/view/' . $message->thread_id : $url_prefix,
   );
 
   if (privatemsg_user_access('read all private messages')) {
