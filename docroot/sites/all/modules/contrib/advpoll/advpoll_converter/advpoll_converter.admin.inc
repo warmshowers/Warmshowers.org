@@ -1,8 +1,6 @@
 <?php
+
 /*
- * @file
- * Advanced Poll Converter Module Admin Forms and Functions
- * 
  * Administrative form for converter.
  */
 
@@ -32,7 +30,7 @@ function advpoll_converter_form($form, $form_state) {
       '#type' => 'select',
       '#title' => t('Select polls to convert.'),
       '#options' => $polls,
-      '#multiple' => TRUE,
+      '#multiple' => true,
       '#description' => t('Select the polls to convert.'),
       '#size' => 10,
     );
@@ -41,8 +39,7 @@ function advpoll_converter_form($form, $form_state) {
       '#type' => 'submit',
       '#value' => t('Convert'),
     );
-  } 
-  else {
+  } else {
     $form['info']['message'] = array(
       '#type' => 'item',
       '#markup' => t('There are currently no polls to convert.'),
@@ -73,8 +70,7 @@ function advpoll_converter_form_submit($form, $form_state) {
       if ($delete) {
         node_delete_multiple($nids);
       }
-    } 
-    else {
+    } else {
       form_set_error('advpoll_converter_select', t('Please select at least one poll to convert.'));
     }
   }
@@ -98,19 +94,9 @@ function _advpoll_converter_get_polls() {
  */
 
 function _advpoll_converter_create_nodes($nids) {
-  $poll_nodes = db_query("SELECT n.nid, 
-                                 n.title, 
-                                 n.language, 
-                                 n.created, 
-                                 n.status, 
-                                 n.uid,
-                                 p.runtime, 
-                                 p.active 
-                                 FROM {node} n 
-                                 JOIN {poll} p ON n.nid = p.nid 
-                                 WHERE type='poll' AND n.nid IN (:ids)", 
-                                 array(':ids' => $nids));
-
+  $poll_nodes = db_query("SELECT n.nid, n.title, n.language, n.created, n.status, n.uid,
+                        p.runtime, p.active FROM {node} n JOIN poll p ON n.nid = p.nid 
+                        WHERE type='poll' AND n.nid IN (:ids)", array(':ids' => $nids));
   foreach ($poll_nodes as $record) {
     //set up base Node
     $node = new stdClass();
@@ -124,22 +110,14 @@ function _advpoll_converter_create_nodes($nids) {
     $record->language = LANGUAGE_NONE;
 
     // fetch poll's choices
-    $poll_choices = db_query("SELECT pc.chid, 
-                                     pc.chtext 
-                                     FROM {poll_choice} pc 
-                                     WHERE pc.nid = :nid", 
-                                     array(':nid' => $record->nid));
+    $poll_choices = db_query("SELECT pc.chid, pc.chtext FROM poll_choice pc where pc.nid = :nid", array(':nid' => $record->nid));
     $choice_by_id = array();
     $choices = array();
 
     foreach ($poll_choices as $choice) {
       $id = dechex(time() * rand(5, 50));
       $choice_by_id[$choice->chid] = $id;
-      $choices[] = array(
-        'choice' => $choice->chtext, 
-        'write_in' => 0, 
-        'choice_id' => $id,
-        );
+      $choices[] = array('choice' => $choice->chtext, 'write_in' => 0, 'choice_id' => $id);
     }
 
     $node->advpoll_choice[$record->language] = $choices;
@@ -148,15 +126,13 @@ function _advpoll_converter_create_nodes($nids) {
     $end_time = time();
     if ($record->runtime) {
       $end_time = $record->created + $record->runtime;
-    } 
-    else {
+    } else {
       $end_time = $record->created + 60 * 60 * 24 * 365;
     }
 
     if ($record->active) {
       $node->advpoll_closed[$record->language][0]['value'] = 'open';
-    } 
-    else {
+    } else {
       $node->advpoll_closed[$record->language][0]['value'] = 'close';
     }
 
@@ -172,18 +148,11 @@ function _advpoll_converter_create_nodes($nids) {
     $nid = $node->nid;
 
     // update associated votes
-    $poll_votes = db_query("SELECT pv.chid, 
-                                   pv.uid, 
-                                   pv.hostname, 
-                                   pv.timestamp 
-                                   FROM {poll_vote} pv 
-                                   WHERE pv.nid = :nid", 
-                                   array(':nid' => $record->nid));
-
+    $poll_votes = db_query("SELECT pv.chid, pv.uid, pv.hostname, pv.timestamp FROM poll_vote pv where pv.nid = :nid", array(':nid' => $record->nid));
     $votes = array();
     foreach ($poll_votes as $row) {
       $votes = array(
-        'entity_type' => 'node',
+        'entity_type' => 'advpoll',
         'entity_id' => $nid,
         'value' => 1,
         'tag' => $choice_by_id[$row->chid],
