@@ -18,19 +18,14 @@ function ws_d7_upgrade_features_ds_field_settings_info() {
   $ds_fieldsetting->view_mode = 'default';
   $ds_fieldsetting->settings = array(
     'author' => array(
-      'weight' => '-4',
+      'weight' => '1',
       'label' => 'inline',
       'format' => 'author_linked',
     ),
     'submitted_by' => array(
-      'weight' => '-5',
-      'label' => 'inline',
-      'format' => 'ds_post_date_medium',
-    ),
-    'ds_user_picture' => array(
-      'weight' => '-10',
+      'weight' => '0',
       'label' => 'hidden',
-      'format' => 'ds_picture_thumbnail',
+      'format' => 'ds_post_date_medium',
     ),
   );
   $export['node|trust_referral|default'] = $ds_fieldsetting;
@@ -53,28 +48,28 @@ function ws_d7_upgrade_features_ds_layout_settings_info() {
   $ds_layout->layout = 'ws_default';
   $ds_layout->settings = array(
     'regions' => array(
-      'main' => array(
-        0 => 'body',
-        4 => 'field_guest_or_host',
-        6 => 'field_hosting_date',
-      ),
       'header' => array(
-        1 => 'ds_user_picture',
-        2 => 'submitted_by',
-        3 => 'author',
-        5 => 'field_member_i_trust',
-        7 => 'field_rating',
+        0 => 'submitted_by',
+        1 => 'author',
+        2 => 'field_member_i_trust',
+        3 => 'field_rating',
+      ),
+      'main' => array(
+        4 => 'body',
+        5 => 'field_guest_or_host',
+        6 => 'field_hosting_date',
+        7 => 'field_contest_photo',
       ),
     ),
     'fields' => array(
-      'body' => 'main',
-      'ds_user_picture' => 'header',
       'submitted_by' => 'header',
       'author' => 'header',
-      'field_guest_or_host' => 'main',
       'field_member_i_trust' => 'header',
-      'field_hosting_date' => 'main',
       'field_rating' => 'header',
+      'body' => 'main',
+      'field_guest_or_host' => 'main',
+      'field_hosting_date' => 'main',
+      'field_contest_photo' => 'main',
     ),
     'classes' => array(),
     'wrappers' => array(

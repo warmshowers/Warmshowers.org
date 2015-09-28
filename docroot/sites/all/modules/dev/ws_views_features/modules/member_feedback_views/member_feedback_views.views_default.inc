@@ -24,7 +24,6 @@ function member_feedback_views_views_default_views() {
   $handler = $view->new_display('default', 'Defaults', 'default');
   $handler->display->display_options['title'] = 'Feedback';
   $handler->display->display_options['use_ajax'] = TRUE;
-  $handler->display->display_options['use_more'] = TRUE;
   $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['access']['type'] = 'role';
   $handler->display->display_options['access']['role'] = array(
@@ -173,11 +172,7 @@ function member_feedback_views_views_default_views() {
   $handler = $view->new_display('page', 'Feedback received', 'feedback_received');
   $handler->display->display_options['display_description'] = 'Feedback received by user.';
   $handler->display->display_options['defaults']['cache'] = FALSE;
-  $handler->display->display_options['cache']['type'] = 'time';
-  $handler->display->display_options['cache']['results_lifespan'] = '3600';
-  $handler->display->display_options['cache']['results_lifespan_custom'] = '0';
-  $handler->display->display_options['cache']['output_lifespan'] = '3600';
-  $handler->display->display_options['cache']['output_lifespan_custom'] = '0';
+  $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['defaults']['header'] = FALSE;
   /* Header: Global: Text area */
   $handler->display->display_options['header']['text']['id'] = 'area';
@@ -240,6 +235,25 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['body']['settings'] = array(
     'trim_length' => '600',
   );
+  /* Field: Content: Contest Photo */
+  $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['label'] = '';
+  $handler->display->display_options['fields']['field_contest_photo']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['field_contest_photo']['click_sort_column'] = 'fid';
+  $handler->display->display_options['fields']['field_contest_photo']['type'] = 'colorbox';
+  $handler->display->display_options['fields']['field_contest_photo']['settings'] = array(
+    'colorbox_node_style' => 'medium',
+    'colorbox_node_style_first' => '',
+    'colorbox_image_style' => '1200w',
+    'colorbox_gallery' => 'post',
+    'colorbox_gallery_custom' => '',
+    'colorbox_caption' => 'none',
+    'colorbox_caption_custom' => '',
+  );
+  $handler->display->display_options['fields']['field_contest_photo']['delta_limit'] = '1';
+  $handler->display->display_options['fields']['field_contest_photo']['delta_offset'] = '0';
   /* Field: Content: Edit link */
   $handler->display->display_options['fields']['edit_node']['id'] = 'edit_node';
   $handler->display->display_options['fields']['edit_node']['table'] = 'views_entity_node';
@@ -276,6 +290,8 @@ function member_feedback_views_views_default_views() {
   /* Display: Feedback given */
   $handler = $view->new_display('attachment', 'Feedback given', 'feedback_given');
   $handler->display->display_options['display_description'] = 'Feedback given by user.';
+  $handler->display->display_options['defaults']['cache'] = FALSE;
+  $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['pager']['type'] = 'none';
   $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['defaults']['header'] = FALSE;
@@ -326,6 +342,25 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['body']['field'] = 'body';
   $handler->display->display_options['fields']['body']['label'] = '';
   $handler->display->display_options['fields']['body']['element_label_colon'] = FALSE;
+  /* Field: Content: Contest Photo */
+  $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['label'] = '';
+  $handler->display->display_options['fields']['field_contest_photo']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['field_contest_photo']['click_sort_column'] = 'fid';
+  $handler->display->display_options['fields']['field_contest_photo']['type'] = 'colorbox';
+  $handler->display->display_options['fields']['field_contest_photo']['settings'] = array(
+    'colorbox_node_style' => 'medium',
+    'colorbox_node_style_first' => '',
+    'colorbox_image_style' => '1200w',
+    'colorbox_gallery' => 'post',
+    'colorbox_gallery_custom' => '',
+    'colorbox_caption' => 'auto',
+    'colorbox_caption_custom' => '',
+  );
+  $handler->display->display_options['fields']['field_contest_photo']['delta_limit'] = '1';
+  $handler->display->display_options['fields']['field_contest_photo']['delta_offset'] = '0';
   /* Field: Content: Edit link */
   $handler->display->display_options['fields']['edit_node']['id'] = 'edit_node';
   $handler->display->display_options['fields']['edit_node']['table'] = 'views_entity_node';
