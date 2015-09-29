@@ -971,6 +971,7 @@ function ws_d7_upgrade_features_field_default_field_instances() {
         'input_format' => 'Y-m-d H:i:s',
         'input_format_custom' => '',
         'label_position' => 'above',
+        'no_fieldset' => 1,
         'text_parts' => array(),
         'year_range' => '-7:+0',
       ),
