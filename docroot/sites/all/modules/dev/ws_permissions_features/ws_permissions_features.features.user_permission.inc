@@ -363,7 +363,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'faq',
   );
@@ -376,7 +375,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'faq',
   );
@@ -815,7 +813,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'node',
   );
@@ -910,7 +907,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'node',
   );
@@ -958,15 +954,6 @@ function ws_permissions_features_user_default_permissions() {
       'editor' => 'editor',
     ),
     'module' => 'path',
-  );
-
-  // Exported permission: 'create video content'.
-  $permissions['create video content'] = array(
-    'name' => 'create video content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'node',
   );
 
   // Exported permission: 'delete any block content'.
@@ -1068,15 +1055,6 @@ function ws_permissions_features_user_default_permissions() {
     'roles' => array(
       'administrator' => 'administrator',
       'developer' => 'developer',
-    ),
-    'module' => 'node',
-  );
-
-  // Exported permission: 'delete any video content'.
-  $permissions['delete any video content'] = array(
-    'name' => 'delete any video content',
-    'roles' => array(
-      'administrator' => 'administrator',
     ),
     'module' => 'node',
   );
@@ -1200,15 +1178,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'node',
   );
 
-  // Exported permission: 'delete own video content'.
-  $permissions['delete own video content'] = array(
-    'name' => 'delete own video content',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'node',
-  );
-
   // Exported permission: 'delete payments'.
   $permissions['delete payments'] = array(
     'name' => 'delete payments',
@@ -1299,7 +1268,6 @@ function ws_permissions_features_user_default_permissions() {
       'editor' => 'editor',
       'email viewer' => 'email viewer',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'node',
   );
@@ -1375,7 +1343,6 @@ function ws_permissions_features_user_default_permissions() {
       'editor' => 'editor',
       'email viewer' => 'email viewer',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'node',
   );
@@ -1416,18 +1383,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'node',
   );
 
-  // Exported permission: 'edit any video content'.
-  $permissions['edit any video content'] = array(
-    'name' => 'edit any video content',
-    'roles' => array(
-      'Translator' => 'Translator',
-      'administrator' => 'administrator',
-      'editor' => 'editor',
-      'registrar' => 'registrar',
-    ),
-    'module' => 'node',
-  );
-
   // Exported permission: 'edit orders'.
   $permissions['edit orders'] = array(
     'name' => 'edit orders',
@@ -1445,7 +1400,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'node',
   );
@@ -1529,7 +1483,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'node',
   );
@@ -1567,18 +1520,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
       'authenticated user' => 'authenticated user',
       'developer' => 'developer',
-      'editor' => 'editor',
-      'registrar' => 'registrar',
-    ),
-    'module' => 'node',
-  );
-
-  // Exported permission: 'edit own video content'.
-  $permissions['edit own video content'] = array(
-    'name' => 'edit own video content',
-    'roles' => array(
-      'Translator' => 'Translator',
-      'administrator' => 'administrator',
       'editor' => 'editor',
       'registrar' => 'registrar',
     ),
@@ -2107,7 +2048,6 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['use text format 1'] = array(
     'name' => 'use text format 1',
     'roles' => array(
-      'Board Extra - Like board member' => 'Board Extra - Like board member',
       'Board Member' => 'Board Member',
       'Geolocation User Administrator' => 'Geolocation User Administrator',
       'Translator' => 'Translator',
@@ -2128,7 +2068,6 @@ function ws_permissions_features_user_default_permissions() {
       'email viewer' => 'email viewer',
       'pre-authorized' => 'pre-authorized',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'filter',
   );
@@ -2142,7 +2081,6 @@ function ws_permissions_features_user_default_permissions() {
       'developer' => 'developer',
       'editor' => 'editor',
       'registrar' => 'registrar',
-      'super-admin' => 'super-admin',
     ),
     'module' => 'filter',
   );
