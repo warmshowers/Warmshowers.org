@@ -1953,11 +1953,11 @@ function ws_d7_upgrade_features_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'search-0' => array(
+        'search-form' => array(
           'module' => 'search',
-          'delta' => 0,
-          'region' => 'sidebar_second',
-          'weight' => 0,
+          'delta' => 'form',
+          'region' => 'content',
+          'weight' => '-10',
         ),
       ),
     ),
