@@ -1,0 +1,1060 @@
+<?php
+// $Id: node_convert.module,v 1.1.2.4.2.17 2011/01/10 04:59:44 placinta Exp $
+
+/**
+ * @file
+ * The node_convert module converts nodes from one type to another.
+ *
+ * The node_convert module converts nodes from one type to another
+ * along with all the cck fields it may have.
+ */
+
+define("APPEND_TO_BODY", 'append_to_body');
+define("REPLACE_BODY", 'replace_body');
+
+/**
+ * Implementation of hook_help().
+ */
+function node_convert_help($path, $arg) {
+
+  $output = '';
+
+  switch ($path) {
+    case "admin/help#node_convert":
+      $output .= '<p>'. t("This module allows to convert one or many nodes between different node types. It can transfer most cck fields, and node-specific options for book and forum types. Support of more basic types will be in future releases. Also the module provides an API for converting nodes and cck fields, hooks for processing additional options of custom node types, integrates with hook_node_operations and Drupal's Action API.") .'</p>';
+      $output .= '<p>'. t('<strong>I. Single node conversion:</strong>') .'</p>';
+      $output .= t("<ol><li>Go to <a href=\"@permissions\">permissions page</a> and set 'administer conversion' and 'convert to x', 'convert from y' permissions.</li><li>Go to /node/x/convert and follow the provided steps to convert the node.</li></ol>", array('@permissions' => url('admin/user/permissions')));
+      $output .= '<p>'. t('<strong>II. Multiple node conversion (using hook_node_operations):</strong>') .'</p>';
+      $output .= t('<ol><li>Set appropriate permissions.</li><li>Go to <a href="@node_convert_templates">Node Convert templates</a>.</li><li>Create a new template following the the provided steps.</li><li>Go to the <a href="@content">content page</a>.</li><li>Select the correct nodes.</li><li>Choose "Convert template: x" (based on the template name created above) from the update options.</li><li>Click Update.</li></ol>', array('@node_convert_template' => url('admin/build/node_convert_template'), '@content' => url('admin/content/node')));
+      $output .= '<p>'. t('<strong>III. Multiple node conversion (using Actions API + Views Bulk Operations):</strong><br />Note: This requires the contributed modules Views and Views Bulk Operations') .'</p>';
+      $output .= t('<ol><li>Set appropriate permissions.</li><li>Go to <a href="@node_convert_templates">Node Convert templates</a>.</li><li>Create a new template following the the provided steps (also check Create Action).</li><li>Create a new <a href="@view">view</a> with the options you require.</li><li>Select Views Bulk Operations as the style.</li><li>Configure all options as necessary</li><li>Select as an operation one of the convert templates.<br />Note: Most probably there will be duplicates of the same template, this is because VBO uses both Actions API and hook_node_operations to show possible operations</li><li>Save the view. View it.</li><li>Select the necessary nodes and click the Convert x button.</li></ol>', array('@node_convert_template' => url('admin/build/node_convert_template'), '@view' => url('admin/build/views')));
+      $output .= '<p>'. t('Useful API calls:<br />node_convert_node_convert($nid, $dest_node_type, $source_fields, $dest_fields, $no_fields_flag, $hook_options = NULL);<br />node_convert_field_convert($nid, $source_field, $dest_field);<br />hook_node_convert_change($data, $op);') .'</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function node_convert_init() {
+  foreach (array('book', 'forum', 'uc_product', 'panels_node') AS $module) {
+    if (module_exists($module)) {
+      module_load_include('node_convert.inc', 'node_convert', 'includes/' . $module);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function node_convert_perm() {
+  $types = node_get_types();
+  $permissions = array('administer conversion');
+  foreach ($types as $type => $parameters) {
+    $permissions[] = 'convert from '. $type;
+    $permissions[] = 'convert to '. $type;
+  }
+  return $permissions;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function node_convert_menu() {
+  $items = array();
+
+  $items['node/%node/convert'] = array(
+    'title' => 'Convert',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_conversion_form', 1),
+    'access callback' => 'node_convert_check_access',
+    'access arguments' => array(1),
+    'weight' => 6,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/build/node_convert_templates'] = array(
+    'title' => 'Node Convert templates',
+    'description' => 'List of templates used for converting nodes using Actions and Node Operations.',
+    'page callback' => 'node_convert_templates',
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/build/node_convert_templates/list'] = array(
+    'title' => 'List',
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/build/node_convert_templates/add'] = array(
+    'title' => 'Add template',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_add_template'),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+
+  $items['admin/build/node_convert_templates/%'] = array(
+    'title' => 'Template info',
+    'page callback' => 'node_convert_template_info',
+    'page arguments' => array(3),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/node_convert_templates/delete/%'] = array(
+    'title' => 'Delete template',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_template_delete_confirm', 4),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_node_operations().
+ */
+function node_convert_node_operations() {
+  $operations = array();
+  $result = db_query("SELECT name, nctid FROM {node_convert_templates}");
+  while ($row = db_fetch_array($result)) {
+    $access = node_convert_check_template_permission_user(array('template_id' => $row['nctid']));
+    if ($access) {
+      $operations['node_convert_'. $row['nctid']] = array(
+        'label' => 'Convert template: '. $row['name'],
+        'callback' => 'node_convert_convert_nodes_using_template',
+        'callback arguments' => array($row['nctid']),
+      );
+    }
+  }
+  return $operations;
+}
+
+/**
+ * Implementation of hook_action_info().
+ */
+function node_convert_action_info() {
+  return array(
+    'node_convert_convert_action' => array(
+      'description' => t("Convert a node"),
+      'type' => 'node',
+      'configurable' => TRUE,
+      'hooks' => array('any' => TRUE),
+    )
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function node_convert_theme() {
+  return array(
+    'node_convert_conversion_form' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'node_convert_add_template' => array(
+      'arguments' => array('form' => NULL),
+    )
+  );
+}
+
+/* ----------- The forms ------------ */
+
+function node_convert_conversion_form($form_state, $node) {
+  $form = array();
+
+  /* Setting the steps */
+  if (!isset($form_state['values']['step'])) {
+    $op = 'choose_destination_type';
+  }
+  elseif ($form_state['values']['step'] == 'choose_destination_type') {
+    $op = 'choose_destination_fields';
+  }
+  $form['step'] = array(
+    '#type' => 'value',
+    '#value' => $op,
+  );
+  $form['node'] = array(
+    '#type' => 'value',
+    '#value' => $node,
+  );
+  /* Form steps */
+  if ($op == 'choose_destination_type') {
+    $type = node_get_types('name', $node);
+    $form['current_type'] = array('#type' => 'markup', '#value' => $type); // Remember current node type, used in theme_ function
+    $types = node_convert_return_access_node_types('to');  // Get available content types
+    if ($types != FALSE) {
+      $key = array_search($form['current_type']['#value'], $types);
+      if ($key !== FALSE) unset($types[$key]);  // Delete the current content type from the list
+      $options = $types;
+      // Populate the select with possible content types
+      $form['destination_type'] = array('#type' => 'select', '#options' => $options, '#title' => t("To what content type should this node be converted"));
+    }
+    else {
+      // Just used as a message, not sure if it's the best implementation
+      $form['destination_type'] = array('#type' => 'markup', '#value' => t("You don't have access to any node types."));
+    }
+  }
+  elseif ($op == 'choose_destination_fields') {
+    $source_fields = content_types($node->type);
+    $source_fields = $source_fields['fields']; // Get the cck fields of the source type
+    if (count($source_fields) == 0) {
+      // In case there are no cck fields, just convert the node type
+      $form['no_fields'] = array('#type' => 'value', '#value' => 'TRUE');
+    }
+    else {  // Otherwise
+      $dest_fields = content_types($form_state['storage']['destination_type']);
+      $dest_fields = $dest_fields['fields'];  // Get the destination type fields
+      $i = 0;
+      foreach ($source_fields as $source_field) {
+        $i++;
+        $options = array();
+        $options['discard'] = 'discard';
+        $options[APPEND_TO_BODY] = t('Append to body');
+        $options[REPLACE_BODY] = t('Replace body');
+
+        // Populate only the destination type fields into the select that are of the same type (cck type and multiple property)
+        foreach ($dest_fields as $dest_value) if ($source_field['type'] == $dest_value['type'] && $source_field['multiple'] == $dest_value['multiple']) {
+          $options[$dest_value['field_name']] = $dest_value['field_name'];
+        }
+        $form['source_field_'. $i] = array('#type' => 'value', '#value' => $source_field['field_name']); // Remember the source fields to be converted
+        // The select populated with possible destination cck fields for each source field
+        // If the destination node type has the same field as the source node type, the default value is set to it.
+        $form['dest_field_'. $i] = array('#type' => 'select', '#options' => $options, '#default_value' => $source_field['field_name'], '#title' => $source_field['field_name'] ." ". t("should be inserted into"));
+
+        // Print the current value of the source field
+        $temp_value = node_convert_get_field_value($node, $source_field);
+        $form['current_field_value_'. $i] = array('#type' => 'markup', '#value' => '<div>'. t("Current value is:") ." <b>". $temp_value .'</b></div>');
+      }
+      $form['number_of_fields'] = array('#type' => 'value', '#value' => $i);
+    }
+    $hook_options = module_invoke_all('node_convert_change', array('dest_node_type' => $form_state['storage']['destination_type']), 'options');
+    if (!empty($hook_options)) {
+      $form['hook_options'] = $hook_options;
+      array_unshift($form['hook_options'], array('#value' => '<br /><strong>'. t("Also the following parameters are available:") .'</strong>'));
+      $form['hook_options']['#tree'] = TRUE;
+    }
+  }
+
+  if ($op != 'choose_destination_fields' && isset($types) && $types != FALSE) {
+    $form['submit'] = array('#type' => 'submit', '#value' => t("Next"));
+  }
+  elseif ($op == 'choose_destination_fields') {
+    $form['submit'] = array('#type' => 'submit', '#value' => t("Convert"), '#weight' => 100);
+  }
+
+  return $form;
+}
+
+function node_convert_conversion_form_validate($form, &$form_state) {
+  if ($form_state['values']['step'] == 'choose_destination_fields') {
+    module_invoke_all('node_convert_change', array('dest_node_type' => $form_state['storage']['destination_type'], 'form_state' => $form_state), 'options validate');
+  }
+}
+
+function node_convert_conversion_form_submit($form, &$form_state) {
+  // Remember the destination type
+  if ($form_state['values']['step'] == 'choose_destination_type') {
+    $form_state['rebuild'] = TRUE;
+    $form_state['storage']['destination_type'] = $form_state['values']['destination_type'];
+  }
+  elseif ($form_state['values']['step'] == 'choose_destination_fields') {
+    // Information needed in the convert process: nid, vid, source type, destination type
+    $dest_node_type = $form_state['storage']['destination_type'];
+    $node = $form_state['values']['node'];
+    $nid = $node->nid;
+    $vid = $node->vid;
+    $source_node_type = $node->type;
+    $no_fields = $form_state['values']['no_fields'];
+    $number_of_fields = $form_state['values']['number_of_fields'];
+
+    if ($no_fields == FALSE) {  // If there are cck fields that can to be converted
+      for ($i = 1; $i <= $number_of_fields; $i++) {
+        $source_fields[] = $form_state['values']['source_field_'. $i]; //  Source fields
+        $dest_fields[] = $form_state['values']['dest_field_'. $i];  // Destination fields
+      }
+    }
+    if (!empty($form['hook_options'])) {
+      $hook_options = $form_state['values']['hook_options'];
+    }
+    else {
+      $hook_options = NULL;
+    }
+    $result = node_convert_node_convert($nid, $dest_node_type, $source_fields, $dest_fields, $no_fields, $hook_options);
+    // We display errors if any, or the default success message.
+    node_convert_messages($result, array('nid' => $nid));
+    // We clear the storage so redirect works
+    $form_state['storage'] = array();
+    $form_state['redirect'] = "node/". $nid;
+  }
+}
+
+function theme_node_convert_conversion_form($form) {
+  $output = '';
+  if (isset($form['current_type'])) $output  .= '<div>'. t("The current node type is:") ." <b>". drupal_render($form['current_type']) .'</b></div>';
+  // If there are no fields to convert, we notify the user
+  if (isset($form['no_fields']['#value']) && $form['no_fields']['#value'] == TRUE) $output .= '<div>'. t("There are no cck fields to convert. Please press Convert.") .'</div>';
+  $output .= drupal_render($form);
+  return $output;
+}
+
+function node_convert_add_template($form_state) {
+  $form = array();
+
+  /* Setting the steps */
+  if (!isset($form_state['values']['step'])) {
+    $op = 'choose_destination_type';
+  }
+  elseif ($form_state['values']['step'] == 'choose_destination_type') {
+    $op = 'choose_destination_fields';
+  }
+  $form['step'] = array(
+    '#type' => 'value',
+    '#value' => $op,
+  );
+
+  if ($op == 'choose_destination_type') {
+    // Get available content types
+    $to_types = node_convert_return_access_node_types('to');
+    $from_types = node_convert_return_access_node_types('from');
+    if ($to_types != FALSE && $from_types != FALSE) {
+      $form['template_name'] = array(
+        '#type' => 'textfield',
+        '#title' => t("Template name"),
+        '#required' => TRUE,
+      );
+      $form['source_type'] = array(
+        '#type' => 'select',
+        '#title' => t("Source type"),
+        '#options' => $from_types,
+      );
+      $form['dest_type'] = array(
+        '#type' => 'select',
+        '#title' => t("Destination type"),
+        '#options' => $to_types,
+      );
+      $form['create_action'] = array(
+        '#type' => 'checkbox',
+        '#title' => t("Create action?"),
+        '#description' => t("If the option is checked, an action named Convert *Template name* will be created."),
+      );
+    }
+    else {
+      $form['no_types'] = array('#type' => 'markup', '#value' => t("You don't have access to any node types."));
+    }
+  }
+  elseif ($op == 'choose_destination_fields') {
+    $source_fields = content_types($form_state['storage']['source_type']);
+    $source_fields = $source_fields['fields']; // Get the cck fields of the source type
+    if (count($source_fields) == 0) {
+      // In case there are no cck fields, just convert the node type
+      $form['no_fields'] = array('#type' => 'value', '#value' => 'TRUE');
+    }
+    else {
+      $dest_fields = content_types($form_state['storage']['dest_type']);
+      $dest_fields = $dest_fields['fields'];  // Get the destination type fields
+      $i = 0;
+      foreach ($source_fields as $source_field) {
+        $i++;
+        $options = array();
+        $options['discard'] = 'discard';
+        $options[APPEND_TO_BODY] = t('Append to body');
+        $options[REPLACE_BODY] = t('Replace body');
+
+        // Populate only the destination type fields into the select that are of the same type (cck type and multiple property)
+        foreach ($dest_fields as $dest_field) if ($source_field['type'] == $dest_field['type'] && $source_field['multiple'] == $dest_field['multiple']) {
+          $options[$dest_field['field_name']] = $dest_field['field_name'];
+        }
+        $form['source_field_'. $i] = array('#type' => 'value', '#value' => $source_field['field_name']); // Remember the source fields to be converted
+        // The select populated with possible destination cck fields for each source field
+        $form['dest_field_'. $i] = array('#type' => 'select', '#options' => $options, '#title' => $source_field['field_name'] ." ". t("should be inserted into"));
+      }
+      $form['number_of_fields'] = array('#type' => 'value', '#value' => $i);
+    }
+    // All node specific form options needed for types like book, forum, etc. are done here
+    $hook_options = module_invoke_all('node_convert_change', array('dest_node_type' => $form_state['storage']['dest_type']), 'options');
+    if (!empty($hook_options)) {
+      $form['hook_options'] = $hook_options;
+      array_unshift($form['hook_options'], array('#value' => '<strong>'. t("Also the following parameters are available:") .'</strong>'));
+      $form['hook_options']['#tree'] = TRUE;
+    }
+  }
+
+  if ($op == 'choose_destination_type' && $to_types != FALSE && $from_types != FALSE) {
+    $form['submit'] = array('#type' => 'submit', '#value' => t("Next"));
+  }
+  elseif ($op == "choose_destination_fields") {
+    $form['submit'] = array('#type' => 'submit', '#value' => t("Create"));
+  }
+
+  return $form;
+}
+
+function node_convert_add_template_validate($form, &$form_state) {
+  if ($form_state['values']['step'] == 'choose_destination_type') {
+    if ($form_state['values']['source_type'] == $form_state['values']['dest_type']) {
+      form_set_error('source_type', t('Please select different node types.'));
+      form_set_error('dest_type', t('Please select different node types.'));
+    }
+  }
+  // All node specific form validations needed for types like book, forum, etc. are done here
+  elseif ($form_state['values']['step'] == 'choose_destination_fields') {
+    module_invoke_all('node_convert_change', array('dest_node_type' => $form_state['values']['info']['dest_type'], 'form_state' => $form_state), 'options validate');
+  }
+}
+
+function node_convert_add_template_submit($form, &$form_state) {
+  if ($form_state['values']['step'] == 'choose_destination_type') {
+    $form_state['rebuild'] = TRUE;
+    $form_state['storage']['template_name'] = $form_state['values']['template_name'];
+    $form_state['storage']['source_type'] = $form_state['values']['source_type'];
+    $form_state['storage']['dest_type'] = $form_state['values']['dest_type'];
+    $form_state['storage']['create_action'] = $form_state['values']['create_action'];
+  }
+  elseif ($form_state['values']['step'] == 'choose_destination_fields') {
+    if ($form_state['values']['no_fields'] == FALSE) {  // If there are cck fields that can to be converted
+      for ($i = 1; $i <= $form_state['values']['number_of_fields']; $i++) {
+        $source_fields[] = $form_state['values']['source_field_'. $i]; //  Source fields
+        $dest_fields[] = $form_state['values']['dest_field_'. $i];  // Destination fields
+      }
+    }
+
+    if (!empty($form['hook_options'])) {
+      $hook_options = $form_state['values']['hook_options'];
+    }
+    else {
+      $hook_options = NULL;
+    }
+
+    $fields = array('source' => $source_fields, 'destination' => $dest_fields);
+    $data = array('fields' => $fields, 'hook_options' => $hook_options, 'no_fields' => $form_state['values']['no_fields']);
+    $data = serialize($data);
+    db_query("INSERT INTO {node_convert_templates} (name, source_type, destination_type, data) VALUES ('%s', '%s', '%s', '%s')", $form_state['storage']['template_name'], $form_state['storage']['source_type'], $form_state['storage']['dest_type'], $data);
+    drupal_set_message("Template created successfully.");
+
+    if ($form_state['storage']['create_action'] == 1) {
+      $template_id = db_last_insert_id('node_convert_templates', 'nctid');
+      actions_save('node_convert_convert_action', 'node', array('template' => $template_id), 'Convert '. $form_state['storage']['template_name'], NULL);
+    }
+    // We clear the storage so redirect works
+    $form_state['storage'] = array();
+    $form_state['redirect'] = 'admin/build/node_convert_templates';
+  }
+}
+
+
+function theme_node_convert_add_template($form) {
+  if ($form['step']['#value'] == "choose_destination_type") {
+    $output  = '<div>'. t("Choose the source type of the nodes that should be shown, and the destination type to which they will be converted.") .'</div>';
+    $output .= drupal_render($form);
+  }
+  elseif ($form['step']['#value'] == "choose_destination_fields") {
+    if ($form['no_fields']['#value'] == TRUE) $output .= '<div>'. t("There are no cck fields to convert. Please press Create.") .'</div>';
+    $output .= drupal_render($form);
+  }
+  return $output;
+}
+
+/* ------------- Template adding, viewing, deleting. ----------------- */
+
+function node_convert_templates() {
+  $output = '';
+  $rows = array();
+  $headers = array(t("Name"), t("Source type"), t("Dest type"), t("Delete"));
+  $result = db_query("SELECT * FROM {node_convert_templates} ORDER BY nctid");
+  while ($row = db_fetch_object($result)) {
+    $rows[$row->nctid] = array(l($row->name, 'admin/build/node_convert_templates/'. $row->nctid), $row->source_type, $row->destination_type, l(t("Delete"), 'admin/build/node_convert_templates/delete/'. $row->nctid));
+  }
+  $output = theme('table', $headers, $rows);
+
+  return $output;
+}
+
+function node_convert_template_info($template_id) {
+  $output = '';
+  $rows = array();
+  $headers = array(t("Property"), t("Value"));
+  $row = node_convert_load_template($template_id);
+  $rows[] = array(t("Template id"), $row['nctid']);
+  $rows[] = array(t("Name"), $row['name']);
+  $rows[] = array(t("Source type"), $row['source_type']);
+  $rows[] = array(t("Destination type"), $row['destination_type']);
+  $data = $row['data'];
+  if ($data['no_fields'] == FALSE) {
+    $source_fields_string = implode(', ', $data['fields']['source']);
+    $dest_fields_string = implode(', ', $data['fields']['destination']);
+    $rows[] = array(t("Source fields"), $source_fields_string);
+    $rows[] = array(t("Destination fields"), $dest_fields_string);
+  }
+  if (!empty($data['hook_options'])) $rows[] = array(t("Hook options"), print_r($data['hook_options'], TRUE));
+  $output .= theme('table', $headers, $rows);
+
+  return $output;
+}
+
+function node_convert_template_delete_confirm(&$form_state, $template_id) {
+  $form['template_id'] = array(
+    '#type' => 'value',
+    '#value' => $template_id,
+  );
+
+  $form['delete_action'] = array(
+    '#type' => 'checkbox',
+    '#title' => t("Delete action?"),
+    '#default_value' => 1,
+    '#description' => t("If the option is checked, all actions that contain this template will be erased. Otheriwise, the actions' template will be set to none."),
+  );
+
+  return confirm_form($form,
+    t('Are you sure you want to delete this template?'),
+    isset($_GET['destination']) ? $_GET['destination'] : 'admin/build/node_convert_templates',
+    t('This action cannot be undone.'),
+    t('Delete'),
+    t('Cancel')
+  );
+}
+
+function node_convert_template_delete_confirm_submit($form, &$form_state) {
+  if ($form_state['values']['confirm']) {
+    db_query("DELETE FROM {node_convert_templates} WHERE nctid = %d", $form_state['values']['template_id']);
+    if ($form_state['values']['delete_action'] == 1) {
+      db_query("DELETE FROM {actions} WHERE callback = 'node_convert_convert_action' AND parameters LIKE '%%template\";s:%%:\"%d%%'", $form_state['values']['template_id']);
+    }
+    else {
+      $none = serialize(array('template' => '0'));
+      db_query("UPDATE {actions} SET parameters = '%s' WHERE callback = 'node_convert_convert_action' AND parameters LIKE '%%template\";s:%%:\"%d%%'", $none, $form_state['values']['template_id']);
+    }
+  }
+  $form_state['redirect'] = 'admin/build/node_convert_templates';
+}
+
+
+/* The node_convert action */
+function node_convert_convert_action(&$node, &$context = array()) {
+  if ($context['template'] === "0") {
+    drupal_set_message(t("Dummy template. No action is being performed."), 'warning', FALSE);
+    return FALSE;
+  }
+  $template = node_convert_load_template($context['template']);
+
+  $access = node_convert_check_template_permission_user(array('template' => $template));
+  if ($access == FALSE) {
+    drupal_set_message(t("You don't have permission to use this conversion template"), 'warning', FALSE);
+    return;
+  }
+
+  if ($node->type != $template['source_type']) {
+    drupal_set_message(t("Node %nid doesn't match the template source type. Discarded. ", array('nid' => $node->nid)), 'warning');
+  }
+  else {
+    $result = node_convert_node_convert($node->nid, $template['destination_type'], $template['data']['fields']['source'], $template['data']['fields']['destination'], $template['data']['no_fields'], $template['data']['hook_options']);
+    // We display errors if any, or the default success message
+    node_convert_messages($result, array('nid' => $node->nid));
+    // This is node_load is necessary. It loads the new data from the DB, which gets passed down the action chain by reference, where it is saved.
+    $node = node_load($node->nid, NULL, TRUE);
+  }
+}
+
+function node_convert_convert_action_form($context) {
+  $result = db_query("SELECT * FROM {node_convert_templates}");
+  $templates = array(0 => 'none');
+  while ($row = db_fetch_array($result)) {
+    $access = node_convert_check_template_permission_user(array('template_id' => $row['nctid']));
+    if ($access == TRUE)
+      $templates[$row['nctid']] = $row['name'];
+  }
+  if (isset($context['template'])) {
+    $default_template = $context['template'];
+  }
+  $form['template'] = array(
+    '#type' => 'select',
+    '#title' => t("Template"),
+    '#description' => t("Convesion template to use when the action is fired."),
+    '#options' => $templates,
+    '#default_value' => $default_template,
+  );
+
+  return $form;
+}
+
+function node_convert_convert_action_submit($form, &$form_state) {
+  return array('template' => $form_state['values']['template']);
+}
+
+/* ----------------------- API --------------------- */
+
+/**
+ * Converts a node to another content type.
+ *
+ * @param $nid
+ *   The nid of the node to be converted.
+ * @param $dest_node_type
+ *   A string containing the destination node type of the node.
+ * @param $source_fields
+ *   An array containing the source field names.
+ * @param $dest_fields
+ *   An array containing the destination field names.
+ * @param $no_fields_flag
+ *   A boolean containing if there are source fields that have to be converted.
+ * @param $hook_options
+ *   An array containing values used by the hook_node_convert_change functions.
+ * @return
+ *   Returns the $nid.
+ */
+function node_convert_node_convert($nid, $dest_node_type, $source_fields, $dest_fields, $no_fields_flag, $hook_options = NULL) {
+  $node = node_load($nid);
+  if ($node == FALSE) {
+    return FALSE;
+  }
+  $vid = $node->vid;
+  $source_node_type = $node->type;
+  $tables_info = content_types();
+  db_query("UPDATE {node} SET type = '%s' WHERE nid = %d", $dest_node_type, $nid); // Change the node type in the DB
+  if (count($tables_info[$dest_node_type]['tables']) != 0)
+    db_query("INSERT INTO {%s} (nid, vid) VALUES (%d, %d)", "content_type_". $dest_node_type, $nid, $vid); // Add the current node to the chosen content type
+  if ($no_fields_flag == FALSE) {  // If there are cck fields that can be converted
+    $additional_data = array();
+    foreach ($source_fields as $key => $field) {  // Conversion process for each field
+      $additional_data = node_convert_field_convert($nid, $field, $dest_fields[$key]);
+    }
+    if (!empty($additional_data)) {
+      db_query("UPDATE {node_revisions} SET body = '%s', teaser = '%s' WHERE nid = %d AND vid = %d",
+      $additional_data['body'], $additional_data['teaser'], $node->nid, $node->vid);
+    }
+  }
+  // We collate date to send to the hook implementations
+  $data = array(
+    'node' => $node,
+    'dest_node_type' => $dest_node_type,
+  );
+  if (!empty($hook_options)) $data['hook_options'] = $hook_options;
+  // We make sure that all custom node modules do their changes at the appropriate steps
+  module_invoke_all('node_convert_change', $data, 'insert');
+  module_invoke_all('node_convert_change', $data, 'delete');
+
+  if (count($tables_info[$source_node_type]['tables']) != 0) {
+    db_query("DELETE FROM {%s} WHERE nid = %d", "content_type_". $source_node_type, $nid); // We delete the source node_type info
+  }
+  db_query("DELETE FROM {cache_content} WHERE cid = '%s'", "content:". $nid .":". $vid); // We clear the cache
+
+  cache_clear_all('node:'. $nid, 'cache_menu', 'TRUE');
+  cache_clear_all('node/'. $nid, 'cache_menu', 'TRUE');
+  if (module_exists('token')) {
+    token_get_values('global', NULL, TRUE);    
+  }
+
+  $converted_node = node_load($nid, NULL, TRUE);
+  $node_user = user_load($converted_node->uid);
+  node_save($converted_node);
+  if (module_exists('rules')) {
+    rules_invoke_event('node_convert_converted_node', $converted_node, $node_user);
+  }
+
+  return $nid;
+}
+
+/**
+ * Transfers information from source_field to dest_field.
+ *
+ * @param $nid
+ *   The nid of the node to be converted.
+ * @param $source_field
+ *   A string containing the name of the source field which contains to be transfered information.
+ * @param $dest_field
+ *   A string containing the name of the destination field where the information should be strored.
+ * @return
+ *   Returns additional data needed for further operations. Currently contains the changed node body and teaser.
+ */
+function node_convert_field_convert($nid, $source_field, $dest_field) {
+  $node = node_load($nid, NULL, TRUE);
+  $vid = $node->vid;
+  $field_info_source = content_fields($source_field); // Get source field information
+  $db_info_source = content_database_info($field_info_source); // Get DB specific source field information
+  // If the source field has a separate table, we will have to delete the node data in it
+  if (strpos($db_info_source['table'], "content_field_") !== FALSE) {
+    $db_source_content_field = TRUE;
+  }
+  else {
+    $db_source_content_field = FALSE;
+  }
+
+  if ($dest_field == 'discard') {
+    // Delete node info in the separate field table
+    if ($db_source_content_field == TRUE) {
+      db_query("DELETE FROM {%s} WHERE nid = %d", $db_info_source['table'], $nid);
+    }
+    return;
+  }
+
+  $field_info_dest = content_fields($dest_field); // Get destination field information
+  $db_info_dest = content_database_info($field_info_dest); // Get DB specific destination field information
+  if (strpos($db_info_dest['table'], "content_field_") !== FALSE) {
+    $db_dest_content_field = TRUE;
+  } else {
+    $db_dest_content_field = FALSE;
+  }
+  $data = array();
+  $dest_column_names = array();
+  $source_column_names = array();
+  $column_placeholders = array();
+  $column_assignments = array();
+  $source_values = array();
+
+  // Collect the DB columns names of the source field
+  foreach ($db_info_source['columns'] as $column => $attributes) {
+    $source_column_names[] = $attributes['column'];
+  }
+
+  // If the field has multiple values, we remember each value from the DB
+  if ($field_info_source['multiple'] != 0) {
+    $query = db_query("SELECT ". implode(", ", $source_column_names) .", delta FROM {%s} WHERE nid = %d AND vid = %d", $db_info_source['table'], $nid, $vid);
+    while ($db_row = db_fetch_array($query)) {
+      $source_values[] = array_merge(array_values($db_row), array($nid, $vid));
+    }
+  }
+  // Otherwise we just remember one row of values
+  else {
+    $source_values = db_fetch_array(db_query("SELECT ". implode(", ", $source_column_names) ." FROM {%s} WHERE nid = %d AND vid = %d", $db_info_source['table'], $nid, $vid));
+    // array_values throws a error if $source_values is NULL, so we catch this.
+    if (!empty($source_values)) {
+      $source_values = array_values($source_values);
+    } else {
+      $source_values[] = '';      
+    }
+    $source_values[] = $nid;
+    $source_values[] = $vid;
+  }
+
+  // After getting the source field values, we delete them in the DB
+  if ($db_source_content_field == TRUE) {
+    db_query("DELETE FROM {%s} WHERE nid = %d", $db_info_source['table'], $nid);
+  }
+  // The source field value should be appended to the body or replaced.
+  if ($dest_field == APPEND_TO_BODY || $dest_field == REPLACE_BODY) {
+    static $node_body = '';
+    static $node_teaser = '';
+    if (empty($node_body)) {
+      $node_body = $node->body;
+      $node_teaser = $node->teaser;
+    }
+    foreach ($source_values as $values) {
+      // If there are multiple values
+      if (is_array($values) && !empty($values[0])) {
+        if ($dest_field == APPEND_TO_BODY) {
+          $node_body = $node_body . "\n" . $values[0];
+          $node_teaser = $node_teaser . "\n" . $values[0];
+        } elseif ($dest_field == REPLACE_BODY) {
+          $node_body = $values[0];
+          $node_teaser = $values[0];
+        }
+      // A single value
+      } elseif (!is_array($values) && !empty($values)) {
+        if ($dest_field == APPEND_TO_BODY) {
+          $node_body = $node_body . "\n" . $values;
+          $node_teaser = $node_teaser . "\n" . $values;
+        } elseif ($dest_field == REPLACE_BODY) {
+          $node_body = $values;
+          $node_teaser = $values;
+        }
+        return; // We return because there's only a single value, and the rest are vid and nid -> unuseful.
+      } 
+    }
+    return array('body' => $node_body, 'teaser' => $node_teaser);
+  }
+
+  // Prepare the INSERT and UDPATE queries, for transfering the values in the destination fields
+  foreach ($db_info_dest['columns'] as $column => $attributes) {
+    $dest_column_names[] = $attributes['column'];
+    switch ($attributes['type']) {
+    case 'int':
+    case 'mediumint':
+    case 'tinyint':
+    case 'bigint':
+      $column_placeholders[] = '%d';
+      $column_assignments[] = $attributes['column'] .' = %d';
+      break;
+    case 'float':
+      $column_placeholders[] = '%f';
+      $column_assignments[] = $attributes['column'] .' = %f';
+      break;
+    default:
+      $column_placeholders[] = "'%s'";
+      $column_assignments[] = $attributes['column'] ." = '%s'";
+    }
+  }
+
+  // If the field has multiple values, we put each value into the DB
+  if ($field_info_source['multiple'] != 0) {
+    foreach ($source_values as $values) {
+      $db_message = db_query("INSERT INTO {". $db_info_dest['table'] ."} (". implode(", ", $dest_column_names) .", delta, nid, vid) VALUES (". implode(', ', $column_placeholders) .", %d, %d, %d)", $values);
+    }
+  }
+  // If the field is re-used, we insert the data in the field's own table in the DB
+  else {
+    if ($db_dest_content_field == TRUE) {
+      $db_message = db_query("INSERT INTO {". $db_info_dest['table'] ."} (". implode(", ", $dest_column_names) .", nid, vid) VALUES (". implode(', ', $column_placeholders) .", %d, %d)", $source_values);
+    }
+    // Otherwise we just update it in the content_type table
+    else {
+      $db_message = db_query("UPDATE {". $db_info_dest['table'] ."} SET " . implode(", ", $column_assignments) ." WHERE nid = %d AND vid = %d", $source_values);
+    }
+  }
+}
+
+/**
+ * Displays error messages if any occured, otherwise the success message.
+ *
+ * @param $result
+ *   The result value of the node conversion. Possible values
+ *   - FALSE  Displays an error message.
+ *   - Any other  Displays success message.
+ * @param $params
+ *   An array containing message parameters. Possible values
+ *   - display_success  If TRUE, the success message will be displayed, otherwise no message is displayed.
+ *   Default is TRUE.
+ */
+function node_convert_messages($result, $params = array()) {
+  $params += array('display_success' => TRUE);
+  if ($result == FALSE) {
+    drupal_set_message(t("Conversion failed. Node nid @nid doesn't exist.", array('@nid' => $params['nid'])), 'error');
+  }
+  elseif ($params['display_success'] == TRUE) {
+    drupal_set_message(t("Node @nid has been converted successfully.", array('@nid' => $params['nid'])));
+  }
+}
+
+/**
+ * This is an example implementation for the hook. Preforms actions when converting a node based on it's type.
+ *
+ * @param $data
+ *   An array containing information about the conversion process. The keys are
+ *   - dest_node_type  The destination type of the node
+ *   - node  The node object
+ *   - Any other information passed by $op = 'options' or $op = 'options validate'
+ * @param $op
+ *   A string containg the operation which should be executed. These are the possible values
+ *   - insert  Operations which should be run when the node is transferred to the new node type.
+ *   Usually for transferring and adding new node information into the database.
+ *   - delete  Operations which should be run after the node is transferred to the new node type.
+ *   Usually for deleting unneeded information from the database after the transfer.
+ *   - options  Configuration elements shown on the conversion form. Should return a FAPI array.
+ *   - options validate  Validation check on the options elements.
+ * @return
+ *    Should return a FAPI array only when using the options operation.
+ */
+function hook_node_convert_change($data, $op) {
+  // All of this is just an example, there real data is being called from hook_init
+  if ($op == 'insert') {
+    if ($data['dest_node_type'] == 'book') {
+      $book = array();
+      $node = $data['node'];
+      $book['link_path'] = 'node/'. $node->nid;
+      $book['link_title'] = $node->title;
+      $book['plid'] = 0;
+      $book['menu_name'] = book_menu_name($node->nid);
+      $mlid = menu_link_save($book);
+      $book['bid'] = $data['hook_options']['bid'];
+      if ($book['bid'] == 'self') $book['bid'] = $node->nid;
+      db_query("INSERT INTO {book} (nid, mlid, bid) VALUES (%d, %d, %d)", $node->nid, $book['mlid'], $book['bid']);
+    }
+    if ($data['dest_node_type'] == 'forum') {
+      db_query('INSERT INTO {forum} (tid, vid, nid) VALUES (%d, %d, %d)', $data['hook_options']['forum'], $data['node']->vid, $data['node']->nid);
+      db_query('INSERT INTO {term_node} (tid, vid, nid) VALUES (%d, %d, %d)', $data['hook_options']['forum'], $data['node']->vid, $data['node']->nid);
+    }
+  }
+  elseif ($op == 'delete') {
+    if ($data['node']->type == 'book') {
+      menu_link_delete($data['node']->book['mlid']);
+      db_query('DELETE FROM {book} WHERE mlid = %d', $data['node']->book['mlid']);
+    }
+    if ($data['node']->type == 'forum') {
+      db_query('DELETE FROM {forum} WHERE nid = %d', $data['node']->nid);
+      db_query('DELETE FROM {term_node} WHERE nid = %d', $data['node']->nid);
+    }
+  }
+  elseif ($op == 'options') {
+    $form = array();
+    if ($data['dest_node_type'] == 'book') {
+      foreach (book_get_books() as $book) {
+        $options[$book['nid']] = $book['title'];
+      }
+      $options = array('self' => '<'. t('create a new book') .'>') + $options;
+      $form['bid'] = array(
+        '#type' => 'select',
+        '#title' => t('Book'),
+        '#options' => $options,
+        '#description' => t('Your page will be a part of the selected book.'),
+        '#attributes' => array('class' => 'book-title-select'),
+      );
+    }
+    if ($data['dest_node_type'] == 'forum') {
+      $vid = variable_get('forum_nav_vocabulary', '');
+      $form['forum'] = taxonomy_form($vid);
+      $form['forum']['#weight'] = 7;
+      $form['forum']['#required'] = TRUE;
+      $form['forum']['#options'][''] = t('- Please choose -');
+    }
+    return $form;
+  }
+  elseif ($op == 'options validate') {
+    $form_state = $data['form_state'];
+    if ($data['dest_node_type'] == 'forum') {
+      $containers = variable_get('forum_containers', array());
+      $term = $form_state['values']['hook_options']['forum'];
+      if (in_array($term, $containers)) {
+        $term = taxonomy_get_term($term);
+        form_set_error('hook_options][forum', t('The item %forum is only a container for forums. Please select one of the forums below it.', array('%forum' => $term->name)));
+      }
+    }
+  }
+}
+
+/**
+ * Checks if user can do conversions from this node's type.
+ *
+ * @param $node
+ *   A node object to be checked.
+ * @return
+ *   TRUE if user can make conversions using this type, FALSE otherwise.
+ */
+function node_convert_check_access($node) {
+  $access = (user_access('administer conversion') || user_access('convert from '. $node->type)) ? TRUE : FALSE;
+  return $access;
+}
+
+/**
+ * Returns a list of node types that the user has access to, depending on the direction of conversion.
+ *
+ * @param $direction
+ *   A string containing either 'to' or 'from'.
+ * @return
+ *   An array of node types or FALSE if the user doesn't have access to any node type.
+ */
+function node_convert_return_access_node_types($direction) {
+  global $user;
+  $list = array();
+  $types = node_get_types();
+  foreach ($types as $type => $parameters) {
+    if ((user_access('administer conversion')) || (user_access('convert '. $direction .' '. $type))) $list[$type] = $parameters->name;
+  }
+  if (!empty($list))
+    return $list;
+  else
+    return FALSE;
+}
+/**
+ * Returns a string contaning the value of the $field from the $node object.
+ *
+ * @param $node
+ *   A $node object
+ * @param $field
+ *   The field who's value to get.
+ * @return
+ *   A string contaning the value of the $field from the $node object.
+ */
+function node_convert_get_field_value($node, $field) {
+  $value = '';
+  if ($field['type'] == "image") {
+    $value = $node->{$field['field_name']}[0]['title'] ." ; ". $node->{$field['field_name']}[0]['filepath'];
+  }
+  elseif ($field['type'] == "link") {
+    $value = $node->{$field['field_name']}[0]['url'] ." ; ". $node->{$field['field_name']}[0]['title'];
+  }
+  elseif ($field['type'] == "email") {
+    $value = $node->{$field['field_name']}[0]['email'];
+  }
+  elseif ($field['type'] == "file_audio" || $field['type'] == "file_video") {
+    $value = $node->{$field['field_name']}[0]['filename'] ." ". $node->{$field['field_name']}[0]['filemime'] ." ". $node->{$field['field_name']}[0]['filesize'] ." ". t("bytes");
+  }
+  elseif ($field['type'] == "nodereference") {
+    $value = "nid: ". $node->{$field['field_name']}[0]['nid'];
+  }
+  elseif ($field['type'] == "userreference") {
+    $value = "uid: ". $node->{$field['field_name']}[0]['uid'];
+  }
+  else $value = $node->{$field['field_name']}[0]['value'];
+  if (empty($value)) $value = 'NULL';
+  return $value;
+}
+
+/**
+ * Loads a conversion template array using template_id.
+ *
+ * @param $template_id
+ *   The template id to use
+ * @return
+ *    An array containing the template information or FALSE if there is no such template
+ */
+function node_convert_load_template($template_id) {
+  $template = db_fetch_array(db_query("SELECT * FROM {node_convert_templates} WHERE nctid = %d", $template_id));
+  if (is_array($template)) {
+    $template['data'] = unserialize($template['data']);
+  }
+  return $template;
+}
+
+/**
+ * Checks if the logged in user has access to use the conversion template.
+ *
+ * @param $data
+ *   An array containing either of the following keys
+ *   - template_id The template id used for conversion
+ *   - template  The template array containing data
+ * @return
+ *    TRUE if user can use the template, FALSE otherwise.
+ */
+function node_convert_check_template_permission_user($data) {
+  if (!empty($data['template'])) {
+    $template = $data['template'];
+  }
+  elseif (!empty($data['template_id'])) {
+    $template = node_convert_load_template($data['template_id']);
+  }
+  else {
+    return FALSE;
+  }
+  // User with this permission can convert from/to any content type.
+  if (user_access('administer conversion')) {
+    return TRUE;
+  }
+
+  $access = user_access('convert from '. $template['source_type']) && user_access('convert to '. $template['destination_type']);
+  return $access;
+}
+
+/**
+ * Converts a list of nodes using a given template
+ *
+ * @param $nodes
+ *   An array containing a list of node nid's
+ * @param $template_id
+ *   The template to use for conversion
+ * @return
+ *    FALSE if the user doesn't have permission to use the template.
+ */
+function node_convert_convert_nodes_using_template($nodes, $template_id) {
+  $template = node_convert_load_template($template_id);
+
+  $access = node_convert_check_template_permission_user(array('template' => $template));
+  if ($access == FALSE) {
+    drupal_set_message(t("You don't have permission to use this conversion template."), 'warning', FALSE);
+    return FALSE;
+  }
+
+  foreach ($nodes as $nid) {
+    $node = node_load($nid);
+    // The source type of the given node doesn't match the template one, so we discard it with a message
+    if ($node->type != $template['source_type']) {
+      drupal_set_message(t("Node %nid doesn't match the template source type. Discarded.", array('nid' => $node->nid)), 'warning');
+    }
+    else {
+      $result = node_convert_node_convert($node->nid, $template['destination_type'], $template['data']['fields']['source'], $template['data']['fields']['destination'], $template['data']['no_fields'], $template['data']['hook_options']);
+      // We display errors if there are any, or the default success message
+      node_convert_messages($result, array('nid' => $nid));
+    }
+  }
+}
