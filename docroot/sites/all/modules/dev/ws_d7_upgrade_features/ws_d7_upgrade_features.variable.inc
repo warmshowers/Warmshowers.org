@@ -665,7 +665,7 @@ Sender: <a href="[privatemsg_message:author:url]">[privatemsg_message:author:url
   'uc_cod_policy' => 'Full payment is expected upon delivery or prior to pick-up.',
   'uc_continue_shopping_text' => '',
   'uc_credit_fail_message' => 'We were unable to process your payment. Please verify your details and try again.  If the problem persists, contact us for help on the <a href="/contact">contact form</a>. Thanks so much for doing this, and thanks for your (future) donation!',
-  'uc_credit_policy' => 'Most debit and credit cards will work fine.',
+  'uc_credit_policy' => 'Your payment is secure and goes directly from your browser to our payment processor, Stripe.  The credit card number does not go through the Warmshowers.org server at all. And most debit and credit cards will work fine.',
   'uc_default_payment_msg' => '',
   'uc_msg_continue_shopping' => '<a href="[site:url]">Return to the Warmshowers.org dashboard.</a>',
   'uc_msg_order_existing_user' => 'Thank you so much for your generous contribution!',
