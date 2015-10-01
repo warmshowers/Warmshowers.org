@@ -113,33 +113,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'devel',
   );
 
-  // Exported permission: 'access environment indicator'.
-  $permissions['access environment indicator'] = array(
-    'name' => 'access environment indicator',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'environment_indicator',
-  );
-
-  // Exported permission: 'access environment indicator default_environment'.
-  $permissions['access environment indicator default_environment'] = array(
-    'name' => 'access environment indicator default_environment',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'environment_indicator',
-  );
-
-  // Exported permission: 'access environment indicator overwritten_environment'.
-  $permissions['access environment indicator overwritten_environment'] = array(
-    'name' => 'access environment indicator overwritten_environment',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'environment_indicator',
-  );
-
   // Exported permission: 'access map'.
   $permissions['access map'] = array(
     'name' => 'access map',
@@ -344,15 +317,6 @@ function ws_permissions_features_user_default_permissions() {
       'administrator' => 'administrator',
     ),
     'module' => 'css_injector',
-  );
-
-  // Exported permission: 'administer environment indicator settings'.
-  $permissions['administer environment indicator settings'] = array(
-    'name' => 'administer environment indicator settings',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'environment_indicator',
   );
 
   // Exported permission: 'administer faq'.
