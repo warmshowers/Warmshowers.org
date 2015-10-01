@@ -24,7 +24,7 @@ function recent_forum_topics_views_views_default_views() {
   $handler = $view->new_display('default', 'Defaults', 'default');
   $handler->display->display_options['title'] = 'Recent Forum Topics';
   $handler->display->display_options['use_more_always'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
+  $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'time';
   $handler->display->display_options['cache']['results_lifespan'] = '3600';
   $handler->display->display_options['cache']['output_lifespan'] = '3600';

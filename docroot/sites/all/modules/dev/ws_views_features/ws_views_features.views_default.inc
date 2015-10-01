@@ -200,6 +200,8 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['css_class'] = 'admin-views-view';
   $handler->display->display_options['use_ajax'] = TRUE;
   $handler->display->display_options['use_more_always'] = FALSE;
+  $handler->display->display_options['access']['type'] = 'perm';
+  $handler->display->display_options['access']['perm'] = 'administer nodes';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['query']['options']['distinct'] = TRUE;
@@ -298,7 +300,7 @@ function ws_views_features_views_default_views() {
     'forums' => 0,
     'tags' => 0,
   );
-  /* Field: Broken/missing handler */
+  /* Field: Bulk operations: Content */
   $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
   $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'node';
   $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
@@ -403,8 +405,6 @@ function ws_views_features_views_default_views() {
   /* Display: Content VBO */
   $handler = $view->new_display('page', 'Content VBO', 'content_vbo');
   $handler->display->display_options['defaults']['hide_admin_links'] = FALSE;
-  $handler->display->display_options['defaults']['access'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
   $handler->display->display_options['path'] = 'admin/content/VBO';
   $handler->display->display_options['menu']['type'] = 'normal';
   $handler->display->display_options['menu']['title'] = 'Content VBO';
@@ -546,6 +546,7 @@ function ws_views_features_views_default_views() {
     t('No content available.'),
     t('author'),
     t('term'),
+    t('- Choose an operation -'),
     t('Title'),
     t('Author'),
     t('Updated'),
@@ -576,6 +577,8 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['css_class'] = 'admin-views-view';
   $handler->display->display_options['use_ajax'] = TRUE;
   $handler->display->display_options['use_more_always'] = FALSE;
+  $handler->display->display_options['access']['type'] = 'perm';
+  $handler->display->display_options['access']['perm'] = 'administer users';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['query']['options']['query_comment'] = FALSE;
@@ -707,7 +710,7 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['empty']['area_text_custom']['field'] = 'area_text_custom';
   $handler->display->display_options['empty']['area_text_custom']['empty'] = TRUE;
   $handler->display->display_options['empty']['area_text_custom']['content'] = 'No users available.';
-  /* Field: Broken/missing handler */
+  /* Field: Bulk operations: User */
   $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
   $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'users';
   $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
@@ -1285,8 +1288,6 @@ function ws_views_features_views_default_views() {
   /* Display: Admin User VBO */
   $handler = $view->new_display('page', 'Admin User VBO', 'admin_user_vbo');
   $handler->display->display_options['defaults']['hide_admin_links'] = FALSE;
-  $handler->display->display_options['defaults']['access'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
   $handler->display->display_options['path'] = 'admin/people/vbo';
   $handler->display->display_options['menu']['type'] = 'normal';
   $handler->display->display_options['menu']['title'] = 'User VBO';
@@ -1450,7 +1451,7 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['defaults']['row_plugin'] = FALSE;
   $handler->display->display_options['defaults']['row_options'] = FALSE;
   $handler->display->display_options['defaults']['fields'] = FALSE;
-  /* Field: Broken/missing handler */
+  /* Field: Bulk operations: User */
   $handler->display->display_options['fields']['views_bulk_operations']['id'] = 'views_bulk_operations';
   $handler->display->display_options['fields']['views_bulk_operations']['table'] = 'users';
   $handler->display->display_options['fields']['views_bulk_operations']['field'] = 'views_bulk_operations';
@@ -1593,6 +1594,7 @@ function ws_views_features_views_default_views() {
     t('next ›'),
     t('last »'),
     t('No users available.'),
+    t('- Choose an operation -'),
     t('Item'),
     t('Full Name'),
     t('Uid'),

@@ -24,7 +24,7 @@ function rss_feed_views_views_default_views() {
   $handler = $view->new_display('default', 'Defaults', 'default');
   $handler->display->display_options['title'] = 'Warmshowers.org Recent Postings';
   $handler->display->display_options['use_more_always'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
+  $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['exposed_form']['type'] = 'basic';
@@ -48,10 +48,6 @@ function rss_feed_views_views_default_views() {
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'node';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  /* Field: Broken/missing handler */
-  $handler->display->display_options['fields']['body']['id'] = 'body';
-  $handler->display->display_options['fields']['body']['table'] = 'field_revision_data';
-  $handler->display->display_options['fields']['body']['field'] = 'body-revision_id';
   /* Field: Content: Post date */
   $handler->display->display_options['fields']['created']['id'] = 'created';
   $handler->display->display_options['fields']['created']['table'] = 'node';
@@ -112,6 +108,8 @@ function rss_feed_views_views_default_views() {
   $handler = $view->new_display('feed', 'Feed', 'site_feed');
   $handler->display->display_options['display_description'] = 'A sitewide rss feed to display all published forum posts.';
   $handler->display->display_options['pager']['type'] = 'some';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '20';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['style_plugin'] = 'rss';
   $handler->display->display_options['style_options']['grouping'] = '';
   $handler->display->display_options['row_plugin'] = 'node_rss';
@@ -124,10 +122,6 @@ function rss_feed_views_views_default_views() {
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'node';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  /* Field: Broken/missing handler */
-  $handler->display->display_options['fields']['body']['id'] = 'body';
-  $handler->display->display_options['fields']['body']['table'] = 'field_revision_data';
-  $handler->display->display_options['fields']['body']['field'] = 'body-revision_id';
   /* Field: Content: Post date */
   $handler->display->display_options['fields']['created']['id'] = 'created';
   $handler->display->display_options['fields']['created']['table'] = 'node';
@@ -183,7 +177,6 @@ function rss_feed_views_views_default_views() {
     t('term'),
     t('Nid'),
     t('Title'),
-    t('Broken handler field_revision_data.body-revision_id'),
     t('Post date'),
     t('Feed'),
     t('A sitewide rss feed to display all published forum posts.'),

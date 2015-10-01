@@ -23,7 +23,7 @@ function map_slideshow_views_views_default_views() {
   /* Display: Defaults */
   $handler = $view->new_display('default', 'Defaults', 'default');
   $handler->display->display_options['use_more_always'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
+  $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['exposed_form']['type'] = 'basic';
@@ -60,7 +60,7 @@ function map_slideshow_views_views_default_views() {
   $handler->display->display_options['style_options']['views_slideshow_cycle']['cleartype'] = 0;
   $handler->display->display_options['style_options']['views_slideshow_cycle']['cleartypenobg'] = 0;
   $handler->display->display_options['row_plugin'] = 'fields';
-  /* Field: Content: Optional Photos */
+  /* Field: Content: Contest Photo */
   $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';

@@ -22,7 +22,7 @@ function uc_orders_user_views_views_default_views() {
 
   /* Display: Master */
   $handler = $view->new_display('default', 'Master', 'default');
-  $handler->display->display_options['title'] = 'My order history';
+  $handler->display->display_options['title'] = 'My donation history';
   $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['access']['perm'] = 'view own orders';
@@ -150,7 +150,7 @@ function uc_orders_user_views_views_default_views() {
   $handler->display->display_options['menu']['context_only_inline'] = 0;
   $translatables['uc_orders_user'] = array(
     t('Master'),
-    t('My order history'),
+    t('My donation history'),
     t('more'),
     t('Apply'),
     t('Reset'),
