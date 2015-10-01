@@ -560,6 +560,7 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['administer recurring fees'] = array(
     'name' => 'administer recurring fees',
     'roles' => array(
+      'Donations administrator' => 'Donations administrator',
       'administrator' => 'administrator',
     ),
     'module' => 'uc_recurring',
@@ -2104,6 +2105,7 @@ function ws_permissions_features_user_default_permissions() {
   $permissions['view all orders'] = array(
     'name' => 'view all orders',
     'roles' => array(
+      'Donations administrator' => 'Donations administrator',
       'administrator' => 'administrator',
     ),
     'module' => 'uc_order',
