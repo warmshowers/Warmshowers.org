@@ -22,7 +22,7 @@ function ws_d7_upgrade_features_filter_default_formats() {
         'weight' => 0,
         'status' => 1,
         'settings' => array(
-          'allowed_html' => '<a> <em> <strong> <b> <i> <cite> <code> <ul> <ol> <li> <dl> <dt> <dd><img> <div> <table> <tr> <td> <th> <p>',
+          'allowed_html' => '<a> <em> <strong> <b> <i> <cite> <code> <ul> <ol> <li> <dl> <dt> <dd><img> <div> <p>',
           'filter_html_help' => 1,
           'filter_html_nofollow' => 0,
         ),
