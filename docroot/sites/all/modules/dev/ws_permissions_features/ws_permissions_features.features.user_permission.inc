@@ -2017,7 +2017,6 @@ function ws_permissions_features_user_default_permissions() {
       'Translator' => 'Translator',
       'Translator (extras)' => 'Translator (extras)',
       'administrator' => 'administrator',
-      'anonymous user' => 'anonymous user',
       'authenticated user' => 'authenticated user',
       'comment posting user' => 'comment posting user',
       'current-member' => 'current-member',
