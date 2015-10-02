@@ -608,3 +608,19 @@ function warmshowers_zen_menu_link($variables) {
   $output = l($element['#title'], $element['#href'], $element['#localized_options']);
   return '<li' . drupal_attributes($element['#attributes']) . '>' . $output . $sub_menu . "</li>\n";
 }
+
+
+/**
+ * Override theme_advanced_forum_simple_author_pane
+ * It loads the account too late; here we load it early so we can show the
+ * user's fullname.
+ */
+function warmshowers_zen_advanced_forum_simple_author_pane(&$variables) {
+  $account = user_load($variables['context']->uid);
+
+  $name = theme('username', array('account' => $account));
+
+  $picture = theme('user_picture', array('account' => $account));
+
+  return '<div class="author-pane">' . $name . $picture . '</div>';
+}
