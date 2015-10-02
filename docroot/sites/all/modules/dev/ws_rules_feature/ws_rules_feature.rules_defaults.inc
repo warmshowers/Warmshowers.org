@@ -49,12 +49,27 @@ function ws_rules_feature_default_rules_configuration() {
       ]
     }
   }');
+  $items['rules_preauth_user_login_redirect'] = entity_import('rules_config', '{ "rules_preauth_user_login_redirect" : {
+      "LABEL" : "Preauth user login redirect",
+      "PLUGIN" : "reaction rule",
+      "OWNER" : "rules",
+      "REQUIRES" : [ "rules" ],
+      "ON" : { "user_login" : [] },
+      "IF" : [
+        { "user_has_role" : { "account" : [ "account" ], "roles" : { "value" : { "9" : "9" } } } }
+      ],
+      "DO" : [ { "redirect" : { "url" : "unvalidated_user_login" } } ]
+    }
+  }');
   $items['rules_redirect_to_dashboard_on_login'] = entity_import('rules_config', '{ "rules_redirect_to_dashboard_on_login" : {
       "LABEL" : "Redirect to dashboard on login",
       "PLUGIN" : "reaction rule",
       "OWNER" : "rules",
       "REQUIRES" : [ "rules" ],
       "ON" : { "user_login" : [] },
+      "IF" : [
+        { "NOT user_has_role" : { "account" : [ "account" ], "roles" : { "value" : { "9" : "9" } } } }
+      ],
       "DO" : [ { "redirect" : { "url" : "[site:url]", "force" : "0" } } ]
     }
   }');
