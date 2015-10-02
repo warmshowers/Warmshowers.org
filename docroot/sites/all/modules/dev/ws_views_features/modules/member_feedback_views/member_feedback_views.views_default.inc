@@ -100,6 +100,8 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['field_rating']['table'] = 'field_data_field_rating';
   $handler->display->display_options['fields']['field_rating']['field'] = 'field_rating';
   $handler->display->display_options['fields']['field_rating']['label'] = '';
+  $handler->display->display_options['fields']['field_rating']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['field_rating']['alter']['text'] = '<span class="feedback-[field_rating-value]">[field_rating]<span>';
   $handler->display->display_options['fields']['field_rating']['element_label_colon'] = FALSE;
   /* Field: Content: Date We Met */
   $handler->display->display_options['fields']['field_hosting_date']['id'] = 'field_hosting_date';
@@ -216,6 +218,8 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['field_rating']['table'] = 'field_data_field_rating';
   $handler->display->display_options['fields']['field_rating']['field'] = 'field_rating';
   $handler->display->display_options['fields']['field_rating']['label'] = '';
+  $handler->display->display_options['fields']['field_rating']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['field_rating']['alter']['text'] = '<span class="feedback-[field_rating-value]">[field_rating]<span>';
   $handler->display->display_options['fields']['field_rating']['element_label_colon'] = FALSE;
   /* Field: Warmshowers: Full Name */
   $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
@@ -326,6 +330,8 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['fields']['field_rating']['table'] = 'field_data_field_rating';
   $handler->display->display_options['fields']['field_rating']['field'] = 'field_rating';
   $handler->display->display_options['fields']['field_rating']['label'] = '';
+  $handler->display->display_options['fields']['field_rating']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['field_rating']['alter']['text'] = '<span class="feedback-[field_rating-value]">[field_rating]<span>';
   $handler->display->display_options['fields']['field_rating']['element_label_colon'] = FALSE;
   /* Field: Warmshowers: Full Name */
   $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
@@ -405,7 +411,9 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['header']['text']['table'] = 'views';
   $handler->display->display_options['header']['text']['field'] = 'area';
   $handler->display->display_options['header']['text']['empty'] = TRUE;
-  $handler->display->display_options['header']['text']['content'] = 'To leave feedback for a member..........';
+  $handler->display->display_options['header']['text']['content'] = 'To leave feedback for a member, visit their profile page and click the "Provide Feedback" button in the "Actions" block on their profile page.
+
+On the "Feedback" tab for any member you can see <em>all</em> their feedback as well as feedback they\'ve given to others.';
   $handler->display->display_options['header']['text']['format'] = '1';
   $handler->display->display_options['entity_type'] = 'user';
   $handler->display->display_options['bundles'] = array(
@@ -485,6 +493,7 @@ function member_feedback_views_views_default_views() {
     t('No members have given feedback for this member yet.'),
     t('author'),
     t('member'),
+    t('<span class="feedback-[field_rating-value]">[field_rating]<span>'),
     t('All'),
     t('Feedback received'),
     t('Feedback received by user.'),
@@ -495,7 +504,9 @@ function member_feedback_views_views_default_views() {
     t('This member has not yet given any feedback.'),
     t('User feedback'),
     t('Most recent feedback for a user.'),
-    t('To leave feedback for a member..........'),
+    t('To leave feedback for a member, visit their profile page and click the "Provide Feedback" button in the "Actions" block on their profile page.
+
+On the "Feedback" tab for any member you can see <em>all</em> their feedback as well as feedback they\'ve given to others.'),
     t('Negative Feedback'),
     t('A rules display to list negative feedback.'),
   );
