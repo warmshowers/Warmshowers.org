@@ -401,8 +401,8 @@ function warmshowers_zen_username($variables) {
       $name = drupal_substr($name, 0, 18) . '...';
     }
 
-    // Allow link to profile for auth or preauth (role 9) user
-    if (user_access('access user profiles') || user_has_role(9, $GLOBALS['user'])) {
+    // Allow link to profile for logged-in user
+    if (user_is_logged_in()) {
       $output = l($name, 'user/' . $account->uid, array('attributes' => array('title' => t('View user profile.'))));
     }
     else {
@@ -433,8 +433,8 @@ function warmshowers_zen_sanitized_username($variables) {
   $account = $variables['account'];
   $name = t('WS Member');
 
-  // We want fullname rendering if they're auth user OR pre-authorized user (role 9)
-  if (user_access('access user profiles') || user_has_role(9, $GLOBALS['user'])) {
+  // We want fullname rendering for logged-in users, but not unauthenticated
+  if (user_is_logged_in()) {
     if (!empty($account->fullname)) {
       $name = $account->fullname;
     }
