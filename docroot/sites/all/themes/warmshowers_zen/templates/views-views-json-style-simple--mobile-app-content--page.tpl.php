@@ -46,7 +46,7 @@ else {
     // We want to send the JSON as a server response so switch the content
     // type and stop further processing of the page.
     $content_type = ($options['content_type'] == 'default') ? 'application/json' : $options['content_type'];
-    drupal_add_http_header('Content-Type', '$content_type; charset=utf-8');
+    drupal_add_http_header("Content-Type", "$content_type; charset=utf-8");
     print $json;
     //Don't think this is needed in .tpl.php files: module_invoke_all('exit');
     exit;
