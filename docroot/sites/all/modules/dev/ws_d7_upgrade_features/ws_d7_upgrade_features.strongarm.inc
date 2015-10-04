@@ -214,6 +214,13 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'faq_path';
+  $strongarm->value = 'faq';
+  $export['faq_path'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'field_bundle_settings_node__block';
   $strongarm->value = array(
     'view_modes' => array(),
