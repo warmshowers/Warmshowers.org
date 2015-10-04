@@ -119,7 +119,6 @@ function ws_permissions_features_user_default_permissions() {
     'roles' => array(
       'authenticated user' => 'authenticated user',
       'developer' => 'developer',
-      'pre-authorized' => 'pre-authorized',
     ),
     'module' => 'wsmap',
   );
