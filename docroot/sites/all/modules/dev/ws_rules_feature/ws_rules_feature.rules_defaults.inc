@@ -41,9 +41,33 @@ function ws_rules_feature_default_rules_configuration() {
         { "mail" : {
             "to" : "userstatusemails@warmshowers.org",
             "subject" : "WS new user: [account:name]",
-            "message" : "\\u003Cb\\u003ENew user: \\u003C\\/b\\u003E [account:name] \\r\\n\\u003Cb\\u003EUser email address: \\u003C\\/b\\u003E [account:mail]   \\r\\n\\u003Cb\\u003EFull Name: \\u003C\\/b\\u003E [account:fullname]\\r\\n\\u003Cb\\u003EAbout Me: \\u003C\\/b\\u003E [account:about_me]\\r\\n\\u003Cb\\u003ELocation: \\u003C\\/b\\u003E [account:city], [account:province], [account:country]\\r\\n\\u003Cb\\u003EGeocoding Accuracy: \\u003C\\/b\\u003E [account:source]\\r\\n\\u003Cb\\u003Enotcurrentlyavailable: \\u003C\\/b\\u003E [account:notcurrentlyavailable]\\r\\n\\u003Cb\\u003EHow did you hear about WS.org? \\u003C\\/b\\u003E [account:howdidyouhear]\\r\\n\\u003Cb\\u003EProfile Link: \\u003C\\/b\\u003E\\u003Ca href=\\u0022[account:url]\\u0022\\u003E[account:url]\\u003C\\/a\\u003E\\r\\n\\u003Cb\\u003EEdit: \\u003C\\/b\\u003E\\u003Ca href=\\u0022[account:account-edit]\\u0022\\u003E[account:edit-url]\\u003C\\/a\\u003E\\r\\n\\u003Cb\\u003EDelete: \\u003C\\/b\\u003E\\u003Ca href=\\u0022[site-url]\\/user\\/[account:uid]\\/delete\\u0022\\u003E[site-url]\\/user\\/[account:uid]\\/delete\\u003C\\/a\\u003E ",
+            "message" : "\\u003Cb\\u003ENew user: \\u003C\\/b\\u003E [account:name] \\r\\n\\u003Cb\\u003EUser email address: \\u003C\\/b\\u003E [account:mail]   \\r\\n\\u003Cb\\u003EFull Name: \\u003C\\/b\\u003E [account:fullname]\\r\\n\\u003Cb\\u003EAbout Me: \\u003C\\/b\\u003E [account:about_me]\\r\\n\\u003Cb\\u003ELocation: \\u003C\\/b\\u003E [account:city], [account:province], [account:country]\\r\\n\\u003Cb\\u003EGeocoding Accuracy: \\u003C\\/b\\u003E [account:source]\\r\\n\\u003Cb\\u003Enotcurrentlyavailable: \\u003C\\/b\\u003E [account:notcurrentlyavailable]\\r\\n\\u003Cb\\u003EHow did you hear about WS.org? \\u003C\\/b\\u003E [account:howdidyouhear]\\r\\n\\u003Cb\\u003EProfile Link: \\u003C\\/b\\u003E\\u003Ca href=\\u0022[account:url]\\u0022\\u003E[account:url]\\u003C\\/a\\u003E\\r\\n\\u003Cb\\u003EEdit: \\u003C\\/b\\u003E\\u003Ca href=\\u0022[account:account-edit]\\u0022\\u003E[account:edit-url]\\u003C\\/a\\u003E\\r\\n\\u003Cb\\u003EDelete: \\u003C\\/b\\u003E\\u003Ca href=\\u0022[site-url]\\/user\\/[account:uid]\\/cancel\\u0022\\u003E[site-url]\\/user\\/[account:uid]\\/cancel\\u003C\\/a\\u003E ",
             "from" : "noreply@warmshowers.org",
             "language" : [ "account:language" ]
+          }
+        }
+      ]
+    }
+  }');
+  $items['rules_notify_on_comment_needing_moderation'] = entity_import('rules_config', '{ "rules_notify_on_comment_needing_moderation" : {
+      "LABEL" : "Notify on comment needing moderation",
+      "PLUGIN" : "reaction rule",
+      "OWNER" : "rules",
+      "REQUIRES" : [ "rules", "comment" ],
+      "ON" : { "comment_insert" : [] },
+      "IF" : [
+        { "NOT user_has_role" : {
+            "account" : [ "comment:author" ],
+            "roles" : { "value" : { "15" : "15" } }
+          }
+        }
+      ],
+      "DO" : [
+        { "mail" : {
+            "to" : "randy+wslreports@warmshowers.org, martinmemartin@warmshowers.org",
+            "subject" : "Comment posted by new user [comment:author:fullname] ([comment:author:name])- needs approval",
+            "message" : "New user \\u003Ca href=\\u0022[comment:author:account-url]\\u0022\\u003E[comment:author:fullname] ([comment:author:name])\\u003C\\/a\\u003E has posted a comment:\\r\\n---\\r\\n[comment:subject]\\r\\n\\r\\n[comment:body]\\r\\n\\r\\nUser\\u0027s About Me:\\r\\n[comment:author:about_me]\\r\\n\\r\\n-------\\r\\nComment approvals: [site:url]admin\\/content\\/comment\\/approval\\r\\nUser profile: [comment:author:account-url]\\r\\nUser edit: [site:url]user\\/[comment:author:uid]\\/edit\\r\\nUser delete: [site:url]user\\/[comment:author:uid]\\/cancel\\r\\n",
+            "language" : [ "" ]
           }
         }
       ]
