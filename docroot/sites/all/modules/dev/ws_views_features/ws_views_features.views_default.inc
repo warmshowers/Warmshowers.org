@@ -37,6 +37,11 @@ function ws_views_features_views_default_views() {
     'comment_body' => 'comment_body',
     'title' => 'title',
     'created' => 'created',
+    'created_1' => 'created_1',
+    'nothing' => 'nothing',
+    'view_comment' => 'nothing',
+    'delete_comment' => 'nothing',
+    'cancel_node' => 'nothing',
   );
   $handler->display->display_options['style_options']['default'] = '-1';
   $handler->display->display_options['style_options']['info'] = array(
@@ -68,12 +73,44 @@ function ws_views_features_views_default_views() {
       'separator' => '',
       'empty_column' => 0,
     ),
+    'created_1' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'nothing' => array(
+      'align' => '',
+      'separator' => ' | ',
+      'empty_column' => 0,
+    ),
+    'view_comment' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'delete_comment' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'cancel_node' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
   );
   /* Relationship: Comment: Content */
   $handler->display->display_options['relationships']['nid']['id'] = 'nid';
   $handler->display->display_options['relationships']['nid']['table'] = 'comment';
   $handler->display->display_options['relationships']['nid']['field'] = 'nid';
   $handler->display->display_options['relationships']['nid']['required'] = TRUE;
+  /* Relationship: Comment: Author */
+  $handler->display->display_options['relationships']['uid']['id'] = 'uid';
+  $handler->display->display_options['relationships']['uid']['table'] = 'comment';
+  $handler->display->display_options['relationships']['uid']['field'] = 'uid';
+  $handler->display->display_options['relationships']['uid']['required'] = TRUE;
   /* Field: Comment: Title */
   $handler->display->display_options['fields']['subject']['id'] = 'subject';
   $handler->display->display_options['fields']['subject']['table'] = 'comment';
@@ -105,6 +142,28 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['fields']['created_1']['label'] = 'Orig Forum Post date';
   $handler->display->display_options['fields']['created_1']['date_format'] = 'short';
   $handler->display->display_options['fields']['created_1']['second_date_format'] = 'privatemsg_current_day';
+  /* Field: Global: Custom text */
+  $handler->display->display_options['fields']['nothing']['id'] = 'nothing';
+  $handler->display->display_options['fields']['nothing']['table'] = 'views';
+  $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
+  $handler->display->display_options['fields']['nothing']['label'] = 'Links';
+  $handler->display->display_options['fields']['nothing']['element_label_colon'] = FALSE;
+  /* Field: Comment: View link */
+  $handler->display->display_options['fields']['view_comment']['id'] = 'view_comment';
+  $handler->display->display_options['fields']['view_comment']['table'] = 'comment';
+  $handler->display->display_options['fields']['view_comment']['field'] = 'view_comment';
+  $handler->display->display_options['fields']['view_comment']['label'] = 'View comment';
+  /* Field: Comment: Delete link */
+  $handler->display->display_options['fields']['delete_comment']['id'] = 'delete_comment';
+  $handler->display->display_options['fields']['delete_comment']['table'] = 'comment';
+  $handler->display->display_options['fields']['delete_comment']['field'] = 'delete_comment';
+  $handler->display->display_options['fields']['delete_comment']['label'] = 'Delete comment';
+  /* Field: User: Cancel link */
+  $handler->display->display_options['fields']['cancel_node']['id'] = 'cancel_node';
+  $handler->display->display_options['fields']['cancel_node']['table'] = 'users';
+  $handler->display->display_options['fields']['cancel_node']['field'] = 'cancel_node';
+  $handler->display->display_options['fields']['cancel_node']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['cancel_node']['label'] = 'Cancel author account';
   /* Sort criterion: Comment: Post date */
   $handler->display->display_options['sorts']['created']['id'] = 'created';
   $handler->display->display_options['sorts']['created']['table'] = 'comment';
@@ -174,11 +233,16 @@ function ws_views_features_views_default_views() {
     t('next ›'),
     t('last »'),
     t('Content'),
+    t('author'),
     t('Comment Title'),
     t('Comment'),
     t('Node Title'),
     t('Post date'),
     t('Orig Forum Post date'),
+    t('Links'),
+    t('View comment'),
+    t('Delete comment'),
+    t('Cancel author account'),
     t('All'),
     t('Forum Comments Admin Report'),
   );
