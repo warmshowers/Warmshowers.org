@@ -322,7 +322,9 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
   $strongarm->name = 'disable_breadcrumbs_node_paths';
-  $strongarm->value = '';
+  $strongarm->value = 'user
+user/*
+<front>';
   $export['disable_breadcrumbs_node_paths'] = $strongarm;
 
   $strongarm = new stdClass();
