@@ -314,6 +314,60 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'disable_breadcrumbs_all';
+  $strongarm->value = 0;
+  $export['disable_breadcrumbs_all'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'disable_breadcrumbs_node_paths';
+  $strongarm->value = '';
+  $export['disable_breadcrumbs_node_paths'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'disable_breadcrumbs_node_types';
+  $strongarm->value = array(
+    'blog' => 0,
+    'block' => 0,
+    'contest_photo' => 0,
+    'faq' => 0,
+    'trust_referral' => 0,
+    'forum' => 0,
+    'page' => 0,
+    'poll' => 0,
+    'product' => 0,
+    'sitebuilding' => 0,
+    'story' => 0,
+    'tip' => 0,
+  );
+  $export['disable_breadcrumbs_node_types'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
+  $strongarm->name = 'disable_breadcrumbs_node_types_all';
+  $strongarm->value = array(
+    'blog' => 'blog',
+    'block' => 'block',
+    'contest_photo' => 'contest_photo',
+    'faq' => 'faq',
+    'trust_referral' => 'trust_referral',
+    'page' => 'page',
+    'poll' => 'poll',
+    'product' => 'product',
+    'sitebuilding' => 'sitebuilding',
+    'story' => 'story',
+    'tip' => 'tip',
+    'forum' => 0,
+  );
+  $export['disable_breadcrumbs_node_types_all'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'faq_path';
   $strongarm->value = 'faq';
   $export['faq_path'] = $strongarm;
