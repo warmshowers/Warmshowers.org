@@ -567,7 +567,10 @@ You can stop receiving emails when someone replies to this post by <a href="[com
 <p>If you speak English it will help the admins a *lot* if you can ask your question in English. Thanks! </p>
 
 <p>Full Contact Info: Warmshowers.org Foundation, 848 Montclair Drive, Palisade, CO 81526, USA. Phone: +1 970.462.7450. Email: wsl@warmshowers.org</p>',
+  'faq_answer_label' => '',
+  'faq_back_to_top' => '',
   'faq_description' => '',
+  'faq_question_label' => '',
   'faq_title' => 'Frequently Asked Questions',
   'inactive_user_block_notify_text' => 'Hello %username,
 
