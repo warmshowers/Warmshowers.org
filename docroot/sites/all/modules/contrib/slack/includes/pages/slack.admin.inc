@@ -28,5 +28,40 @@ function slack_configure_form($form, &$form_state) {
     '#description' => t('What would you like to name your Slack bot?'),
     '#default_value' => variable_get('slack_username'),
   );
+  $form['slack_icon_type'] = array(
+    '#type' => 'radios',
+    '#title' => t('Type of image'),
+    '#options' => array (
+      'emoji' => t('Emoji'),
+      'image' => t('Image'),
+      'none' => t('None (Use default integration settings)')),
+    '#default_value' => slack_get_default_icon_type(),
+  );
+  $form['slack_icon_emoji'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Emoji code'),
+    '#default_value' => variable_get('slack_icon_emoji'),
+    '#description' => t('What emoji would you use for your SlackBot?'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="slack_icon_type"]' => array(
+          'value' => 'emoji',
+        ),
+      ),
+    ),
+  );
+  $form['slack_icon_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Image URL '),
+    '#default_value' => variable_get('slack_icon_url'),
+    '#description' => t('What icon would you use for your SlackBot?'),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="slack_icon_type"]' => array(
+          'value' => 'image',
+        ),
+      ),
+    ),
+  );
   return system_settings_form($form);
 }
