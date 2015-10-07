@@ -35,3 +35,8 @@ drush -r ${DEPLOY_TO} fra -y
 echo -e "\033[32;40mClearing all drupal caches...\033[0m"
 drush -r ${DEPLOY_TO} cc all -y
 
+if [ -f /etc/init.d/memcached ] ; then
+  echo -e "\033[32;40mRestarting memcached...\033[0m"
+  sudo service memcached restart
+fi
+
