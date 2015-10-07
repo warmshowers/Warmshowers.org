@@ -1953,11 +1953,11 @@ function ws_d7_upgrade_features_context_default_contexts() {
   $context->reactions = array(
     'block' => array(
       'blocks' => array(
-        'search-form' => array(
-          'module' => 'search',
-          'delta' => 'form',
+        'warmshowers_site-ws_forum_search_form' => array(
+          'module' => 'warmshowers_site',
+          'delta' => 'ws_forum_search_form',
           'region' => 'content',
-          'weight' => '-10',
+          'weight' => '-9',
         ),
       ),
     ),
