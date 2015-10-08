@@ -48,7 +48,6 @@ function ws_views_features_strongarm() {
     'user_referrals_by_referee' => TRUE,
     'user_referrals_by_referrer' => TRUE,
     'feedback_block' => TRUE,
-    'photo_contest' => TRUE,
     'comments_review' => TRUE,
   );
   $export['views_defaults'] = $strongarm;

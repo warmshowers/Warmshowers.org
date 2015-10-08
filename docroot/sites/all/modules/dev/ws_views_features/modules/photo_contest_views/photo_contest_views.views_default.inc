@@ -42,6 +42,10 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['empty']['text']['field'] = 'area';
   $handler->display->display_options['empty']['text']['content'] = 'Nothing yet! Enter yours now!';
   $handler->display->display_options['empty']['text']['format'] = '1';
+  /* Relationship: Content: Author */
+  $handler->display->display_options['relationships']['uid']['id'] = 'uid';
+  $handler->display->display_options['relationships']['uid']['table'] = 'node';
+  $handler->display->display_options['relationships']['uid']['field'] = 'uid';
   /* Field: Content: Title */
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'node';
@@ -52,6 +56,7 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['fields']['name']['id'] = 'name';
   $handler->display->display_options['fields']['name']['table'] = 'users';
   $handler->display->display_options['fields']['name']['field'] = 'name';
+  $handler->display->display_options['fields']['name']['relationship'] = 'uid';
   $handler->display->display_options['fields']['name']['label'] = 'From';
   /* Sort criterion: Content: Post date */
   $handler->display->display_options['sorts']['created']['id'] = 'created';
@@ -118,7 +123,7 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['fields']['title']['table'] = 'node';
   $handler->display->display_options['fields']['title']['field'] = 'title';
   $handler->display->display_options['fields']['title']['label'] = '';
-  /* Field: Content: Optional Photos */
+  /* Field: Content: Contest Photo */
   $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';
@@ -228,8 +233,17 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['row_plugin'] = 'fields';
   $handler->display->display_options['defaults']['row_options'] = FALSE;
   $handler->display->display_options['defaults']['relationships'] = FALSE;
+  /* Relationship: Content: Vote results */
+  $handler->display->display_options['relationships']['votingapi_cache']['id'] = 'votingapi_cache';
+  $handler->display->display_options['relationships']['votingapi_cache']['table'] = 'node';
+  $handler->display->display_options['relationships']['votingapi_cache']['field'] = 'votingapi_cache';
+  $handler->display->display_options['relationships']['votingapi_cache']['votingapi'] = array(
+    'value_type' => 'points',
+    'tag' => 'vote',
+    'function' => 'count',
+  );
   $handler->display->display_options['defaults']['fields'] = FALSE;
-  /* Field: Content: Optional Photos */
+  /* Field: Content: Contest Photo */
   $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';
@@ -238,7 +252,7 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['fields']['field_contest_photo']['click_sort_column'] = 'fid';
   $handler->display->display_options['fields']['field_contest_photo']['type'] = 'colorbox';
   $handler->display->display_options['fields']['field_contest_photo']['settings'] = array(
-    'colorbox_node_style' => 'thumbnail',
+    'colorbox_node_style' => 'photo_album_block',
     'colorbox_node_style_first' => '',
     'colorbox_image_style' => '800w',
     'colorbox_gallery' => 'post',
@@ -329,7 +343,7 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['row_plugin'] = 'fields';
   $handler->display->display_options['defaults']['row_options'] = FALSE;
   $handler->display->display_options['defaults']['fields'] = FALSE;
-  /* Field: Content: Optional Photos */
+  /* Field: Content: Contest Photo */
   $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';
@@ -395,11 +409,13 @@ function photo_contest_views_views_default_views() {
     t('Asc'),
     t('Desc'),
     t('Nothing yet! Enter yours now!'),
+    t('author'),
     t('From'),
     t('Post date'),
     t('Admin View'),
     t('Touring Photos'),
     t('Sits on the homepage, accessible to all members including those not logged in.'),
+    t('Vote results'),
     t('Photo Contest Block'),
     t('Sits on the homepage dashboard, shown only to logged in users.'),
   );
