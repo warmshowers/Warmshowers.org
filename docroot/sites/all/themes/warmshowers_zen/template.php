@@ -387,7 +387,7 @@ function warmshowers_zen_privatemsg_username($variables) {
 }
 
 /**
- * Override username to present fullname instead. Experimental.
+ * Override username to present fullname instead.
  * @param $variables
  * @return string
  */
@@ -474,6 +474,9 @@ function warmshowers_zen_preprocess_user_picture(&$variables) {
     }
     elseif (isset($account->user_picture_style)) {
       $style = $account->user_picture_style;
+    }
+    else {
+      $style = variable_get('user_picture_style_comments', '50w');
     }
 
 
@@ -622,7 +625,7 @@ function warmshowers_zen_advanced_forum_simple_author_pane(&$variables) {
 
   $name = theme('username', array('account' => $account));
 
-  $picture = theme('user_picture', array('account' => $account));
+  $picture = theme('user_picture', array('account' => $account, 'user_picture_style' => variable_get('user_picture_style_comments', 'profile_tiny')));
 
   return '<div class="author-pane">' . $name . $picture . '</div>';
 }
