@@ -86,6 +86,9 @@ function ws_d7_upgrade_features_default_services_endpoint() {
         'getThread' => array(
           'enabled' => '1',
         ),
+        'markThreadRead' => array(
+          'enabled' => '1',
+        ),
       ),
     ),
     'node' => array(
