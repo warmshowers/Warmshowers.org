@@ -382,15 +382,6 @@ function ws_permissions_features_user_default_permissions() {
     'module' => 'forum',
   );
 
-  // Exported permission: 'administer honeypot'.
-  $permissions['administer honeypot'] = array(
-    'name' => 'administer honeypot',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'honeypot',
-  );
-
   // Exported permission: 'administer image styles'.
   $permissions['administer image styles'] = array(
     'name' => 'administer image styles',
@@ -701,15 +692,6 @@ function ws_permissions_features_user_default_permissions() {
     'name' => 'block IP addresses',
     'roles' => array(),
     'module' => 'system',
-  );
-
-  // Exported permission: 'bypass honeypot protection'.
-  $permissions['bypass honeypot protection'] = array(
-    'name' => 'bypass honeypot protection',
-    'roles' => array(
-      'administrator' => 'administrator',
-    ),
-    'module' => 'honeypot',
   );
 
   // Exported permission: 'bypass node access'.
