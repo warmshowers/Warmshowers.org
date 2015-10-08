@@ -692,6 +692,20 @@ For your convenience, you are already logged in with your newly created account.
   'uc_roles_default_expiration_title' => '!role_name',
   'uc_store_name' => 'Warmshowers.org Donations',
   'uc_teaser_add_to_cart_text' => 'Give now!',
+  'user_mail_cancel_confirm_body' => '[user:name],
+
+A request to cancel your account has been made at [site:name].
+
+You may now cancel your account on [site:url-brief] by clicking this link or copying and pasting it into your browser:
+
+[user:cancel-url]
+
+NOTE: The cancellation of your account is not reversible.
+
+This link expires in one day and nothing will happen if it is not used.
+
+--  [site:name] team',
+  'user_mail_cancel_confirm_subject' => 'Account cancellation request for [user:name] at [site:name]',
   'user_mail_password_reset_body' => 'Hi [user:name],
 
 You (or someone) requested a one-time login for your account on warmshowers.org. If it wasn\'t you, you can just ignore this message.
@@ -839,6 +853,16 @@ Warmshowers.org webmaster
 Admin use:
 [user:edit-url]',
   'user_mail_status_blocked_subject' => 'Warmshowers.org: [user:name] account blocked',
+  'user_mail_status_canceled_body' => 'Hello [user:name],
+
+Your account on www.warmshowers.org has been deleted, most likely at your request or as a result of appearing to be an invalid or spammer entry.
+
+If you have any questions, please reply to this email.
+
+Thanks,
+Randy Fay
+Warmshowers.org',
+  'user_mail_status_canceled_subject' => '[Warmshowers.org] [user:name] account deleted',
   'user_mail_status_deleted_body' => 'Hello [user:name],
 
 Your account on www.warmshowers.org has been deleted, most likely at your request or as a result of appearing to be an invalid or spammer entry.
@@ -849,6 +873,7 @@ Thanks,
 Randy Fay
 Warmshowers.org',
   'user_mail_status_deleted_subject' => 'Warmshowers:  [user:name] account deleted',
+  'user_picture_dimensions' => '',
   'user_picture_guidelines' => 'We\'d like a picture of <i>you</i>, perhaps cycling or at your location. This is entirely optional, of course, but can be fun and helps guests or hosts know more about you. Random pictures show on the front page as well. <i>If you upload a new picture and it doesn\'t show up right away, do a shift-refresh on your browser. (Hold down the SHIFT key and click the REFRESH button on your browser.)</i>
 ',
   'wsuser_become_available_notification_body' => 'Hi [user:fullname] - <br/><br/>Your Warmshowers.org account, [user:name], has been automatically updated to show you as "available to host" because the date that you specified you would become available after has passed. If you are still unavailable to host please log into Warmshowers.org and update your account. You can log in by visiting the site or just <a href=\'[user:login_url]\'>clicking this link</a>. Thanks!<br/><br/>-Randy Fay<br/>Warmshowers.org Webmaster<br/>---<br/><a href=\'[user:url]\'>Profile link</a><br/><a href=\'[account-edit-url]\'>Edit profile link</a><br/><a href=\'[user:login_url]\'>Direct login link</a><br/>',
