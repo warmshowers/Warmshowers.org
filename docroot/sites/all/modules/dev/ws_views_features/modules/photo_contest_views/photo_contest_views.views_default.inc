@@ -208,6 +208,10 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['defaults']['title'] = FALSE;
   $handler->display->display_options['title'] = 'Touring Photos';
   $handler->display->display_options['display_description'] = 'Sits on the homepage, accessible to all members including those not logged in.';
+  $handler->display->display_options['defaults']['pager'] = FALSE;
+  $handler->display->display_options['pager']['type'] = 'some';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '5';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
   $handler->display->display_options['defaults']['style_plugin'] = FALSE;
   $handler->display->display_options['style_plugin'] = 'slideshow';
   $handler->display->display_options['style_options']['slideshow_skin'] = 'default';
@@ -294,7 +298,7 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['filters']['created']['table'] = 'node';
   $handler->display->display_options['filters']['created']['field'] = 'created';
   $handler->display->display_options['filters']['created']['operator'] = '>=';
-  $handler->display->display_options['filters']['created']['value']['value'] = '2013-11-01';
+  $handler->display->display_options['filters']['created']['value']['value'] = '2013-11-04';
   $handler->display->display_options['filters']['created']['group'] = '0';
   $handler->display->display_options['filters']['created']['expose']['operator'] = FALSE;
 
