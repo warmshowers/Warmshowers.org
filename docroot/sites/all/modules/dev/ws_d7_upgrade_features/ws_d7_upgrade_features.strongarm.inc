@@ -125,6 +125,42 @@ function ws_d7_upgrade_features_strongarm() {
   $strongarm = new stdClass();
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
+  $strongarm->name = 'better_messages';
+  $strongarm->value = array(
+    'position' => 'center',
+    'vertical' => '0',
+    'horizontal' => '10',
+    'fixed' => 1,
+    'width' => '400px',
+    'autoclose' => '12',
+    'opendelay' => '0.3',
+    'disable_autoclose' => 1,
+    'show_countdown' => 1,
+    'hover_autoclose' => 1,
+    'popin' => array(
+      'effect' => 'fadeIn',
+      'duration' => 'slow',
+    ),
+    'popout' => array(
+      'effect' => 'fadeIn',
+      'duration' => 'slow',
+    ),
+    'jquery_ui' => array(
+      'draggable' => '',
+      'resizable' => 0,
+    ),
+    'extra' => array(
+      'pages' => 'admin
+admin/*',
+      'visibility' => '0',
+      'admin' => 0,
+    ),
+  );
+  $export['better_messages'] = $strongarm;
+
+  $strongarm = new stdClass();
+  $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
+  $strongarm->api_version = 1;
   $strongarm->name = 'comment_anonymous_block';
   $strongarm->value = 0;
   $export['comment_anonymous_block'] = $strongarm;
