@@ -1403,88 +1403,106 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['pager']['options']['id'] = '0';
   $handler->display->display_options['pager']['options']['quantity'] = '9';
   $handler->display->display_options['defaults']['style_plugin'] = FALSE;
-  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_plugin'] = 'break_row';
   $handler->display->display_options['style_options']['columns'] = array(
     'views_bulk_operations' => 'views_bulk_operations',
     'counter' => 'counter',
-    'fullname' => 'uid',
-    'uid' => 'uid',
-    'name' => 'uid',
-    'status' => 'status',
-    'created' => 'created',
-    'access' => 'access',
-    'language' => 'uid',
-    'city' => 'uid',
-    'province' => 'uid',
-    'country' => 'uid',
-    'edit_node' => 'uid',
-    'cancel_node' => 'uid',
+    'uid' => 'fullname',
+    'fullname' => 'fullname',
+    'name' => 'fullname',
+    'status' => 'fullname',
+    'created' => 'fullname',
+    'access' => 'fullname',
+    'city' => 'city',
+    'province' => 'city',
+    'language' => 'city',
+    'country' => 'city',
+    'edit_node' => 'edit_node',
+    'cancel_node' => 'edit_node',
     'comments' => 'comments',
-    'rid' => 'comments',
-    'created_1' => 'uid',
-    'notcurrentlyavailable' => 'uid',
     'nothing' => 'comments',
+    'rid' => 'comments',
+    'created_1' => 'fullname',
+    'notcurrentlyavailable' => 'fullname',
+    'nothing_1' => 'nothing_1',
   );
-  $handler->display->display_options['style_options']['default'] = 'access';
+  $handler->display->display_options['style_options']['default'] = '-1';
   $handler->display->display_options['style_options']['info'] = array(
     'views_bulk_operations' => array(
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'counter' => array(
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
-    ),
-    'fullname' => array(
-      'sortable' => 0,
-      'default_sort_order' => 'asc',
-      'align' => '',
-      'separator' => '',
-      'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'uid' => array(
       'sortable' => 0,
       'default_sort_order' => 'asc',
       'align' => '',
-      'separator' => ' | ',
+      'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
-    'name' => array(
-      'sortable' => 1,
+    'fullname' => array(
+      'sortable' => 0,
       'default_sort_order' => 'asc',
       'align' => '',
-      'separator' => '<br />',
+      'separator' => ' | ',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
-    'status' => array(
-      'sortable' => 1,
-      'default_sort_order' => 'desc',
-      'align' => '',
-      'separator' => '',
-      'empty_column' => 0,
-    ),
-    'created' => array(
-      'sortable' => 1,
-      'default_sort_order' => 'desc',
-      'align' => '',
-      'separator' => '',
-      'empty_column' => 0,
-    ),
-    'access' => array(
-      'sortable' => 1,
-      'default_sort_order' => 'desc',
-      'align' => '',
-      'separator' => '',
-      'empty_column' => 0,
-    ),
-    'language' => array(
+    'name' => array(
       'sortable' => 0,
       'default_sort_order' => 'asc',
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
+    ),
+    'status' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
+    ),
+    'created' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
+    ),
+    'access' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'city' => array(
       'sortable' => 0,
@@ -1492,6 +1510,9 @@ function ws_views_features_views_default_views() {
       'align' => '',
       'separator' => ', ',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'province' => array(
       'sortable' => 0,
@@ -1499,6 +1520,19 @@ function ws_views_features_views_default_views() {
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
+    ),
+    'language' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'country' => array(
       'sortable' => 0,
@@ -1506,26 +1540,49 @@ function ws_views_features_views_default_views() {
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'edit_node' => array(
       'align' => '',
-      'separator' => '&emsp;',
+      'separator' => ' | ',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'cancel_node' => array(
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'comments' => array(
       'align' => '',
       'separator' => ' | ',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
+    ),
+    'nothing' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'rid' => array(
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'created_1' => array(
       'sortable' => 0,
@@ -1533,6 +1590,9 @@ function ws_views_features_views_default_views() {
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
     'notcurrentlyavailable' => array(
       'sortable' => 0,
@@ -1540,15 +1600,19 @@ function ws_views_features_views_default_views() {
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => '0',
+      'separator2' => '',
+      'colspan' => '',
     ),
-    'nothing' => array(
+    'nothing_1' => array(
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
+      'break' => 'nothing_1',
+      'separator2' => '',
+      'colspan' => '',
     ),
   );
-  $handler->display->display_options['style_options']['sticky'] = TRUE;
-  $handler->display->display_options['style_options']['empty_table'] = TRUE;
   $handler->display->display_options['defaults']['style_options'] = FALSE;
   $handler->display->display_options['defaults']['row_plugin'] = FALSE;
   $handler->display->display_options['defaults']['row_options'] = FALSE;
@@ -1573,15 +1637,18 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['fields']['counter']['label'] = 'Item';
   $handler->display->display_options['fields']['counter']['counter_start'] = '1';
   $handler->display->display_options['fields']['counter']['reverse'] = 0;
-  /* Field: Warmshowers: Full Name */
-  $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
-  $handler->display->display_options['fields']['fullname']['table'] = 'wsuser';
-  $handler->display->display_options['fields']['fullname']['field'] = 'fullname';
   /* Field: User: Uid */
   $handler->display->display_options['fields']['uid']['id'] = 'uid';
   $handler->display->display_options['fields']['uid']['table'] = 'users';
   $handler->display->display_options['fields']['uid']['field'] = 'uid';
   $handler->display->display_options['fields']['uid']['label'] = 'User Info';
+  $handler->display->display_options['fields']['uid']['exclude'] = TRUE;
+  /* Field: Warmshowers: Full Name */
+  $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
+  $handler->display->display_options['fields']['fullname']['table'] = 'wsuser';
+  $handler->display->display_options['fields']['fullname']['field'] = 'fullname';
+  $handler->display->display_options['fields']['fullname']['alter']['make_link'] = TRUE;
+  $handler->display->display_options['fields']['fullname']['alter']['path'] = 'user/[uid]';
   /* Field: User: Name */
   $handler->display->display_options['fields']['name']['id'] = 'name';
   $handler->display->display_options['fields']['name']['table'] = 'users';
@@ -1608,11 +1675,6 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['fields']['access']['exclude'] = TRUE;
   $handler->display->display_options['fields']['access']['date_format'] = 'time ago';
   $handler->display->display_options['fields']['access']['second_date_format'] = 'privatemsg_current_day';
-  /* Field: User: Language */
-  $handler->display->display_options['fields']['language']['id'] = 'language';
-  $handler->display->display_options['fields']['language']['table'] = 'users';
-  $handler->display->display_options['fields']['language']['field'] = 'language';
-  $handler->display->display_options['fields']['language']['link_to_user'] = FALSE;
   /* Field: Warmshowers: City */
   $handler->display->display_options['fields']['city']['id'] = 'city';
   $handler->display->display_options['fields']['city']['table'] = 'user_location';
@@ -1625,6 +1687,13 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['fields']['country']['id'] = 'country';
   $handler->display->display_options['fields']['country']['table'] = 'user_location';
   $handler->display->display_options['fields']['country']['field'] = 'country';
+  /* Field: User: Language */
+  $handler->display->display_options['fields']['language']['id'] = 'language';
+  $handler->display->display_options['fields']['language']['table'] = 'users';
+  $handler->display->display_options['fields']['language']['field'] = 'language';
+  $handler->display->display_options['fields']['language']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['language']['alter']['text'] = '(language: [language])';
+  $handler->display->display_options['fields']['language']['link_to_user'] = FALSE;
   /* Field: User: Edit link */
   $handler->display->display_options['fields']['edit_node']['id'] = 'edit_node';
   $handler->display->display_options['fields']['edit_node']['table'] = 'users';
@@ -1668,6 +1737,11 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['fields']['notcurrentlyavailable']['alter']['alter_text'] = TRUE;
   $handler->display->display_options['fields']['notcurrentlyavailable']['alter']['text'] = 'Available: [notcurrentlyavailable]';
   $handler->display->display_options['fields']['notcurrentlyavailable']['not'] = 1;
+  /* Field: Global: Custom text */
+  $handler->display->display_options['fields']['nothing_1']['id'] = 'nothing_1';
+  $handler->display->display_options['fields']['nothing_1']['table'] = 'views';
+  $handler->display->display_options['fields']['nothing_1']['field'] = 'nothing';
+  $handler->display->display_options['fields']['nothing_1']['alter']['text'] = '<hr>';
   $handler->display->display_options['defaults']['arguments'] = FALSE;
   /* Contextual filter: User: Created date */
   $handler->display->display_options['arguments']['created_fulldate']['id'] = 'created_fulldate';
@@ -1740,12 +1814,15 @@ function ws_views_features_views_default_views() {
     t('Admin User VBO'),
     t('Admin New User Report'),
     t('User Info'),
+    t('(language: [language])'),
     t('About Me'),
     t('Translate'),
     t('Translate to English'),
     t('Created'),
     t('Hosting/Available?'),
     t('Available: [notcurrentlyavailable]'),
+    t('Custom text'),
+    t('<hr>'),
   );
   $export['admin_user_vbo_2'] = $view;
 
