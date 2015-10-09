@@ -1423,6 +1423,7 @@ function ws_views_features_views_default_views() {
     'rid' => 'comments',
     'created_1' => 'uid',
     'notcurrentlyavailable' => 'uid',
+    'nothing' => 'comments',
   );
   $handler->display->display_options['style_options']['default'] = 'access';
   $handler->display->display_options['style_options']['info'] = array(
@@ -1540,6 +1541,11 @@ function ws_views_features_views_default_views() {
       'separator' => '',
       'empty_column' => 0,
     ),
+    'nothing' => array(
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
   );
   $handler->display->display_options['style_options']['sticky'] = TRUE;
   $handler->display->display_options['style_options']['empty_table'] = TRUE;
@@ -1635,11 +1641,18 @@ function ws_views_features_views_default_views() {
   $handler->display->display_options['fields']['comments']['id'] = 'comments';
   $handler->display->display_options['fields']['comments']['table'] = 'wsuser';
   $handler->display->display_options['fields']['comments']['field'] = 'comments';
+  /* Field: Global: Custom text */
+  $handler->display->display_options['fields']['nothing']['id'] = 'nothing';
+  $handler->display->display_options['fields']['nothing']['table'] = 'views';
+  $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
+  $handler->display->display_options['fields']['nothing']['label'] = 'Translate';
+  $handler->display->display_options['fields']['nothing']['alter']['text'] = 'Translate to English';
+  $handler->display->display_options['fields']['nothing']['alter']['make_link'] = TRUE;
+  $handler->display->display_options['fields']['nothing']['alter']['path'] = 'https://translate.google.com/?sl=auto&tl=en#auto/en/[comments]';
   /* Field: User: Roles */
   $handler->display->display_options['fields']['rid']['id'] = 'rid';
   $handler->display->display_options['fields']['rid']['table'] = 'users_roles';
   $handler->display->display_options['fields']['rid']['field'] = 'rid';
-  $handler->display->display_options['fields']['rid']['type'] = 'ul';
   /* Field: User: Created date */
   $handler->display->display_options['fields']['created_1']['id'] = 'created_1';
   $handler->display->display_options['fields']['created_1']['table'] = 'users';
@@ -1728,6 +1741,8 @@ function ws_views_features_views_default_views() {
     t('Admin New User Report'),
     t('User Info'),
     t('About Me'),
+    t('Translate'),
+    t('Translate to English'),
     t('Created'),
     t('Hosting/Available?'),
     t('Available: [notcurrentlyavailable]'),
