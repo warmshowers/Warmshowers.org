@@ -55,6 +55,10 @@ function member_feedback_views_views_default_views() {
   $handler->display->display_options['header']['text']['empty'] = TRUE;
   $handler->display->display_options['header']['text']['content'] = 'To leave feedback for a member, visit their profile page and click the "Provide Feedback" button in the "Actions" block on their profile page.';
   $handler->display->display_options['header']['text']['format'] = '1';
+  /* Footer: Global: Result summary */
+  $handler->display->display_options['footer']['result']['id'] = 'result';
+  $handler->display->display_options['footer']['result']['table'] = 'views';
+  $handler->display->display_options['footer']['result']['field'] = 'result';
   /* No results behavior: Global: Text area */
   $handler->display->display_options['empty']['text']['id'] = 'area';
   $handler->display->display_options['empty']['text']['table'] = 'views';
@@ -473,6 +477,201 @@ On the "Feedback" tab for any member you can see <em>all</em> their feedback as 
       'name' => 'nid',
     ),
   );
+
+  /* Display: Email Feedback Report */
+  $handler = $view->new_display('page', 'Email Feedback Report', 'page_1');
+  $handler->display->display_options['defaults']['title'] = FALSE;
+  $handler->display->display_options['title'] = 'Admin Feedback Report';
+  $handler->display->display_options['defaults']['pager'] = FALSE;
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '400';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
+  $handler->display->display_options['pager']['options']['id'] = '0';
+  $handler->display->display_options['pager']['options']['quantity'] = '9';
+  $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'table';
+  $handler->display->display_options['style_options']['columns'] = array(
+    'uid' => 'uid',
+    'nid' => 'nid',
+    'field_rating' => 'field_rating',
+    'field_hosting_date' => 'field_hosting_date',
+    'fullname' => 'fullname',
+    'body' => 'body',
+  );
+  $handler->display->display_options['style_options']['default'] = '-1';
+  $handler->display->display_options['style_options']['info'] = array(
+    'uid' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'nid' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_rating' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'field_hosting_date' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'fullname' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+    'body' => array(
+      'sortable' => 0,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
+  );
+  $handler->display->display_options['defaults']['style_options'] = FALSE;
+  $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['defaults']['header'] = FALSE;
+  /* Header: Global: Text area */
+  $handler->display->display_options['header']['text']['id'] = 'text';
+  $handler->display->display_options['header']['text']['table'] = 'views';
+  $handler->display->display_options['header']['text']['field'] = 'area';
+  $handler->display->display_options['header']['text']['format'] = '1';
+  /* Header: Global: Result summary */
+  $handler->display->display_options['header']['result']['id'] = 'result';
+  $handler->display->display_options['header']['result']['table'] = 'views';
+  $handler->display->display_options['header']['result']['field'] = 'result';
+  $handler->display->display_options['defaults']['footer'] = FALSE;
+  /* Footer: Global: Result summary */
+  $handler->display->display_options['footer']['result']['id'] = 'result';
+  $handler->display->display_options['footer']['result']['table'] = 'views';
+  $handler->display->display_options['footer']['result']['field'] = 'result';
+  $handler->display->display_options['defaults']['fields'] = FALSE;
+  /* Field: Global: View result counter */
+  $handler->display->display_options['fields']['counter']['id'] = 'counter';
+  $handler->display->display_options['fields']['counter']['table'] = 'views';
+  $handler->display->display_options['fields']['counter']['field'] = 'counter';
+  $handler->display->display_options['fields']['counter']['label'] = '';
+  $handler->display->display_options['fields']['counter']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['counter']['counter_start'] = '1';
+  $handler->display->display_options['fields']['counter']['reverse'] = 0;
+  /* Field: Content: Link */
+  $handler->display->display_options['fields']['view_node']['id'] = 'view_node';
+  $handler->display->display_options['fields']['view_node']['table'] = 'views_entity_node';
+  $handler->display->display_options['fields']['view_node']['field'] = 'view_node';
+  $handler->display->display_options['fields']['view_node']['label'] = '';
+  $handler->display->display_options['fields']['view_node']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['view_node']['element_label_colon'] = FALSE;
+  /* Field: User: Uid */
+  $handler->display->display_options['fields']['uid']['id'] = 'uid';
+  $handler->display->display_options['fields']['uid']['table'] = 'users';
+  $handler->display->display_options['fields']['uid']['field'] = 'uid';
+  $handler->display->display_options['fields']['uid']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['uid']['label'] = '';
+  $handler->display->display_options['fields']['uid']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['uid']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['uid']['link_to_user'] = FALSE;
+  /* Field: User: Uid */
+  $handler->display->display_options['fields']['uid_1']['id'] = 'uid_1';
+  $handler->display->display_options['fields']['uid_1']['table'] = 'users';
+  $handler->display->display_options['fields']['uid_1']['field'] = 'uid';
+  $handler->display->display_options['fields']['uid_1']['relationship'] = 'field_member_i_trust_uid';
+  $handler->display->display_options['fields']['uid_1']['label'] = 'Recipient Uid';
+  $handler->display->display_options['fields']['uid_1']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['uid_1']['link_to_user'] = FALSE;
+  /* Field: Content: Nid */
+  $handler->display->display_options['fields']['nid']['id'] = 'nid';
+  $handler->display->display_options['fields']['nid']['table'] = 'node';
+  $handler->display->display_options['fields']['nid']['field'] = 'nid';
+  $handler->display->display_options['fields']['nid']['label'] = '';
+  $handler->display->display_options['fields']['nid']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['nid']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['nid']['link_to_node'] = TRUE;
+  /* Field: Content: Overall Experience */
+  $handler->display->display_options['fields']['field_rating']['id'] = 'field_rating';
+  $handler->display->display_options['fields']['field_rating']['table'] = 'field_data_field_rating';
+  $handler->display->display_options['fields']['field_rating']['field'] = 'field_rating';
+  $handler->display->display_options['fields']['field_rating']['label'] = '';
+  $handler->display->display_options['fields']['field_rating']['alter']['alter_text'] = TRUE;
+  $handler->display->display_options['fields']['field_rating']['alter']['text'] = '<span class="feedback-[field_rating-value]">[field_rating]<span>';
+  $handler->display->display_options['fields']['field_rating']['element_label_colon'] = FALSE;
+  /* Field: Content: Date We Met */
+  $handler->display->display_options['fields']['field_hosting_date']['id'] = 'field_hosting_date';
+  $handler->display->display_options['fields']['field_hosting_date']['table'] = 'field_data_field_hosting_date';
+  $handler->display->display_options['fields']['field_hosting_date']['field'] = 'field_hosting_date';
+  $handler->display->display_options['fields']['field_hosting_date']['label'] = '';
+  $handler->display->display_options['fields']['field_hosting_date']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['field_hosting_date']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['field_hosting_date']['settings'] = array(
+    'format_type' => 'field_hosting_date_default',
+    'fromto' => 'both',
+    'multiple_number' => '',
+    'multiple_from' => '',
+    'multiple_to' => '',
+    'show_remaining_days' => 0,
+  );
+  /* Field: Warmshowers: Full Name */
+  $handler->display->display_options['fields']['fullname']['id'] = 'fullname';
+  $handler->display->display_options['fields']['fullname']['table'] = 'wsuser';
+  $handler->display->display_options['fields']['fullname']['field'] = 'fullname';
+  $handler->display->display_options['fields']['fullname']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['fullname']['label'] = '';
+  $handler->display->display_options['fields']['fullname']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['fullname']['alter']['make_link'] = TRUE;
+  $handler->display->display_options['fields']['fullname']['alter']['path'] = 'user/[uid]';
+  $handler->display->display_options['fields']['fullname']['element_label_colon'] = FALSE;
+  /* Field: Warmshowers: Full Name */
+  $handler->display->display_options['fields']['fullname_1']['id'] = 'fullname_1';
+  $handler->display->display_options['fields']['fullname_1']['table'] = 'wsuser';
+  $handler->display->display_options['fields']['fullname_1']['field'] = 'fullname';
+  $handler->display->display_options['fields']['fullname_1']['relationship'] = 'field_member_i_trust_uid';
+  $handler->display->display_options['fields']['fullname_1']['label'] = 'Recipient Full Name';
+  $handler->display->display_options['fields']['fullname_1']['exclude'] = TRUE;
+  $handler->display->display_options['fields']['fullname_1']['alter']['make_link'] = TRUE;
+  $handler->display->display_options['fields']['fullname_1']['alter']['path'] = 'user/[uid_1]';
+  /* Field: Global: Custom text */
+  $handler->display->display_options['fields']['nothing']['id'] = 'nothing';
+  $handler->display->display_options['fields']['nothing']['table'] = 'views';
+  $handler->display->display_options['fields']['nothing']['field'] = 'nothing';
+  $handler->display->display_options['fields']['nothing']['label'] = 'Description';
+  $handler->display->display_options['fields']['nothing']['alter']['text'] = 'By [fullname] for [fullname_1] ([view_node])';
+  /* Field: Content: Body */
+  $handler->display->display_options['fields']['body']['id'] = 'body';
+  $handler->display->display_options['fields']['body']['table'] = 'field_data_body';
+  $handler->display->display_options['fields']['body']['field'] = 'body';
+  $handler->display->display_options['fields']['body']['label'] = '';
+  $handler->display->display_options['fields']['body']['alter']['path'] = 'node/[nid]';
+  $handler->display->display_options['fields']['body']['element_label_colon'] = FALSE;
+  $handler->display->display_options['defaults']['sorts'] = FALSE;
+  /* Sort criterion: Content: Overall Experience (field_rating) */
+  $handler->display->display_options['sorts']['field_rating_value']['id'] = 'field_rating_value';
+  $handler->display->display_options['sorts']['field_rating_value']['table'] = 'field_data_field_rating';
+  $handler->display->display_options['sorts']['field_rating_value']['field'] = 'field_rating_value';
+  $handler->display->display_options['defaults']['arguments'] = FALSE;
+  /* Contextual filter: Content: Created date */
+  $handler->display->display_options['arguments']['created_fulldate']['id'] = 'created_fulldate';
+  $handler->display->display_options['arguments']['created_fulldate']['table'] = 'node';
+  $handler->display->display_options['arguments']['created_fulldate']['field'] = 'created_fulldate';
+  $handler->display->display_options['arguments']['created_fulldate']['default_argument_type'] = 'fixed';
+  $handler->display->display_options['arguments']['created_fulldate']['summary']['number_of_records'] = '0';
+  $handler->display->display_options['arguments']['created_fulldate']['summary']['format'] = 'default_summary';
+  $handler->display->display_options['arguments']['created_fulldate']['summary_options']['items_per_page'] = '25';
+  $handler->display->display_options['path'] = 'admin/content/feedback_email_report';
   $translatables['member_feedback'] = array(
     t('Defaults'),
     t('Feedback'),
@@ -490,6 +689,7 @@ On the "Feedback" tab for any member you can see <em>all</em> their feedback as 
     t('next ›'),
     t('last »'),
     t('To leave feedback for a member, visit their profile page and click the "Provide Feedback" button in the "Actions" block on their profile page.'),
+    t('Displaying @start - @end of @total'),
     t('No members have given feedback for this member yet.'),
     t('author'),
     t('member'),
@@ -509,6 +709,12 @@ On the "Feedback" tab for any member you can see <em>all</em> their feedback as 
 On the "Feedback" tab for any member you can see <em>all</em> their feedback as well as feedback they\'ve given to others.'),
     t('Negative Feedback'),
     t('A rules display to list negative feedback.'),
+    t('Email Feedback Report'),
+    t('Admin Feedback Report'),
+    t('Recipient Uid'),
+    t('Recipient Full Name'),
+    t('Description'),
+    t('By [fullname] for [fullname_1] ([view_node])'),
   );
   $export['member_feedback'] = $view;
 
