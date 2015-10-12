@@ -35,7 +35,7 @@ function ws_d7_upgrade_features_image_default_styles() {
   $styles['1200w'] = array(
     'label' => '1200w',
     'effects' => array(
-      1 => array(
+      21 => array(
         'name' => 'image_scale',
         'data' => array(
           'width' => 1200,
@@ -67,7 +67,7 @@ function ws_d7_upgrade_features_image_default_styles() {
   $styles['50w'] = array(
     'label' => '50w',
     'effects' => array(
-      3 => array(
+      22 => array(
         'name' => 'image_scale',
         'data' => array(
           'width' => 50,
@@ -83,13 +83,14 @@ function ws_d7_upgrade_features_image_default_styles() {
   $styles['800w'] = array(
     'label' => '800w',
     'effects' => array(
-      4 => array(
-        'name' => 'image_scale_and_crop',
+      20 => array(
+        'name' => 'image_scale',
         'data' => array(
           'width' => 800,
           'height' => '',
+          'upscale' => 0,
         ),
-        'weight' => 0,
+        'weight' => 2,
       ),
     ),
   );
