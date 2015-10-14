@@ -23,7 +23,7 @@ if [ $TESTING ] ; then
   reportdate="2015-09-15"
 fi
 
-datetool=gdate
+datetool=date
 machine_date=$($datetool --date="$reportdate" "+%Y%m%d")
 friendly_date=$($datetool --date="$reportdate" "+%Y-%m-%d")
 
