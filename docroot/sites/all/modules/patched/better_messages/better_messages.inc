@@ -154,7 +154,23 @@ function better_messages_admin() {
 		'#collapsible' => TRUE,
 		'#collapsed' => TRUE,
 	);
-	
+
+  $themes = list_themes();
+  $themes_options = array();
+  foreach ($themes as $theme) {
+    if ($theme->status) {
+      $themes_options[$theme->name] = $theme->name;
+    }
+  }
+
+  $form['vis_settings']['themes'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Use Better Messages popup for specific themes'),
+    '#description' => t('It you didn\'t select any themes, Better Messages will be used for all'),
+    '#options' => $themes_options,
+    '#default_value' => isset($settings['extra']['themes']) ? $settings['extra']['themes'] : $themes_options,
+  );
+
 	$options = array(t('Show on every page except the listed pages.'), t('Show on only the listed pages.'));
   $description = t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>'));
 
@@ -224,7 +240,11 @@ function better_messages_admin_submit($form, &$form_state) {
     'popin' => array('effect' => $form_state['values']['popin_effect'], 'duration' => $form_state['values']['popin_duration']),
     'popout' => array('effect' => $form_state['values']['popout_effect'], 'duration' => $form_state['values']['popout_duration']),
     'jquery_ui' => array('draggable' => $form_state['values']['draggable'], 'resizable' => $form_state['values']['resizable']),
-    'extra' => array('pages' => $form_state['values']['pages'], 'visibility' => $form_state['values']['visibility'], 'admin' =>  $form_state['values']['admin']
+    'extra' => array(
+      'pages' => $form_state['values']['pages'],
+      'visibility' => $form_state['values']['visibility'],
+      'admin' =>  $form_state['values']['admin'],
+      'themes' =>  $form_state['values']['themes'],
     )
   );
   variable_set('better_messages', $settings);
