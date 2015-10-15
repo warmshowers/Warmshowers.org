@@ -100,13 +100,9 @@
 					}
 				});
 			
-				/* Determine Popup Message position for IE6 bug with fixed display */
-				if (betterMessages.fixed == '1' && !($.browser.msie && $.browser.version == '6.0')) {
-					message_box.css({"position":"fixed"});
-				}
-				else { /* IE6 handing */
-					message_box.css({"position":"absolute"});
-					$(window).scroll(function() { message_box.stop().css({top:($(window).scrollTop() + vertical) + 'px'});});
+				/* Set Popup Message position with fixed display */
+				if (betterMessages.fixed == '1') {
+					message_box.css("position", "fixed");
 				}
 			}
 		}
