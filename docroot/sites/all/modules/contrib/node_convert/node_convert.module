@@ -1,0 +1,606 @@
+<?php
+
+/**
+ * @file
+ * The node_convert module converts nodes from one type to another.
+ *
+ * The node_convert module converts nodes from one type to another
+ * along with other specified fields.
+ */
+
+include_once 'node_convert.util.inc';
+
+
+define("APPEND_TO_BODY", 'append_to_body');
+define("REPLACE_BODY", 'replace_body');
+define('NODE_CONVERT_TEMPLATE_TABLE', 'node_convert_templates');
+define('NODE_CONVERT_WATCHDOG', 'node_convert');
+define('NODE_CONVERT_ADMIN_INC', 'node_convert.admin.inc');
+define('NODE_CONVERT_FORMS_INC', 'node_convert.forms.inc');
+define('NODE_CONVERT_BEHAVIOR_PLUGIN', 'node_convert_behavior');
+define('NODE_CONVERT_CHANGE_HOOK', 'node_convert_change');
+
+/**
+ * Implements hook_help().
+ */
+function node_convert_help($path, $arg) {
+
+  $output = '';
+
+  switch ($path) {
+    case "admin/help#node_convert":
+      $output .= '<p>' . t("This module allows to convert one or many nodes between different node types. It can transfer most fields, and node-specific options for book and forum types. Support of more basic types will be in future releases. Also the module provides an API for converting nodes and fields, hooks for processing additional options of custom node types, integrates with hook_node_operations and Drupal's Action API.") . '</p>';
+      $output .= '<p>' . t('<strong>I. Single node conversion:</strong>') . '</p>';
+      $output .= t("<ol><li>Go to <a href=\"@permissions\">permissions page</a> and set 'administer conversion' and 'convert to x', 'convert from y' permissions.</li><li>Go to /node/x/convert and follow the provided steps to convert the node.</li></ol>", array('@permissions' => url('admin/user/permissions')));
+      $output .= '<p>' . t('<strong>II. Multiple node conversion (using hook_node_operations):</strong>') . '</p>';
+      $output .= t('<ol><li>Set appropriate permissions.</li><li>Go to <a href="@node_convert_templates">Node Convert templates</a>.</li><li>Create a new template following the the provided steps.</li><li>Go to the <a href="@content">content page</a>.</li><li>Select the correct nodes.</li><li>Choose "Convert template: x" (based on the template name created above) from the update options.</li><li>Click Update.</li></ol>', array('@node_convert_template' => url('admin/structure/node_convert_template'), '@content' => url('admin/content/node')));
+      $output .= '<p>' . t('<strong>III. Multiple node conversion (using Actions API + Views Bulk Operations):</strong><br />Note: This requires the contributed modules Views and Views Bulk Operations') . '</p>';
+      $output .= t('<ol><li>Set appropriate permissions.</li><li>Go to <a href="@node_convert_templates">Node Convert templates</a>.</li><li>Create a new template following the the provided steps (also check Create Action).</li><li>Create a new <a href="@view">view</a> with the options you require.</li><li>Select Views Bulk Operations as the style.</li><li>Configure all options as necessary</li><li>Select as an operation one of the convert templates.<br />Note: Most probably there will be duplicates of the same template, this is because VBO uses both Actions API and hook_node_operations to show possible operations</li><li>Save the view. View it.</li><li>Select the necessary nodes and click the Convert x button.</li></ol>', array('@node_convert_template' => url('admin/structure/node_convert_template'), '@view' => url('admin/structure/views')));
+      $output .= '<p>' . t('Useful API calls:<br />node_convert_node_convert($nid, $dest_node_type, $source_fields, $dest_fields, $no_fields_flag, $hook_options = NULL);<br />node_convert_field_convert($nid, $source_field, $dest_field);<br />hook_node_convert_change($data, $op);') . '</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function node_convert_permission() {
+  $types = node_type_get_types();
+  $permissions = array(
+    'administer conversion' => array(
+      'title' => t('administer conversion'),
+      'description' => t('Grants full permissions for converting between types.'),
+    ),
+  );
+  foreach ($types as $type => $parameters) {
+    $permissions['convert from ' . $type] = array(
+      'title' => t('convert from ' . $type),
+      'description' => t('Grants pemission for conversion from @type node types.', array('@type' => $type)),
+    );
+    $permissions['convert to ' . $type] = array(
+      'title' => t('convert to ' . $type),
+      'description' => t('Grants pemission for conversion to @type node types.', array('@type' => $type)),
+    );
+  }
+  return $permissions;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function node_convert_menu() {
+  $items = array();
+
+  $items['node/%node/convert'] = array(
+    'title' => 'Convert',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_conversion_form', 1),
+    'access callback' => 'node_convert_check_access',
+    'access arguments' => array(1),
+    'weight' => 6,
+    'type' => MENU_LOCAL_TASK,
+    'file' => NODE_CONVERT_FORMS_INC,
+  );
+
+  $items['admin/structure/node_convert_templates'] = array(
+    'title' => 'Node Convert templates',
+    'description' => 'List of templates used for converting nodes using Actions and Node Operations.',
+    'page callback' => 'node_convert_templates',
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => NODE_CONVERT_ADMIN_INC,
+  );
+
+  $items['admin/structure/node_convert_templates/list'] = array(
+    'title' => 'List',
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/structure/node_convert_templates/add'] = array(
+    'title' => 'Add template',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_add_template'),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+    'file' => NODE_CONVERT_ADMIN_INC,
+  );
+
+  $items['admin/structure/node_convert_templates/%'] = array(
+    'title' => 'Template info',
+    'page callback' => 'node_convert_template_info',
+    'page arguments' => array(3),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_CALLBACK,
+    'file' => NODE_CONVERT_ADMIN_INC,
+  );
+
+  $items['admin/structure/node_convert_templates/edit/%node_convert_template'] = array(
+    'title' => 'Edit template',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_add_template', 4),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_CALLBACK,
+    'file' => NODE_CONVERT_ADMIN_INC,
+  );
+
+  $items['admin/structure/node_convert_templates/delete/%'] = array(
+    'title' => 'Delete template',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('node_convert_template_delete_confirm', 4),
+    'access arguments' => array('administer conversion'),
+    'type' => MENU_CALLBACK,
+    'file' => NODE_CONVERT_ADMIN_INC,
+  );
+
+  return $items;
+}
+
+/**
+ * This is a wildcard loader for the menu item for template editing.
+ *
+ * @param $id
+ * @return array|int
+ */
+function node_convert_template_load($id) {
+  $template = node_convert_load_template($id);
+  if (empty($template)) {
+    return MENU_NOT_FOUND;
+  }
+  return $template;
+}
+
+/**
+ * Implements hook_node_operations().
+ */
+function node_convert_node_operations() {
+  $operations = array();
+  $templates = node_convert_load_all_templates();
+  foreach ($templates as $row) {
+    $access = node_convert_check_template_permission_user(array('template_id' => $row->machine_name));
+    if ($access) {
+      $operations['node_convert_' . $row->machine_name] = array(
+        'label' => 'Convert template: ' . $row->name,
+        'callback' => 'node_convert_convert_nodes_using_template',
+        'callback arguments' => array($row->machine_name),
+      );
+    }
+  }
+  return $operations;
+}
+
+/**
+ * Implements hook_action_info().
+ */
+function node_convert_action_info() {
+  return array(
+    'node_convert_convert_action' => array(
+      'label' => t("Convert a node"),
+      'type' => 'node',
+      'configurable' => TRUE,
+      'triggers' => array('any' => TRUE),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function node_convert_theme() {
+  return array(
+    'node_convert_conversion_form' => array(
+      'render element' => 'form',
+    ),
+    'node_convert_add_template' => array(
+      'render element' => 'form',
+    ),
+  );
+}
+
+/* ----------- The form theme functions ------------ */
+
+function theme_node_convert_conversion_form($variables) {
+  $form = $variables['form'];
+  $output = '';
+  if (isset($form['current_type'])) {
+    $output .= '<div>' . t("The current node type is:") . '<b>&nbsp;' . drupal_render($form['current_type']) . '</b></div>';
+  }
+  // If there are no fields to convert, we notify the user
+  if (isset($form['no_fields']['#value']) && $form['no_fields']['#value'] == TRUE) {
+    $output .= '<div>' . t("There are no fields to convert. Please press Convert.") . '</div>';
+  }
+  $output .= drupal_render_children($form);
+  return $output;
+}
+
+
+function theme_node_convert_add_template($variables) {
+  $form = $variables['form'];
+  if ($form['step']['#value'] == "choose_destination_type") {
+    $output  = '<div>' . t("Choose the source type of the nodes that should be shown, and the destination type to which they will be converted.") . '</div>';
+    $output .= drupal_render_children($form);
+  }
+  elseif ($form['step']['#value'] == "choose_destination_fields") {
+    $output = '';
+    if ($form['no_fields']['#value'] == TRUE) {
+      $output .= '<div>' . t("There are no fields to convert. Please press Create.") . '</div>';
+    }
+    $output .= drupal_render_children($form);
+  }
+  return $output;
+}
+
+
+/**
+ * Implements hook_action, exposing predefined conversion templates as actions.
+ */
+function node_convert_convert_action(&$node, &$context = array()) {
+  if ($context['template'] === "0") {
+    drupal_set_message(t("Dummy template. No action is being performed."), 'warning', FALSE);
+    return FALSE;
+  }
+  $template = node_convert_load_template($context['template']);
+
+  $access = node_convert_check_template_permission_user(array('template' => $template));
+  if ($access == FALSE) {
+    drupal_set_message(t("You don't have permission to use this conversion template"), 'warning', FALSE);
+    return;
+  }
+
+  if ($node->type != $template['source_type']) {
+    drupal_set_message(t("Node %nid doesn't match the template source type. Discarded.", array('nid' => $node->nid)), 'warning');
+  }
+  else {
+    $result = node_convert_node_convert($node->nid, $template['destination_type'], $template['data']['fields']['source'], $template['data']['fields']['destination'], $template['data']['no_fields'], $template['data']['hook_options']);
+    // We display errors if any, or the default success message
+    node_convert_messages($result, array('nid' => $node->nid));
+    // This is node_load is necessary. It loads the new data from the DB, which gets passed down the action chain by reference, where it is saved.
+    $node = node_load($node->nid, NULL, TRUE);
+  }
+}
+
+function node_convert_convert_action_form($context) {
+  $result = db_query("SELECT * FROM {node_convert_templates}");
+  $templates = array(0 => 'none');
+  foreach ($result as $row) {
+    $access = node_convert_check_template_permission_user(array('template_id' => $row->nctid));
+    if ($access == TRUE) {
+      $templates[$row->nctid] = $row->name;
+    }
+  }
+  if (isset($context['template'])) {
+    $default_template = $context['template'];
+  }
+  $form['template'] = array(
+    '#type' => 'select',
+    '#title' => t("Template"),
+    '#description' => t("Convesion template to use when the action is fired."),
+    '#options' => $templates,
+    '#default_value' => isset($default_template) ? $default_template : '',
+  );
+
+  return $form;
+}
+
+function node_convert_convert_action_submit($form, &$form_state) {
+  return array('template' => $form_state['values']['template']);
+}
+
+
+/**
+ * Checks if user can do conversions from this node's type.
+ *
+ * @param $node
+ *   A node object to be checked.
+ * @return
+ *   TRUE if user can make conversions using this type, FALSE otherwise.
+ */
+function node_convert_check_access($node) {
+  $access = (user_access('administer conversion') || user_access('convert from ' . $node->type)) ? TRUE : FALSE;
+  return $access;
+}
+
+/**
+ * Returns a list of node types that the user has access to, depending on the direction of conversion.
+ *
+ * @param $direction
+ *   A string containing either 'to' or 'from'.
+ * @return
+ *   An array of node types or FALSE if the user doesn't have access to any node type.
+ */
+function node_convert_return_access_node_types($direction) {
+  $list = array();
+  $types = node_type_get_types();
+  foreach ($types as $type => $parameters) {
+    if ((user_access('administer conversion')) || (user_access('convert ' . $direction . ' ' . $type))) {
+      $list[$type] = $parameters->name;
+    }
+  }
+  if (!empty($list)) {
+    return $list;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Loads a conversion template array using template_id.
+ *
+ * @param $template_id
+ *   The template id to use
+ * @return array An array containing the template information or FALSE if there is no such template
+ */
+function node_convert_load_template($template_id) {
+  // Use Ctools export API to fetch all presets from the DB as well as code.
+  ctools_include('export');
+  if ($template_id) {
+    $conditions = array();
+    if (is_numeric($template_id)) {
+      $conditions['nctid'] = $template_id;
+    }
+    elseif (is_string($template_id)) {
+      $conditions['machine_name'] = $template_id;
+    }
+    $templates = ctools_export_load_object(NODE_CONVERT_TEMPLATE_TABLE, 'conditions', $conditions);
+    $template = !empty($templates) ? array_shift($templates) : FALSE;
+    if (is_string($template->data)) {
+      $template->data = unserialize($template->data);
+    }
+    if (!empty($template)) {
+      $template = (array) $template;
+      return $template;
+    }
+  }
+  return FALSE;
+}
+
+/*
+ * Loads all templates.
+ */
+function node_convert_load_all_templates() {
+  ctools_include('export');
+  $templates = ctools_export_load_object(NODE_CONVERT_TEMPLATE_TABLE, 'all');
+  return $templates;
+}
+
+/**
+ * Delete a conversion template.
+ * This function is also called by ctools export when calls are
+ * made through ctools_export_crud_delete().
+ *
+ * @param $template
+ *   A conversion template.
+ * @param $ctools_crud
+ *  Is this function called by the ctools crud delete.
+ */
+function node_convert_delete_template($template, $ctools_crud = TRUE) {
+  $query = db_delete('node_convert_templates');
+
+  if (is_object($template) && isset($template->nctid)) {
+    $query->condition('nctid', $template->nctid);
+  }
+  elseif (is_array($template) && isset($template['template_id'])) {
+    $query->condition('nctid', $template['template_id']);
+  }
+  elseif (is_string($template)) {
+    $template_name = $template;
+    $query->condition('machine_name', $template_name);
+  }
+
+  $query->execute();
+
+  ctools_include('export');
+  ctools_export_load_object_reset(NODE_CONVERT_TEMPLATE_TABLE);
+}
+
+function node_convert_save_template($template_name, $machine_name, $source_type, $destination_type, $data, $is_editing_mode = FALSE) {
+  $result = NULL;
+  if (!$is_editing_mode) {
+    $id = db_insert(NODE_CONVERT_TEMPLATE_TABLE)
+      ->fields(array(
+        'name' => $template_name,
+        'machine_name' => $machine_name,
+        'source_type' => $source_type,
+        'destination_type' => $destination_type,
+        'data' => $data,
+      ))
+      ->execute();
+    $result = $id;
+  }
+  else {
+    $rows_affected = db_update(NODE_CONVERT_TEMPLATE_TABLE)
+      ->fields(array(
+        'name' => $template_name,
+        'source_type' => $source_type,
+        'destination_type' => $destination_type,
+        'data' => $data,
+      ))
+      ->condition('machine_name', $machine_name)
+      ->execute();
+    $result = $rows_affected;
+  }
+  return $result;
+}
+
+/**
+ * Checks if the logged in user has access to use the conversion template.
+ *
+ * @param $data
+ *   An array containing either of the following keys
+ *   - template_id The template id used for conversion
+ *   - template  The template array containing data
+ * @return
+ *    TRUE if user can use the template, FALSE otherwise.
+ */
+function node_convert_check_template_permission_user($data) {
+  if (!empty($data['template'])) {
+    $template = $data['template'];
+  }
+  elseif (!empty($data['template_id'])) {
+    $template = node_convert_load_template($data['template_id']);
+  }
+  else {
+    return FALSE;
+  }
+  // User with this permission can convert from/to any content type.
+  if (user_access('administer conversion')) {
+    return TRUE;
+  }
+
+  $access = user_access('convert from ' . $template['source_type']) && user_access('convert to ' . $template['destination_type']);
+  return $access;
+}
+
+/**
+ * Converts a list of nodes using a given template
+ *
+ * @param $nodes
+ *   An array containing a list of node nid's
+ * @param $template_id
+ *   The template to use for conversion
+ * @return
+ *    FALSE if the user doesn't have permission to use the template.
+ */
+function node_convert_convert_nodes_using_template($nodes, $template_id) {
+  $template = node_convert_load_template($template_id);
+
+  $access = node_convert_check_template_permission_user(array('template' => $template));
+  if ($access == FALSE) {
+    drupal_set_message(t("You don't have permission to use this conversion template."), 'warning', FALSE);
+    return FALSE;
+  }
+
+  foreach ($nodes as $nid) {
+    $node = node_load($nid);
+    // The source type of the given node doesn't match the template one, so we discard it with a message
+    if ($node->type != $template['source_type']) {
+      drupal_set_message(t("Node %nid doesn't match the template source type. Discarded.", array('%nid' => $node->nid)), 'warning');
+    }
+    else {
+      $result = node_convert_node_convert($node->nid, $template['destination_type'], $template['data']['fields']['source'], $template['data']['fields']['destination'], $template['data']['no_fields'], $template['data']['hook_options']);
+      // We display errors if there are any, or the default success message
+      node_convert_messages($result, array('nid' => $nid));
+    }
+  }
+}
+
+function node_convert_machine_name_check($machine_name) {
+  $query = db_select(NODE_CONVERT_TEMPLATE_TABLE, 'n');
+  $query->addField('n', 'nctid');
+  $query->condition('machine_name', $machine_name);
+  $template = $query->execute()->fetchAssoc();
+  return $template;
+}
+
+
+/**
+ * Utility function to recreate identifiers.
+ */
+function _node_convert_recreate_identifiers() {
+  // Migrate the conversion templates so they have a unique identifier.
+  $result = db_select(NODE_CONVERT_TEMPLATE_TABLE, 'n')
+    ->fields('n')
+    ->execute();
+  $rows = array();
+  foreach($result as $row) {
+    $row->machine_name = $row->source_type . '_to_' . $row->destination_type . '_' . $row->nctid;
+    $rows[] = $row;
+  }
+  foreach ($rows as $row) {
+    drupal_write_record(NODE_CONVERT_TEMPLATE_TABLE, $row, array('nctid'));
+  }
+}
+
+function node_convert_api_minimum_version() {
+  return '1';
+}
+
+function node_convert_api_version() {
+  return '1';
+}
+
+/**
+ * Loads include files, that execute various behaviors on node conversion.
+ *
+ * These can also be defined by other modules.
+ */
+function node_convert_load_includes() {
+  ctools_include('plugins');
+  return ctools_plugin_api_include('node_convert', NODE_CONVERT_BEHAVIOR_PLUGIN, node_convert_api_minimum_version(), node_convert_api_version());
+}
+
+/**
+ * Implementation of hook_ctools_plugin_api().
+ *
+ * Tell CTools that we support default conversion templates, and also custom behaviors.
+ */
+function node_convert_ctools_plugin_api($module, $api) {
+  // Default conversion templates.
+  if ($module == 'node_convert' && $api == 'node_convert') {
+    return array('version' => node_convert_api_version());
+  }
+
+  // Conversion behaviors.
+  if ($module == 'node_convert' && $api == NODE_CONVERT_BEHAVIOR_PLUGIN) {
+    return array(
+      'version' => node_convert_api_version(),
+      'path' => drupal_get_path('module', 'node_convert') . '/modules/',
+      'file' => "$module.$api.inc",
+    );
+  }
+
+  return NULL;
+}
+
+/**
+ * Declare API compatibility on behalf of certain modules.
+ *
+ * @return array
+ */
+function node_convert_provided_module_behaviors() {
+  $provided_module_behaviors = array('xmlsitemap', 'comment');
+  return $provided_module_behaviors;
+}
+
+/**
+ * Instead of using module_invoke_all, we have to use the ctools pattern, because the module hooks are loaded dynamically by CTools.
+ *
+ * Additionally we add in a few other modules, for which we provide API integration.
+ *
+ * @param $hook
+ * @param $data
+ * @param $op
+ * @return array
+ */
+function node_convert_invoke_all($hook, $data, $op) {
+  $return = array();
+
+  $provided_modules = node_convert_provided_module_behaviors();
+  $provided_modules = array_combine($provided_modules, $provided_modules);
+  $other_modules = node_convert_load_includes();
+  $all_modules = array_merge($provided_modules, $other_modules);
+
+  foreach ($all_modules as $module => $info) {
+    if (!module_exists($module)) {
+      continue;
+    }
+
+    $function = $module . '_' . $hook;
+    // Just because they implement the API and include a file does not guarantee they implemented
+    // a hook function!
+    if (!function_exists($function)) {
+      continue;
+    }
+
+    $result = $function($data, $op);
+    if (isset($result) && is_array($result)) {
+      $return = array_merge_recursive($return, $result);
+    }
+    elseif (isset($result)) {
+      $return[] = $result;
+    }
+  }
+  return $return;
+}
