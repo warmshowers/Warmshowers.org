@@ -1552,30 +1552,37 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
   $city = $form_state['values']['city'];
   $country = $form_state['values']['country'];
 
+  // If they didn't wait for the JS autocomplete, try to figure out their search location anyway.
   if (!empty($country) && !empty($city)) {
-    list($placename, $latitude, $longitude) = preg_split('/\|/', $form_state['values']['city']);
+    @list($placename, $latitude, $longitude) = preg_split('/\|/', $form_state['values']['city']);
     if (!is_numeric($latitude) || !is_numeric($longitude)) {
-      $result = db_query_range('
-          SELECT DISTINCT g.name cityname, a.name provname, g.country_code,
+      @list($city, $province) = preg_split('/, */', $placename);
+      $vars = array(
+        ':country' => $country,
+        ':min_population' => 100,
+        ':city' => $city,
+      );
+
+      $query = "SELECT DISTINCT g.name cityname, a.name provname, g.country_code,
   		     latitude, longitude, g.admin1_code, g.feature_code
   	       FROM {geonames} g, {geonames_adm1} a
-  	       WHERE g.country_code = :country
-  		     AND g.ansiname LIKE :name_pattern
-  		     AND feature_code IN ("ppl", "ppla", "ppla2", "ppla3", "ppla4", "pplc", "pplf", "ppls", "adm1", "adm2")
-  		     AND g.country_code = :country_code
-  		     AND g.admin1_code = a.adm1_code
-  		     AND (population > :min_population OR feature_code = "adm1")
-  		     ORDER BY (feature_code = :feature_code) DESC, g.population DESC',
-        0, 1,  // We only want one result here for validation
-        array(
-          ':country' => $country,
-          ':min_population' => 100,
-          ':name_pattern' => db_like($city) . '%',
-        ));
-      if ($result && $location = db_fetch_array($result)) {
+  	       WHERE g.country_code = a.country_code
+  	       AND g.admin1_code = a.adm1_code
+  	       AND g.country_code = :country
+  		     AND g.ansiname = :city
+  		     AND feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls', 'adm1', 'adm2')
+  		     AND (population > :min_population OR feature_code = 'adm1') ";
+      if (!empty($province) && $country == 'us') {  // The 2-letter province is not right in geonames_adm1 for much of the world, including Canada
+        $query .=  "AND g.admin1_code = :admin1_code";
+        $vars +=   array(':admin1_code' => "$province");
+      }
+      $query .= ' ORDER BY feature_code DESC, g.population DESC';
+      $result = db_query_range($query, 0, 1, $vars);
+      if ($result && ($location = $result->fetchAssoc())) {
         $latitude = $location['latitude'];
         $longitude = $location['longitude'];
-        $form_state['values']['city'] = "$placename|$latitude|$longitude";
+        $provname = $location['provname'];
+        $form_state['values']['city'] = "$city, $provname|$latitude|$longitude";
         return;
       }
     }
