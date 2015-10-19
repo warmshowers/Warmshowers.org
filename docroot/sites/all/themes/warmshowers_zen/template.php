@@ -629,3 +629,20 @@ function warmshowers_zen_advanced_forum_simple_author_pane(&$variables) {
 
   return '<div class="author-pane">' . $name . $picture . '</div>';
 }
+
+
+/**
+ * Display the Facebook Connect options on login page
+ */
+function warmshowers_zen_fboauth_user_form_connect($variables) {
+  $uid = $variables['uid'];
+  $fbid = $variables['fbid'];
+  if ($fbid) {
+    $output = t('Your account is connected with Facebook. (<a href="!url">More info</a>)', array('!url' => url('user/' . $uid . '/fboauth', array('query' => drupal_get_destination()))));
+  }
+  else {
+    $output = fboauth_action_display('connect', $_GET['q']);
+    $output .= '<div class="facebook-action-description description">' . t('If you already have a Warmshowers account and a Facebook account you can login with your Facebook account instead of using a password.') . '</div>';
+  }
+  return $output;
+}
