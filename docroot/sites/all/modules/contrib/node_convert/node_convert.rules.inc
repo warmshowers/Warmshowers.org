@@ -9,7 +9,6 @@
  * Implements hook_rules_event_info().
  * @ingroup rules
  */
-
 function node_convert_rules_event_info() {
   return array(
     'node_convert_converted_node' => array(
@@ -25,7 +24,6 @@ function node_convert_rules_event_info() {
  * Implements hook_rules_action_info().
  * @ingroup rules
  */
-
 function node_convert_rules_action_info() {
   $actions = array();
   $actions['node_convert_convert_nodes_using_template_rules_callback'] = array(
@@ -55,7 +53,7 @@ function node_convert_rules_action_info() {
  *   Full node object
  * @return bool FALSE if conversion fails, this is return of convert function.
  */
-function node_convert_convert_nodes_using_template_rules_callback($template, $node){
+function node_convert_convert_nodes_using_template_rules_callback($template, $node) {
   return node_convert_convert_nodes_using_template(array($node->nid), $template);
 }
 

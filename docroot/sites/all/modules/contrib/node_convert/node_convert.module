@@ -69,6 +69,7 @@ function node_convert_permission() {
  * Implements hook_menu().
  */
 function node_convert_menu() {
+  // @ignore druplart_array_init
   $items = array();
 
   $items['node/%node/convert'] = array(
@@ -180,6 +181,7 @@ function node_convert_action_info() {
       'type' => 'node',
       'configurable' => TRUE,
       'triggers' => array('any' => TRUE),
+      'behavior' => array('creates_property')
     ),
   );
 }
@@ -200,6 +202,9 @@ function node_convert_theme() {
 
 /* ----------- The form theme functions ------------ */
 
+/**
+ * Themes the node conversion form.
+ */
 function theme_node_convert_conversion_form($variables) {
   $form = $variables['form'];
   $output = '';
@@ -215,7 +220,11 @@ function theme_node_convert_conversion_form($variables) {
 }
 
 
+/**
+ * Themes the node conversion add template form.
+ */
 function theme_node_convert_add_template($variables) {
+  $output = '';
   $form = $variables['form'];
   if ($form['step']['#value'] == "choose_destination_type") {
     $output  = '<div>' . t("Choose the source type of the nodes that should be shown, and the destination type to which they will be converted.") . '</div>';
@@ -245,7 +254,7 @@ function node_convert_convert_action(&$node, &$context = array()) {
   $access = node_convert_check_template_permission_user(array('template' => $template));
   if ($access == FALSE) {
     drupal_set_message(t("You don't have permission to use this conversion template"), 'warning', FALSE);
-    return;
+    return FALSE;
   }
 
   if ($node->type != $template['source_type']) {
@@ -258,8 +267,12 @@ function node_convert_convert_action(&$node, &$context = array()) {
     // This is node_load is necessary. It loads the new data from the DB, which gets passed down the action chain by reference, where it is saved.
     $node = node_load($node->nid, NULL, TRUE);
   }
+  return TRUE;
 }
 
+/**
+ * Node convert action form.
+ */
 function node_convert_convert_action_form($context) {
   $result = db_query("SELECT * FROM {node_convert_templates}");
   $templates = array(0 => 'none');
@@ -283,6 +296,9 @@ function node_convert_convert_action_form($context) {
   return $form;
 }
 
+/**
+ * Submit callback for the node convert action form.
+ */
 function node_convert_convert_action_submit($form, &$form_state) {
   return array('template' => $form_state['values']['template']);
 }
@@ -356,7 +372,7 @@ function node_convert_load_template($template_id) {
   return FALSE;
 }
 
-/*
+/**
  * Loads all templates.
  */
 function node_convert_load_all_templates() {
@@ -395,6 +411,9 @@ function node_convert_delete_template($template, $ctools_crud = TRUE) {
   ctools_export_load_object_reset(NODE_CONVERT_TEMPLATE_TABLE);
 }
 
+/**
+ * Saves a conversion template.
+ */
 function node_convert_save_template($template_name, $machine_name, $source_type, $destination_type, $data, $is_editing_mode = FALSE) {
   $result = NULL;
   if (!$is_editing_mode) {
@@ -484,8 +503,13 @@ function node_convert_convert_nodes_using_template($nodes, $template_id) {
       node_convert_messages($result, array('nid' => $nid));
     }
   }
+
+  return TRUE;
 }
 
+/**
+ * Callback to check if an existing machine name for a template exists.
+ */
 function node_convert_machine_name_check($machine_name) {
   $query = db_select(NODE_CONVERT_TEMPLATE_TABLE, 'n');
   $query->addField('n', 'nctid');
@@ -504,7 +528,7 @@ function _node_convert_recreate_identifiers() {
     ->fields('n')
     ->execute();
   $rows = array();
-  foreach($result as $row) {
+  foreach ($result as $row) {
     $row->machine_name = $row->source_type . '_to_' . $row->destination_type . '_' . $row->nctid;
     $rows[] = $row;
   }
@@ -513,10 +537,16 @@ function _node_convert_recreate_identifiers() {
   }
 }
 
+/**
+ * Minimum version for API.
+ */
 function node_convert_api_minimum_version() {
   return '1';
 }
 
+/**
+ * Current version for API.
+ */
 function node_convert_api_version() {
   return '1';
 }
@@ -532,7 +562,7 @@ function node_convert_load_includes() {
 }
 
 /**
- * Implementation of hook_ctools_plugin_api().
+ * Implements hook_ctools_plugin_api().
  *
  * Tell CTools that we support default conversion templates, and also custom behaviors.
  */
@@ -560,7 +590,12 @@ function node_convert_ctools_plugin_api($module, $api) {
  * @return array
  */
 function node_convert_provided_module_behaviors() {
-  $provided_module_behaviors = array('xmlsitemap', 'comment');
+  $provided_module_behaviors = array('xmlsitemap', 'comment', 'file');
+
+  // Allow modules to disable behavior plugins implemented on behalf of
+  // node convert.
+  drupal_alter(NODE_CONVERT_BEHAVIOR_PLUGIN, $provided_module_behaviors);
+
   return $provided_module_behaviors;
 }
 

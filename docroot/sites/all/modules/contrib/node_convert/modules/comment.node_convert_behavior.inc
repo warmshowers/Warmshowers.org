@@ -17,8 +17,8 @@ function comment_node_convert_change($data, $op) {
 
     foreach ($tables as $table) {
       $query = '
-        UPDATE ' . $table . ' AS cb
-        LEFT JOIN comment AS c ON cb.entity_id = c.cid AND cb.entity_type = :entity_type
+        UPDATE {' . $table . '} AS cb
+        LEFT JOIN ' . '{comment} AS c ON cb.entity_id = c.cid AND cb.entity_type = :entity_type
         SET cb.bundle = :new_bundle
         WHERE c.nid = :nid
         ';

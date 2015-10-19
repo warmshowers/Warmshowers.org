@@ -58,6 +58,9 @@ function node_convert_node_convert($nid, $destination_node_type, $source_fields,
   $data = array(
     'node' => $node,
     'dest_node_type' => $destination_node_type,
+    'source_fields' => $source_fields,
+    'destination_fields' => $destination_fields,
+    'no_fields_flag' => $no_fields_flag,
   );
   if (!empty($hook_options)) {
     $data['hook_options'] = $hook_options;
@@ -71,7 +74,14 @@ function node_convert_node_convert($nid, $destination_node_type, $source_fields,
   /* if (module_exists('token')) {
     token_get_values('global', NULL, TRUE);
   }*/
+
+  // Clear the node cache, so we have the latest information when saving the
+  // node.
+  $controller = entity_get_controller('node');
+  /* @var $controller DrupalEntityControllerInterface */
+  $controller->resetCache(array($node->nid));
   cache_clear_all('field:node:' . $node->nid, 'cache_field');
+
   $converted_node = node_load($nid, NULL, TRUE);
   $converted_node->type = $destination_node_type;
   try {
@@ -220,7 +230,7 @@ function node_convert_field_convert(&$node, $source_field, $destination_field, $
   }
 
   // Give possibility to fields to pre-process their data
-  // (e.g. Link module transforms attribute array into a serialized array before insertion)
+  // (e.g., Link module transforms attribute array into a serialized array before insertion)
   field_attach_presave('node', $node);
   // For some reason link_field_presave doesn't exist anymore, so we have to call it the processing function used inside manually.
   if ($field_info_destination['type'] == 'link_field') {
@@ -235,6 +245,9 @@ function node_convert_field_convert(&$node, $source_field, $destination_field, $
   return NULL;
 }
 
+/**
+ * Invokes the storage delete field hooks for a given field.
+ */
 function node_convert_invoke_field_storage_delete($field_info_source, $db_info_source, $node) {
   $field_id = $field_info_source['id'];
   module_invoke($db_info_source['module'], 'field_storage_delete', 'node', $node, array($field_id => $field_id));
@@ -260,11 +273,13 @@ function node_convert_messages($result, $params = array()) {
     $message = "Conversion failed for node nid @nid.";
 
     watchdog(NODE_CONVERT_WATCHDOG, $message, $message_arguments, WATCHDOG_ERROR);
+    // @ignore security_3
     drupal_set_message(t($message, $message_arguments), 'error');
   }
   elseif ($params['display_success'] == TRUE) {
     $message = 'Node @nid has been converted successfully.';
 
+    // @ignore security_3
     drupal_set_message(t($message, $message_arguments));
     watchdog(NODE_CONVERT_WATCHDOG, $message, $message_arguments, WATCHDOG_INFO);
   }
@@ -287,10 +302,10 @@ function node_convert_format_field_value($node, $field, $no_labels = FALSE) {
   $options = array();
 
   if ($field['type'] == 'text') {
-    $options = array('singular_label' => 'Text', 'plural_label' => 'Texts', 'columns' => array('safe_value'));
+    $options = array('singular_label' => 'Text', 'plural_label' => 'Texts', 'columns' => array('value'));
   }
   elseif ($field['type'] == 'text_with_summary') {
-    $options = array('singular_label' => 'Text w/Summary', 'plural_label' => 'Texts w/Summary', 'columns' => array('safe_value'));
+    $options = array('singular_label' => 'Text w/Summary', 'plural_label' => 'Texts w/Summary', 'columns' => array('value'));
   }
   elseif ($field['type'] == 'image') {
     $options = array('singular_label' => 'File ID', 'plural_label' => 'File IDs', 'columns' => array('fid', 'Title' => 'title', 'URI' => 'uri'));
@@ -419,7 +434,8 @@ function node_convert_format_field_value_helper($field_values, $options = array(
       if (!is_numeric($column_key) && !empty($item[$column]) && !$no_labels) {
         $column_label = $column_key . ': ';
       }
-      $column_values[] = $column_label . $item[$column];
+      $column_value = isset($item[$column]) ? $item[$column] : '';
+      $column_values[] = $column_label . filter_xss_admin($column_value);
     }
     $items[] = implode(' ', $column_values);
 

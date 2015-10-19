@@ -4,6 +4,7 @@
  * API documentation for the node_convert module.
  */
 
+// @ignore comment_comment_implementation:comment
 /**
  * Provide implementation of hook_ctools_plugin_api().
  *

@@ -5,6 +5,9 @@
  * Form page callbacks for the node_convert module.
  */
 
+/**
+ * Node conversion form.
+ */
 function node_convert_conversion_form($form, $form_state, $node) {
   $form = array();
 
@@ -69,7 +72,7 @@ function node_convert_conversion_form($form, $form_state, $node) {
       $dest_fields = field_info_instances('node', $form_state['storage']['destination_type']);
       $i = 0;
       foreach ($source_fields as $source_field_name => $source_field) {
-        $i++;
+        ++$i;
         $options = array();
         $options['discard'] = 'discard';
         $options[APPEND_TO_BODY] = t('Append to body');
@@ -77,7 +80,10 @@ function node_convert_conversion_form($form, $form_state, $node) {
 
         // Insert destination type fields into $options that are of the same type as the source.
         foreach ($dest_fields as $dest_field_name => $dest_value) {
-          if ($fields_info[$source_field_name]['type'] == $fields_info[$dest_field_name]['type']) {
+          if ($fields_info[$source_field_name]['type'] == $fields_info[$dest_field_name]['type']
+            || ($fields_info[$source_field_name]['type'] == 'text_with_summary' && $fields_info[$dest_field_name]['type'] == 'text_long')
+            || ($fields_info[$source_field_name]['type'] == 'text_long' && $fields_info[$dest_field_name]['type'] == 'text_with_summary')
+            ) {
             $options[$dest_value['field_name']] = $dest_value['field_name'];
           }
         }
@@ -143,12 +149,18 @@ function node_convert_conversion_form($form, $form_state, $node) {
   return $form;
 }
 
+/**
+ * Validation callback for converting a form.
+ */
 function node_convert_conversion_form_validate($form, &$form_state) {
   if ($form_state['values']['step'] == 'choose_destination_fields') {
     node_convert_invoke_all('node_convert_change', array('dest_node_type' => $form_state['storage']['destination_type'], 'form_state' => $form_state), 'options validate');
   }
 }
 
+/**
+ * Submit callback for converting a form.
+ */
 function node_convert_conversion_form_submit($form, &$form_state) {
   // Remember the destination type
   if ($form_state['values']['step'] == 'choose_destination_type') {
@@ -161,9 +173,11 @@ function node_convert_conversion_form_submit($form, &$form_state) {
     $node = $form_state['values']['node'];
     $nid = $node->nid;
     $no_fields = $form_state['values']['no_fields'];
-    $number_of_fields = $form_state['values']['number_of_fields'];
+    $number_of_fields = isset($form_state['values']['number_of_fields']) ? $form_state['values']['number_of_fields'] : 0;
 
-    // If there are fields that can to be converted
+    // If there are fields that can to be converted.
+    $source_fields = array();
+    $dest_fields = array();
     if ($no_fields == FALSE) {
       for ($i = 1; $i <= $number_of_fields; $i++) {
         $source_fields[] = $form_state['values']['source_field_' . $i]; //  Source fields
