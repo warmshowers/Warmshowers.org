@@ -15,10 +15,10 @@
  * @param object $event
  *   The event object format is described at http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-.
  *
- * @return int
+ * @return int or arrray
  *   MANDRILL_INCOMING_HANDLED
  *   MANDRILL_INCOMING_UNHANDLED
- *   MANDRILL_INCOMING_ERROR
+ *   array(MANDRILL_INCOMING_ERROR => string message)
  */
 function hook_mandrill_incoming_event($event) {
   $msg = $event->msg;
@@ -30,4 +30,6 @@ function hook_mandrill_incoming_event($event) {
     )
   );
   return MANDRILL_INCOMING_UNHANDLED;
+  // return MANDRILL_INCOMING_HANDLED;
+  // return array(MANDRILL_INCOMING_ERROR => t('Some error message');
 }
