@@ -1,0 +1,357 @@
+<?php
+
+/**
+ * @file
+ * Redirects logging messages to syslog.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function syslog_advanced_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#syslog_advanced':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t("The Syslog module logs events by sending messages to the logging facility of your web server's operating system. Syslog is an operating system administrative logging tool that provides valuable information for use in system management and security auditing. Most suited to medium and large sites, Syslog provides filtering tools that allow messages to be routed by type and severity. For more information, see the online handbook entry for <a href='@syslog'>Syslog module</a> and PHP's <a href='@php_openlog'>openlog</a> and <a href='@php_syslog'>syslog</a> functions.", array('@syslog' => 'http://drupal.org/documentation/modules/syslog', '@php_openlog' => 'http://www.php.net/manual/function.openlog.php', '@php_syslog' => 'http://www.php.net/manual/function.syslog.php')) . '</p>';
+      $output .= '<h3>' . t('Uses') . '</h3>';
+      $output .= '<dl>';
+      $output .= '<dt>' . t('Logging for UNIX, Linux, and Mac OS X') . '</dt>';
+      $output .= '<dd>' . t('On UNIX, Linux, and Mac OS X, the file <em>/etc/syslog.conf</em> defines the routing configuration. Messages can be flagged with the codes <code>LOG_LOCAL0</code> through <code>LOG_LOCAL7</code>. For information on Syslog facilities, severity levels, and how to set up <em>syslog.conf</em>, see the <em>syslog.conf</em> manual page on your command line.') . '</dd>';
+      $output .= '<dt>' . t('Logging for Microsoft Windows') . '</dt>';
+      $output .= '<dd>' . t('On Microsoft Windows, messages are always sent to the Event Log using the code <code>LOG_USER</code>.') . '</dd>';
+      $output .= '</dl>';
+      return $output;
+  }
+
+  return NULL;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function syslog_advanced_theme() {
+  return array(
+    'syslog_advanced_form_table' => array(
+      'render element' => 'element',
+    ),
+    'syslog_advanced_form_tr' => array(
+      'render element' => 'element',
+    ),
+    'syslog_advanced_form_th' => array(
+      'render element' => 'element',
+    ),
+    'syslog_advanced_form_td' => array(
+      'render element' => 'element',
+    ),
+  );
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function syslog_advanced_module_implements_alter(&$implementations, $hook) {
+  if ($hook === 'watchdog' && !variable_get('syslog_advanced_disable_override', FALSE)) {
+    unset($implementations['syslog']);
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function syslog_advanced_form_system_logging_settings_alter(&$form, &$form_state) {
+  $help = module_exists('help') ? ' ' . l(t('More information'), 'admin/help/syslog_advanced') . '.' : NULL;
+  $form['syslog_advanced'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Syslog Advanced'),
+  );
+  $form['syslog_advanced']['syslog_advanced_identity'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Syslog identity'),
+    '#default_value' => variable_get('syslog_advanced_identity', variable_get('syslog_identity', 'drupal')),
+    '#description'   => t('A string that will be prepended to every message logged to Syslog. If you have multiple sites logging to the same Syslog log file, a unique identity per site makes it easy to tell the log entries apart.') . $help,
+  );
+  if (defined('LOG_LOCAL0')) {
+    $form['syslog_advanced']['syslog_advanced_facility'] = array(
+      '#type'          => 'select',
+      '#title'         => t('Syslog facility'),
+      '#default_value' => variable_get('syslog_advanced_facility', variable_get('syslog_facility', LOG_LOCAL0)),
+      '#options'       => syslog_advanced_facility_list(),
+      '#description'   => t('Depending on the system configuration, Syslog and other logging tools use this code to identify or filter messages from within the entire system log.') . $help,
+     );
+  }
+  $form['syslog_advanced']['syslog_advanced_format'] = array(
+    '#type'          => 'textarea',
+    '#title'         => t('Syslog format'),
+    '#default_value' => variable_get('syslog_advanced_format', variable_get('syslog_format', '!base_url|!timestamp|!type|!ip|!request_uri|!referer|!uid|!link|!message')),
+    '#description'   => t('Specify the format of the syslog entry. Available variables are: <dl><dt><code>!base_url</code></dt><dd>Base URL of the site.</dd><dt><code>!timestamp</code></dt><dd>Unix timestamp of the log entry.</dd><dt><code>!type</code></dt><dd>The category to which this message belongs.</dd><dt><code>!ip</code></dt><dd>IP address of the user triggering the message.</dd><dt><code>!request_uri</code></dt><dd>The requested URI.</dd><dt><code>!referer</code></dt><dd>HTTP Referer if available.</dd><dt><code>!uid</code></dt><dd>User ID.</dd><dt><code>!link</code></dt><dd>A link to associate with the message.</dd><dt><code>!message</code></dt><dd>The message to store in the log.</dd></dl>'),
+  );
+  // Get $all_types to provide as a default values for types of messages to log.
+  if (module_exists('dblog')) {
+    // If dblog is enabled, get a list of types from the watchdog table.
+    $types = _dblog_get_message_types();
+    $all_types = array_combine($types, $types);
+  }
+  else {
+    // If dblog is not enabled, provide a few standard core types.
+    $all_types = array(
+      'access denied' => 'access denied',
+      'actions' => 'actions',
+      'content' => 'cron',
+      'file' => 'file',
+      'php' => 'php',
+      'system' => 'system',
+      'theme' => 'theme',
+      'user' => 'user',
+    );
+  }
+  $severity_levels = watchdog_severity_levels();
+
+  $autoadd = variable_get('syslog_advanced_autoadd');
+  if ($autoadd === NULL) {
+    $autoadd = _syslog_advanced_default_severities();
+  }
+
+  $form['syslog_advanced']['syslog_advanced_autoadd'] = array(
+    '#title' => t('Default severities'),
+    '#description' => t('New types will be automatically added with these severities.'),
+    '#type' => 'checkboxes',
+    '#options' => $severity_levels,
+    '#default_value' => $autoadd,
+  );
+
+  $form['syslog_advanced']['syslog_advanced_allowed'] = array(
+    '#tree' => TRUE,
+    '#theme_wrappers' => array(
+      'syslog_advanced_form_table',
+    ),
+  );
+
+  $form['syslog_advanced']['syslog_advanced_allowed']['header'] = array(
+    '#theme_wrappers' => array(
+      'syslog_advanced_form_tr',
+    ),
+  );
+  $form['syslog_advanced']['syslog_advanced_allowed']['header'][] = array(
+    '#markup' => t('Message types'),
+    '#theme_wrappers' => array(
+      'syslog_advanced_form_th',
+    ),
+  );
+  foreach ($severity_levels as $severity_level) {
+    $form['syslog_advanced']['syslog_advanced_allowed']['header'][] = array(
+      '#markup' => check_plain($severity_level),
+      '#theme_wrappers' => array(
+        'syslog_advanced_form_th',
+      ),
+    );
+  }
+
+  foreach ($all_types as $type) {
+    $form['syslog_advanced']['syslog_advanced_allowed'][$type] = array(
+      '#theme_wrappers' => array(
+        'syslog_advanced_form_tr',
+      ),
+      'type' => array(
+        '#markup' => check_plain($type),
+        '#theme_wrappers' => array(
+          'syslog_advanced_form_td',
+        ),
+      ),
+    );
+    foreach ($severity_levels as $code => $severity_level) {
+      $allowed = _syslog_advanced_is_allowed($type, $code);
+      if ($allowed === NULL) {
+        $allowed = (int) ($autoadd[$code] == $code);
+      }
+      $form['syslog_advanced']['syslog_advanced_allowed'][$type][$code] = array(
+        '#type' => 'checkbox',
+        '#title' => $severity_level,
+        '#title_display' => 'invisible',
+        '#theme_wrappers' => array(
+          'syslog_advanced_form_td',
+        ),
+        '#default_value' => $allowed,
+      );
+    }
+  }
+
+  $form['syslog_advanced']['syslog_advanced_disable_override'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable overriding the core syslog module'),
+    '#description' => t('This module overrides the core syslog module by default. ' .
+      'Disabling the overriding might cause duplicate log entries.'),
+    '#default_value' => variable_get('syslog_advanced_disable_override', FALSE),
+  );
+
+  $form['actions']['#weight'] = 1;
+}
+
+/**
+ * Lists all possible syslog facilities for UNIX/Linux.
+ *
+ * @return array
+ *   An array of syslog facilities for UNIX/Linux.
+ */
+function syslog_advanced_facility_list() {
+  return array(
+    LOG_LOCAL0 => 'LOG_LOCAL0',
+    LOG_LOCAL1 => 'LOG_LOCAL1',
+    LOG_LOCAL2 => 'LOG_LOCAL2',
+    LOG_LOCAL3 => 'LOG_LOCAL3',
+    LOG_LOCAL4 => 'LOG_LOCAL4',
+    LOG_LOCAL5 => 'LOG_LOCAL5',
+    LOG_LOCAL6 => 'LOG_LOCAL6',
+    LOG_LOCAL7 => 'LOG_LOCAL7',
+  );
+}
+
+/**
+ * Implements hook_watchdog().
+ */
+function syslog_advanced_watchdog(array $log_entry) {
+  global $base_url;
+
+  _syslog_advanced_init_log();
+
+  // Check the severity filter to see if this message is allowed. We must load
+  // common.inc before calling functions from it, since hook_watchdog() can be
+  // invoked early in the bootstrap.
+  require_once DRUPAL_ROOT . '/includes/common.inc';
+
+  _syslog_advanced_autoadd($log_entry['type']);
+
+  if (_syslog_advanced_is_allowed($log_entry['type'], $log_entry['severity'])) {
+    $message = strtr(variable_get('syslog_advanced_format', '!base_url|!timestamp|!type|!ip|!request_uri|!referer|!uid|!link|!message'), array(
+      '!base_url' => $base_url,
+      '!timestamp' => $log_entry['timestamp'],
+      '!type' => $log_entry['type'],
+      '!ip' => $log_entry['ip'],
+      '!request_uri' => $log_entry['request_uri'],
+      '!referer' => $log_entry['referer'],
+      '!uid' => $log_entry['uid'],
+      '!link' => strip_tags($log_entry['link']),
+      '!message' => strip_tags(!isset($log_entry['variables']) ? $log_entry['message'] : strtr($log_entry['message'], $log_entry['variables'])),
+    ));
+
+    syslog($log_entry['severity'], $message);
+  }
+}
+
+/**
+ * Opens the syslog.
+ *
+ * This function makes sure that syslog will not be opened twice.
+ */
+function _syslog_advanced_init_log() {
+  $log_init = &drupal_static('syslog_watchdog', FALSE);
+
+  if (!$log_init) {
+    $log_init = TRUE;
+    $default_facility = defined('LOG_LOCAL0') ? LOG_LOCAL0 : LOG_USER;
+
+    $identity = variable_get('syslog_advanced_identity', 'drupal');
+    $facility = variable_get('syslog_advanced_facility', $default_facility);
+
+    openlog($identity, LOG_NDELAY, $facility);
+  }
+}
+
+/**
+ * Checks if a given type of message with a given severity should be logged.
+ *
+ * @param string $type
+ *   Log message type.
+ * @param int $severity
+ *   Log severity as in WATCHDOG_SEVERITY_*.
+ *
+ * @see watchdog_severity_levels().
+ *
+ * @return bool|null
+ */
+function _syslog_advanced_is_allowed($type, $severity) {
+  $allowed = variable_get('syslog_advanced_allowed');
+  return isset($allowed[$type][$severity]) ? $allowed[$type][$severity] : NULL;
+}
+
+/**
+ * Automatically adds new message types to the allowed list.
+ *
+ * @param string $type
+ *   Message type.
+ */
+function _syslog_advanced_autoadd($type) {
+  $allowed = variable_get('syslog_advanced_allowed');
+  if (!isset($allowed[$type])) {
+    $autoadd = variable_get('syslog_advanced_autoadd');
+    if (!$autoadd) {
+      $autoadd = _syslog_advanced_default_severities();
+    }
+    foreach ($autoadd as $code => $value) {
+      $autoadd[$code] = (int) ($code == $value);
+    }
+    $allowed[$type] = $autoadd;
+    variable_set('syslog_advanced_allowed', $allowed);
+  }
+}
+
+/**
+ * Returns a default list of severities.
+ *
+ * @return array
+ */
+function _syslog_advanced_default_severities() {
+  return array(
+    WATCHDOG_EMERGENCY => WATCHDOG_EMERGENCY,
+    WATCHDOG_ALERT     => WATCHDOG_ALERT,
+    WATCHDOG_CRITICAL  => WATCHDOG_CRITICAL,
+    WATCHDOG_ERROR     => WATCHDOG_ERROR,
+    WATCHDOG_WARNING   => WATCHDOG_WARNING,
+    WATCHDOG_NOTICE    => WATCHDOG_NOTICE,
+    WATCHDOG_INFO      => WATCHDOG_INFO,
+    WATCHDOG_DEBUG     => WATCHDOG_DEBUG,
+  );
+}
+
+/**
+ * Helper function for theme_syslog_advanced_form_*.
+ *
+ * @param array $variables
+ *   Theme variables.
+ * @param string $tag
+ *   HTML tag name.
+ *
+ * @return string
+ *   Template string.
+ */
+function _syslog_advanced_form_theme_helper(array $variables, $tag) {
+  return "<{$tag}>{$variables['element']['#children']}</{$tag}>";
+}
+
+/**
+ * Returns HTML for the 'syslog_advanced_form_table' theme wrapper.
+ */
+function theme_syslog_advanced_form_table($variables) {
+  return _syslog_advanced_form_theme_helper($variables, 'table');
+}
+
+/**
+ * Returns HTML for the 'syslog_advanced_form_tr' theme wrapper.
+ */
+function theme_syslog_advanced_form_tr($variables) {
+  return _syslog_advanced_form_theme_helper($variables, 'tr');
+}
+
+/**
+ * Returns HTML for the 'syslog_advanced_form_th' theme wrapper.
+ */
+function theme_syslog_advanced_form_th($variables) {
+  return _syslog_advanced_form_theme_helper($variables, 'th');
+}
+
+/**
+ * Returns HTML for the 'syslog_advanced_form_td' theme wrapper.
+ */
+function theme_syslog_advanced_form_td($variables) {
+  return _syslog_advanced_form_theme_helper($variables, 'td');
+}
