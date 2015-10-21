@@ -140,7 +140,7 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
 
   // Validate that we can find the pm
   if (empty($pm)) {
-    watchdog('mandrill_incoming', 'Failed to load message id for incoming mid=@mid', array('@mid' => $mid));
+    watchdog('privatemsg', 'Failed to load message id for validation of incoming mid=@mid, result=@result', array('@mid' => $mid, '@result' => print_r($pm, TRUE)), WATCHDOG_WARNING);
     $description = t("Failed to load message id @mid - message does not exist", array('@mid' => $mid));
     return FALSE;
   }
@@ -149,7 +149,7 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
   $tid = $pm->thread_id;
   $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
   if (strcasecmp($our_mhash, $their_mhash)) {
-    watchdog('mandrill_incoming', 'Message hash in incoming message (%their_mhash) did not match hash (%our_mhash)', array(
+    watchdog('privatemsg', 'Message hash in incoming message (%their_mhash) did not match hash (%our_mhash)', array(
       '%their_mhash' => $their_mhash,
       '%our_mhash' => $our_mhash
     ), WATCHDOG_ERROR);
@@ -163,7 +163,7 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
   // Validate sender uid
   $sender_account = user_load($sender_uid);
   if (!$sender_account || user_is_blocked($sender_account->name) || !privatemsg_user_access('write privatemsg', $sender_account)) {
-    watchdog('mandrill_incoming', 'Sender %sender_uid does not have privilege to send privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
+    watchdog('privatemsg', 'Sender %sender_uid does not have privilege to send privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
     $description = t('Sender @sender_uid does not have privilege to send privatemsg, so not sending message.', array('@sender_uid' => $sender_uid));
     return FALSE;
   }
@@ -195,7 +195,7 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
       '%email' => $msg->from_email,
       '%subject' => $msg->subject
     ));
-    return array(array(MANDRILL_INCOMING_UNHANDLED => t('Sender or subject blacklisted')));
+    return MANDRILL_INCOMING_UNHANDLED;
   }
 
 
@@ -203,7 +203,8 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
   $failure_description = "";
   $valid = ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash, $failure_description);
   if (!$valid) {
-    return array(array(MANDRILL_INCOMING_ERROR => $failure_description));
+    watchdog('privatemsg', 'Failed to validate routing for message based on mid=%mid, failure_description="%description', array('%mid' => $mid, '%description' => $failure_description), WATCHDOG_WARNING);
+    return array(MANDRILL_INCOMING_ERROR => $failure_description);
   }
 
   $pm = privatemsg_message_load($mid);
@@ -221,7 +222,8 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
   $text = preg_replace('/[\r\n ]*[> ]*------* .* -----*\+(.|[\r\n\t])*$/', '', $text);
 
   if (empty($text)) {
-    return array(array(MANDRILL_INCOMING_ERROR => t('Empty text for body, not attempting privatemsg_reply')));
+    watchdog('privatemsg', 'Empty text for body, not attempting privatemsg_reply', WATCHDOG_WARNING);
+    return array(MANDRILL_INCOMING_ERROR => t('Empty text for body, not attempting privatemsg_reply'));
   }
 
   // Attempt to send a reply.
