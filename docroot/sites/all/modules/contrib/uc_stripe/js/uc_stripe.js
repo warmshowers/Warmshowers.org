@@ -113,6 +113,9 @@
             submitButton.click();
           }
         });
+
+        // Prevent processing until we get the token back
+        return false;
       });
     }
   };
