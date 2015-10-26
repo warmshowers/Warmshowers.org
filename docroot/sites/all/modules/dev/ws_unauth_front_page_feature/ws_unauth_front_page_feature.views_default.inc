@@ -22,7 +22,7 @@ function ws_unauth_front_page_feature_views_default_views() {
 
   /* Display: Master */
   $handler = $view->new_display('default', 'Master', 'default');
-  $handler->display->display_options['title'] = 'Unauth Front Page Slideshow';
+  $handler->display->display_options['title'] = '<none>';
   $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'none';
@@ -110,7 +110,7 @@ function ws_unauth_front_page_feature_views_default_views() {
   $handler = $view->new_display('block', 'Block', 'block');
   $translatables['unauth_front_page_slideshow'] = array(
     t('Master'),
-    t('Unauth Front Page Slideshow'),
+    t('<none>'),
     t('more'),
     t('Apply'),
     t('Reset'),
