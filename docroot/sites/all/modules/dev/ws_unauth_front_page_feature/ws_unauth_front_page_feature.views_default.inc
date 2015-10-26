@@ -70,12 +70,12 @@ function ws_unauth_front_page_feature_views_default_views() {
   $handler->display->display_options['style_options']['views_slideshow_cycle']['cleartype'] = 0;
   $handler->display->display_options['style_options']['views_slideshow_cycle']['cleartypenobg'] = 0;
   $handler->display->display_options['row_plugin'] = 'fields';
-  /* Relationship: Content: Images (field_contest_photo:fid) */
+  /* Relationship: Content: Contest Photo (field_contest_photo:fid) */
   $handler->display->display_options['relationships']['field_contest_photo_fid']['id'] = 'field_contest_photo_fid';
   $handler->display->display_options['relationships']['field_contest_photo_fid']['table'] = 'field_data_field_contest_photo';
   $handler->display->display_options['relationships']['field_contest_photo_fid']['field'] = 'field_contest_photo_fid';
   $handler->display->display_options['relationships']['field_contest_photo_fid']['required'] = TRUE;
-  /* Field: Content: Images */
+  /* Field: Content: Contest Photo */
   $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
   $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';

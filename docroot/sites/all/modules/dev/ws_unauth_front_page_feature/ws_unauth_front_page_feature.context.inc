@@ -49,9 +49,9 @@ function ws_unauth_front_page_feature_context_default_contexts() {
           'region' => 'highlighted',
           'weight' => '-10',
         ),
-        'views-photo_contest-block_1' => array(
+        'views-46685cf431d761262ba5bcdf6cecb08a' => array(
           'module' => 'views',
-          'delta' => 'photo_contest-block_1',
+          'delta' => '46685cf431d761262ba5bcdf6cecb08a',
           'region' => 'content',
           'weight' => '-10',
         ),
@@ -59,7 +59,7 @@ function ws_unauth_front_page_feature_context_default_contexts() {
           'module' => 'nodeblock',
           'delta' => '15526',
           'region' => 'content',
-          'weight' => '-8',
+          'weight' => '-9',
         ),
       ),
     ),
