@@ -1,6 +1,7 @@
 <?php
 /**
  * @file
+ * 
  * Admin settings page and checked nodes summary table.
  */
 
@@ -100,7 +101,7 @@ function disable_breadcrumbs_settings_form() {
     '#title' => t('Currently checked nodes'),
     '#weight' => 100,
     '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#collapsed' => (isset($_GET['page']) && $_GET['page'] >= 1) ? FALSE : TRUE,
   );
   $form['checked_nodes']['table'] = array(
     '#markup' => theme('disable_breadcrumbs_checked_nodes'),
@@ -141,15 +142,7 @@ function theme_disable_breadcrumbs_checked_nodes() {
     'Operations',
   );
 
-  $query = db_select('node', 'n');
-  $query->fields('n', array('nid', 'type', 'title'));
-  $query->innerJoin('disable_breadcrumbs', 'db', 'n.nid = db.nid');
-  $query
-    ->extend('tableSort')
-    ->orderByHeader($header);
-  $query->addTag('node_access');
-
-  $result = $query->execute();
+  $result = _disable_breadcrumbs_get_all_checked_nodes($header);
 
   $rows = array();
   foreach ($result as $row) {
@@ -157,21 +150,40 @@ function theme_disable_breadcrumbs_checked_nodes() {
       $row->nid,
       $row->type,
       l($row->title, 'node/' . $row->nid),
-      '<a href="' . base_path() . 'node/' . $row->nid . '/edit' . '">Edit</a>',
+      l(t('Edit'), "node/$row->nid/edit", array('query' => array('destination' => current_path()))),
     );
   }
-  
-  if ($rows) {
-    $table = array(
-      'header' => $header,
-      'rows' => $rows,
-    );
 
-    $output = theme('table', $table);
-  }
-  else {
-    $output = '<p>' . t('There are currently no checked nodes.') . '</p>';
-  }
+  $table = array(
+    'header' => $header,
+    'rows' => $rows,
+    'empty' => '<p>' . t('There are currently no checked nodes.') . '</p>',
+  );
+
+  $output = theme('table', $table);
+  $output .= theme('pager');
 
   return $output;
+}
+
+/**
+ * Gets all nodes that have disable_breadcrumb checked.
+ * 
+ * @param $header
+ *  -optional, header array variable for table.
+ * 
+ * @return
+ *  db select result - needs to be iterated through.
+ * 
+ */
+function _disable_breadcrumbs_get_all_checked_nodes($header = array()) {
+  $query = db_select('node', 'n')
+    ->extend('pagerDefault')
+    ->extend('tableSort')
+    ->orderByHeader($header)
+    ->fields('n', array('nid', 'type', 'title'))
+    ->limit(10)
+    ->addTag('node_access');
+  $query->innerJoin('disable_breadcrumbs', 'db', 'n.nid = db.nid');
+  return $query->execute();
 }

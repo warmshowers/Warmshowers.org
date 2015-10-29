@@ -13,11 +13,11 @@
 function disable_breadcrumbs_help($path, $arg) {
   switch ($path) {
     case 'admin/help#disable_breadcrumbs':
-      return '<p>' . t('The disable breadcrumbs module allows you to disable (remove) breadcrumbs on a per node, 
-      	per content type, or per path basis. For any content types that have been enabled on the disable breadcrumbs 
-      	settings page a breadcrumb option will appear when editing nodes. Path settings work much the same as the 
-      	block visibility system; So breadcrumbs can be disabled by path (e.g. content/123) or using wildcards to 
-      	match multiple paths or site sections (e.g. content/* or content/area/*).') . '</p>';
+      return '<p>' . t('The disable breadcrumbs module allows you to disable (remove) breadcrumbs on a per node,
+        per content type, or per path basis. For any content types that have been enabled on the disable breadcrumbs
+        settings page a breadcrumb option will appear when editing nodes. Path settings work much the same as the
+        block visibility system; So breadcrumbs can be disabled by path (e.g. content/123) or using wildcards to
+        match multiple paths or site sections (e.g. content/* or content/area/*).') . '</p>';
   }
 }
 
@@ -27,13 +27,22 @@ function disable_breadcrumbs_help($path, $arg) {
 function disable_breadcrumbs_permission() {
   return array(
     'administer breadcrumbs' => array(
-      'title' => t('Administer disable breadcrumbs settings'), 
+      'title' => t('Administer disable breadcrumbs settings'),
       'description' => t('Administer Disable breadcrumbs settings for nodes/content types'),
     ),
     'disable node breadcrumbs' => array(
       'title' => t('Disable per node breadcrumbs'),
       'description' => t('Disable breadcrumbs on node edit forms that are enabled content types'),
     ),
+  );
+}
+
+ /**
+ * Implements hook_views_api().
+ */
+function disable_breadcrumbs_views_api() {
+  return array(
+    'api' => 3,
   );
 }
 
@@ -64,27 +73,23 @@ function disable_breadcrumbs_theme() {
 }
 
 /**
- * Implements hook_init();
+ * Implements hook_preprocess_page().
  */
-function disable_breadcrumbs_init() {
-  $disable_breadcrumbs_all = variable_get('disable_breadcrumbs_all', NULL);
-
-  if ($disable_breadcrumbs_all) {
-    _disable_breadcrumbs_set();
+function disable_breadcrumbs_preprocess_page() {
+  if (variable_get('disable_breadcrumbs_all', FALSE)) {
+    _disable_breadcrumbs_disable();
     return;
   }
 
   // Check to see if current path is in disable breadcrumbs path settings.
   $disable_breadcrumbs_node_paths = variable_get('disable_breadcrumbs_node_paths', "");
 
-  if (!empty($disable_breadcrumbs_node_paths)) {
-    $current_path = drupal_get_path_alias($_GET['q']);
-    $path_match = drupal_match_path($current_path, $disable_breadcrumbs_node_paths);
+  $current_path = drupal_get_path_alias($_GET['q']);
+  $path_match = drupal_match_path($current_path, $disable_breadcrumbs_node_paths);
 
-    if ($path_match) {
-      _disable_breadcrumbs_set();
-    }
-   }
+  if ($path_match) {
+    _disable_breadcrumbs_disable();
+  }
 }
 
 /**
@@ -94,7 +99,7 @@ function _disable_breadcrumbs_node_query($nid) {
   //Returns '1' currently (from disable_breadcrumb field), kept in for more flexibility in the future.
   return db_select('disable_breadcrumbs', 'db')
     ->fields('db', array('disable_breadcrumb'))
-    ->condition('nid', $nid)
+    ->condition('db.nid', $nid)
     ->addTag('node_access')
     ->execute()
     ->fetchField();
@@ -131,11 +136,11 @@ function disable_breadcrumbs_node_load($nodes) {
     }
     // If node type has been checked in disable all settings...
     elseif (in_array($node->type, $all_breadcrumbs_disabled_content_types, TRUE)) {
-      $node->disable_breadcrumb = 1;
+      $node->disable_breadcrumb = TRUE;
     }
-    // Otherwise, set it to 0.
+    // Otherwise, set it to FALSE.
     else {
-      $node->disable_breadcrumb = 0;
+      $node->disable_breadcrumb = FALSE;
     }
   }
 
@@ -154,17 +159,15 @@ function disable_breadcrumbs_node_view($node, $view_mode) {
   }
 
   // Only disable breadcrumb if disable_breadcrumb has been set to 1 in hook_node_load().
-  if ($node->disable_breadcrumb == 1 && $view_mode == 'full') {
-    _disable_breadcrumbs_set();
+  if (!empty($node->disable_breadcrumb) && $view_mode == 'full') {
+    _disable_breadcrumbs_disable();
   }
-
-  return $node;
 }
 
 /**
  * Wrapper function to disable (unset) breadcrumb.
  */
-function _disable_breadcrumbs_set() {
+function _disable_breadcrumbs_disable() {
   //Set breadcrumb as empty array.
   drupal_set_breadcrumb(array());
 }
@@ -186,10 +189,10 @@ function disable_breadcrumbs_form_alter(&$form, &$form_state, $form_id) {
   $enabled_content_types = variable_get('disable_breadcrumbs_node_types', array());
 
   // Only perform alteration if node edit form, content type is checked in settings, and user has permissions.
-  if (strpos($form_id, "_node_form") !== FALSE && 
-    in_array($form['#node']->type, $enabled_content_types, TRUE) && 
-    (user_access('administer breadcrumbs') || 
-    user_access('disable node breadcrumbs'))) {
+  if ((strpos($form_id, "_node_form") !== FALSE) &&
+    isset($form['#node']) &&
+    in_array($form['#node']->type, $enabled_content_types, TRUE) &&
+    (user_access('administer breadcrumbs') || user_access('disable node breadcrumbs'))) {
 
     $form['breadcrumb'] = array(
       '#type' => 'fieldset',
@@ -212,11 +215,12 @@ function disable_breadcrumbs_form_alter(&$form, &$form_state, $form_id) {
       // Append another submit function to update disabled_node field in node table
       $form['#submit'][] = 'disable_breadcrumbs_node_form_submit';
     }
-
   }
-
 }
 
+/**
+ * Submit handler to deal with
+ */
 function disable_breadcrumbs_node_form_submit($form, $form_state) {
 
   // Get default value from form.
@@ -227,24 +231,16 @@ function disable_breadcrumbs_node_form_submit($form, $form_state) {
 
   if ($breadcrumb_status == 1 && $check_status == 0) {
     // Insert db record.
-    db_insert('disable_breadcrumbs')
-      ->fields(array(
-        'disable_breadcrumb' => $breadcrumb_status, //For now, this will always be 1.
-        'nid' => $form_state['node']->nid,
-      ))
-      ->execute();
-
-    drupal_set_message(t("The breadcrumb for %title (node %nid) has been disabled.", 
+    disable_breadcrumbs_insert($form_state['node']->nid);
+    drupal_set_message(t("The breadcrumb for %title (node %nid) has been disabled.",
       array('%nid' => $form_state['node']->nid, '%title' => $form_state['node']->title)));
   }
 
   if ($breadcrumb_status == 0 && $check_status == 1) {
     // Remove db record.
-    db_delete('disable_breadcrumbs')
-      ->condition('nid', $form_state['node']->nid)
-      ->execute();
+    disable_breadcrumbs_delete($form_state['node']->nid);
 
-    drupal_set_message(t("The breadcrumb for %title (node %nid) has been enabled.", 
+    drupal_set_message(t("The breadcrumb for %title (node %nid) has been enabled.",
       array('%nid' => $form_state['node']->nid, '%title' => $form_state['node']->title)));
   }
 
@@ -254,24 +250,27 @@ function disable_breadcrumbs_node_form_submit($form, $form_state) {
  * Implements hook_node_operations().
  */
 function disable_breadcrumbs_node_operations() {
-  $operations = array(
-    'disable_breadcrumbs' => array(
-      'label' => t('Disable breadcrumbs on selected nodes'), 
-      'callback' => 'disable_breadcrumbs_operations',
-      'callback arguments' => array('action' => 'disable_breadcrumbs'),
-    ), 
-    'enable_breadcrumbs' => array(
-      'label' => t('Enable breadcrumbs on selected nodes'), 
-      'callback' => 'disable_breadcrumbs_operations',
-      'callback arguments' => array('action' => 'enable_breadcrumbs'),
-    ), 
-  );
+  $operations = array();
+  if (_disable_breadcrumbs_access(TRUE)) {
+    $operations = array(
+      'disable_breadcrumbs' => array(
+        'label' => t("Disable breadcrumbs on selected nodes"),
+        'callback' => 'disable_breadcrumbs_operations',
+        'callback arguments' => array('action' => 'disable_breadcrumbs'),
+      ),
+      'enable_breadcrumbs' => array(
+        'label' => t("Enable breadcrumbs on selected nodes"),
+        'callback' => 'disable_breadcrumbs_operations',
+        'callback arguments' => array('action' => 'enable_breadcrumbs'),
+      ),
+    );
+  }
 
   return $operations;
 }
 
 /**
- * Node operations callback.
+ * Node operations callback. Called by hook_node_operations.
  */
 function disable_breadcrumbs_operations($nodes, $action) {
   switch ($action) {
@@ -285,7 +284,7 @@ function disable_breadcrumbs_operations($nodes, $action) {
 
       foreach ($nodes as $node) {
         $node = node_load($node);
-        if (!in_array($node->type, $all_breadcrumbs_disabled_content_types, TRUE) && 
+        if (!in_array($node->type, $all_breadcrumbs_disabled_content_types, TRUE) &&
           in_array($node->type, $enabled_content_types, TRUE)) {
 
           //Use db_merge so we don't get duplicates.
@@ -306,35 +305,64 @@ function disable_breadcrumbs_operations($nodes, $action) {
       }
 
       if ($message_show) {
-        drupal_set_message(t("Breadcrumbs have been disabled for nodes: %nodes", 
+        drupal_set_message(t("Breadcrumbs have been disabled for nodes: %nodes",
           array('%nodes' => implode(", ", $disabled_nodes))));
       }
 
       if ($not_enabled_content_types) {
         $not_enabled_content_types = array_unique($not_enabled_content_types);
-        drupal_set_message(t("Breadcrumbs cannot be disabled for node type(s): %types", 
+        drupal_set_message(t("Breadcrumbs cannot be disabled for node type(s): %types",
           array('%types' => implode(", ", $not_enabled_content_types))), 'warning');
       }
     break;
     case 'enable_breadcrumbs':
-      db_delete('disable_breadcrumbs')
-        ->condition('nid', $nodes)
-        ->execute();
-
-      drupal_set_message(t("Disable breadcrumb status has been unchecked for nodes: %nodes", 
+      disable_breadcrumbs_delete($nodes);
+      drupal_set_message(t("Disable breadcrumb status has been unchecked for nodes: %nodes",
         array('%nodes' => implode(", ", $nodes))));
     break;
   }
 }
 
 /**
+ * Insert a record into disable_breadcrumbs table.
+ */
+function disable_breadcrumbs_insert($nodes) {
+  if (!is_array($nodes)) {
+    $nodes = array($nodes);
+  }
+  $query = db_insert('disable_breadcrumbs')
+    ->fields(array('disable_breadcrumb', 'nid'));
+    foreach ($nodes as $nid) {
+      $query->values(
+        array(
+        'disable_breadcrumb' => 1, // For now this will always be 1.
+        'nid' => $nid,
+        )
+      );
+    }
+  return $query->execute();
+}
+
+/**
+ * Remove entries from db table based on uids.
+ *
+ * @param nodes
+ *	array of node ids (nids).
+ *
+ */
+function disable_breadcrumbs_delete($nodes) {
+  db_delete('disable_breadcrumbs')
+    ->condition('nid', $nodes)
+    ->execute();
+}
+
+/**
  * Alter admin content form to show disable breadcrumb status of each node.
  */
 function disable_breadcrumbs_form_node_admin_content_alter(&$form, &$form_state) {
-
   // This key in $form array will only exist when viewing admin screen
   // and not when confirming a bulk operation.
-  if (array_key_exists('admin', $form)) {
+  if (array_key_exists('admin', $form) && _disable_breadcrumbs_access(TRUE)) {
     // All nodes in current table list
     $nodes = $form['admin']['nodes']['#options'];
     // Nodes that exist in disable_breadcrumbs table
@@ -378,16 +406,38 @@ function disable_breadcrumbs_form_node_admin_content_alter(&$form, &$form_state)
       '#weight' => -5,
     );
     $form['disable_breadcrumbs']['markup'] = array(
-      '#markup' => '<em>' . $content_image . ' Denotes nodes that currently have their breadcrumb disabled.*</em>',
+      '#markup' => '<em>' . $content_image . ' ' . t("Denotes nodes that currently have their breadcrumb disabled.") . '*</em>',
     );
 
     // Check #options key exists (user may not have sufficient permissions when form table is rendered).
     if ($options = $form['admin']['nodes']['#options']) {
       foreach ($options as $key => $value) {
         if ($breadcrumb_status[$key] == 1) {
-          $form['admin']['nodes']['#options'][$key]['status'] = $value['status'] . $content_image; 
+          $form['admin']['nodes']['#options'][$key]['status'] = $value['status'] . $content_image;
         }
       }
     }
   }
+}
+
+/**
+ * Content administration access check.
+ *
+ * @param $check_node_perm
+ *	Bool - Whether to additionally check 'administer nodes' permission,
+ *	required for content admin pages/node_operations.
+ *
+ * @return TRUE or FALSE.
+ */
+function _disable_breadcrumbs_access($check_node_perm = FALSE) {
+  if (user_access('administer breadcrumbs') || user_access('disable node breadcrumbs')) {
+    if ($check_node_perm) {
+      if (user_access('administer nodes')) {
+        return TRUE;
+      }
+      return FALSE;
+    }
+    return TRUE;
+  }
+  return FALSE;
 }
