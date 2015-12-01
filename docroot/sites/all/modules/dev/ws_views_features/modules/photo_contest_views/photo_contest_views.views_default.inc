@@ -24,7 +24,7 @@ function photo_contest_views_views_default_views() {
   $handler = $view->new_display('default', 'Defaults', 'default');
   $handler->display->display_options['title'] = 'Contest Administration';
   $handler->display->display_options['use_more_always'] = FALSE;
-  $handler->display->display_options['access']['type'] = 'none';
+  $handler->display->display_options['access']['type'] = 'perm';
   $handler->display->display_options['cache']['type'] = 'time';
   $handler->display->display_options['cache']['results_lifespan'] = '3600';
   $handler->display->display_options['cache']['output_lifespan'] = '3600';
@@ -260,10 +260,9 @@ function photo_contest_views_views_default_views() {
   );
   $handler->display->display_options['path'] = 'admin/content/photo_contest';
 
-  /* Display: Touring Photos */
-  $handler = $view->new_display('block', 'Touring Photos', 'touring_photos');
+  /* Display: Small anon frontpage */
+  $handler = $view->new_display('block', 'Small anon frontpage', 'touring_photos');
   $handler->display->display_options['defaults']['title'] = FALSE;
-  $handler->display->display_options['title'] = 'Touring Photos';
   $handler->display->display_options['display_description'] = 'Sits on the homepage, accessible to all members including those not logged in.';
   $handler->display->display_options['defaults']['pager'] = FALSE;
   $handler->display->display_options['pager']['type'] = 'some';
@@ -481,6 +480,113 @@ function photo_contest_views_views_default_views() {
   $handler->display->display_options['filters']['created']['value']['value'] = '2013-09-01';
   $handler->display->display_options['filters']['created']['group'] = '0';
   $handler->display->display_options['filters']['created']['expose']['operator'] = FALSE;
+
+  /* Display: Large anon frontpage */
+  $handler = $view->new_display('block', 'Large anon frontpage', 'block_1');
+  $handler->display->display_options['defaults']['title'] = FALSE;
+  $handler->display->display_options['display_description'] = 'On the anon front, accessible to all members including those not logged in.';
+  $handler->display->display_options['defaults']['pager'] = FALSE;
+  $handler->display->display_options['pager']['type'] = 'some';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '10';
+  $handler->display->display_options['pager']['options']['offset'] = '0';
+  $handler->display->display_options['defaults']['style_plugin'] = FALSE;
+  $handler->display->display_options['style_plugin'] = 'slideshow';
+  $handler->display->display_options['style_options']['default_row_class'] = FALSE;
+  $handler->display->display_options['style_options']['row_class_special'] = FALSE;
+  $handler->display->display_options['style_options']['slideshow_type'] = 'views_slideshow_cycle';
+  $handler->display->display_options['style_options']['slideshow_skin'] = 'default';
+  $handler->display->display_options['style_options']['skin_info'] = array(
+    'class' => 'default',
+    'name' => 'Default',
+    'module' => 'views_slideshow',
+    'path' => '',
+    'stylesheets' => array(),
+  );
+  $handler->display->display_options['style_options']['widgets']['top']['views_slideshow_pager']['weight'] = '1';
+  $handler->display->display_options['style_options']['widgets']['top']['views_slideshow_pager']['type'] = 'views_slideshow_pager_fields';
+  $handler->display->display_options['style_options']['widgets']['top']['views_slideshow_pager']['views_slideshow_pager_fields_fields'] = array(
+    'field_contest_photo' => 0,
+  );
+  $handler->display->display_options['style_options']['widgets']['top']['views_slideshow_controls']['weight'] = '1';
+  $handler->display->display_options['style_options']['widgets']['top']['views_slideshow_controls']['type'] = 'views_slideshow_controls_text';
+  $handler->display->display_options['style_options']['widgets']['top']['views_slideshow_slide_counter']['weight'] = '1';
+  $handler->display->display_options['style_options']['widgets']['bottom']['views_slideshow_pager']['weight'] = '1';
+  $handler->display->display_options['style_options']['widgets']['bottom']['views_slideshow_pager']['type'] = 'views_slideshow_pager_fields';
+  $handler->display->display_options['style_options']['widgets']['bottom']['views_slideshow_pager']['views_slideshow_pager_fields_fields'] = array(
+    'field_contest_photo' => 0,
+  );
+  $handler->display->display_options['style_options']['widgets']['bottom']['views_slideshow_controls']['weight'] = '1';
+  $handler->display->display_options['style_options']['widgets']['bottom']['views_slideshow_controls']['type'] = 'views_slideshow_controls_text';
+  $handler->display->display_options['style_options']['widgets']['bottom']['views_slideshow_slide_counter']['weight'] = '1';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['timeout'] = '5000';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['speed'] = '700';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['delay'] = '0';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['start_paused'] = 0;
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['remember_slide_days'] = '1';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['items_per_slide'] = '1';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['wait_for_image_load_timeout'] = '3000';
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['cleartype'] = 0;
+  $handler->display->display_options['style_options']['views_slideshow_cycle']['cleartypenobg'] = 0;
+  $handler->display->display_options['defaults']['style_options'] = FALSE;
+  $handler->display->display_options['defaults']['row_plugin'] = FALSE;
+  $handler->display->display_options['row_plugin'] = 'fields';
+  $handler->display->display_options['defaults']['row_options'] = FALSE;
+  $handler->display->display_options['defaults']['relationships'] = FALSE;
+  /* Relationship: Content: Vote results */
+  $handler->display->display_options['relationships']['votingapi_cache']['id'] = 'votingapi_cache';
+  $handler->display->display_options['relationships']['votingapi_cache']['table'] = 'node';
+  $handler->display->display_options['relationships']['votingapi_cache']['field'] = 'votingapi_cache';
+  $handler->display->display_options['relationships']['votingapi_cache']['votingapi'] = array(
+    'value_type' => '',
+    'tag' => '',
+    'function' => 'count',
+  );
+  $handler->display->display_options['defaults']['fields'] = FALSE;
+  /* Field: Content: Contest Photo */
+  $handler->display->display_options['fields']['field_contest_photo']['id'] = 'field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['table'] = 'field_data_field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['field'] = 'field_contest_photo';
+  $handler->display->display_options['fields']['field_contest_photo']['label'] = '';
+  $handler->display->display_options['fields']['field_contest_photo']['element_label_colon'] = FALSE;
+  $handler->display->display_options['fields']['field_contest_photo']['element_default_classes'] = FALSE;
+  $handler->display->display_options['fields']['field_contest_photo']['click_sort_column'] = 'fid';
+  $handler->display->display_options['fields']['field_contest_photo']['settings'] = array(
+    'image_style' => 'anon_frontpage_slideshow',
+    'image_link' => '',
+  );
+  $handler->display->display_options['fields']['field_contest_photo']['group_rows'] = FALSE;
+  $handler->display->display_options['fields']['field_contest_photo']['delta_offset'] = '0';
+  $handler->display->display_options['defaults']['sorts'] = FALSE;
+  /* Sort criterion: Vote results: Value */
+  $handler->display->display_options['sorts']['value']['id'] = 'value';
+  $handler->display->display_options['sorts']['value']['table'] = 'votingapi_cache';
+  $handler->display->display_options['sorts']['value']['field'] = 'value';
+  $handler->display->display_options['sorts']['value']['relationship'] = 'votingapi_cache';
+  $handler->display->display_options['sorts']['value']['order'] = 'DESC';
+  $handler->display->display_options['sorts']['value']['coalesce'] = 1;
+  $handler->display->display_options['defaults']['filter_groups'] = FALSE;
+  $handler->display->display_options['defaults']['filters'] = FALSE;
+  /* Filter criterion: Content: Type */
+  $handler->display->display_options['filters']['type']['id'] = 'type';
+  $handler->display->display_options['filters']['type']['table'] = 'node';
+  $handler->display->display_options['filters']['type']['field'] = 'type';
+  $handler->display->display_options['filters']['type']['value'] = array(
+    'contest_photo' => 'contest_photo',
+  );
+  $handler->display->display_options['filters']['type']['group'] = '0';
+  $handler->display->display_options['filters']['type']['expose']['operator'] = FALSE;
+  /* Filter criterion: Content: Published */
+  $handler->display->display_options['filters']['status']['id'] = 'status';
+  $handler->display->display_options['filters']['status']['table'] = 'node';
+  $handler->display->display_options['filters']['status']['field'] = 'status';
+  $handler->display->display_options['filters']['status']['value'] = '1';
+  /* Filter criterion: Vote results: Value */
+  $handler->display->display_options['filters']['value']['id'] = 'value';
+  $handler->display->display_options['filters']['value']['table'] = 'votingapi_cache';
+  $handler->display->display_options['filters']['value']['field'] = 'value';
+  $handler->display->display_options['filters']['value']['relationship'] = 'votingapi_cache';
+  $handler->display->display_options['filters']['value']['operator'] = '>=';
+  $handler->display->display_options['filters']['value']['value']['value'] = '10';
   $translatables['photo_contest'] = array(
     t('Defaults'),
     t('Contest Administration'),
@@ -511,10 +617,12 @@ function photo_contest_views_views_default_views() {
     t('Value'),
     t('.'),
     t(','),
-    t('Touring Photos'),
+    t('Small anon frontpage'),
     t('Sits on the homepage, accessible to all members including those not logged in.'),
     t('Photo Contest Block'),
     t('Sits on the homepage dashboard, shown only to logged in users.'),
+    t('Large anon frontpage'),
+    t('On the anon front, accessible to all members including those not logged in.'),
   );
   $export['photo_contest'] = $view;
 
