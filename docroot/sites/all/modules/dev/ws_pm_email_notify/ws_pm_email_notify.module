@@ -81,6 +81,66 @@ function ws_pm_email_notify_token_info() {
   );
 }
 
+/**
+ * Insert item into the queue.
+ */
+function ws_pm_email_notify_queue_insert($event, $n = 0) {
+
+  if (empty($event)) {
+    return FALSE;
+  }
+
+  // Add this item to the queue
+  $record = array(
+    'n' => $n,
+    'created' => REQUEST_TIME,
+    'event' => $event,
+  );
+
+  $queue = DrupalQueue::get('mandrill_incoming');
+  $queue->createQueue();
+
+  $queue->createItem($record);
+}
+
+/**
+ * Insert item into the queue.
+ */
+function ws_pm_email_notify_queue_claim() {
+  if (empty($item)) {
+    $queue = DrupalQueue::get('digest_queue');
+    $queue->createQueue();
+
+    $item = $queue->claimItem('digest_queue');
+    //$item = isset($item) ? $item: FALSE;
+  }
+
+  if (!empty($item->data['event'])) {
+    $handled = ws_pm_email_notify_queue_process($item->data['event']);
+  }
+
+  if ($handled === MANDRILL_INCOMING_HANDLED) {
+    return $handled;
+  }
+
+  // We need to check how many iterations this email has been through
+  if ($item->data['n'] > 3) {
+    watchdog(
+      'mandrill_incoming_queue',
+      "An incoming email (to=%to, subject=%subject) has been tried more than 3 times at %now",
+      array(
+        '%now' => strftime('%c', $now),
+        '%to' => print_r($event->msg->to, TRUE),
+        '%subject' => $event->msg->subject,
+      ),
+      WATCHDOG_INFO);
+
+    // Notify admin.
+
+    // Add it back to the queue.
+  }
+}
+
 
 /** Begin section dealing with incoming messages ****/
 /**
@@ -190,6 +250,20 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
  * @return array|int
  */
 function ws_pm_email_notify_mandrill_incoming_event($event) {
+  // Let's put this item straight into the queue so that we can process later.
+  ws_pm_email_notify_queue_insert($event);
+
+  // We must tell mandrill_incoming that we have successfully handled this event even though we don't know yet.
+  return MANDRILL_INCOMING_HANDLED;
+}
+
+/**
+ *
+ * @param $event
+ * @return array|int
+ * @throws Exception
+ */
+function ws_pm_email_notify_queue_process($event) {
   $ts = $event->ts; // Consider setting the event ts as the ts of the PM.
   $msg = $event->msg;
 
