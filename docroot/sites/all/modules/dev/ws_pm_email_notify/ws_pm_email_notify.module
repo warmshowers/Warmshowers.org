@@ -41,7 +41,7 @@ function ws_pm_email_notify_admin_settings_form($form, &$form_state) {
   $form['pm_email_notify_processing']['process_item'] = array(
     '#type' => 'submit',
     '#value' => t('Process next item'),
-    '#submit' => array('ws_pm_email_notify_queue_claim'),
+    '#submit' => array('ws_pm_email_notify_queue_process'),
   );
 
   $form = system_settings_form($form);
@@ -129,7 +129,7 @@ function ws_pm_email_notify_queue_insert($event, $n = 0) {
     return FALSE;
   }
 
-  // Add this item to the queue
+  // Add this item to the queue.
   $record = array(
     'created' => REQUEST_TIME,
     'event' => $event,
@@ -142,25 +142,33 @@ function ws_pm_email_notify_queue_insert($event, $n = 0) {
 }
 
 /**
- * Insert item into the queue.
+ * Get an item from the queue.
  */
-function ws_pm_email_notify_queue_claim($item) {
-  if (empty($item)) {
-    $queue = DrupalQueue::get('digest_queue');
-    $queue->createQueue();
+function ws_pm_email_notify_queue_claim() {
+  $queue = DrupalQueue::get('mandrill_incoming');
+  $queue->createQueue();
 
-    $item = $queue->claimItem('digest_queue');
+  $item = $queue->claimItem();
+  return $item->data;
+}
+
+/**
+ * Process items from the queue.
+ */
+function ws_pm_email_notify_queue_process($item = NULL) {
+  if (empty($item)) {
+    $item = ws_pm_email_notify_queue_claim();
   }
 
-  if (!empty($item->data)) {
-    extract($item->data);
+  if (!empty($item)) {
+    extract($item);
   } else {
     return FALSE;
   }
 
   // All the logic previously handled in ws_pm_email_notify_mandrill_incoming_event
-  // is now processed by the queue function ws_pm_email_notify_queue_process.
-  $handled = empty($event) ? MANDRILL_INCOMING_UNHANDLED : ws_pm_email_notify_queue_process($event);
+  // is now processed by the queue function ws_pm_email_notify_process_event.
+  $handled = empty($event) ? MANDRILL_INCOMING_UNHANDLED : ws_pm_email_notify_process_event($event);
 
   if ($handled === MANDRILL_INCOMING_HANDLED) {
     watchdog(
@@ -174,6 +182,7 @@ function ws_pm_email_notify_queue_claim($item) {
       ),
       WATCHDOG_INFO
     );
+    $queue = DrupalQueue::get('mandrill_incoming');
     $queue->deleteItem($item);
   } else {
     // This item was not handled, we need to release it.
@@ -188,6 +197,7 @@ function ws_pm_email_notify_queue_claim($item) {
       ),
       WATCHDOG_INFO
     );
+    $queue = DrupalQueue::get('mandrill_incoming');
     $queue->releaseItem($item);
 
     // Notify admin. Possibly
@@ -196,6 +206,15 @@ function ws_pm_email_notify_queue_claim($item) {
   return $handled;
 }
 
+// hook_cron_queue_info()
+function ws_pm_email_notify_cron_queue_info() {
+  $queues['mandrill_incoming'] = array(
+    'worker callback' => 'ws_pm_email_notify_queue_claim',
+    'time' => 20
+  );
+
+  return $queues;
+}
 
 /** Begin section dealing with incoming messages ****/
 /**
@@ -319,7 +338,7 @@ function ws_pm_email_notify_mandrill_incoming_event($event) {
  * @return array|int
  * @throws Exception
  */
-function ws_pm_email_notify_queue_process($event) {
+function ws_pm_email_notify_process_event($event) {
   $ts = $event->ts; // Consider setting the event ts as the ts of the PM.
   $msg = $event->msg;
 
