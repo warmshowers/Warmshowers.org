@@ -9,6 +9,46 @@
 // TODO: Make sure the variables for configuration are correct, migrate ws_pm_email_notify to pm_email_notify in all languages
 
 /**
+ * Implements hook_menu().
+ *
+ * Provides an administrative page for Mandrill Incoming.
+ */
+function ws_pm_email_notify_menu() {
+  $items['admin/config/services/mandrill_incoming/queue'] = array(
+    'title' => 'Mandrill Incoming Queue',
+    'description' => 'View and process items in the Mandrill Incoming Queue',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ws_pm_email_notify_admin_settings_form'),
+    'access arguments' => array('administer services'),
+    'weight' => 20,
+  );
+  return $items;
+}
+
+/**
+ * Form providing admin menu options.
+ *
+ * @return array
+ *   An array of form elements for the admin page.
+ */
+function ws_pm_email_notify_admin_settings_form($form, &$form_state) {
+  $form['pm_email_notify_processing'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Manual Processing'),
+    '#weight' => 20,
+  );
+
+  $form['pm_email_notify_processing']['process_item'] = array(
+    '#type' => 'submit',
+    '#value' => t('Process next item'),
+    '#submit' => array('ws_pm_email_notify_queue_claim'),
+  );
+
+  $form = system_settings_form($form);
+  return $form;
+}
+
+/**
  * Alter the outgoing message to use our routing information in subject and headers
  *
  * @param $message
@@ -79,6 +119,81 @@ function ws_pm_email_notify_token_info() {
   return array(
     'tokens' => array('privatemsg_message' => $message),
   );
+}
+
+/**
+ * Insert item into the queue.
+ */
+function ws_pm_email_notify_queue_insert($event, $n = 0) {
+  if (empty($event)) {
+    return FALSE;
+  }
+
+  // Add this item to the queue
+  $record = array(
+    'created' => REQUEST_TIME,
+    'event' => $event,
+  );
+
+  $queue = DrupalQueue::get('mandrill_incoming');
+  $queue->createQueue();
+
+  $queue->createItem($record);
+}
+
+/**
+ * Insert item into the queue.
+ */
+function ws_pm_email_notify_queue_claim($item) {
+  if (empty($item)) {
+    $queue = DrupalQueue::get('digest_queue');
+    $queue->createQueue();
+
+    $item = $queue->claimItem('digest_queue');
+  }
+
+  if (!empty($item->data)) {
+    extract($item->data);
+  } else {
+    return FALSE;
+  }
+
+  // All the logic previously handled in ws_pm_email_notify_mandrill_incoming_event
+  // is now processed by the queue function ws_pm_email_notify_queue_process.
+  $handled = empty($event) ? MANDRILL_INCOMING_UNHANDLED : ws_pm_email_notify_queue_process($event);
+
+  if ($handled === MANDRILL_INCOMING_HANDLED) {
+    watchdog(
+      'mandrill_incoming_queue',
+      "Successfully processed incoming email (to=%to, subject=%subject) at @now. Queue item @item_id",
+      array(
+        '@now' => strftime('%c', strtotime('now')),
+        '@item_id' => $item->item_id,
+        '%to' => print_r($event->msg->to, TRUE),
+        '%subject' => $event->msg->subject,
+      ),
+      WATCHDOG_INFO
+    );
+    $queue->deleteItem($item);
+  } else {
+    // This item was not handled, we need to release it.
+    watchdog(
+      'mandrill_incoming_queue',
+      "An incoming email (to=%to, subject=%subject) has failed processing at %now. Queue item @item_id",
+      array(
+        '@now' => strftime('%c', strtotime('now')),
+        '@item_id' => $item->item_id,
+        '%to' => print_r($event->msg->to, TRUE),
+        '%subject' => $event->msg->subject,
+      ),
+      WATCHDOG_INFO
+    );
+    $queue->releaseItem($item);
+
+    // Notify admin. Possibly
+  }
+
+  return $handled;
 }
 
 
@@ -190,6 +305,21 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
  * @return array|int
  */
 function ws_pm_email_notify_mandrill_incoming_event($event) {
+  // Let's put this item straight into the queue so that we can process later.
+  ws_pm_email_notify_queue_insert($event);
+
+  // We must tell mandrill_incoming that we have successfully handled this event even though we don't know yet.
+  return MANDRILL_INCOMING_HANDLED;
+}
+
+/**
+ * The queue processing function for each item in mandrill_incoming queue.
+ *
+ * @param $event
+ * @return array|int
+ * @throws Exception
+ */
+function ws_pm_email_notify_queue_process($event) {
   $ts = $event->ts; // Consider setting the event ts as the ts of the PM.
   $msg = $event->msg;
 
