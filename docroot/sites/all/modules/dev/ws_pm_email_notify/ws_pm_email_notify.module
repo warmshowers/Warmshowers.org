@@ -121,10 +121,27 @@ function ws_pm_email_notify_token_info() {
   );
 }
 
+/*
+ * Implements hook_cron_queue_info()
+ *
+ * @return array
+ */
+function ws_pm_email_notify_cron_queue_info() {
+  $queues['mandrill_incoming'] = array(
+    'worker callback' => 'ws_pm_email_notify_queue_process',
+    'time' => 20
+  );
+
+  return $queues;
+}
+
 /**
  * Insert item into the queue.
+ *
+ * @param array $event
+ * @return array
  */
-function ws_pm_email_notify_queue_insert($event, $n = 0) {
+function ws_pm_email_notify_queue_insert($event) {
   if (empty($event)) {
     return FALSE;
   }
@@ -143,75 +160,69 @@ function ws_pm_email_notify_queue_insert($event, $n = 0) {
 
 /**
  * Get an item from the queue.
+ *
+ * @return array
  */
 function ws_pm_email_notify_queue_claim() {
   $queue = DrupalQueue::get('mandrill_incoming');
   $queue->createQueue();
 
   $item = $queue->claimItem();
-  return $item->data;
+  return $item;
 }
 
 /**
- * Process items from the queue.
+ * The worker process for the queue
  */
-function ws_pm_email_notify_queue_process($item = NULL) {
-  if (empty($item)) {
-    $item = ws_pm_email_notify_queue_claim();
-  }
 
-  if (!empty($item)) {
-    extract($item);
-  } else {
-    return FALSE;
+/**
+ * Process items from the queue.
+ *
+ * @param array $data | NULL
+ *  Required by the cron worker callback, should not be passed when running outside the cron worker callback.
+ *  @see https://api.drupal.org/api/drupal/modules!system!system.api.php/function/callback_queue_worker/7
+ */
+function ws_pm_email_notify_queue_process($data = NULL) {
+  if(empty($data) {
+    $item = ws_pm_email_notify_queue_claim();
+    extract($item->data);
+  }
+  else {
+    extract($data);
   }
 
   // All the logic previously handled in ws_pm_email_notify_mandrill_incoming_event
   // is now processed by the queue function ws_pm_email_notify_process_event.
   $handled = empty($event) ? MANDRILL_INCOMING_UNHANDLED : ws_pm_email_notify_process_event($event);
 
+  $replacements = array(
+    '@now' => strftime('%c', strtotime('now')),
+    '%to' => print_r($event->msg->to, TRUE),
+    '%subject' => $event->msg->subject,
+  );
+
   if ($handled === MANDRILL_INCOMING_HANDLED) {
-    watchdog(
-      'mandrill_incoming_queue',
-      "Successfully processed incoming email (to=%to, subject=%subject) at @now.",
-      array(
-        '@now' => strftime('%c', strtotime('now')),
-        '%to' => print_r($event->msg->to, TRUE),
-        '%subject' => $event->msg->subject,
-      ),
-      WATCHDOG_INFO
-    );
+    watchdog('mandrill_incoming_queue', "Successfully processed incoming email (to=%to, subject=%subject) at @now.", $replacements, WATCHDOG_INFO);
     $queue = DrupalQueue::get('mandrill_incoming');
-    $queue->deleteItem($item);
+
+    // If item has been claimed outside of the cron worker callback we need to remove it now, otherwise just continue.
+    if (isset($item)) {
+      $queue->releaseItem($item);
+    }
   } else {
     // This item was not handled, we need to release it.
-    watchdog(
-      'mandrill_incoming_queue',
-      "An incoming email (to=%to, subject=%subject) has failed processing at %now.",
-      array(
-        '@now' => strftime('%c', strtotime('now')),
-        '%to' => print_r($event->msg->to, TRUE),
-        '%subject' => $event->msg->subject,
-      ),
-      WATCHDOG_INFO
-    );
+    watchdog('mandrill_incoming_queue', "An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements, WATCHDOG_INFO);
     $queue = DrupalQueue::get('mandrill_incoming');
-    $queue->releaseItem($item);
 
-    // Notify admin. Possibly
+    // If item has been claimed outside of the cron worker callback we need to release it, otherwise throw an error.
+    if (isset($item)) {
+      $queue->releaseItem($item);
+    } else {
+      throw new Exception(t("An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements));
+    }
   }
 
   return $handled;
-}
-
-// hook_cron_queue_info()
-function ws_pm_email_notify_cron_queue_info() {
-  $queues['mandrill_incoming'] = array(
-    'worker callback' => 'ws_pm_email_notify_queue_process',
-    'time' => 20
-  );
-
-  return $queues;
 }
 
 /** Begin section dealing with incoming messages ****/
