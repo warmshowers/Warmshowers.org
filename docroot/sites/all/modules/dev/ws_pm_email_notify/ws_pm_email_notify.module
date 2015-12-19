@@ -179,16 +179,18 @@ function ws_pm_email_notify_queue_claim() {
  * Process items from the queue.
  *
  * @param array $data | NULL
- *  Required by the cron worker callback, should not be passed when running outside the cron worker callback.
+ *  Required only by the cron worker callback, should not be passed when running outside the cron worker callback.
  *  @see https://api.drupal.org/api/drupal/modules!system!system.api.php/function/callback_queue_worker/7
  */
 function ws_pm_email_notify_queue_process($data = NULL) {
   if(empty($data)) {
     $item = ws_pm_email_notify_queue_claim();
     extract($item->data);
+    $type = 'manual';
   }
   else {
     extract($data);
+    $type = 'cron';
   }
 
   // All the logic previously handled in ws_pm_email_notify_mandrill_incoming_event
@@ -199,11 +201,13 @@ function ws_pm_email_notify_queue_process($data = NULL) {
     '@now' => strftime('%c', strtotime('now')),
     '%to' => print_r($event->msg->to, TRUE),
     '%subject' => $event->msg->subject,
+    '@type' => $type,
   );
 
   if ($handled === MANDRILL_INCOMING_HANDLED) {
-    watchdog('mandrill_incoming_queue', "Successfully processed incoming email (to=%to, subject=%subject) at @now.", $replacements, WATCHDOG_INFO);
+    watchdog('mandrill_incoming_queue', "Successfully processed (type=%type) incoming email (to=%to, subject=%subject) at @now.", $replacements, WATCHDOG_INFO);
     $queue = DrupalQueue::get('mandrill_incoming');
+    $queue->createQueue();
 
     // If item has been claimed outside of the cron worker callback we need to remove it now, otherwise just continue.
     if (isset($item)) {
@@ -211,8 +215,17 @@ function ws_pm_email_notify_queue_process($data = NULL) {
     }
   } else {
     // This item was not handled, we need to release it.
-    watchdog('mandrill_incoming_queue', "An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements, WATCHDOG_INFO);
+    watchdog('mandrill_incoming_queue', "An incoming email (to=%to, subject=%subject) has failed processing (type=%type) at %now.", $replacements, WATCHDOG_INFO);
     $queue = DrupalQueue::get('mandrill_incoming');
+    $queue->createQueue();
+
+    watchdog(
+      'mandrill_incoming_queue',
+      "The beginning of something bad.",
+      array(),
+      WATCHDOG_INFO
+    );
+
 
     // If item has been claimed outside of the cron worker callback we need to release it, otherwise throw an error.
     if (isset($item)) {
