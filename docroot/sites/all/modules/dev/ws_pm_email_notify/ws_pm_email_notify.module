@@ -9,6 +9,46 @@
 // TODO: Make sure the variables for configuration are correct, migrate ws_pm_email_notify to pm_email_notify in all languages
 
 /**
+ * Implements hook_menu().
+ *
+ * Provides an administrative page for Mandrill Incoming.
+ */
+function ws_pm_email_notify_menu() {
+  $items['admin/config/services/mandrill_incoming/queue'] = array(
+    'title' => 'Mandrill Incoming Queue',
+    'description' => 'View and process items in the Mandrill Incoming Queue',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ws_pm_email_notify_admin_settings_form'),
+    'access arguments' => array('administer services'),
+    'weight' => 20,
+  );
+  return $items;
+}
+
+/**
+ * Form providing admin menu options.
+ *
+ * @return array
+ *   An array of form elements for the admin page.
+ */
+function ws_pm_email_notify_admin_settings_form($form, &$form_state) {
+  $form['pm_email_notify_processing'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Manual Processing'),
+    '#weight' => 20,
+  );
+
+  $form['pm_email_notify_processing']['process_item'] = array(
+    '#type' => 'submit',
+    '#value' => t('Process next item'),
+    '#submit' => array('ws_pm_email_notify_queue_process'),
+  );
+
+  $form = system_settings_form($form);
+  return $form;
+}
+
+/**
  * Alter the outgoing message to use our routing information in subject and headers
  *
  * @param $message
@@ -81,6 +121,97 @@ function ws_pm_email_notify_token_info() {
   );
 }
 
+/*
+ * Implements hook_cron_queue_info()
+ *
+ * @return array
+ */
+function ws_pm_email_notify_cron_queue_info() {
+  $queues['mandrill_incoming'] = array(
+    'worker callback' => 'ws_pm_email_notify_queue_process',
+    'time' => 20
+  );
+
+  return $queues;
+}
+
+/**
+ * Insert item into the queue.
+ *
+ * @param array $event
+ * @return array
+ */
+function ws_pm_email_notify_queue_insert($event) {
+  if (empty($event)) {
+    return FALSE;
+  }
+
+  // Add this item to the queue.
+  $record = array(
+    'created' => REQUEST_TIME,
+    'event' => $event,
+  );
+
+  $queue = DrupalQueue::get('mandrill_incoming');
+  $queue->createQueue();
+
+  $queue->createItem($record);
+}
+
+/**
+ * The worker process for the queue
+ */
+
+/**
+ * Process items from the queue.
+ *
+ * @param array $data | NULL
+ *  Required only by the cron worker callback, should not be passed when running outside the cron worker callback.
+ *  @see https://api.drupal.org/api/drupal/modules!system!system.api.php/function/callback_queue_worker/7
+ */
+function ws_pm_email_notify_queue_process($data = NULL) {
+  if(empty($data)) {
+    $queue = DrupalQueue::get('mandrill_incoming');
+    $queue->createQueue();
+
+    $item = $queue->claimItem();
+    extract($item->data);
+  }
+  else {
+    extract($data);
+  }
+
+  // All the logic previously handled in ws_pm_email_notify_mandrill_incoming_event
+  // is now processed by the queue function ws_pm_email_notify_process_event.
+  $handled = empty($event) ? MANDRILL_INCOMING_UNHANDLED : ws_pm_email_notify_process_event($event);
+
+  $replacements = array(
+    '@now' => strftime('%c', strtotime('now')),
+    '%to' => print_r($event->msg->to, TRUE),
+    '%subject' => $event->msg->subject,
+  );
+
+  if ($handled === MANDRILL_INCOMING_HANDLED) {
+    watchdog('mandrill_incoming_queue', "Successfully processed incoming email (to=%to, subject=%subject) at @now.", $replacements, WATCHDOG_INFO);
+
+    // If item has been claimed outside of the cron worker callback we need to remove it now, otherwise just continue.
+    if (isset($item)) {
+      $queue->deleteItem($item);
+    }
+  } else {
+    // This item was not handled, we need to release it.
+    watchdog('mandrill_incoming_queue', "An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements, WATCHDOG_INFO);
+
+    // If item has been claimed outside of the cron worker callback we need to release it, otherwise throw an error.
+    if (isset($item)) {
+      $queue->releaseItem($item);
+    } else {
+      throw new Exception(t("An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements));
+    }
+  }
+
+  return $handled;
+}
 
 /** Begin section dealing with incoming messages ****/
 /**
@@ -190,6 +321,24 @@ function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mha
  * @return array|int
  */
 function ws_pm_email_notify_mandrill_incoming_event($event) {
+  // Let's put this item straight into the queue so that we can process later.
+  ws_pm_email_notify_queue_insert($event);
+
+  // We might as well try to process the next item in the queue to save cron some effort.
+  ws_pm_email_notify_queue_process();
+
+  // We must tell mandrill_incoming that we have successfully handled this event even though we don't know yet.
+  return MANDRILL_INCOMING_HANDLED;
+}
+
+/**
+ * The queue processing function for each item in mandrill_incoming queue.
+ *
+ * @param $event
+ * @return array|int
+ * @throws Exception
+ */
+function ws_pm_email_notify_process_event($event) {
   $ts = $event->ts; // Consider setting the event ts as the ts of the PM.
   $msg = $event->msg;
 

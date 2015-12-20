@@ -1,0 +1,290 @@
+<?php
+
+/**
+ * @file queue_ui.module
+ */
+
+define('QUEUE_UI_BASE', 'admin/config/system/queue-ui');
+
+/**
+ * Implements hook_permission().
+ */
+function queue_ui_permission() {
+  return array(
+    'admin queue_ui' => array(
+      'title' => t('Administer queues'),
+      'description' => t('View, run, and delete queues'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function queue_ui_menu() {
+  $items[QUEUE_UI_BASE] = array(
+    'title' => 'Queue manager',
+    'description' => 'View and manage queues',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('queue_ui_page'),
+    'access arguments' => array('admin queue_ui'),
+    'file' => 'queue_ui.pages.inc',
+  );
+
+  $items[QUEUE_UI_BASE . '/inspect/%'] = array(
+    'title' => 'View Queue: @name',
+    'title arguments' => array('@name' => 5),
+    'page callback' => 'queue_ui_view_queue',
+    'page arguments' => array(5),
+    'access arguments' => array('admin queue_ui'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'queue_ui.forms.inc',
+  );
+
+  // View item callback for Queue UI.
+  $items[QUEUE_UI_BASE . '/%/view/%queue_ui_queue_item'] = array(
+    'title' => 'View Queue Item',
+    'description' => 'View the details of an individual queue item',
+    'page callback' => 'queue_ui_view_queue_item',
+    'page arguments' => array(4, 6),
+    'access arguments' => array('admin queue_ui'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'queue_ui.forms.inc',
+  );
+
+  // Release item callback for Queue UI.
+  $items[QUEUE_UI_BASE . '/%/release/%queue_ui_queue_item'] = array(
+    'title' => 'Release items',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('queue_ui_release_item_form', 4, 6),
+    'access arguments' => array('admin queue_ui'),
+    'file' => 'queue_ui.forms.inc',
+  );
+
+  // Delete item callback for Queue UI.
+  $items[QUEUE_UI_BASE . '/%/delete/%queue_ui_queue_item'] = array(
+    'title' => 'Release items',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('queue_ui_delete_item_form', 4, 6),
+    'access arguments' => array('admin queue_ui'),
+    'file' => 'queue_ui.forms.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Wildcard loader for queue_ui_queue.
+ */
+function queue_ui_queue_load($name) {
+  return DrupalQueue::get($name);
+}
+
+/**
+ * Wildcard loader for queue item.
+ *
+ * @param $queue_item
+ *   The item id of the queue item to load.
+ */
+function queue_ui_queue_item_load($queue_item) {
+  // @TODO - add validation of queue_item.
+  return $queue_item;
+}
+
+
+// @todo remove before prod
+function queue_ui_test() {
+  $queue = DrupalQueue::get('queue ui test_me');
+  $queue->createQueue();
+  $num = mt_rand(0,99);
+  for ($i = 0; $i < $num; $i++) {
+    $queue->createItem(time());
+  }
+}
+
+/**
+ * Retrieve the QueueUI object for the class a particular queue is implemented as.
+ *
+ * @param $queue_name
+ *  The name of the queue to retrieve the QueueUI class for.
+ * @return mixte
+ *  The QueueUI object for the relevant queue class, or FALSE if not found.
+ */
+function _queue_ui_queueclass($queue_name){
+  $queue = DrupalQueue::get($queue_name);
+  $class = get_class($queue);
+
+  return QueueUI::get('QueueUI' . $class);
+}
+
+/**
+ * Implements hook_queue_class_info.
+ *
+ * @return array of class information definitions.
+ */
+function queue_ui_queue_class_info() {
+  // Implement queue class info definitions for core Drupal queue classes.
+  return array(
+    'SystemQueue' => array(
+      'title' => t('System Queue (database Queue)'),
+      'inspect' => TRUE,
+      'operations' => array(
+        'view',
+        'release',
+        'delete',
+        'deleteall'),
+    ),
+    'MemoryQueue' => array(
+      'title' => t('Memory queue (non-reliable)'),
+      'inspect' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Gets queues class info defined with hook_queue_class_info().
+ *
+ * @param string $class
+ *  The class name to retrieve
+ *
+ * @return Array of queue classes information.
+ */
+function queue_ui_get_queue_class_info($class) {
+  $classes = &drupal_static(__FUNCTION__);
+  if (!isset($classes)) {
+    // Invoke hook_queue_class_info().
+    $classes = module_invoke_all('queue_class_info');
+  }
+  return $classes[$class];
+}
+
+
+/**
+ * Get the names of queues.
+ *
+ * @param Array of queue names suitable for DrupalQueue::get();
+ */
+function queue_ui_queue_names() {
+  $result = db_query("SELECT DISTINCT name FROM {queue}");
+  return $result->fetchAll();
+}
+
+/**
+ * Get queues.
+ *
+ * @return Array of queues indexed by name and containing queue object and number
+ * of items.
+ */
+function queue_ui_queues() {
+  $queues = array();
+  $queue_names = queue_ui_queue_names();
+  if (!empty($queue_names)) {
+    // Build array of queues indexed by name with number of items.
+    foreach ($queue_names as $name) {
+      $queue = DrupalQueue::get($name->name);
+      $class = get_class($queue);
+      $queues[$class][$name->name] = array(
+        'queue' => $queue,
+        'items' => $queue->numberOfItems(),
+      );
+    }
+  }
+  return $queues;
+}
+
+/**
+ * Get queues defined with hook_queue_info().
+ *
+ * @return Array of queues indexed by name and containing
+ */
+function queue_ui_defined_queues() {
+  $queues = &drupal_static(__FUNCTION__);
+  if (!isset($queues)) {
+    // Invoke hook_queue_info().
+    $queues = module_invoke_all('queue_info');
+  }
+  return $queues;
+}
+
+/**
+ * Implements hook_cron().
+ */
+function queue_ui_cron() {
+  // Retrieve queues set for cron processing.
+  $defs = queue_ui_defined_queues();
+  if (!empty($defs)) {
+    foreach ($defs as $name => $definition) {
+      $queue = DrupalQueue::get($name);
+      // A cron callback must be defined and there must be items in the queue.
+      if (isset($definition['cron']) && is_object($queue) && $queue->numberOfItems()) {
+        $active = variable_get('queue_ui_cron_' . $name, FALSE);
+        if ($active) {
+          // Pass $queue to cron callback for processing.
+          $function = $definition['cron']['callback'];
+          // Definitions can define arguments.
+          $args = isset($definition['cron']['callback']) ? $definition['cron']['callback'] : NULL;
+          $function($queue, $args);
+        }
+      }
+    }
+  }
+}
+
+// @todo remove before prod
+function queue_ui_queue_info() {
+  return array(
+    'queue ui test_me' => array(
+      'title' => t('Test queue'),
+      'batch' => array(
+        'operations' => array(array('queue_ui_batch_test', array())),
+        'finished' => 'queue_ui_batch_finished',
+        'title' => t('Processing test queue'),
+      ),
+      'cron' => array(
+        'callback' =>'queue_ui_test_process',
+      ),
+    ),
+  );
+}
+
+function queue_ui_test_process($queue) {
+  $count = $queue->numberOfItems();
+  for ($i = 0; $i < 20 && $count > 0; $i++) {
+    $item = $queue->claimItem(20); // Lease time.
+    if ($item) {
+      // We would do some processing, if this were REAL.
+      $queue->deleteItem($item);
+      $count--;
+    }
+  }
+}
+
+function queue_ui_batch_test($queue, &$context) {
+  if (empty($context['sandbox'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['current'] = 0;
+    $context['sandbox']['max'] = $queue->numberOfItems();
+  }
+  for ($i = 0; $i < 20 && $context['sandbox']['current'] < $context['sandbox']['max']; $i++) {
+    $item = $queue->claimItem(20); // Lease time.
+    if ($item) {
+      // We would do some processing, if this were REAL.
+      $queue->deleteItem($item);
+    }
+    $context['sandbox']['progress']++;
+    $context['sandbox']['current']++;
+  }
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+}
+
+function queue_ui_batch_finished($success, $results, $operations) {
+  if ($success) {
+    $message = 'success';
+  }
+  else {
+    $message = t('An error occured @todo.');
+  }
+  drupal_set_message($message);
+}
