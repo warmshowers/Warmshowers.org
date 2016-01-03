@@ -25,6 +25,15 @@ function warmshowers_site_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  $items['user/%user/role-expirations'] = array(
+    'title' => 'Role Expirations',
+    'description' => 'View order status based on user and role.',
+    'page callback' => '_warmshowers_site_get_recurring_fees_for_role_expiration',
+    'page arguments' => array(1),
+    'access arguments' => array('administer users'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
   $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
   $items[$url_prefix . '/unanswered'] = array(
     'title' => 'Unanswered Requests',
@@ -34,7 +43,6 @@ function warmshowers_site_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 30,
   );
-
 
   return $items;
 }
@@ -223,6 +231,83 @@ function warmshowers_site_front_page() {
     );
   }
   return '';
+}
+
+/**
+ * Return the content for the order expiration page.
+ *
+ * @param object $account
+ *  A user account object.
+ *
+ * @return string
+ */
+function _warmshowers_site_get_recurring_fees_for_role_expiration($account) {
+  $header = array(
+    'Order ID',
+    'User ID',
+    'Role Expiration Time',
+    'Payment Fee Handler',
+    'Next Payment Charge Due',
+  );
+  $rows = array();
+
+  $query = db_select('uc_orders', 'uo');
+  $query->addField('uo', 'order_id');
+  $query->addField('uo', 'order_total');
+  $query->addField('uo', 'order_status');
+  $query->addJoin('LEFT', 'uc_order_products', 'p', 'p.order_id = uo.order_id');
+  $query->addField('p', 'nid');
+  $query->condition('order_status', 'completed');
+  $query->condition('uid', $account->uid);
+  if ($results = $query->execute()->fetchAll()) {
+    foreach ($results AS $result) {
+      $order_ids[] = $result->order_id;
+    }
+    $orders = uc_order_load_multiple($order_ids);
+  }
+
+  if ($orders) {
+    foreach ($orders as $order) {
+      // Loop through all the products on the order and look for any associated roles.
+      foreach ($order->products as $product) {
+        // Look for any role promotion features assigned to the product.
+        $roles = db_query("SELECT * FROM {uc_roles_products} WHERE nid = :nid", array(':nid' => $product->nid));
+        foreach ($roles as $role) {
+          // Product model matches, or was 'any'.
+          if (!empty($role->model) && $role->model != $product->model) {
+            continue;
+          }
+          $existing_role = db_query("SELECT * FROM {uc_roles_expirations} WHERE uid = :uid AND rid = :rid", array(':uid' => $account->uid, ':rid' => $role->rid))->fetchObject();
+        }
+      }
+
+      // Look for any recurring fees on this order.
+      $recurring_fees = db_query("SELECT * FROM {uc_recurring_users} WHERE uid = :uid AND order_id = :order_id", array(':uid' => $account->uid, ':order_id' => $order->order_id))->fetchObject();
+
+      $rows[] = array(
+        $order->order_id,
+        $account->uid,
+        !empty($existing_role) ? strftime('%Y:%m:%d %H:%M:%S %z', $existing_role->expiration) : '',
+        !empty($recurring_fees) ? $recurring_fees->fee_handler : '',
+        !empty($recurring_fees) ? strftime('%Y:%m:%d %H:%M:%S %z', $recurring_fees->next_charge) : '',
+      );
+    }
+  }
+
+  if (!$rows) {
+    $rows[] = array(array(
+      'data' => t('No orders available.'),
+      'colspan' => 5,
+    ));
+  }
+
+  $output = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+    'attributes' => array('class' => array('order_expirations'))
+  ));
+
+  return $output;
 }
 
 
