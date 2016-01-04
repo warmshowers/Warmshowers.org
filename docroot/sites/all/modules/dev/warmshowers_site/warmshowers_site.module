@@ -28,7 +28,7 @@ function warmshowers_site_menu() {
   $items['user/%user/role-expirations'] = array(
     'title' => 'Role Expirations',
     'description' => 'View order status based on user and role.',
-    'page callback' => '_warmshowers_site_get_recurring_fees_for_role_expiration',
+    'page callback' => 'warmshowers_site_role_expiration_page',
     'page arguments' => array(1),
     'access arguments' => array('administer users'),
     'type' => MENU_NORMAL_ITEM,
@@ -241,7 +241,7 @@ function warmshowers_site_front_page() {
  *
  * @return string
  */
-function _warmshowers_site_get_recurring_fees_for_role_expiration($account) {
+function warmshowers_site_role_expiration_page($account) {
   $header = array(
     'Order ID',
     'User ID',
@@ -253,50 +253,17 @@ function _warmshowers_site_get_recurring_fees_for_role_expiration($account) {
   );
   $rows = array();
 
-  $query = db_select('uc_orders', 'uo');
-  $query->addField('uo', 'order_id');
-  $query->addField('uo', 'order_total');
-  $query->addField('uo', 'order_status');
-  $query->addJoin('LEFT', 'uc_order_products', 'p', 'p.order_id = uo.order_id');
-  $query->addField('p', 'nid');
-  $query->condition('order_status', 'completed');
-  $query->condition('uid', $account->uid);
-  if ($results = $query->execute()->fetchAll()) {
-    foreach ($results AS $result) {
-      $order_ids[] = $result->order_id;
-    }
-    $orders = uc_order_load_multiple($order_ids);
-  }
-
-  if ($orders) {
+  $orders = _warmshowers_site_get_orders_with_expirations($account);
+  if (!empty($orders)) {
     foreach ($orders as $order) {
-      // Loop through all the products on the order and look for any associated roles.
-      foreach ($order->products as $product) {
-        // Look for any role promotion features assigned to the product.
-        $roles = db_query("SELECT * FROM {uc_roles_products} WHERE nid = :nid", array(':nid' => $product->nid));
-        foreach ($roles as $role) {
-          $model = NULL; $rid = NULL; $existing_role = NULL;
-          // Product model matches, or was 'any'.
-          if (!empty($role->model) && $role->model != $product->model) {
-            continue;
-          }
-          $model = $product->model;
-          $rid = $role->rid;
-          $existing_role = db_query("SELECT * FROM {uc_roles_expirations} WHERE uid = :uid AND rid = :rid", array(':uid' => $account->uid, ':rid' => $role->rid))->fetchObject();
-        }
-      }
-
-      // Look for any recurring fees on this order.
-      $recurring_fees = db_query("SELECT * FROM {uc_recurring_users} WHERE uid = :uid AND order_id = :order_id", array(':uid' => $account->uid, ':order_id' => $order->order_id))->fetchObject();
-
       $rows[] = array(
-        $order->order_id,
+        $order['order']->order_id,
         $account->uid,
-        !empty($rid) ? _uc_roles_get_name($rid) : '',
-        !empty($existing_role) ? strftime('%Y:%m:%d %H:%M:%S %z', $existing_role->expiration) : '',
-        !empty($model) ? $model : '',
-        !empty($recurring_fees) ? $recurring_fees->fee_handler : '',
-        !empty($recurring_fees) ? strftime('%Y:%m:%d %H:%M:%S %z', $recurring_fees->next_charge) : '',
+        !empty($order['expiration']->rid) ? _uc_roles_get_name($order['expiration']->rid) : '',
+        !empty($order['expiration']->expiration) ? strftime('%Y:%m:%d %H:%M:%S %z', $order['expiration']->expiration) : '',
+        !empty($order['product']->model) ? $order['product']->model : '',
+        !empty($order['recurring_fees']->fee_handler) ? $order['recurring_fees']->fee_handler : '',
+        !empty($order['recurring_fees']->next_charge) ? strftime('%Y:%m:%d %H:%M:%S %z', $order['recurring_fees']->next_charge) : '',
       );
     }
   }
@@ -304,7 +271,7 @@ function _warmshowers_site_get_recurring_fees_for_role_expiration($account) {
   if (!$rows) {
     $rows[] = array(array(
       'data' => t('No orders available.'),
-      'colspan' => 5,
+      'colspan' => 7,
     ));
   }
 
@@ -317,6 +284,88 @@ function _warmshowers_site_get_recurring_fees_for_role_expiration($account) {
   return $output;
 }
 
+/**
+ * Return the orders for a user with their expirations.
+ *
+ * @param object $account
+ *  A user account object.
+ * @param object $order_id
+ *  A user account object.
+ * @param object $rid
+ *  A role object
+ *
+ * @return string
+ */
+function _warmshowers_site_get_orders_with_expirations($account, $order_id = NULL, $rid = NULL) {
+  $query = db_select('uc_orders', 'uo');
+  $query->addField('uo', 'order_id');
+  $query->addField('uo', 'order_total');
+  $query->addField('uo', 'order_status');
+  $query->addJoin('LEFT', 'uc_order_products', 'p', 'p.order_id = uo.order_id');
+  $query->addField('p', 'nid');
+  $query->condition('order_status', 'completed');
+  $query->condition('uid', $account->uid);
+  if (!empty($order_id)) {
+    $query->condition('order_id', $order_id);
+  }
+  if ($results = $query->execute()->fetchAll()) {
+    foreach ($results AS $result) {
+      $order_ids[] = $result->order_id;
+    }
+    $orders = uc_order_load_multiple($order_ids);
+  }
+
+  if ($orders) {
+    foreach ($orders as $order) {
+      // Loop through all the products on the order and look for any associated roles.
+      foreach ($order->products as $p) {
+        // Look for any role promotion features assigned to the product.
+        $product_roles = db_query("SELECT * FROM {uc_roles_products} WHERE nid = :nid", array(':nid' => $p->nid));
+        foreach ($product_roles as $role) {
+          $expiration = NULL; $product = NULL;
+          // Product model matches, or was 'any'.
+          if (!empty($role->model) && $role->model != $p->model) {
+            continue;
+          }
+          // Product role matches given role
+          if (!empty($rid) && $rid != $role->rid) {
+            continue;
+          }
+          $product = $p;
+          $role_expiration = db_query("SELECT * FROM {uc_roles_expirations} WHERE uid = :uid AND rid = :rid", array(':uid' => $account->uid, ':rid' => $role->rid))->fetchObject();
+        }
+      }
+
+      // Look for any recurring fees on this order.
+      $recurring_fees = db_query("SELECT * FROM {uc_recurring_users} WHERE uid = :uid AND order_id = :order_id", array(':uid' => $account->uid, ':order_id' => $order->order_id))->fetchObject();
+
+      $return[] = array(
+        'order' => $order,
+        'product' => !empty($product) ? $product : NULL,
+        'expiration' => !empty($role_expiration) ? $role_expiration : NULL,
+        'recurring_fees' => !empty($recurring_fees) ? $recurring_fees : NULL,
+      );
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Return the content for the order expiration page.
+ *
+ * @param object $account
+ *  A user account object.
+ *
+ * @return string
+ */
+function _warmshowers_site_get_recurring_fees_by_role_expiration($account, $role) {
+  if (empty($role->rid) || empty($account->uid)) {
+    return FALSE;
+  }
+
+  $order = reset(_warmshowers_site_get_orders_with_expirations($account, NULL, $role->rid));
+}
 
 // Alter contact form mail with useful info for admin
 /**
