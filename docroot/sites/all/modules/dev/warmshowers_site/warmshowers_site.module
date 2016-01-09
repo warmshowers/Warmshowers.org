@@ -247,6 +247,7 @@ function warmshowers_site_role_expiration_page($account) {
     'User ID',
     'Role',
     'Role Expiration Time',
+    'Role Expiration Records',
     'SKU',
     'Payment Fee Handler',
     'Next Payment Charge Due',
@@ -260,12 +261,13 @@ function warmshowers_site_role_expiration_page($account) {
       $rows[] = array(
         $order['order']->order_id,
         $account->uid,
-        !empty($order['expiration']->rid) ? _uc_roles_get_name($order['expiration']->rid) : '',
-        !empty($order['expiration']->expiration) ? strftime('%Y:%m:%d %H:%M:%S %z', $order['expiration']->expiration) : '',
+        !empty($order['expirations'][0]->rid) ? _uc_roles_get_name($order['expirations'][0]->rid) : '',
+        !empty($order['expirations'][0]->expiration) ? strftime('%Y:%m:%d %H:%M:%S %z', $order['expirations'][0]->expiration) : '',
+        !empty($order['expirations']) ? count($order['expirations']) : '0',
         !empty($order['product']->model) ? $order['product']->model : '',
         !empty($order['recurring_fees']->fee_handler) ? $order['recurring_fees']->fee_handler : '',
         !empty($order['recurring_fees']->next_charge) ? strftime('%Y:%m:%d %H:%M:%S %z', $order['recurring_fees']->next_charge) : '',
-        _warmshowers_site_get_recurring_fees_by_role_expiration($order['expiration']) == TRUE ? 'Yes' : 'No',
+        _warmshowers_site_get_recurring_fees_by_role_expiration($order['expirations'][0]) == TRUE ? 'Yes' : 'No',
       );
     }
   }
@@ -303,7 +305,7 @@ function _warmshowers_site_get_recurring_fees_by_role_expiration($expiration) {
 
   foreach (_warmshowers_site_get_orders_with_expirations($account, NULL, $expiration->rid) as $order) {
     // if there are recurring fees and role expirations then we've matched.
-    if (!empty($order['expiration']) && !empty($order['recurring_fees'])) {
+    if (!empty($order['expirations'][0]) && !empty($order['recurring_fees'])) {
       return TRUE;
     }
   }
@@ -331,9 +333,10 @@ function _warmshowers_site_get_orders_with_expirations($account, $order_id = NUL
   $query->addJoin('LEFT', 'uc_order_products', 'p', 'p.order_id = uo.order_id');
   $query->addField('p', 'nid');
   $query->condition('order_status', 'completed');
-  $query->condition('uid', $account->uid);
   if (!empty($order_id)) {
-    $query->condition('order_id', $order_id);
+    $query->condition('uo.order_id', $order_id);
+  } else {
+    $query->condition('uid', $account->uid);
   }
   if ($results = $query->execute()->fetchAll()) {
     foreach ($results AS $result) {
@@ -369,7 +372,7 @@ function _warmshowers_site_get_orders_with_expirations($account, $order_id = NUL
       $return[] = array(
         'order' => $order,
         'product' => !empty($product) ? $product : NULL,
-        'expiration' => !empty($role_expirations) ? $role_expirations : NULL,
+        'expirations' => !empty($role_expirations) ? $role_expirations : NULL,
         'recurring_fees' => !empty($recurring_fees) ? $recurring_fees : NULL,
       );
     }
@@ -385,11 +388,11 @@ function warmshowers_site_recurring_fee_user_saved($fee) {
   // If the fee is no longer active check and remove any role expirations
   if ($fee->status !== UC_RECURRING_FEE_STATUS_ACTIVE) {
     $account = user_load($fee->uid);
-    $orders = _warmshowers_site_get_orders_with_expirations($account, $fee->order_id);
+    $orders = reset(_warmshowers_site_get_orders_with_expirations($account, $fee->order_id));
 
-    if (!empty($orders['expiration'])) {
-      uc_roles_revoke($account, $orders['expiration']->rid, TRUE);
-      watchdog('warmshowers_site', 'Role expiration:%role has just been removed because recurring order:%order is no longer active.', array('%role' => $orders['expiration']->rid, '%order' => $fee->order_id));
+    if (!empty($orders['expirations'][0])) {
+      uc_roles_revoke($account, $orders['expirations'][0]->rid, TRUE);
+      watchdog('warmshowers_site', 'Role expiration:%role has just been removed because recurring order:%order is no longer active.', array('%role' => $orders['expiration'][0]->rid, '%order' => $fee->order_id));
     }
   }
 }
@@ -401,11 +404,11 @@ function warmshowers_site_recurring_user_delete($rfid) {
   $fee = uc_recurring_fee_user_load($rfid);
 
   $account = user_load($fee->uid);
-  $orders = _warmshowers_site_get_orders_with_expirations($account, $fee->order_id);
+  $orders = reset(_warmshowers_site_get_orders_with_expirations($account, $fee->order_id));
 
-  if (!empty($orders['expiration'])) {
-    uc_roles_revoke($account, $orders['expiration']->rid, TRUE);
-    watchdog('warmshowers_site', 'Role expiration:%role has just been removed because recurring order:%order has been deleted.', array('%role' => $orders['expiration']->rid, '%order' => $fee->order_id));
+  if (!empty($orders['expirations'][0])) {
+    uc_roles_revoke($account, $orders['expirations'][0]->rid, TRUE);
+    watchdog('warmshowers_site', 'Role:%role has just been removed because recurring order:%order has been deleted.', array('%role' => $orders['expiration'][0]->rid, '%order' => $fee->order_id));
   }
 }
 
