@@ -61,16 +61,13 @@
       <?php endif; ?>
 
     </header>
-
-    <?php if (!empty($page['notification'])): ?>
-      <div class="notification-bar">
-        <?php print render($page['notification']); ?>
-      </div>
-    <?php endif; ?>
   </div>
 
   <div id="page-wrapper" class="page-wrapper">
     <section id="page" class="container">
+      <?php if (!empty($page['notification'])): ?>
+        <?php print render($page['notification']); ?>
+      <?php endif; ?>
 
       <div id="main-wrapper" class="main-wrapper container responsive">
 
