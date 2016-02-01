@@ -22,5 +22,17 @@ function warmshowers_site_rules_condition_info() {
         ),
       ),
     ),
+    'warmshowers_site_condition_role_expiration_multiple' => array(
+      'label' => t('Check if the role expiration is not unique'),
+      'group' => t('Recurring'),
+      'base' => '_warmshowers_site_get_role_expirations_by_user',
+      'parameter' => array(
+        'expiration' => array(
+          'type' => 'uc_roles_expiration',
+          'label' => t('Roles'),
+          'restriction' => 'selector',
+        ),
+      ),
+    ),
   );
 }
