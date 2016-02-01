@@ -348,6 +348,11 @@ function uc_roles_action_order_renew($order, $message) {
 
       // Determine the expiration timestamp for the role.
       $expiration = _uc_roles_product_get_expiration($role, $product->qty, isset($existing_role->expiration) ? $existing_role->expiration : NULL);
+      watchdog(
+        'uc_debug',
+        'An expiration was set for the role @role the order id was @order_id and the old expiration time was %expiration.',
+        array('@role' => _uc_roles_get_name($role->rid), '@order_id' => $order->order_id, '%expiration' => $existing_role->expiration), WATCHDOG_INFO
+      );
 
       // Leave an order comment.
       if (isset($existing_role->expiration)) {
