@@ -121,18 +121,23 @@ function ws_pm_email_notify_token_info() {
   );
 }
 
-/*
- * Implements hook_cron_queue_info()
+/**
+ * Implements hook_cron()
  *
- * @return array
+ * When the queue runs normally on cron we can't set the expiration time,
  */
-function ws_pm_email_notify_cron_queue_info() {
-  $queues['mandrill_incoming'] = array(
-    'worker callback' => 'ws_pm_email_notify_queue_process',
-    'time' => 20
-  );
-
-  return $queues;
+function ws_pm_email_notify_cron() {
+  $end = time() + 40;
+  while (time() < $end) {
+    try {
+      ws_pm_email_notify_queue_process();
+    }
+    catch (Exception $e) {
+      // In case of exception log it and leave the item in the queue
+      // to be processed again later.
+      watchdog_exception('cron', $e);
+    }
+  }
 }
 
 /**
@@ -174,7 +179,9 @@ function ws_pm_email_notify_queue_process($data = NULL) {
     $queue = DrupalQueue::get('mandrill_incoming');
     $queue->createQueue();
 
-    $item = $queue->claimItem();
+    // We can make sure that manually fired claims expire in 1 hour
+    // but Drupal does not let us configure the expiry for items called from cron, bummer.
+    $item = $queue->claimItem(3600);
     extract($item->data);
   }
   else {
