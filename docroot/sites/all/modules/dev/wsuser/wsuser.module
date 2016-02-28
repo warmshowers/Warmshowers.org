@@ -646,6 +646,7 @@ function wsuser_search_info() {
   return array(
     'title' => 'Warmshowers User',
     'path' => 'wsuser',
+    'conditions_callback' => 'wsuser_callback_search_conditions',
   );
 }
 
@@ -659,18 +660,17 @@ function wsuser_search_access() {
 }
 
 /**
+ * Search conditions callback
+ */
+function wsuser_callback_search_conditions($keys) {
+  return wsuser_get_search_filter_keys($keys);
+}
+
+/**
  * Implements hook_search_execute().
  */
 function wsuser_search_execute($keys = NULL, $conditions = NULL) {
-  $latitude = $longitude = NULL;
-  // Replace wildcards with MySQL/PostgreSQL wildcards.
-  $keys = preg_replace('!\*+!', '%', $keys);
-  // If this search provides lat/lon, then do the search based on location only.
-
-  $list = preg_split('/\|/', $keys);
-  if (count($list) > 2) {
-    list($locname, $latitude, $longitude) = preg_split('/\|/', $keys);
-  }
+  wsuser_get_search_filter_keys($keys);
 
   try {
     $query = db_select('users', 'u')->extend('PagerDefault');
@@ -679,10 +679,10 @@ function wsuser_search_execute($keys = NULL, $conditions = NULL) {
     $query->fields('u', array('uid'));
 
     // If distance search, add the distance calc, ordering, and limitation
-    if (is_numeric($latitude) && is_numeric($longitude)) {
+    if (isset($conditions['lat']) && is_numeric($conditions['lat']) && isset($conditions['lng']) && is_numeric($conditions['lng'])) {
       $query->addExpression('SQRT(POW(69.1 * (ul.latitude - :lat), 2) + POW(69.1 * (:lng - ul.longitude) * COS(ul.latitude / 57.3), 2))', 'distance', array(
-        ':lat' => $latitude,
-        ':lng' => $longitude
+        ':lat' => $conditions['lat'],
+        ':lng' => $conditions['lng']
       ));
       $query->condition('w.notcurrentlyavailable', FALSE); // If searching by location, notavailable hosts shouldn't show
       $query->orderBy('distance');
@@ -1543,11 +1543,13 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
   $city = $form_state['values']['city'];
   $country = $form_state['values']['country'];
 
-  // If they didn't wait for the JS autocomplete, try to figure out their search location anyway.
-  if (!empty($country) && !empty($city)) {
-    @list($placename, $latitude, $longitude) = preg_split('/\|/', $form_state['values']['city']);
-    if (!is_numeric($latitude) || !is_numeric($longitude)) {
-      @list($city, $province) = preg_split('/, */', $placename);
+  $form_state['storage']['search']['type'] = !empty($country) && !empty($city) ? 'location' : 'name';
+
+  if ($form_state['storage']['search']['type'] == 'location') {
+    $form_state['storage']['search']['filters'] = $filters = wsuser_get_search_filter_keys($city);
+
+    // If they didn't wait for the JS autocomplete, try to figure out their search location anyway.
+    if (!isset($filters) || (!isset($filters['lat']) && !is_numeric($filters['lat'])) || (!isset($filters['lng']) && !is_numeric($filters['lng']))) {
       $vars = array(
         ':country' => $country,
         ':min_population' => 100,
@@ -1563,28 +1565,56 @@ function wsuser_member_search_form_list_validate($form, &$form_state) {
   		     AND g.ansiname = :city
   		     AND feature_code IN ('ppl', 'ppla', 'ppla2', 'ppla3', 'ppla4', 'pplc', 'pplf', 'ppls', 'adm1', 'adm2')
   		     AND (population > :min_population OR feature_code = 'adm1') ";
+
       if (!empty($province) && $country == 'us') {  // The 2-letter province is not right in geonames_adm1 for much of the world, including Canada
         $query .=  "AND g.admin1_code = :admin1_code";
         $vars +=   array(':admin1_code' => "$province");
       }
+
       $query .= ' ORDER BY feature_code DESC, g.population DESC';
       $result = db_query_range($query, 0, 1, $vars);
+
       if ($result && ($location = $result->fetchAssoc())) {
-        $latitude = $location['latitude'];
-        $longitude = $location['longitude'];
-        $provname = $location['provname'];
-        $form_state['values']['city'] = "$city, $provname|$latitude|$longitude";
-        return;
+        $form_state['values']['city'] = "place:'$city' province:'{$location['provname']}' lat:{$location['latitude']} lng:{$location['longitude']}";
       }
     }
   }
   else {
     if (!empty($country)) {
       $location = locationservices_country_position_from_country($country);
-      $form_state['values']['city'] = "$location->country|$location->latitude|$location->longitude";
+      $form_state['values']['city'] = "country:'{$location->country}' lat:{$location->latitude} lng:{$location->longitude}";
     }
   }
+}
 
+/**
+ * Helper function to get filter keys from search string
+ */
+function wsuser_get_search_filter_keys(&$string) {
+  $allowed_keys = array('place', 'country', 'province', 'lat', 'lng');
+  $filters = array();
+
+  if (!empty($string)) {
+    // Match a word, followed by a quote or a string of non-whitespace characters.
+    // e.g. place=London or country='United Kingdom'
+    preg_match_all("/(\w)+:(([\"'])(?:\\\1|.)*?\1|\S)+/", $string, $matches);
+
+    foreach ($matches[0] as $match) {
+      list($filter_key, $filter_value) = explode(':', $match);
+      if (!empty($filter_key) && in_array($filter_key, $allowed_keys)) {
+        // Add this filter value to the search filters
+        $filters[$filter_key] = $filter_value;
+
+        // Remove this filter from the original string.
+        str_replace($match, '', $string);
+      }
+    }
+
+    // Once we've removed filters from the string we may end up with some extra whitespace.
+    $string = trim($string);
+  }
+
+  return $filters;
 }
 
 
