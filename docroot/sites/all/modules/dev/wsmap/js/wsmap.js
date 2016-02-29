@@ -62,12 +62,18 @@
           event.preventDefault();
           var country = $('#edit-country').val();
           var city = $('[name=city]').val();
-          var location = city.split('|');
+          var matches = city.match(/(lat|lng)+:(([\"'])(?:\\\1|.)*?\1|\S)+/g);
+          var location = [];
+          for (var i = 0; i < matches.length; i++) {
+            var tmp = matches[i];
+            tmp = tmp.split(':');
+            location[tmp[0]] = tmp[1];
+          }
           if (!city) {
             setMapLocationToCountry(country);
           }
           else {
-            zoomToSpecific(location[0], location[1], location[2], 8);
+            zoomToSpecific(city, location.lat, location.lng, 8);
           }
         });
 
