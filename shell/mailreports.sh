@@ -7,8 +7,8 @@ if [ -f ./deploy_config.sh ] ; then
 fi
 
 user_report_emails=usercreationreport@warmshowers.org
-comment_report_emails=martinmemartin@warmshowers.org,mrtour@hotmail.com
-forum_report_emails=martinmemartin@warmshowers.org,mrtour@hotmail.com
+comment_report_emails=mrtour@hotmail.com
+forum_report_emails=mrtour@hotmail.com
 feedback_report_emails=feedbackreport@warmshowers.org
 
 reportdate=yesterday
