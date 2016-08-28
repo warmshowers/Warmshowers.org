@@ -14,7 +14,7 @@ feedback_report_emails=feedbackreport@warmshowers.org
 reportdate=yesterday
 
 # export TESTING=1  # if you want test behavior
-test_email=chris.andrews.russo@gmail.com
+test_email=chris@warmshowers.org
 if [ $TESTING ] ; then
   user_report_emails=$test_email
   comment_report_emails=$test_email

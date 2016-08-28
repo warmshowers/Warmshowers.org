@@ -160,10 +160,6 @@ function _warmshowers_zen_add_html_classes(&$variables) {
 function warmshowers_zen_preprocess_page(&$variables, $hook) {
   global $user;
 
-  if (menu_get_object('user') && arg(2) == 'donations') {
-    drupal_set_title(t('My Donations'));
-  }
-
   /*
    * Generate renderable menu arrays
    *

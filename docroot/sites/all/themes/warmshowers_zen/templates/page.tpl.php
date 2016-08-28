@@ -63,31 +63,8 @@
     </header>
   </div>
 
-  <div class="region region-notification region-block-count--1">
-    <div id="block-nodeblock-119698" class="block block-nodeblock contextual-links-region first last odd block-delta--119698">
-      <div class="block-wrapper clearfix">
-        <div class="content">
-          <div id="node-119698" class="node node-block contextual-links-region view-mode-full node-by-viewer clearfix">
-
-            <div class="content">
-              <div class="field field-name-body field-type-text-with-summary field-label-hidden"><div class="field-items"><div class="field-item even"><div class="donation-cta">
-                      <p class="cta-message">The Warm Showers Foundation is fresh in it's infancy and we need your help to support all the good work. Please donate now to support Warmshowers.org for the coming year.</p>
-                      <p class="cta-legal">* You are seeing this message because you do not currently have a donation membership role.</p>
-                      <p><a class="cta-button" href="/donate">Please donate now</a>
-                      </p></div>
-                  </div></div></div>  </div>
-
-
-          </div>
-        </div>
-
-      </div><!-- /.block-wrapper -->
-    </div><!-- /.block -->
-  </div>
-
   <div id="page-wrapper" class="page-wrapper">
     <section id="page" class="container">
-
 
       <div id="main-wrapper" class="main-wrapper container responsive">
 

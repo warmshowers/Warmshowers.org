@@ -1,0 +1,607 @@
+<?php
+
+/**
+ * @file
+ * Alter privatemessages with WS-specific information
+ * Handle incoming messages.
+ */
+
+// TODO: Make sure the variables for configuration are correct, migrate ws_pm_email_notify to pm_email_notify in all languages
+
+/**
+ * Implements hook_menu().
+ *
+ * Provides an administrative page for Mandrill Incoming.
+ */
+function ws_pm_email_notify_menu() {
+  $items['admin/config/services/mandrill_incoming/queue'] = array(
+    'title' => 'Mandrill Incoming Queue',
+    'description' => 'View and process items in the Mandrill Incoming Queue',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ws_pm_email_notify_admin_settings_form'),
+    'access arguments' => array('administer services'),
+    'weight' => 20,
+  );
+  return $items;
+}
+
+/**
+ * Form providing admin menu options.
+ *
+ * @return array
+ *   An array of form elements for the admin page.
+ */
+function ws_pm_email_notify_admin_settings_form($form, &$form_state) {
+  $form['pm_email_notify_processing'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Manual Processing'),
+    '#weight' => 20,
+  );
+
+  $form['pm_email_notify_processing']['process_item'] = array(
+    '#type' => 'submit',
+    '#value' => t('Process next item'),
+    '#submit' => array('ws_pm_email_notify_queue_process'),
+  );
+
+  $form = system_settings_form($form);
+  return $form;
+}
+
+/**
+ * Alter the outgoing message to use our routing information in subject and headers
+ *
+ * @param $message
+ */
+function ws_pm_email_notify_mail_alter(&$message) {
+  if ($message['id'] == 'pm_email_notify_notice') {
+    // Add a reply-to for our replymail service
+    $params = $message['params'];
+    $recipient = $params['recipient'];
+    $pm_message = $params['message'];
+    $hash = ws_pm_email_notify_routing_hash($pm_message->mid, $pm_message->thread_id, $recipient->uid);
+
+    $message['headers']['Reply-To'] = ws_pm_email_notify_reply_to_address($pm_message->mid, $params['recipient']);
+    $message['headers']['X-Warmshowers-Routing'] = $hash;
+
+  }
+}
+
+
+/**
+ * Implements hook_tokens().
+ */
+function ws_pm_email_notify_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  global $user;
+  $url_options = array('absolute' => TRUE);
+  if (isset($options['language'])) {
+    $url_options['language'] = $options['language'];
+    $language_code = $options['language']->language;
+  }
+  else {
+    $language_code = NULL;
+  }
+
+  $recipient = $user;
+  if (isset($data['privatemsg_recipient'])) {
+    $recipient = $data['privatemsg_recipient'];
+  }
+
+  $sanitize = !empty($options['sanitize']);
+  $replacements = array();
+  if ($type == 'privatemsg_message' && !empty($data['privatemsg_message'])) {
+    $message = $data['privatemsg_message'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'pm_routing_hash':
+          $replacements[$original] = ws_pm_email_notify_routing_hash($message->mid, $message->thread_id, $recipient->uid);
+          break;
+      }
+    }
+
+  }
+
+  return $replacements;
+}
+
+/**
+ * Implements hook_token_info().
+ */
+function ws_pm_email_notify_token_info() {
+
+  // Tokens for private messages.
+  $message['pm_routing_hash'] = array(
+    'name' => t("Routing Hash"),
+    'description' => t("Unique routing hash for replying to the message"),
+  );
+
+  return array(
+    'tokens' => array('privatemsg_message' => $message),
+  );
+}
+
+/**
+ * Implements hook_cron()
+ *
+ * When the queue runs normally on cron we can't set the expiration time,
+ */
+function ws_pm_email_notify_cron() {
+  $end = time() + 40;
+  while (time() < $end) {
+    try {
+      ws_pm_email_notify_queue_process();
+    }
+    catch (Exception $e) {
+      // In case of exception log it and leave the item in the queue
+      // to be processed again later.
+      watchdog_exception('cron', $e);
+    }
+  }
+}
+
+/**
+ * Insert item into the queue.
+ *
+ * @param array $event
+ * @return array
+ */
+function ws_pm_email_notify_queue_insert($event) {
+  if (empty($event)) {
+    return FALSE;
+  }
+
+  // Add this item to the queue.
+  $record = array(
+    'created' => REQUEST_TIME,
+    'event' => $event,
+  );
+
+  $queue = DrupalQueue::get('mandrill_incoming');
+  $queue->createQueue();
+
+  $queue->createItem($record);
+}
+
+/**
+ * The worker process for the queue
+ */
+
+/**
+ * Process items from the queue.
+ *
+ * @param array $data | NULL
+ *  Required only by the cron worker callback, should not be passed when running outside the cron worker callback.
+ *  @see https://api.drupal.org/api/drupal/modules!system!system.api.php/function/callback_queue_worker/7
+ */
+function ws_pm_email_notify_queue_process($data = NULL) {
+  if(empty($data)) {
+    $queue = DrupalQueue::get('mandrill_incoming');
+    $queue->createQueue();
+
+    // We can make sure that manually fired claims expire in 1 hour
+    // but Drupal does not let us configure the expiry for items called from cron, bummer.
+    $item = $queue->claimItem(3600);
+    extract($item->data);
+  }
+  else {
+    extract($data);
+  }
+
+  // All the logic previously handled in ws_pm_email_notify_mandrill_incoming_event
+  // is now processed by the queue function ws_pm_email_notify_process_event.
+  $handled = empty($event) ? MANDRILL_INCOMING_UNHANDLED : ws_pm_email_notify_process_event($event);
+
+  $replacements = array(
+    '@now' => strftime('%c', strtotime('now')),
+    '%to' => print_r($event->msg->to, TRUE),
+    '%subject' => $event->msg->subject,
+  );
+
+  if ($handled === MANDRILL_INCOMING_HANDLED) {
+    watchdog('mandrill_incoming_queue', "Successfully processed incoming email (to=%to, subject=%subject) at @now.", $replacements, WATCHDOG_INFO);
+
+    // If item has been claimed outside of the cron worker callback we need to remove it now, otherwise just continue.
+    if (isset($item)) {
+      $queue->deleteItem($item);
+    }
+  } else {
+    // This item was not handled, we need to release it.
+    watchdog('mandrill_incoming_queue', "An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements, WATCHDOG_INFO);
+
+    // If item has been claimed outside of the cron worker callback we need to release it, otherwise throw an error.
+    if (isset($item)) {
+      $queue->releaseItem($item);
+    } else {
+      throw new Exception(t("An incoming email (to=%to, subject=%subject) has failed processing at %now.", $replacements));
+    }
+  }
+
+  return $handled;
+}
+
+/** Begin section dealing with incoming messages ****/
+/**
+ * Parse the incoming Mandrill message to find the routing info in ->email (new, preferred) or in subject
+ *
+ * @param $msg
+ *   Mandrill message object
+ *
+ * @return array or NULL
+ *   Array of
+ *     'mid' => privatemsg
+ *     'sender_uid'
+ *     'their_mhash' (message hash provided in incoming email
+ */
+function ws_pm_email_notify_routing_from_msg($msg) {
+  $matches = array();
+  $routing_re = '/mid[:.]([0-9]+)[:.]([0-9]+)[:.]([a-zA-Z0-9\/\+]+=)/';
+
+  $routing_header = !empty($msg->headers->{'X-Warmshowers-Routing'}) ? $msg->headers->{'X-Warmshowers-Routing'} : NULL;
+
+  // Search for the routing information:
+  // 1. Look in the email address itself, which is where we really want to find it.
+  // 2. Look in the X-Warmshowers-Routing header, a secondary option
+  // 3. Finally, look in the subject, as it's also embedded there
+  if ($count = preg_match($routing_re, $msg->email, $matches) // In email address
+    || (!empty($routing_header) && $count = preg_match($routing_re, $routing_header, $matches)) // In the X-Warmshowers-Routing header
+      || $count = preg_match($routing_re, $msg->subject, $matches) // In the subject
+  ) {
+    list($fullmatch, $mid, $sender_uid, $their_mhash) = $matches;
+    return array($mid, $sender_uid, $their_mhash);
+  }
+}
+
+/**
+ * Validate that routing information we received from message is valid and usable
+ *
+ * @param $msg
+ * @param $mid
+ * @param $sender_uid
+ * @param $their_mhash
+ * @param $description
+ *   Text description of failure
+ * @return boolean
+ *   FALSE = failed validation
+ */
+function ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash, &$description) {
+  if (empty($sender_uid)) {
+    $description = t('No sender uid provided - probably spam');
+    return FALSE;
+  }
+  $sender_account = user_load($sender_uid);
+
+  if (empty($sender_account)) {
+    $description = t("Sending user @uid does not exist or has been deleted", array('@uid' => $sender_uid));
+    return FALSE;
+  }
+  if ($sender_account->status == 0) {
+    $description = t("Sending user @uid is blocked", array('@uid' => $sender_uid));
+    return FALSE;
+  }
+
+  // Attempt to force-load the entity bypassing cache, solving problems with "Failed to load <mid>"
+  $pms = privatemsg_message_load_multiple(array($mid), array(), TRUE);
+  $pm = current($pms);
+
+  // Validate that we can find the pm
+  if (empty($pm)) {
+    watchdog('privatemsg', 'Failed to load message id for validation of incoming mid=@mid, result=@result', array('@mid' => $mid, '@result' => print_r($pm, TRUE)), WATCHDOG_WARNING);
+    $description = t("Failed to load message id @mid - message does not exist", array('@mid' => $mid));
+    return FALSE;
+  }
+
+  // Validate privatemsg mid and thread_id, which is hidden in hash.
+  $tid = $pm->thread_id;
+  $our_mhash = ws_pm_email_notify_hash_mid_tid($mid, $tid);
+  if (strcasecmp($our_mhash, $their_mhash)) {
+    watchdog('privatemsg', 'Message hash in incoming message (%their_mhash) did not match hash (%our_mhash)', array(
+      '%their_mhash' => $their_mhash,
+      '%our_mhash' => $our_mhash
+    ), WATCHDOG_ERROR);
+    $description = t('Message hash in incoming message (@their_mhash) did not match hash (@our_mhash)', array(
+      '@their_mhash' => $their_mhash,
+      '@our_mhash' => $our_mhash
+    ));
+    return FALSE;
+  }
+
+  // Validate sender uid
+  $sender_account = user_load($sender_uid);
+  if (!$sender_account || user_is_blocked($sender_account->name) || !privatemsg_user_access('write privatemsg', $sender_account)) {
+    watchdog('privatemsg', 'Sender %sender_uid does not have privilege to send privatemsg, so not sending message.', array('%sender_uid' => $sender_uid), WATCHDOG_ERROR);
+    $description = t('Sender @sender_uid does not have privilege to send privatemsg, so not sending message.', array('@sender_uid' => $sender_uid));
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implements hook_mandrill_incoming_event() to handle a single inbound().
+ * mandrill message.
+ *
+ * @see http://help.mandrill.com/entries/22092308-What-is-the-format-of-inbound-email-webhooks-
+ * for format of inbound message.
+ *
+ * @param $event
+ * @return array|int
+ */
+function ws_pm_email_notify_mandrill_incoming_event($event) {
+  // Let's put this item straight into the queue so that we can process later.
+  ws_pm_email_notify_queue_insert($event);
+
+  // We might as well try to process the next item in the queue to save cron some effort.
+  ws_pm_email_notify_queue_process();
+
+  // We must tell mandrill_incoming that we have successfully handled this event even though we don't know yet.
+  return MANDRILL_INCOMING_HANDLED;
+}
+
+/**
+ * The queue processing function for each item in mandrill_incoming queue.
+ *
+ * @param $event
+ * @return array|int
+ * @throws Exception
+ */
+function ws_pm_email_notify_process_event($event) {
+  $ts = $event->ts; // Consider setting the event ts as the ts of the PM.
+  $msg = $event->msg;
+
+  $sender_blacklist_regex = variable_get('ws_pm_email_notify_sender_blacklist_regex', '@info-emailer\.com|@linkedin\.com|@infoaxe\.net|@fliporamail\.com');
+  $subject_blacklist_regex = variable_get('ws_pm_email_notify_subject_blacklist_regex', 'info-emailer\.com|linkedin\.com|quiere seguirte. ¿Aceptas?');
+
+  if (preg_match("/$sender_blacklist_regex/i", $msg->from_email)
+    || preg_match("/$subject_blacklist_regex/i", $msg->subject)
+  ) {
+    watchdog('privatemsg', 'Not responding to incoming email from email %email, subject %subject because on blacklist in variable ws_pm_email_notify_sender_blacklist_regex or ws_pm_email_notify_subject_blacklist_regex', array(
+      '%email' => $msg->from_email,
+      '%subject' => $msg->subject
+    ));
+    return MANDRILL_INCOMING_UNHANDLED;
+  }
+
+
+  list($mid, $sender_uid, $their_mhash) = ws_pm_email_notify_routing_from_msg($msg);
+  $failure_description = "";
+  $valid = ws_pm_email_notify_validate_routing($msg, $mid, $sender_uid, $their_mhash, $failure_description);
+  if (!$valid) {
+    watchdog('privatemsg', 'Failed to validate routing for message based on mid=%mid, failure_description="%description', array('%mid' => $mid, '%description' => $failure_description), WATCHDOG_WARNING);
+    return array(MANDRILL_INCOMING_ERROR => $failure_description);
+  }
+
+  $pms = privatemsg_message_load_multiple(array($mid), array(), TRUE);
+  $pm = current($pms);
+  $tid = $pm->thread_id;
+  $sender_account = user_load($sender_uid);
+
+  $text = !empty($msg->text) ? $msg->text : "";
+  // We have some messages with no text part. In that case, use html part.
+  // Later we'll replace this and just use the html, maybe.
+  if (empty($text)) {
+    $text = $msg->html;
+  }
+
+  // Replace from our message divider to the end of the message
+  $text = preg_replace('/[\r\n ]*[> ]*------* .* -----*\+(.|[\r\n\t])*$/', '', $text);
+
+  if (empty($text)) {
+    watchdog('privatemsg', 'Empty text for body, not attempting privatemsg_reply', WATCHDOG_WARNING);
+    return array(MANDRILL_INCOMING_ERROR => t('Empty text for body, not attempting privatemsg_reply'));
+  }
+
+  // Attempt to send a reply.
+  $result = privatemsg_reply($tid, $text, array('author' => $sender_account));
+
+  if (!$result['success']) {
+    watchdog('privatemsg', 'Failed to privatemsg_reply (<pre>@result</pre>)', array('@result' => print_r($result, TRUE)), WATCHDOG_ERROR);
+    return array(MANDRILL_INCOMING_ERROR => t('Failed to privatemsg_reply, see log', array('@result' => print_r($result, TRUE))));
+  }
+
+  // If this sender replied by email, it's just as if they just logged in, so update account.
+  user_save($sender_account, array(
+    'login' => REQUEST_TIME,
+    'access' => REQUEST_TIME
+  ));
+
+  // Mark the thread as read for the user who sent the message
+  privatemsg_thread_change_status($tid, PRIVATEMSG_READ, $sender_account);
+  return MANDRILL_INCOMING_HANDLED; // Successfully handled message
+}
+
+/**
+ * Hash the private msg id and thread id together to provide a way to prove
+ * that the sender knew the thread id
+ *
+ * @param $mid
+ * @param $tid
+ * @return string
+ */
+function ws_pm_email_notify_hash_mid_tid($mid, $tid) {
+  $key = variable_get('ws_pm_email_notify_hashkey', '');
+
+  $signed_data = "$mid:$tid";
+  return base64_encode(hash_hmac('sha1', $signed_data, $key, TRUE));
+}
+
+
+/**
+ * Create a reply-to address with routing information
+ *
+ * @param $message
+ * @param $recipient
+ * @return string
+ */
+function ws_pm_email_notify_reply_to_address($mid, $recipient) {
+  $reply_to_friendlyname = variable_get('ws_pm_email_notify_mandrill_reply_to_friendlyname', 'Warmshowers Messages');
+  $reply_to_email = ws_pm_email_notify_reply_to_email($mid, $recipient);
+
+  return "{$reply_to_friendlyname} <$reply_to_email>";
+}
+
+/**
+ * Return the actual email to be used in reply-to header
+ *
+ * @param $mid
+ * @param $recipient
+ * @return string
+ */
+function ws_pm_email_notify_reply_to_email($mid, $recipient) {
+  $pm = privatemsg_message_load($mid);
+  $reply_to_localpart = variable_get('ws_pm_email_notify_mandrill_reply_to_localpart_base', 'messages');
+  $reply_to_domain = variable_get('ws_pm_email_notify_mandrill_reply_to_domain', 'reply.warmshowers.org');
+  $reply_to_routing = ws_pm_email_notify_routing_hash($mid, $pm->thread_id, $recipient->uid);
+  return "{$reply_to_localpart}+{$reply_to_routing}@{$reply_to_domain}";
+}
+
+/**
+ * Return routing hash which can be used on subject and/or reply-to
+ * This is chosen as something that is safe in the email and is not used in
+ * base64.
+ *
+ * @param $mid
+ *   Privatemsg message id
+ * @param $thread_id
+ *   Privatemsg thread_id
+ * @param $recipient_uid
+ *
+ * @return string
+ */
+function ws_pm_email_notify_routing_hash($mid, $thread_id, $recipient_uid) {
+  return "mid.{$mid}.{$recipient_uid}." . ws_pm_email_notify_hash_mid_tid($mid, $thread_id);
+}
+
+
+/**
+ * Alter pm_email_notify admin.
+ *
+ */
+function ws_pm_email_notify_form_privatemsg_admin_settings_alter(&$form, &$form_state) {
+
+  // Length may be longer than the default 128
+  $form['pm_email_notify']['pm_email_notify_subject']['#maxlength'] = 256;
+
+  $form['pm_email_notify']['mandrill_integration'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Mandrill Integration'),
+    '#weight' => 20,
+  );
+
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable email reply via Mandrill Inbound webhook'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_enabled', 0),
+  );
+
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_friendlyname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Friendly name of email address for reply-to'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_friendlyname', 'Warmshowers Messages'),
+  );
+
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_localpart_base'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Localpart base of email address for reply-to'),
+    '#description' => t('If the reply-to is messages+nonsense.32.none@reply.warmshowers.org, the localpart base is "messages"'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_localpart_base', 'messages'),
+  );
+
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_mandrill_reply_to_domain'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Domain of email address for reply-to'),
+    '#description' => t('If the reply-to is messages+nonsense.32.none@reply.warmshowers.org, the domain is "reply.warmshowers.org"'),
+    '#default_value' => variable_get('ws_pm_email_notify_mandrill_reply_to_domain', 'reply.warmshowers.org'),
+  );
+
+  $form['pm_email_notify']['mandrill_integration']['ws_pm_email_notify_hashkey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Hash key to validate Message/Thread id (can be same as Mandrill webhook key)'),
+    '#default_value' => variable_get('ws_pm_email_notify_hashkey', ''),
+  );
+
+//  $form = system_settings_form($form);
+//  if (module_exists('i18n_string')) {
+//    $form['#submit'][] = 'ws_pm_email_notify_admin_settings_update_strings';
+//  }
+}
+
+/**
+ * Form submit callback to update the translation string sources.
+ */
+//function ws_pm_email_notify_admin_settings_update_strings($form, &$form_state) {
+//  ws_pm_email_notify_locale_refresh();
+//}
+
+/**
+ * Refresh callback to update the string translation sources.
+ */
+//function ws_pm_email_notify_locale_refresh() {
+//  i18n_string_update('pm_email_notify:mail:subject', _ws_pm_email_notify_source_text('subject'));
+//  i18n_string_update('pm_email_notify:mail:body', _ws_pm_email_notify_source_text('body'));
+//  return TRUE;
+//
+//}
+
+
+/**
+ * Implements hook_variable_info(), provided by variable module
+ * This is required for variables to be translatable.
+ * @param $options
+ * @return array
+ */
+function ws_pm_email_notify_variable_info($options) {
+  $variable = array();
+  $variable['ws_pm_email_notify_sender_blacklist_regex'] = array(
+    'type' => 'string',
+    'title' => t('Regular expression of sender emails to be ignored/discarded'),
+    'default' => '@info-emailer\.com|@linkedin\.com|@infoaxe\.net|@fliporamail\.com',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_subject_blacklist_regex'] = array(
+    'type' => 'string',
+    'title' => t('Regular expression of sender emails to be ignored/discarded'),
+    'default' => 'info-emailer\.com|linkedin\.com|quiere seguirte. ¿Aceptas?',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+
+  $variable['ws_pm_email_notify_hashkey'] = array(
+    'type' => 'string',
+    'title' => t('Hash key as base for hashing mid/tid'),
+    'default' => '',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_to_friendlyname'] = array(
+    'type' => 'string',
+    'title' => t('Friendly name of sender'),
+    'default' => 'Warmshowers Messages',
+    'localize' => TRUE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_to_localpart_base'] = array(
+    'type' => 'string',
+    'title' => t('Local part of reply-to email address'),
+    'default' => 'messages',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_to_domain'] = array(
+    'type' => 'string',
+    'title' => t('Domain part of reply-to email address'),
+    'default' => 'reply.warmshowers.org',
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+  $variable['ws_pm_email_notify_mandrill_reply_enabled'] = array(
+    'type' => 'boolean',
+    'title' => t('Enable or disable mandrill reply option'),
+    'default' => FALSE,
+    'localize' => FALSE,
+    'group' => 'warmshowers',
+  );
+
+  return $variable;
+}
