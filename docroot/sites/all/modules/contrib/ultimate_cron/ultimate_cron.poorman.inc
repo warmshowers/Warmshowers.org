@@ -76,6 +76,9 @@ function ultimate_cron_poorman_capable() {
   elseif (basename($_SERVER['PHP_SELF']) == 'cron.php') {
     $capable = FALSE;
   }
+  elseif (isset($_GET['q']) && preg_match('!^system/files/!', $_GET['q'])) {
+    $capable = FALSE;
+  }
   else {
     $capable = TRUE;
   }
@@ -158,9 +161,9 @@ function ultimate_cron_exit($dest = NULL) {
  * Postponable poormans cron launching.
  *
  * @param UltimateCronLauncher $launcher
- *   The Ultimate Cron launcher to use for poormans cron
+ *   The Ultimate Cron launcher to use for poormans cron.
  * @param int $postpone
- *   The number of times to postpone via register_shutdown_function
+ *   The number of times to postpone via register_shutdown_function.
  */
 function _ultimate_cron_launch_poorman($launcher, $postpone = 0) {
   if ($postpone > 0) {
@@ -222,7 +225,7 @@ function ultimate_cron_poorman_trigger() {
     'absolute' => TRUE,
   ) + $url_options;
 
-  $plugin = _ultimate_cron_plugin_load('settings', 'poorman');
+  $plugin = _ultimate_cron_plugin_require('settings', 'poorman');
   $settings = $plugin->getDefaultSettings();
 
   $http_options = array(

@@ -167,6 +167,10 @@ function uc_cart_links_process($cart_actions) {
         if (empty($messages)) {
           $data = explode("\n", variable_get('uc_cart_links_messages', ''));
           foreach ($data as $message) {
+            // Skip blank lines.
+            if (preg_match('/^\s*$/', $message)) {
+               continue;
+            }
             list($mkey, $mdata) = explode('|', $message, 2);
             $messages[trim($mkey)] = trim($mdata);
           }

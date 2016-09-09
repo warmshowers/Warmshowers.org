@@ -29,7 +29,7 @@ function ultimate_cron_drush_command() {
     'options' => array(
       'module' => 'Comma separated list of modules to show jobs from',
       'enabled' => 'Show enabled jobs',
-      'disabled' => 'Show enabled jobs',
+      'disabled' => 'Show disabled jobs',
       'behind' => 'Show jobs that are behind schedule',
       'status' => 'Comma separated list of statuses to show jobs from',
       'extended' => 'Show extended information',

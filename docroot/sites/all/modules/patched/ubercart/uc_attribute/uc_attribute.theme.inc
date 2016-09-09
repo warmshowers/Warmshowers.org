@@ -13,6 +13,9 @@
  *   - option: The option name.
  *   - price: The price total or adjustment, if any.
  *
+ * @return string
+ *   The HTML output.
+ *
  * @see _uc_attribute_alter_form()
  * @ingroup themeable
  */

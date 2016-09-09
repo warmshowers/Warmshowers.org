@@ -1096,7 +1096,7 @@ function theme_uc_shipping_shipment_print($variables) {
           file_exists($package->label_image->uri)) {
         // TODO: Find a way to store these magic numbers specifically for UPS.
         list($width, $height) = array(672, 392);
-        $output .= '<br class="page-break" />' . "\n";;
+        $output .= '<br class="page-break" />' . "\n";
         $output .= theme('image', array(
           'path' => $package->label_image->uri,
           'attributes' => array('width' => $width, 'height' => $height),

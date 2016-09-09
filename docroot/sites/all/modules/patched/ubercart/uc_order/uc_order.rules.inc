@@ -255,6 +255,56 @@ function uc_order_rules_condition_info() {
     ),
   );
 
+  $conditions['uc_order_condition_total'] = array(
+    'label' => t("Check an order's total"),
+    'group' => t('Order'),
+    'base' => 'uc_order_condition_total',
+    'parameter' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+      'op' => array(
+        'type' => 'text',
+        'label' => t('Operator'),
+        'description' => t('The comparison operator.'),
+        'default value' => '==',
+        'options list' => 'uc_order_condition_value_operator_options',
+        'restriction' => 'input',
+      ),
+      'value' => array(
+        'type' => 'decimal',
+        'label' => t('Data value'),
+        'description' => t('The value to compare the data with.'),
+      ),
+    ),
+  );
+
+  $conditions['uc_order_condition_subtotal'] = array(
+    'label' => t("Check an order's subtotal"),
+    'group' => t('Order'),
+    'base' => 'uc_order_condition_subtotal',
+    'parameter' => array(
+      'order' => array(
+        'type' => 'uc_order',
+        'label' => t('Order'),
+      ),
+      'op' => array(
+        'type' => 'text',
+        'label' => t('Operator'),
+        'description' => t('The comparison operator.'),
+        'default value' => '==',
+        'options list' => 'uc_order_condition_value_operator_options',
+        'restriction' => 'input',
+      ),
+      'value' => array(
+        'type' => 'decimal',
+        'label' => t('Data value'),
+        'description' => t('The value to compare the data with.'),
+      ),
+    ),
+  );
+
   return $conditions;
 }
 
@@ -548,18 +598,7 @@ function uc_order_condition_count_products($order, $products, $count, $op) {
       }
     }
   }
-  switch ($op) {
-    case 'less':
-      return $total < $count;
-    case 'less_equal':
-      return $total <= $count;
-    case 'equal':
-      return $total == $count;
-    case 'greater_equal':
-      return $total >= $count;
-    case 'greater':
-      return $total > $count;
-  }
+  return uc_order_condition_value_operator_comparison($total, $op, $count);
 }
 
 /**
@@ -608,18 +647,7 @@ function uc_order_condition_products_weight($order, $products, $weight_units, $w
       }
     }
   }
-  switch ($op) {
-    case 'less':
-      return $total < $weight_value;
-    case 'less_equal':
-      return $total <= $weight_value;
-    case 'equal':
-      return $total == $weight_value;
-    case 'greater_equal':
-      return $total >= $weight_value;
-    case 'greater':
-      return $total > $weight_value;
-  }
+  return uc_order_condition_value_operator_comparison($total, $op, $weight_value);
 }
 
 /**
@@ -811,4 +839,84 @@ function uc_order_action_email_invoice_view_options() {
     'admin-mail' => t('Show all of the above plus the help text, email text, and store footer.'),
     'checkout-mail' => t('Show all of the above plus the "thank you" message.'),
   );
+}
+
+/**
+ * Value comparison.
+ *
+ * @param float $source
+ *   The source value.
+ * @param string $op
+ *   The comparison operator.
+ * @param float $target
+ *   The target value.
+ *
+ * @return bool
+ *   Whether the comparison meets the specified conditions.
+ *
+ * @see uc_order_condition_value_operator_options
+ */
+function uc_order_condition_value_operator_comparison($source, $op, $target) {
+  switch ($op) {
+    case 'less':
+      return $source < $target;
+
+    case 'less_equal':
+      return $source <= $target;
+
+    case 'equal':
+      return $source == $target;
+
+    case 'greater_equal':
+      return $source >= $target;
+
+    case 'greater':
+      return $source > $target;
+  }
+}
+
+/**
+ * Compare order total.
+ *
+ * @param object $order
+ *   The order to check.
+ * @param string $op
+ *   The comparison operator.
+ * @param float $value
+ *   The target value.
+ *
+ * @return bool
+ *   Whether the order total meets the specified condition.
+ *
+ * @see uc_order_condition_value_operator_options
+ */
+function uc_order_condition_total($order, $op, $value) {
+  return uc_order_condition_value_operator_comparison($order->order_total, $op, $value);
+}
+
+/**
+ * Compare order subtotal.
+ *
+ * @param object $order
+ *   The order to check.
+ * @param string $op
+ *   The comparison operator.
+ * @param float $value
+ *   The target value.
+ *
+ * @return bool
+ *   Whether the order subtotal meets the specified condition.
+ *
+ * @see uc_order_condition_value_operator_options
+ */
+function uc_order_condition_subtotal($order, $op, $value) {
+  if (is_array($order->line_items)) {
+    foreach ($order->line_items as $line_item) {
+      if ($line_item['type'] == 'subtotal') {
+        $subtotal = $line_item['amount'];
+        return uc_order_condition_value_operator_comparison($subtotal, $op, $value);
+      }
+    }
+  }
+  return FALSE;
 }

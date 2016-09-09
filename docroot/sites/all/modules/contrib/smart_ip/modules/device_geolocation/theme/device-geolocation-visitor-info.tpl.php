@@ -35,14 +35,14 @@
         <?php
           if ($item == 'source') {
             switch ($value) {
-              case DEVICE_GEOLOCATION_MAXMIND:
-                $value = 'Geocoded Maxmind coordinates';
+              case DEVICE_GEOLOCATION_SMART_IP:
+                $value = 'Geocoded Smart IP coordinates';
                 break;
               case DEVICE_GEOLOCATION_W3C:
                 $value = 'Geocoded W3C coordinates';
                 break;
               default:
-                $value = 'Maxmind geolocation';
+                $value = 'Smart IP geolocation';
                 break;
             }
           }

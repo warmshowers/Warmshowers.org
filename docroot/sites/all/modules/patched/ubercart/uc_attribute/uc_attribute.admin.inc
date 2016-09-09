@@ -95,6 +95,7 @@ function uc_attribute_form($form, &$form_state, $attribute = NULL) {
     '#title' => t('Label'),
     '#description' => t("Enter a label that customers will see instead of the attribute name. Use &lt;none&gt; if you don't want a title to appear at all."),
     '#default_value' => $label,
+    '#maxlength' => 255,
   );
   $form['description'] = array(
     '#type' => 'textfield',
@@ -146,7 +147,14 @@ function uc_attribute_form_submit($form, &$form_state) {
   }
   else {
     drupal_write_record('uc_attributes', $form_state['values']);
-    $form_state['redirect'] = 'admin/store/products/attributes/' . $form_state['values']['aid'] . '/options';
+    if ($form_state['values']['display'] == 0) {
+      // No options needed/allowed for Textfield display type.
+      $form_state['redirect'] = 'admin/store/products/attributes';
+    }
+    else {
+      // All other display types we redirect to add options.
+      $form_state['redirect'] = 'admin/store/products/attributes/' . $form_state['values']['aid'] . '/options';
+    }
   }
 }
 
@@ -584,6 +592,7 @@ function uc_object_attributes_form($form, &$form_state, $object, $type, $view = 
             '#title_display' => 'invisible',
             '#default_value' => empty($attribute->label) ? $attribute->name : $attribute->label,
             '#size' => 20,
+            '#maxlength' => 255,
           ),
           'option' => array(
             '#markup' => $option ? (check_plain($option->name) . ' (' . theme('uc_price', array('price' => $option->price)) . ')' ) : t('n/a'),

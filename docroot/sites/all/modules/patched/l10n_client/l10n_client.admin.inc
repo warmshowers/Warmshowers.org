@@ -26,8 +26,8 @@ function l10n_client_settings_form() {
   $form['l10n_client_server'] = array(
     '#title'         => t('Address of localization server to use'),
     '#type'          => 'textfield',
-    '#description'   => t('Each translation submission will also be submitted to this server. We suggest you enter <a href="@localize">http://localize.drupal.org</a> to share with the greater Drupal community. Make sure you set up an API-key in the user account settings for each user that will participate in the translations.', array('@localize' => 'http://localize.drupal.org')),
-    '#default_value' => variable_get('l10n_client_server', 'http://localize.drupal.org'),
+    '#description'   => t('Each translation submission will also be submitted to this server. We suggest you enter <a href="@localize">https://localize.drupal.org/</a> to share with the greater Drupal community. Make sure you set up an API-key in the user account settings for each user that will participate in the translations.', array('@localize' => 'https://localize.drupal.org/')),
+    '#default_value' => variable_get('l10n_client_server', 'https://localize.drupal.org/'),
   );
   return system_settings_form($form);
 }
@@ -56,7 +56,7 @@ function l10n_client_settings_form_validate($form, &$form_state) {
       }
     }
     else {
-      form_set_error('l10n_client_server', t('You should provide a server address, such as http://localize.drupal.org'));
+      form_set_error('l10n_client_server', t('You should provide a server address, such as https://localize.drupal.org/'));
     }
   }
 }

@@ -1,7 +1,7 @@
 (function ($) {
   Drupal.behaviors.deviceGeolocationAutoDetect = {
     attach: function (context, settings) {
-      var geolocation_source = 1; // Default it to Maxmind
+      var geolocation_source = 1; // Default it to Smart IP
       if (!settings.device_geolocation.ask_geolocate) {
         // Don't ask user for geolocation. Duration of frequency checking is set.
         return;
@@ -25,11 +25,11 @@
           geolocation_source = 2; // W3C
           geocoder_send_address(position.coords.latitude, position.coords.longitude);
         }, function() {
-          // Smart IP (Maxmind) fallback
+          // Smart IP fallback
           geocoder_send_address(latitude, longitude);
         });
       }
-      // Smart IP (Maxmind) fallback or using debug mode coordinates
+      // Smart IP fallback or using debug mode coordinates
       else {
         geocoder_send_address(latitude, longitude);
       }

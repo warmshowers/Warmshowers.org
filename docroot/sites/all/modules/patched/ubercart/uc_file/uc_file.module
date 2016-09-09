@@ -453,7 +453,7 @@ function uc_file_uc_add_to_cart($nid, $qty, $data) {
             '%download_limit' => $file_user['download_limit'] ? $file_user['download_limit'] : t('unlimited'),
             '%address_limit'  => $file_user['address_limit' ] ? $file_user['address_limit' ] : t('unlimited'),
             '%expiration'     => $file_user['expiration'    ] ? format_date($file_user['expiration'], 'small') : t('never'),
-          )));
+          )), 'warning');
       }
       else {
         return array(array(
@@ -528,11 +528,14 @@ function uc_file_uc_store_status() {
 }
 
 /**
- * Product feature delete function.
+ * Deletes all file data associated with a given product feature.
+ *
+ * @param $pfid
+ *   An Ubercart product feature ID.
  */
-function uc_file_feature_delete($feature) {
+function uc_file_feature_delete($pfid) {
   db_delete('uc_file_products')
-    ->condition('pfid', $feature['pfid'])
+    ->condition('pfid', $pfid)
     ->execute();
 }
 
@@ -545,11 +548,17 @@ function uc_file_feature_delete($feature) {
  */
 function uc_file_feature_form($form, &$form_state, $node, $feature) {
   if (!is_dir(variable_get('uc_file_base_dir', NULL))) {
-    drupal_set_message(t('A file directory needs to be configured in <a href="@url">product settings</a> under the file download settings tab before a file can be selected.', array('@url' => url('admin/store/settings/products'))), 'error');
+    drupal_set_message(t('A file directory needs to be configured in <a href="@url">product settings</a> under the file download settings tab before a file can be selected.', array('@url' => url('admin/store/settings/products'))), 'warning');
 
     unset($form['buttons']);
     return $form;
   }
+
+  // Rescan the file directory to populate {uc_files} with the current list
+  // because files uploaded via any method other than the Upload button
+  // (e.g. by FTP) won'b be in {uc_files} yet.
+
+  uc_file_refresh();
 
   if (!db_query_range('SELECT 1 FROM {uc_files}', 0, 1)->fetchField()) {
     $form['file']['file_message'] = array(
@@ -562,9 +571,6 @@ function uc_file_feature_form($form, &$form_state, $node, $feature) {
     unset($form['buttons']);
     return $form;
   }
-
-  // Make sure we have an up-to-date list for the autocompletion.
-  uc_file_refresh();
 
   // Grab all the models on this product.
   $models = uc_product_get_models($node->nid);
@@ -790,7 +796,7 @@ function uc_file_feature_form_submit($form, &$form_state) {
     $description .= t('<strong>Directory:</strong> !dir<br />', array('!dir' => $file_product['filename']));
   }
   else {
-    $description .= t('<strong>File:</strong> !file<br />', array('!file' => basename($file_product['filename'])));;
+    $description .= t('<strong>File:</strong> !file<br />', array('!file' => basename($file_product['filename'])));
   }
   $description .= $file_product['shippable'] ? t('<strong>Shippable:</strong> Yes') : t('<strong>Shippable:</strong> No');
 
@@ -1238,12 +1244,12 @@ function uc_file_remove_by_id($fid, $recur) {
           $remove_fields = TRUE;
         }
         else {
-          drupal_set_message(t('The directory %dir could not be deleted.', array('%dir' => $filename)));
+          drupal_set_message(t('The directory %dir could not be deleted.', array('%dir' => $filename)), 'warning');
           $result = FALSE;
         }
       }
       else {
-        drupal_set_message(t('The directory %dir could not be deleted because it is not empty.', array('%dir' => $filename)));
+        drupal_set_message(t('The directory %dir could not be deleted because it is not empty.', array('%dir' => $filename)), 'warning');
         $result = FALSE;
       }
     }
@@ -1254,7 +1260,7 @@ function uc_file_remove_by_id($fid, $recur) {
         drupal_set_message(t('The file %dir was deleted.', array('%dir' => $filename)));
       }
       else {
-        drupal_set_message(t('The file %dir could not be deleted.', array('%dir' => $filename)));
+        drupal_set_message(t('The file %dir could not be deleted.', array('%dir' => $filename)), 'error');
         $result = FALSE;
       }
     }

@@ -597,8 +597,11 @@ function uc_product_load($nodes) {
  * @param $data
  *   Optional data to add to the product before invoking the alter hooks.
  *
- * @return
+ * @return object
  *   An variant of the product, altered based on the provided data.
+ *
+ * @throws \Exception
+ *   If the caller tries to create a variant of a variant.
  */
 function _uc_product_get_variant($node, $data = FALSE) {
   if (!empty($node->variant)) {
@@ -905,7 +908,7 @@ function uc_product_form_node_type_form_alter(&$form, &$form_state) {
 
   $options = array('' => t('None'));
   foreach ($instances as $field_name => $instance) {
-    if (strpos($instance['widget']['type'], 'image') !== FALSE) {
+    if (strpos($instance['widget']['type'], 'image') !== FALSE || ($instance['widget']['type'] == 'media_generic' && isset($instance['widget']['settings']['allowed_types']) && $instance['widget']['settings']['allowed_types'] == array('image' => 'image'))) {
       $options[$field_name] = $instance['label'];
     }
   }
@@ -1005,7 +1008,6 @@ function uc_product_uc_product_types() {
  * @see uc_product_image_defaults()
  */
 function uc_product_uc_store_status() {
-  module_load_include('inc', 'content', 'includes/content.crud');
   // Check for filefields on products.
   if ($field = variable_get('uc_image_product', '')) {
     $instances = field_info_instances('node', 'product');
@@ -1223,6 +1225,12 @@ function uc_product_add_to_cart_form($form, &$form_state, $node) {
     ),
   );
 
+  // Ajax forms may have no form state when triggered from a cached page, so
+  // ensure the variant is available for form alter functions to use.
+  if (!empty($form_state['rebuild']) && empty($form_state['storage']['variant'])) {
+    $form_state['storage']['variant'] = uc_product_load_variant($form_state['values']['nid'], module_invoke_all('uc_add_to_cart_data', $form_state['values']));
+  }
+
   $form['node'] = array(
     '#type' => 'value',
     '#value' => isset($form_state['storage']['variant']) ? $form_state['storage']['variant'] : $node,
@@ -1428,7 +1436,10 @@ function uc_product_get_image_widget() {
     // Find widget preference, if any.
     $widget_name = variable_get('uc_product_image_widget', NULL);
 
-    if ($widget_name != NULL) {
+    if ($widget_name == 'none') {
+      // Don't use any image widgets.
+    }
+    elseif ($widget_name != NULL) {
       // Widget to use has been set in admin menu.
       $image_widget = $image_widgets[$widget_name];
     }
@@ -1669,7 +1680,7 @@ function uc_product_feature_delete($pfid) {
   // Call the delete function for this product feature if it exists.
   $func = uc_product_feature_data($feature['fid'], 'delete');
   if (function_exists($func)) {
-    $func($feature);
+    $func($pfid);
   }
   db_delete('uc_product_features')
     ->condition('pfid', $pfid)

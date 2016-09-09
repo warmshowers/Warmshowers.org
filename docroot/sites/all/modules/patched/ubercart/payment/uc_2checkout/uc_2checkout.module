@@ -31,6 +31,11 @@ function uc_2checkout_menu() {
     'type' => MENU_CALLBACK,
     'file' => 'uc_2checkout.pages.inc',
   );
+  $items['cart/2checkout/notification'] = array(
+    'page callback' => 'uc_2checkout_process_notification',
+    'access callback' => TRUE,
+    'file' => 'uc_2checkout.pages.inc',
+  );
 
   return $items;
 }
@@ -143,6 +148,15 @@ function uc_payment_method_2checkout($op, &$order, $form = NULL, &$form_state = 
         ),
         '#default_value' => variable_get('uc_2checkout_language', 'en'),
       );
+      $form['uc_2checkout_currency_code'] = array(
+        '#type' => 'select',
+        '#title' => t('Currency for the sale'),
+        '#options' => array(
+          '' => t('Auto detected by 2CO'),
+          'USD', 'EUR', 'ARS', 'AUD', 'BRL', 'GBP', 'CAD', 'DKK', 'HKD', 'INR', 'ILS', 'JPY', 'LTL', 'MYR', 'MXN', 'NZD', 'NOK', 'PHP', 'RON', 'RUB', 'SGD', 'ZAR', 'SEK', 'CHF', 'TRY', 'AED'
+        ),
+        '#default_value' => variable_get('uc_2checkout_currency_code', ''),
+      );
       $form['uc_2checkout_check'] = array(
         '#type' => 'checkbox',
         '#title' => t('Allow customers to choose to pay by credit card or online check.'),
@@ -154,14 +168,20 @@ function uc_payment_method_2checkout($op, &$order, $form = NULL, &$form_state = 
         '#default_value' => variable_get('uc_2checkout_method_title', t('Credit card on a secure server:')),
       );
       $form['uc_2checkout_checkout_type'] = array(
-        '#type' => 'select',
-        '#title' => t('2Checkout.com checkout type'),
-        '#description' => t('Single page checkout only works for stores selling intangible products using credit card payments.'),
+        '#type' => 'radios',
+        '#title' => t('Checkout type'),
         '#options' => array(
-          'multi' => t('Multi-page checkout'),
-          'single' => t('Single page checkout'),
+          'dynamic' => t('Dynamic checkout (user is redirected to 2CO)'),
+          'direct' => t('Direct checkout (payment page opens in iframe popup)'),
         ),
-        '#default_value' => variable_get('uc_2checkout_checkout_type', 'multi'),
+        '#default_value' => variable_get('uc_2checkout_checkout_type', 'dynamic'),
+      );
+      $form['uc_2checkout_notification_url'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Instant notification settings URL'),
+        '#description' => t('Pass this URL to the <a href="@help_url">instant notification settings</a> parameter in your 2Checkout account. This way, any refunds or failed fraud reviews will automatically cancel the Ubercart order.', array('@help_url' => 'https://www.2checkout.com/static/va/documentation/INS/index.html')),
+        '#default_value' => url('cart/2checkout/notification', array('absolute' => TRUE)),
+        '#attributes' => array('readonly' => 'readonly'),
       );
       return $form;
   }
@@ -178,14 +198,7 @@ function uc_2checkout_form($form, &$form_state, $order) {
 
   $data = array(
     'sid' => variable_get('uc_2checkout_sid', ''),
-    'total' => uc_currency_format($order->order_total, FALSE, FALSE, '.'),
-    'cart_order_id' => $order->order_id,
-    'demo' => variable_get('uc_2checkout_demo', TRUE) ? 'Y' : 'N',
-    'fixed' => 'Y',
-    'lang' => variable_get('uc_2checkout_language', 'en'),
-    'x_receipt_link_url' => url('cart/2checkout/complete/' . uc_cart_get_id(), array('absolute' => TRUE)),
-    'merchant_order_id' => $order->order_id,
-    'pay_method' => isset($_SESSION['pay_method']) ? $_SESSION['pay_method'] : 'CC',
+    'mode' => '2CO',
     'card_holder_name' => drupal_substr($order->billing_first_name . ' ' . $order->billing_last_name, 0, 128),
     'street_address' => drupal_substr($order->billing_street1, 0, 64),
     'street_address2' => drupal_substr($order->billing_street2, 0, 64),
@@ -195,19 +208,34 @@ function uc_2checkout_form($form, &$form_state, $order) {
     'country' => $country[0]['country_iso_code_3'],
     'email' => drupal_substr($order->primary_email, 0, 64),
     'phone' => drupal_substr($order->billing_phone, 0, 16),
-    'id_type' => 1,
+    'purchase_step' => 'payment-method',
+
+    'demo' => variable_get('uc_2checkout_demo', TRUE) ? 'Y' : 'N',
+    'lang' => variable_get('uc_2checkout_language', 'en'),
+    'merchant_order_id' => $order->order_id,
+    'pay_method' => 'CC',
+    'x_receipt_link_url' => url('cart/2checkout/complete/' . uc_cart_get_id(), array('absolute' => TRUE)),
+
+    'total' => uc_currency_format($order->order_total, FALSE, FALSE, '.'),
+    'cart_order_id' => $order->order_id,
   );
+
+  if ($currency_code = variable_get('uc_2checkout_currency_code', '')) {
+    $data['currency_code'] = $currency_code;
+  }
 
   $i = 0;
   foreach ($order->products as $product) {
     $i++;
-    $data['c_prod_' . $i] = $product->model . ',' . $product->qty;
-    $data['c_name_' . $i] = $product->title;
-    $data['c_description_' . $i] = '';
-    $data['c_price_' . $i] = uc_currency_format($product->price, FALSE, FALSE, '.');
+    $data['li_' . $i .  '_name'] = $product->title;
+    $data['li_' . $i .  '_price'] = uc_currency_format($product->price, FALSE, FALSE, '.');
   }
 
-  $form['#action'] = _uc_2checkout_post_url(variable_get('uc_2checkout_checkout_type', 'multi'));
+  if (variable_get('uc_2checkout_checkout_type', 'dynamic') == 'direct') {
+    $form['#suffix'] = '<script src="https://www.2checkout.com/static/checkout/javascript/direct.min.js"></script>';
+  }
+
+  $form['#action'] = variable_get('uc_2checkout_server_url', 'https://www.2checkout.com/checkout/purchase');
 
   foreach ($data as $name => $value) {
     $form[$name] = array('#type' => 'hidden', '#value' => $value);
@@ -220,17 +248,4 @@ function uc_2checkout_form($form, &$form_state, $order) {
   );
 
   return $form;
-}
-
-/**
- * Helper function to obtain 2Checkout URL for a transaction.
- */
-function _uc_2checkout_post_url($type) {
-  switch ($type) {
-    case 'single':
-      return 'https://www.2checkout.com/checkout/spurchase';
-    case 'multi':
-    default:
-      return 'https://www.2checkout.com/2co/buyer/purchase';
-  }
 }

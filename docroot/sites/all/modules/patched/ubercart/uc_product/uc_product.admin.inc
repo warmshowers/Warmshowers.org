@@ -67,7 +67,7 @@ function uc_product_settings_form($form, &$form_state) {
   }
   else {
     // If we have widgets installed, add option to not use any of them
-    $options['none'] = "Don't use any image widgets.";
+    $options['none'] = t("Don't use any image widgets.");
   }
 
   $form['product']['uc_product_image_widget'] = array(

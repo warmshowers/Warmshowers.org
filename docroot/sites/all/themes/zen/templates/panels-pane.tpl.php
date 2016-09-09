@@ -8,12 +8,14 @@
  */
 ?>
 <?php print $pane_prefix; ?>
-<div class="<?php print $classes; ?>" <?php print $id; ?>>
+<div class="<?php print $classes; ?>" <?php print $id; ?> <?php print $attributes; ?>>
   <?php print $admin_links; ?>
 
   <?php print render($title_prefix); ?>
   <?php if ($title): ?>
-    <h2<?php print $title_attributes; ?>><?php print $title; ?></h2>
+    <<?php print $title_heading; ?><?php print $title_attributes; ?>>
+      <?php print $title; ?>
+    </<?php print $title_heading; ?>>
   <?php endif; ?>
   <?php print render($title_suffix); ?>
 

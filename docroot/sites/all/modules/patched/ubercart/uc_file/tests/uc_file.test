@@ -1,0 +1,116 @@
+<?php
+
+/**
+ * @file
+ * File download product feature tests.
+ */
+
+/**
+ * Tests the file download purchase functionality.
+ */
+class UbercartFileTestCase extends UbercartTestHelper {
+
+  public static function getInfo() {
+    return array(
+      'name' => 'File downloads',
+      'description' => 'Ensures that the purchase of file downloads functions correctly.',
+      'group' => 'Ubercart',
+    );
+  }
+
+  /**
+   * Overrides DrupalWebTestCase::setUp().
+   */
+  public function setUp($modules = array(), $permissions = array()) {
+    $modules = array('uc_payment', 'uc_payment_pack', 'uc_file');
+    $permissions = array();
+    parent::setUp($modules, $permissions);
+
+    // Need admin permissions in order to change file download settings.
+    $this->drupalLogin($this->adminUser);
+
+    // Set up directory for files to live in.
+    $this->configureDownloadDirectory();
+  }
+
+  function testFilePurchaseCheckout() {
+    // Add file download feature to the test product.
+    $filename = $this->uploadTestFile();
+    $this->drupalLogin($this->adminUser);
+    $this->drupalPost('node/' . $this->product->nid . '/edit/features', array('feature' => 'file'), t('Add'));
+    $edit = array(
+      'uc_file_model' => '',
+      'uc_file_filename' => $filename,
+    );
+    $this->drupalPost(NULL, $edit, t('Save feature'));
+
+    // Check out with the test product.
+    $this->drupalPost('node/' . $this->product->nid, array(), t('Add to cart'));
+    $order = $this->checkout();
+    uc_payment_enter($order->order_id, 'other', $order->order_total);
+
+    // Test that the file was granted.
+    $this->drupalGet('user/' . $order->uid . '/purchased-files');
+    $this->assertText($filename, 'File found in list of purchased files.');
+
+    // Test that the email is correct.
+    $mail = $this->findMail('/File Downloads for Order# ' . preg_quote($order->order_id) . '/');
+
+    // Delete the user.
+    user_delete($order->uid);
+
+    // Run cron to ensure deleted users are handled correctly.
+    $this->drupalLogout();
+    $this->cronRun();
+  }
+
+  /**
+   * Helper function to configure Credit Card payment method settings.
+   */
+  protected function configureDownloadDirectory() {
+    // Create directory for downloads, make it readable and writeable.
+    // Putting this under sites/default/files because SimpleTest needs to be
+    // able to create the directory - this is NOT where you'd put the downloads
+    // directory on a live site.  On a live site, it should be outside the web root.
+    drupal_mkdir('sites/default/files/file-downloads', 0755);
+
+    $this->drupalPost(
+      'admin/store/settings/products',
+      array(
+        'uc_file_base_dir' => 'sites/default/files/file-downloads',
+      ),
+      t('Save configuration')
+    );
+
+    $this->assertFieldByName(
+      'uc_file_base_dir',
+      'sites/default/files/file-downloads',
+      'Download file path has been set.'
+    );
+  }
+
+
+  /**
+   * Helper function to upload test file for downloading.
+   */
+  protected function uploadTestFile() {
+    $filename = 'README.txt';
+    // Use the Ubercart README.txt because we know it will always be there
+    // and we know in advance how big it is.
+    copy(drupal_get_path('module', 'uc_file') . '/../' . $filename,
+         'sites/default/files/file-downloads/README.txt'
+    );
+    return $filename;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function tearDown() {
+    // Cleanup file download directory after test.
+    drupal_unlink('sites/default/files/file-downloads/README.txt');
+    drupal_rmdir('sites/default/files/file-downloads');
+    parent::tearDown();
+  }
+
+}

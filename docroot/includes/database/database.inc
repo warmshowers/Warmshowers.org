@@ -656,7 +656,7 @@ abstract class DatabaseConnection extends PDO {
    * @return DatabaseStatementInterface
    *   This method will return one of: the executed statement, the number of
    *   rows affected by the query (not the number matched), or the generated
-   *   insert IT of the last query, depending on the value of
+   *   insert ID of the last query, depending on the value of
    *   $options['return']. Typically that value will be set by default or a
    *   query builder and should not be set by a user. If there is an error,
    *   this method will return NULL and may throw an exception if
@@ -1313,6 +1313,39 @@ abstract class DatabaseConnection extends PDO {
    *   also larger than the $existing_id if one was passed in.
    */
   abstract public function nextId($existing_id = 0);
+
+  /**
+   * Checks whether utf8mb4 support is configurable in settings.php.
+   *
+   * @return bool
+   */
+  public function utf8mb4IsConfigurable() {
+    // Since 4 byte UTF-8 is not supported by default, there is nothing to
+    // configure.
+    return FALSE;
+  }
+
+  /**
+   * Checks whether utf8mb4 support is currently active.
+   *
+   * @return bool
+   */
+  public function utf8mb4IsActive() {
+    // Since 4 byte UTF-8 is not supported by default, there is nothing to
+    // activate.
+    return FALSE;
+  }
+
+  /**
+   * Checks whether utf8mb4 support is available on the current database system.
+   *
+   * @return bool
+   */
+  public function utf8mb4IsSupported() {
+    // By default we assume that the database backend may not support 4 byte
+    // UTF-8.
+    return FALSE;
+  }
 }
 
 /**

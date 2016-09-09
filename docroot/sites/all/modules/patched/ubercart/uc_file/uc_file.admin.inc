@@ -409,7 +409,7 @@ function uc_file_admin_files_form_action_submit($form, &$form_state) {
         drupal_set_message(t('The selected file(s) have been deleted.'));
       }
       else {
-        drupal_set_message(t('One or more files could not be deleted.'));
+        drupal_set_message(t('One or more files could not be deleted.'), 'warning');
       }
 
       break;
@@ -440,11 +440,11 @@ function uc_file_admin_files_form_action_submit($form, &$form_state) {
           drupal_set_message(t('The file %file has been uploaded to %dir', array('%file' => $file_object->filename, '%dir' => $dir)));
         }
         else {
-          drupal_set_message(t('An error occurred while copying the file to %dir', array('%dir' => $dir)));
+          drupal_set_message(t('An error occurred while copying the file to %dir', array('%dir' => $dir)), 'error');
         }
       }
       else {
-        drupal_set_message(t('Can not move file to %dir', array('%dir' => $dir)));
+        drupal_set_message(t('Can not move file to %dir', array('%dir' => $dir)), 'error');
       }
 
       break;

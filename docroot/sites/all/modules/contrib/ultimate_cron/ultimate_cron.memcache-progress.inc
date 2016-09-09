@@ -4,6 +4,9 @@
  * Pseudo namespace for progress functions.
  */
 
+/**
+ * Class for using memcache as storage for progress.
+ */
 class UltimateCronProgressMemcache {
   public $name;
   public $progressUpdated = 0;
@@ -94,4 +97,5 @@ class UltimateCronProgressMemcache {
     }
     return FALSE;
   }
+
 }

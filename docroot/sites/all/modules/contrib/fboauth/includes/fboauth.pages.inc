@@ -19,6 +19,13 @@ function fboauth_settings_form($form, &$form_state) {
     '#description' => t('To use Facebook connect, a Facebook Application must be created. Set up your app in <a href="http://www.facebook.com/developers/apps.php">my apps</a> on Facebook.') . ' ' . t('Enter your App ID here.'),
     '#default_value' => variable_get('fboauth_id', ''),
   );
+  $form['fboauth_apiversion'] = array(
+    '#type' => 'select',
+    '#title' => t('API Version'),
+    '#options' => drupal_map_assoc(array('v2.3', 'v2.4', 'v2.5')),
+    '#description' => t('To use Facebook connect, a Facebook Application must be created. Set up your app in <a href="http://www.facebook.com/developers/apps.php">my apps</a> on Facebook.') . ' ' . t('Enter your App API version here. If your version is prior to 2.3 select v2.3 here.'),
+    '#default_value' => variable_get('fboauth_apiversion', 'v2.3'),
+  );
   $form['fboauth_secret'] = array(
     '#type' => 'textfield',
     '#title' => t('App Secret'),
@@ -26,6 +33,31 @@ function fboauth_settings_form($form, &$form_state) {
     '#maxlengh' => 50,
     '#description' => t('To use Facebook connect, a Facebook Application must be created. Set up your app in <a href="http://www.facebook.com/developers/apps.php">my apps</a> on Facebook.') . ' ' . t('Enter your App Secret here.'),
     '#default_value' => variable_get('fboauth_secret', ''),
+  );
+  $form['fboauth_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Capture Debug Information'),
+    '#default_value' => variable_get('fboauth_debug', ''),
+    '#description' => t('When checked, if Database Logging is enabled, it will store the raw user object returned by Facebook. You can see it under <em>admin/reports/dblog</em>. Uncheck for production sites.'),
+  );
+
+  $form['fboauth_popup'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use a popup window for Facebook authentication dialog'),
+    '#description' => t('This may provide a better user experience when logging into Facebook, but may also be blocked by browser popup blocker plugins.'),
+    '#default_value' => variable_get('fboauth_popup', 1),
+  );
+
+  $form['fboauth_always_load_js'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Always load the popup window javascript file'),
+    '#description' => t('This will load the popup window javascript file on every page load rather than only when the block is loaded. This is mainly for when you want to implement the Facebook button code manually.'),
+    '#default_value' => variable_get('fboauth_always_load_js', 0),
+    '#states' => array(
+      'invisible' => array(
+        ':input[name="fboauth_popup"]' => array('checked' => FALSE),
+      ),
+    ),
   );
 
   $form['fboauth_anon_connect'] = array(
@@ -134,6 +166,15 @@ function fboauth_settings_form_validate($form, &$form_state) {
   // Remove trailing spaces from keys.
   $form_state['values']['fboauth_id'] = trim($form_state['values']['fboauth_id']);
   $form_state['values']['fboauth_secret'] = trim($form_state['values']['fboauth_secret']);
+  variable_set('fboauth_popup', $form_state['values']['fboauth_popup']);
+
+  // Set fboauth_always_load_js to be FALSE if fboauth_always_load_js has been
+  // turned off as well.
+  $load_js = $form_state['values']['fboauth_always_load_js'];
+  if (!$form_state['values']['fboauth_popup']) {
+    $load_js = 0;
+  }
+  variable_set('fboauth_always_load_js', $load_js);
 
   // Do some basic data input validation.
   if (!is_numeric($form_state['values']['fboauth_id']) || strlen($form_state['values']['fboauth_id']) > 20) {
@@ -149,7 +190,9 @@ function fboauth_settings_form_validate($form, &$form_state) {
  */
 function fboauth_settings_form_submit($form, &$form_state) {
   variable_set('fboauth_id', $form_state['values']['fboauth_id']);
+  variable_set('fboauth_apiversion', $form_state['values']['fboauth_apiversion']);
   variable_set('fboauth_secret', $form_state['values']['fboauth_secret']);
+  variable_set('fboauth_debug', $form_state['values']['fboauth_debug']);
 
   variable_set('fboauth_anon_connect', $form_state['values']['fboauth_anon_connect']);
 

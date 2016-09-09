@@ -104,6 +104,34 @@ function smart_ip_views_bridge_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
+ * Implements hook_build_proximity_index().
+ */
+function smart_ip_views_bridge_build_proximity_index($node) {
+  $index = array();
+  foreach (openlayers_proximity_get_wkt_fields($node) as $name => $field) {
+    $item = $node->{$name}['und'][0];
+    if (!module_invoke($field['module'], 'field_is_empty', $item, $field)) {
+      foreach (module_implements('parse_wkt') as $module) {
+        if (!empty($item['geom'])) {
+          $parsed = module_invoke($module, 'parse_wkt', $item['geom']);
+          if (!empty($parsed)) {
+            $index += $parsed;
+          }
+          else {
+            $index[] = array($item['lat'], $item['lon']);
+          }
+        }
+        else {
+          $index[] = array($item['lat'], $item['lon']);
+        }
+      }
+      drupal_alter('parse_wkt', $index, $field);
+    }
+  }
+  return $index;
+}
+
+/**
  * Implements hook_views_api().
  * Views Integration Hook
  */
@@ -112,4 +140,43 @@ function smart_ip_views_bridge_views_api() {
     'api' => 3.0,
     'path' => drupal_get_path('module', 'smart_ip_views_bridge') . '/views',
   );
+}
+
+/**
+ * Form field description showing Smart IP tokens
+ */
+function smart_ip_views_bridge_form_fields_description() {
+  return '<p><strong>' . t('Smart IP tokens:') . '</strong><br />' .
+    'smart_ip][location][country<br />' .
+    'smart_ip][location][country_code<br />' .
+    'smart_ip][location][region<br />' .
+    'smart_ip][location][region_code<br />' .
+    'smart_ip][location][city<br />' .
+    'smart_ip][location][zip</p><p>' .
+    t('Multiple Smart IP tokens should be separated with comma then space ", ". Example:'). '<br />
+    smart_ip][location][country, smart_ip][location][region, smart_ip][location][city</p>';
+}
+
+/**
+ * Substitute token to Smart IP value
+ */
+function smart_ip_views_bridge_substitute_token_value(&$view_filter_item, $token) {
+  $output = array();
+  $mutlti_smart_ip_tokens = explode(', ', $token);
+  foreach ($mutlti_smart_ip_tokens as $token) {
+    $smart_ip_index = explode('][', $token);
+    $smart_ip_index_count = count($smart_ip_index);
+    if ($smart_ip_index_count == 1) {
+      $smart_ip_index = explode('.', $token);
+      $smart_ip_index_count = count($smart_ip_index);
+    }
+    $smart_ip_session = smart_ip_session_get($smart_ip_index[0]);
+    if ($smart_ip_index_count == 3 && isset($smart_ip_session[$smart_ip_index[1]][$smart_ip_index[2]])) {
+      $output[] = $smart_ip_session[$smart_ip_index[1]][$smart_ip_index[2]];
+    }
+  }
+  if (!empty($output)) {
+    $view_filter_item = implode(', ', $output);
+  }
+  return $view_filter_item;
 }

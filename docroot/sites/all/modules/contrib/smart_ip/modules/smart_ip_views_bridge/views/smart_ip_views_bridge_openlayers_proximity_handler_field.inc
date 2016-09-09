@@ -7,6 +7,7 @@ class smart_ip_views_bridge_openlayers_proximity_handler_field extends openlayer
    */
   function options_form(&$form, &$form_state) {
     parent::options_form($form, $form_state);
+
     if ($handlers = $this->view->display_handler->get_handlers('filter')) {
       $options = array();
       foreach ($handlers as $name => $handler) {

@@ -17,13 +17,16 @@ function smart_ip_views_bridge_views_query_alter(&$view, &$query) {
           $condition_value = $condition['value'];
           if (is_array($condition_value)) {
             foreach ($condition_value as $value) {
-              $smart_ip_index = explode('][', $value);
-              $smart_ip_index_count = count($smart_ip_index);
+              $smart_ip_index_count = 0;
+              if (!is_array($value)) {
+                $smart_ip_index = explode('][', $value);
+                $smart_ip_index_count = count($smart_ip_index);
+              }
               if ($smart_ip_index_count == 1) {
                 $smart_ip_index = explode('.', $value);
                 $smart_ip_index_count = count($smart_ip_index);
               }
-              if ($smart_ip_index_count == 3 && isset($_SESSION[$smart_ip_index[0]][$smart_ip_index[1]][$smart_ip_index[2]])) {
+              elseif ($smart_ip_index_count == 3 && isset($_SESSION[$smart_ip_index[0]][$smart_ip_index[1]][$smart_ip_index[2]])) {
                 $values[] = $_SESSION[$smart_ip_index[0]][$smart_ip_index[1]][$smart_ip_index[2]];
               }
             }
@@ -115,31 +118,33 @@ function smart_ip_views_bridge_views_data() {
       'click sortable' => FALSE,
     ),
   );
-  $data['smartip']['distance'] = array(
-    'title' => t('Openlayers proximity distance'),
-    'help' => t('Distance from a give point.'),
-    'sort' => array(
-      'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_sort',
-    ),
-    'field' => array(
-      'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_field',
-      'click sortable' => TRUE,
-    ),
-  );
-  $data['smartip']['flat'] = array(
-    'title' => t('Openlayers proximity square'),
-    'help' => t('Gives locations contained within a square derived by a simple latitude/longitude comparison.'),
-    'filter' => array(
-      'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_filter_square',
-    ),
-  );
-  $data['smartip']['circle'] = array(
-    'title' => t('Openlayers proximity great-circle'),
-    'help' => t('Uses the Great-circle distance formula to return locations within a circular area.'),
-    'filter' => array(
-      'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_filter_circle',
-    ),
-  );
+  if (module_exists('openlayers_proximity')) {
+    $data['smartip']['distance'] = array(
+      'title' => t('Openlayers proximity distance'),
+      'help' => t('Distance from a give point.'),
+      'sort' => array(
+        'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_sort',
+      ),
+      'field' => array(
+        'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_field',
+        'click sortable' => TRUE,
+      ),
+    );
+    $data['smartip']['flat'] = array(
+      'title' => t('Openlayers proximity square'),
+      'help' => t('Gives locations contained within a square derived by a simple latitude/longitude comparison.'),
+      'filter' => array(
+        'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_filter_square',
+      ),
+    );
+    $data['smartip']['circle'] = array(
+      'title' => t('Openlayers proximity great-circle'),
+      'help' => t('Uses the Great-circle distance formula to return locations within a circular area.'),
+      'filter' => array(
+        'handler' => 'smart_ip_views_bridge_openlayers_proximity_handler_filter_circle',
+      ),
+    );
+  }
   
   return $data;
 }

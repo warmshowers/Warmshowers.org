@@ -69,7 +69,7 @@ function fivestar_microdata_suggestions() {
 function fivestar_permission() {
   return array(
     'rate content' => array(
-      'title' => t('rate content'),
+      'title' => t('Use Fivestar to rate content'),
     ),
   );
 }
@@ -350,19 +350,18 @@ function fivestar_fivestar_access($entity_type, $id, $tag, $uid) {
  * suggestion by ChristianAdamski in issue 1289832-3.
  */
 function fivestar_form_comment_form_alter(&$form, &$form_state, $form_id) {
-  $is_fivestar = FALSE;
+  $fivestar_field_keys = array();
   if (isset($form['comment_output_below'])) {
     foreach($form['comment_output_below'] as $key => $value) {
-      if (is_array($value) && !empty($value['#field_type'])) {
-        if ($value['#field_type'] =='fivestar') {
-          $is_fivestar = TRUE;
-          $fivestar_key = $key;
-        }
+      if (is_array($value) && !empty($value['#field_type']) && $value['#field_type'] == 'fivestar') {
+        $fivestar_field_keys[] = $key;
       }
     }
   }
-  if ($is_fivestar) {
-    unset($form['comment_output_below'][$fivestar_key]);
+  if ($fivestar_field_keys) {
+    foreach ($fivestar_field_keys as $key) {
+      unset($form['comment_output_below'][$key]);
+    }
   }
 }
 
@@ -440,15 +439,35 @@ function fivestar_custom_widget($form, &$form_state, $values, $settings) {
 
   $form_state['settings'] = $settings;
 
+  // Define default settings.
+  $default_settings = array(
+    'allow_clear' => FALSE,
+    // Taken from installation file.
+    'allow_ownvote' => TRUE,
+    'allow_revote' => TRUE,
+    'autosubmit' => TRUE,
+    'description' => '',
+    'required' => FALSE,
+    'stars' => 5,
+    'tag' => 'vote',
+    'widget' => array(
+      'name' => 'default',
+      'css' => 'default',
+    ),
+  );
+
+  // Merge default settings.
+  $settings = $settings + $default_settings;
+
   $form['vote'] = array(
     '#type' => 'fivestar',
     '#stars' => $settings['stars'],
-    '#auto_submit' => isset($settings['autosubmit']) ? $settings['autosubmit'] : TRUE,
+    '#auto_submit' => $settings['autosubmit'],
     '#allow_clear' => $settings['allow_clear'],
     '#allow_revote' => $settings['allow_revote'],
     '#allow_ownvote' => $settings['allow_ownvote'],
-    '#required' => isset($settings['required']) ? $settings['required'] : FALSE,
-    '#widget' => isset($settings['widget']) ? $settings['widget'] : array('name' => 'default', 'css' => 'default'),
+    '#required' => $settings['required'],
+    '#widget' => $settings['widget'],
     '#values' => $values,
     '#settings' => $settings,
     '#description' => $settings['description'],
@@ -498,7 +517,8 @@ function fivestar_ajax_submit($form, $form_state) {
 
   // We need to process the 'fivestar' element with the new values.
   $form['vote']['#values'] = $values;
-  $new_element = fivestar_expand($form['vote']);
+  // Also need to pass on form_state and the complete form, just like form_builder() does.
+  $new_element = fivestar_expand($form['vote'], $form_state, $form_state['complete form']);
   // Update the description. Since it doesn't account of our cast vote above.
   // TODO: Look into all this, I honestly don't like it and it's a bit weird.
   $form['vote']['vote']['#description'] = isset($new_element['vote']['#description']) ? $new_element['vote']['#description'] : '';
@@ -549,7 +569,7 @@ function fivestar_element_info() {
 /**
  * Process callback for fivestar_element -- see fivestar_element()
  */
-function fivestar_expand($element) {
+function fivestar_expand($element, $form_state, $complete_form) {
   if (!_fivestar_allow_vote($element)){
     $element['#input'] = FALSE;
   }
@@ -562,10 +582,19 @@ function fivestar_expand($element) {
   $values = $element['#values'];
   $class[] = 'clearfix';
 
+  $title = 'it';
+  if (isset($element['#settings']['entity_id']) && isset($element['#settings']['entity_type'])) {
+    $entity_id = $element['#settings']['entity_id'];
+    $entity = entity_load($element['#settings']['entity_type'], array($entity_id));
+    $entity = $entity[$entity_id];
+    $title = $entity->title;
+  } elseif (isset($complete_form['#node'])) {
+    $title = $complete_form['#node']->title;
+  }
   $options = array('-' => t('Select rating'));
   for ($i = 1; $i <= $element['#stars']; $i++) {
     $this_value = ceil($i * 100/$element['#stars']);
-    $options[$this_value] = t('Give it @star/@count', array('@star' => $i, '@count' => $element['#stars']));
+    $options[$this_value] = t('Give @title @star/@count', array('@title' => $title, '@star' => $i, '@count' => $element['#stars']));
   }
   // Display clear button only if enabled.
   if ($element['#allow_clear'] == TRUE) {

@@ -29,7 +29,7 @@ function zen_no_wrapper_settings_form(&$display, $layout, $settings) {
   $form['layout_settings'] = array(
     '#type' => 'fieldset',
     '#title' => t('Layout settings'),
-    '#description' => t('Note: if this setting is used, a wrapper div will be added to accomodate the needed classes.'),
+    '#description' => t('Note: if this setting is used, a wrapper div will be added to accommodate the needed classes.'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
   );

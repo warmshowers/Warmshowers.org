@@ -157,12 +157,12 @@ function uc_country_formats_form($form, &$form_state) {
       '#tree' => TRUE,
     );
     foreach ($countries as $country) {
-      $form['countries'][$country->country_id] = array(
+      $form['countries']['country'][$country->country_id] = array(
         '#type' => 'fieldset',
         '#title' => check_plain(t($country->country_name)),
         '#group' => 'country',
       );
-      $form['countries'][$country->country_id]['address_format'] = array(
+      $form['countries']['country'][$country->country_id]['address_format'] = array(
         '#type' => 'textarea',
         '#title' => t('@country address format', array('@country' => t($country->country_name))),
         '#default_value' => variable_get('uc_address_format_' . $country->country_id, ''),
@@ -187,7 +187,7 @@ function uc_country_formats_form($form, &$form_state) {
  * @see uc_country_formats_form()
  */
 function uc_country_formats_form_submit($form, &$form_state) {
-  foreach ($form_state['values']['countries'] as $country_id => $data) {
+  foreach ($form_state['values']['countries']['country'] as $country_id => $data) {
     variable_set('uc_address_format_' . $country_id, $data['address_format']);
   }
   drupal_set_message(t('Country settings saved.'));
@@ -337,7 +337,7 @@ function uc_country_update($country_id, $version) {
   if ($func_base !== FALSE) {
     $func = $func_base . '_update';
     if (function_exists($func)) {
-      for ($i = $country->version; $i <= $version; $i++) {
+      for ($i = $country->version + 1; $i <= $version; $i++) {
         $func($i);
       }
     }

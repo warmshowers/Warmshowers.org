@@ -4,6 +4,9 @@
  * Pseudo namespace for progress functions.
  */
 
+/**
+ * Class for handling Ultimate Cron progress.
+ */
 class UltimateCronProgress {
   public $name;
   public $progressUpdated = 0;
@@ -107,4 +110,5 @@ class UltimateCronProgress {
     }
     return FALSE;
   }
+
 }

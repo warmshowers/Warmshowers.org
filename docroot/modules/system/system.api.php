@@ -113,21 +113,21 @@ function hook_hook_info_alter(&$hooks) {
  *     translation handlers. Array keys are the module names, array values
  *     can be any data structure the module uses to provide field translation.
  *     Any empty value disallows the module to appear as a translation handler.
- *   - entity keys: An array describing how the Field API can extract the
- *     information it needs from the objects of the type. Elements:
+ *   - entity keys: (optional) An array describing how the Field API can extract
+ *     the information it needs from the objects of the type. Elements:
  *     - id: The name of the property that contains the primary id of the
  *       entity. Every entity object passed to the Field API must have this
  *       property and its value must be numeric.
  *     - revision: The name of the property that contains the revision id of
  *       the entity. The Field API assumes that all revision ids are unique
  *       across all entities of a type. This entry can be omitted if the
- *       entities of this type are not versionable.
+ *       entities of this type are not versionable. Defaults to an empty string.
  *     - bundle: The name of the property that contains the bundle name for the
  *       entity. The bundle name defines which set of fields are attached to
  *       the entity (e.g. what nodes call "content type"). This entry can be
  *       omitted if this entity type exposes a single bundle (all entities have
  *       the same collection of fields). The name of this single bundle will be
- *       the same as the entity type.
+ *       the same as the entity type. Defaults to an empty string.
  *     - label: The name of the property that contains the entity label. For
  *       example, if the entity's label is located in $entity->subject, then
  *       'subject' should be specified here. If complex logic is required to
@@ -1797,6 +1797,8 @@ function hook_form_BASE_FORM_ID_alter(&$form, &$form_state, $form_id) {
  * the $form_id input matched your module's format for dynamically-generated
  * form IDs, and if so, act appropriately.
  *
+ * Third, forms defined in classes can be defined this way.
+ *
  * @param $form_id
  *   The unique string identifying the desired form.
  * @param $args
@@ -1807,19 +1809,22 @@ function hook_form_BASE_FORM_ID_alter(&$form, &$form_state, $form_id) {
  * @return
  *   An associative array whose keys define form_ids and whose values are an
  *   associative array defining the following keys:
- *   - callback: The name of the form builder function to invoke. This will be
- *     used for the base form ID, for example, to target a base form using
- *     hook_form_BASE_FORM_ID_alter().
+ *   - callback: The callable returning the form array. If it is the name of
+ *     the form builder function then this will be used for the base
+ *     form ID, for example, to target a base form using
+ *     hook_form_BASE_FORM_ID_alter(). Otherwise use the base_form_id key to
+ *     define the base form ID.
  *   - callback arguments: (optional) Additional arguments to pass to the
  *     function defined in 'callback', which are prepended to $args.
- *   - wrapper_callback: (optional) The name of a form builder function to
- *     invoke before the form builder defined in 'callback' is invoked. This
- *     wrapper callback may prepopulate the $form array with form elements,
- *     which will then be already contained in the $form that is passed on to
- *     the form builder defined in 'callback'. For example, a wrapper callback
- *     could setup wizard-alike form buttons that are the same for a variety of
- *     forms that belong to the wizard, which all share the same wrapper
- *     callback.
+ *   - base_form_id: The base form ID can be specified explicitly. This is
+ *     required when callback is not the name of a function.
+ *   - wrapper_callback: (optional) Any callable to invoke before the form
+ *     builder defined in 'callback' is invoked. This wrapper callback may
+ *     prepopulate the $form array with form elements, which will then be
+ *     already contained in the $form that is passed on to the form builder
+ *     defined in 'callback'. For example, a wrapper callback could setup
+ *     wizard-like form buttons that are the same for a variety of forms that
+ *     belong to the wizard, which all share the same wrapper callback.
  */
 function hook_forms($form_id, $args) {
   // Simply reroute the (non-existing) $form_id 'mymodule_first_form' to
@@ -1841,6 +1846,15 @@ function hook_forms($form_id, $args) {
   $forms['mymodule_wrapped_form'] = array(
     'callback' => 'mymodule_main_form',
     'wrapper_callback' => 'mymodule_main_form_wrapper',
+  );
+
+  // Build a form with a static class callback.
+  $forms['mymodule_class_generated_form'] = array(
+    // This will call: MyClass::generateMainForm().
+    'callback' => array('MyClass', 'generateMainForm'),
+    // The base_form_id is required when the callback is a static function in
+    // a class. This can also be used to keep newer code backwards compatible.
+    'base_form_id' => 'mymodule_main_form',
   );
 
   return $forms;
@@ -2632,6 +2646,8 @@ function hook_flush_caches() {
  * module_enable() for a detailed description of the order in which install and
  * enable hooks are invoked.
  *
+ * This hook should be implemented in a .module file, not in an .install file.
+ *
  * @param $modules
  *   An array of the modules that were installed.
  *
@@ -3173,7 +3189,9 @@ function hook_requirements($phase) {
  * creation and alteration of the supported database engines.
  *
  * See the Schema API Handbook at http://drupal.org/node/146843 for details on
- * schema definition structures.
+ * schema definition structures. Note that foreign key definitions are for
+ * documentation purposes only; foreign keys are not created in the database,
+ * nor are they enforced by Drupal.
  *
  * @return array
  *   A schema definition structure array. For each element of the
@@ -3225,6 +3243,8 @@ function hook_schema() {
       'nid_vid' => array('nid', 'vid'),
       'vid'     => array('vid'),
     ),
+    // For documentation purposes only; foreign keys are not created in the
+    // database.
     'foreign keys' => array(
       'node_revision' => array(
         'table' => 'node_revision',

@@ -1,4 +1,4 @@
-﻿<?php 
+<?php 
 
 class smart_ip_views_bridge_openlayers_proximity_handler_sort extends openlayers_proximity_handler_sort {
   

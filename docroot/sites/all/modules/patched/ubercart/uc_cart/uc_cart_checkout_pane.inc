@@ -555,5 +555,5 @@ function theme_uc_checkout_pane_cart_review($variables) {
     );
   }
 
-  return theme('table', array('rows' => $rows, 'attributes' => array('class' => array('cart-review'))));;
+  return theme('table', array('rows' => $rows, 'attributes' => array('class' => array('cart-review'))));
 }

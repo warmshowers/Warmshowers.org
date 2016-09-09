@@ -8,6 +8,7 @@
 /**
  * Defines a form to configure the Cart Links settings.
  *
+ * @see uc_cart_links_settings_form_validate()
  * @ingroup forms
  */
 function uc_cart_links_settings_form($form, &$form_state) {
@@ -48,6 +49,32 @@ function uc_cart_links_settings_form($form, &$form_state) {
   );
 
   return system_settings_form($form);
+}
+
+/**
+ * Validation handler for uc_cart_links_settings form.
+ *
+ * @see uc_cart_links_settings_form()
+ */
+function uc_cart_links_settings_form_validate($form, &$form_state) {
+  $messages = (string) $form_state['values']['uc_cart_links_messages'];
+  if (!empty($messages)) {
+    $data = explode("\n", $messages);
+    foreach ($data as $message) {
+      // Ignore blank lines.
+      if (preg_match('/^\s*$/', $message)) {
+         continue;
+      }
+      // Check for properly formattted messages.
+      // Each line must be one or more numeric characters for the key followed
+      // by "|" followed by one or more characters for the value. Both the key
+      // and the value may have leading and/or trailing whitespace.
+      else if (!preg_match('/^\s*[1-9][0-9]*\s*\|\s*\S+.*$/', $message)) {
+        form_set_error('uc_cart_links_messages', t('Invalid Cart Links message "%message". Messages must be a numeric key followed by "|" followed by a value.', array('%message' => $message)));
+        break;
+      }
+    }
+  }
 }
 
 /**

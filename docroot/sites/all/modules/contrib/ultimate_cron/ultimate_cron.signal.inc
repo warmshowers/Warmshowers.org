@@ -4,6 +4,9 @@
  * File containing functions for Ultimate Cron signal handling.
  */
 
+/**
+ * Class for handling Ultimate Cron signals.
+ */
 class UltimateCronSignal {
   /**
    * Get a signal without claiming it.
@@ -107,4 +110,5 @@ class UltimateCronSignal {
       ->condition('job_name', $name)
       ->execute();
   }
+
 }

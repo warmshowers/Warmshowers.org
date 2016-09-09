@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Installation file for Ultimate Cron
+ * Installation file for Ultimate Cron.
  */
 
 /**
@@ -48,7 +48,7 @@ function ultimate_cron_schema() {
       'name' => array(
         'description' => 'Name',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'title' => array(
@@ -90,7 +90,7 @@ function ultimate_cron_schema() {
       'name' => array(
         'description' => 'Name',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'log_type' => array(
@@ -129,6 +129,7 @@ function ultimate_cron_schema() {
       'message' => array(
         'description' => 'Message',
         'type' => 'text',
+        'size' => 'big',
         'not null' => FALSE,
       ),
       'severity' => array(
@@ -147,6 +148,11 @@ function ultimate_cron_schema() {
         'end_time',
         'log_type',
       ),
+      'last_log' => array(
+        'name',
+        'log_type',
+        'start_time',
+      ),
     ),
   );
 
@@ -162,7 +168,7 @@ function ultimate_cron_schema() {
       'name' => array(
         'description' => 'Name',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'current' => array(
@@ -182,7 +188,10 @@ function ultimate_cron_schema() {
     ),
     'primary key' => array('lid'),
     'unique keys' => array(
-      'idx_name' => array('name', 'current'),
+      'idx_name' => array(
+        'name',
+        'current',
+      ),
     ),
   );
 
@@ -192,13 +201,13 @@ function ultimate_cron_schema() {
       'job_name' => array(
         'description' => 'Name of job',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'signal_name' => array(
         'description' => 'Name of signal',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'claimed' => array(
@@ -221,6 +230,19 @@ function ultimate_cron_schema() {
  * Implements hook_enable().
  */
 function ultimate_cron_enable() {
+  // If Drupal's poormanscron settings are manually disabled, we want to disable
+  // Ultimate Cron's poormanscron implementation when we enable the module.
+  $cron_safe_threshold = db_query("SELECT value FROM {variable} WHERE name = 'cron_safe_threshold'")->fetchField();
+  $cron_safe_threshold = $cron_safe_threshold ? unserialize($cron_safe_threshold) : 0;
+  if ($cron_safe_threshold === 0) {
+    $poorman_settings = array(
+      'launcher' => '',
+      'early_page_flush' => 1,
+      'user_agent' => 'Ultimate Cron',
+    );
+    variable_set('ultimate_cron_plugin_settings_poorman_settings', $poorman_settings);
+  }
+
   // Disable built-in poor mans cron.
   variable_set('cron_safe_threshold', 0);
 }
@@ -258,9 +280,20 @@ function ultimate_cron_requirements($phase) {
 
       // Check if any jobs are behind.
       $jobs_behind = 0;
-      $jobs = _ultimate_cron_job_load_all();
-      $class = _ultimate_cron_get_class('job');
-      $log_entries = $class::loadLatestLogEntries($jobs);
+      $jobs = array();
+      $log_entries = array();
+
+      try {
+        $jobs = _ultimate_cron_job_load_all();
+        $class = _ultimate_cron_get_class('job');
+        $log_entries = $class::loadLatestLogEntries($jobs);
+      }
+      catch (\RuntimeException $e) {
+        $response['severity'] = REQUIREMENT_ERROR;
+        $response['value'][] = $t('Error');
+        $response['description'][] = $t('Runtime exception: %message.', array('%message' => $e->getMessage()));
+        watchdog_exception('ultimate_cron', $e);
+      }
 
       foreach ($jobs as $job) {
         $job->log_entry = $log_entries[$job->name];
@@ -626,7 +659,7 @@ function ultimate_cron_update_7200() {
       'name' => array(
         'description' => 'Name',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'title' => array(
@@ -668,7 +701,7 @@ function ultimate_cron_update_7200() {
       'name' => array(
         'description' => 'Name',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'start_time' => array(
@@ -732,7 +765,7 @@ function ultimate_cron_update_7200() {
       'name' => array(
         'description' => 'Name',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'current' => array(
@@ -752,7 +785,10 @@ function ultimate_cron_update_7200() {
     ),
     'primary key' => array('lid'),
     'unique keys' => array(
-      'idx_name' => array('name', 'current'),
+      'idx_name' => array(
+        'name',
+        'current',
+      ),
     ),
   );
 
@@ -762,13 +798,13 @@ function ultimate_cron_update_7200() {
       'job_name' => array(
         'description' => 'Name of job',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'signal_name' => array(
         'description' => 'Name of signal',
         'type' => 'varchar',
-        'length' => 255,
+        'length' => 150,
         'not null' => TRUE,
       ),
       'claimed' => array(
@@ -900,27 +936,27 @@ function ultimate_cron_update_7200() {
   variable_set('ultimate_cron_plugin_launcher_default', 'background_process_legacy');
 
   // Migrate settings.
-  $bgpl = _ultimate_cron_plugin_load('launcher', 'background_process_legacy');
+  $bgpl = _ultimate_cron_plugin_require('launcher', 'background_process_legacy');
   $bgpl->settings['max_threads'] = variable_get('ultimate_cron_simultaneous_connections', 40) == 40 ? 2 : variable_get('ultimate_cron_simultaneous_connections', 40);
   $bgpl->settings['service_group'] = variable_get('ultimate_cron_service_group', 'default');
   $bgpl->setSettings();
 
-  $crontab = _ultimate_cron_plugin_load('scheduler', 'crontab');
+  $crontab = _ultimate_cron_plugin_require('scheduler', 'crontab');
   $crontab->settings['rules'] = array(variable_get('ultimate_cron_rule', '*/10+@ * * * *'));
   $crontab->settings['catch_up'] = variable_get('ultimate_cron_catch_up', 86400);
   $crontab->setSettings();
 
-  $database = _ultimate_cron_plugin_load('logger', 'database');
+  $database = _ultimate_cron_plugin_require('logger', 'database');
   $database->settings['method'] = ULTIMATE_CRON_DATABASE_LOGGER_CLEANUP_METHOD_EXPIRE;
   $database->settings['expire'] = variable_get('ultimate_cron_cleanup_log', 86400 * 30);
   $database->setSettings();
 
-  $queue = _ultimate_cron_plugin_load('settings', 'queue');
+  $queue = _ultimate_cron_plugin_require('settings', 'queue');
   $queue->settings['lease_time'] = variable_get('ultimate_cron_queue_lease_time', 30);
   $queue->settings['empty_delay'] = variable_get('ultimate_cron_queue_polling_latency', 0);
   $queue->setSettings();
 
-  $poorman = _ultimate_cron_plugin_load('settings', 'poorman');
+  $poorman = _ultimate_cron_plugin_require('settings', 'poorman');
   $poorman->settings['launcher'] = variable_get('ultimate_cron_poorman', FALSE) ? 'background_process_legacy' : '';
   $poorman->setSettings();
 }
@@ -950,4 +986,114 @@ function ultimate_cron_update_7201() {
  */
 function ultimate_cron_update_7202() {
   db_create_table('cache_ultimate_cron', drupal_get_schema_unprocessed('system', 'cache'));
+}
+
+/**
+ * Fix index sizes.
+ */
+function ultimate_cron_update_7203() {
+  db_drop_index('ultimate_cron_log', 'idx_last');
+  db_add_index('ultimate_cron_log', 'idx_last', array(
+    'name',
+    'start_time',
+    'end_time',
+    'log_type',
+  ));
+  db_drop_unique_key('ultimate_cron_lock', 'idx_name');
+  db_add_unique_key('ultimate_cron_lock', 'idx_name', array(
+    'name',
+    'current',
+  ));
+  db_drop_primary_key('ultimate_cron_signal');
+  db_add_primary_key('ultimate_cron_signal', array(
+    'job_name',
+    'signal_name',
+  ));
+}
+
+/**
+ * Change {ultimate_cron_log} message schema to big text.
+ */
+function ultimate_cron_update_7204() {
+  db_change_field('ultimate_cron_log', 'message', 'message', array(
+    'description' => 'Message',
+    'type' => 'text',
+    'size' => 'big',
+    'not null' => FALSE,
+  ));
+}
+
+/**
+ * Fix column sizes to fix index sizes.
+ */
+function ultimate_cron_update_7205() {
+  db_change_field('ultimate_cron_job', 'name', 'name', array(
+    'description' => 'Name',
+    'type' => 'varchar',
+    'length' => 150,
+    'not null' => TRUE,
+  ));
+
+  db_change_field('ultimate_cron_log', 'name', 'name', array(
+    'description' => 'Name',
+    'type' => 'varchar',
+    'length' => 150,
+    'not null' => TRUE,
+  ));
+
+  db_change_field('ultimate_cron_lock', 'name', 'name', array(
+    'description' => 'Name',
+    'type' => 'varchar',
+    'length' => 150,
+    'not null' => TRUE,
+  ));
+
+  db_change_field('ultimate_cron_signal', 'job_name', 'job_name', array(
+    'description' => 'Name of job',
+    'type' => 'varchar',
+    'length' => 150,
+    'not null' => TRUE,
+  ));
+  db_change_field('ultimate_cron_signal', 'signal_name', 'signal_name', array(
+    'description' => 'Name of signal',
+    'type' => 'varchar',
+    'length' => 150,
+    'not null' => TRUE,
+  ));
+
+  db_drop_index('ultimate_cron_log', 'idx_last');
+  db_add_index('ultimate_cron_log', 'idx_last', array(
+    'name',
+    'start_time',
+    'end_time',
+    'log_type',
+  ));
+  db_drop_unique_key('ultimate_cron_lock', 'idx_name');
+  db_add_unique_key('ultimate_cron_lock', 'idx_name', array(
+    'name',
+    'current',
+  ));
+  db_drop_primary_key('ultimate_cron_signal');
+  db_add_primary_key('ultimate_cron_signal', array(
+    'job_name',
+    'signal_name',
+  ));
+}
+
+/**
+ * Improve {ultimate_cron_log} indexes.
+ */
+function ultimate_cron_update_7206() {
+  db_drop_index('ultimate_cron_log', 'idx_last');
+  db_add_index('ultimate_cron_log', 'idx_last', array(
+    'name',
+    'start_time',
+    'end_time',
+    'log_type',
+  ));
+  db_add_index('ultimate_cron_log', 'last_log', array(
+    'name',
+    'log_type',
+    'start_time',
+  ));
 }

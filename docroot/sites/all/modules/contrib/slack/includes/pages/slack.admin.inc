@@ -63,5 +63,50 @@ function slack_configure_form($form, &$form_state) {
       ),
     ),
   );
+  $form['slack_attachment_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Send message with attachment styling'),
+    '#description' => t('Attachments allow further styling of your messages.'),
+    '#default_value' => variable_get('slack_attachment_enabled'),
+  );
+
+  $attachment_state_toggle = array(
+    'visible' => array(
+      ':input[name="slack_attachment_enabled"]' => array(
+        'checked' => TRUE,
+      )
+    )
+  );
+  $form['slack_attachment_color'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default message color'),
+    '#description' => t('What color do you want to use for your slack messages by default?'),
+    '#default_value' => variable_get('slack_attachment_color'),
+    '#states' => $attachment_state_toggle,
+  );
+
+  $form['slack_attachment_pretext'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default pretext'),
+    '#description' => t('Set a pretext of your message to provide meta information..'),
+    '#default_value' => variable_get('slack_attachment_pretext'),
+    '#states' => $attachment_state_toggle,
+  );
+
+  $form['slack_attachment_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default message title'),
+    '#description' => t('What title do you want to use for your slack messages by default?'),
+    '#default_value' => variable_get('slack_attachment_title'),
+    '#states' => $attachment_state_toggle,
+  );
+
+  $form['slack_attachment_title_link'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default link for title'),
+    '#description' => t('Add a link to your message title.'),
+    '#default_value' => variable_get('slack_attachment_title_link'),
+    '#states' => $attachment_state_toggle,
+  );
   return system_settings_form($form);
 }

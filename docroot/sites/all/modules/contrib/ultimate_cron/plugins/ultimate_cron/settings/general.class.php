@@ -75,4 +75,5 @@ class UltimateCronGeneralSettings extends UltimateCronSettings {
       );
     }
   }
+
 }

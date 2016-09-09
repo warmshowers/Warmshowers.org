@@ -24,7 +24,7 @@ function ultimate_cron_plugin_form($form, &$form_state, $plugin_type) {
  * Settings form for plugins.
  */
 function ultimate_cron_plugin_settings($form, &$form_state, $plugin_type, $name) {
-  $plugin = _ultimate_cron_plugin_load($plugin_type, $name);
+  $plugin = _ultimate_cron_plugin_require($plugin_type, $name);
   $form['description'] = array(
     '#markup' => $plugin->description,
   );
@@ -73,7 +73,7 @@ function ultimate_cron_plugin_settings($form, &$form_state, $plugin_type, $name)
 function ultimate_cron_plugin_settings_validate($form, &$form_state) {
   $plugin_type = $form_state['values']['plugin_type'];
   $name = $form_state['values']['name'];
-  $plugin = _ultimate_cron_plugin_load($plugin_type, $name);
+  $plugin = _ultimate_cron_plugin_require($plugin_type, $name);
   $plugin->settingsFormValidate($form, $form_state);
 }
 
@@ -83,7 +83,7 @@ function ultimate_cron_plugin_settings_validate($form, &$form_state) {
 function ultimate_cron_plugin_settings_submit($form, &$form_state) {
   $plugin_type = $form_state['values']['plugin_type'];
   $name = $form_state['values']['name'];
-  $plugin = _ultimate_cron_plugin_load($plugin_type, $name);
+  $plugin = _ultimate_cron_plugin_require($plugin_type, $name);
   $plugin->settingsFormSubmit($form, $form_state);
 
   // Since this is a system_settings_form() we need to move the submitted data

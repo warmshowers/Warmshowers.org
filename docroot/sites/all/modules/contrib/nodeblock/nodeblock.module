@@ -33,7 +33,6 @@ function nodeblock_theme($existing, $type, $theme, $path) {
  * Utility function to tell whether a type is enabled as a node block.
  */
 function nodeblock_type_enabled($type) {
-  $type = field_extract_bundle('node', $type);
   return variable_get('nodeblock_' . $type, 0);
 }
 
@@ -41,7 +40,6 @@ function nodeblock_type_enabled($type) {
  * Utility function to retrieve default view mode.
  */
 function nodeblock_type_view_mode($type) {
-  $type = field_extract_bundle('node', $type);
   return variable_get('nodeblock_view_mode_' . $type, 'full');
 }
 
@@ -49,7 +47,6 @@ function nodeblock_type_view_mode($type) {
  * Utility function to retrieve default node link setting.
  */
 function nodeblock_type_node_link($type) {
-  $type = field_extract_bundle('node', $type);
   return variable_get('nodeblock_node_link_' . $type, 0);
 }
 
@@ -57,7 +54,6 @@ function nodeblock_type_node_link($type) {
  * Utility function to retrieve default comment link setting.
  */
 function nodeblock_type_comment_link($type) {
-  $type = field_extract_bundle('node', $type);
   return variable_get('nodeblock_comment_link_' . $type, 0);
 }
 
@@ -65,13 +61,26 @@ function nodeblock_type_comment_link($type) {
  * Utility function to retrieve default node overrides setting.
  */
 function nodeblock_type_node_overrides($type) {
-  $type = field_extract_bundle('node', $type);
   $overrides = variable_get('nodeblock_node_overrides_' . $type, array());
 
   if (count($overrides) > 0) {
     return array_combine($overrides, $overrides);
   }
   return array();
+}
+
+/**
+ * Utility function to retrieve default block availability setting.
+ */
+function nodeblock_type_node_override_block_available($type) {
+  return variable_get('nodeblock_node_override_block_available_' . $type, 'disabled');
+}
+
+/**
+ * Utility function to retrieve default block title field setting.
+ */
+function nodeblock_type_node_override_block_title_field($type) {
+  return variable_get('nodeblock_node_override_block_title_field_' . $type, 'nodeblock');
 }
 
 /**
@@ -91,12 +100,21 @@ function _nodeblock_defaults($type) {
  * Implementation of hook_form_node_type_form_alter().
  */
 function nodeblock_form_node_type_form_alter(&$form, &$form_state) {
+  $node_type = field_extract_bundle('node', $form['#node_type']);
+
   // Get View Mode Options.
-  $view_modes = nodeblock_get_view_modes($form['#node_type']);
+  $view_modes = nodeblock_get_view_modes($node_type);
 
   $options = array(
     '0' => t('Hide'),
     '1' => t('Show'),
+  );
+
+  $states = array(
+    // Only show these fields when nodeblock is enabled.
+    'visible' => array(
+      ':input[name="nodeblock"]' => array('value' => 1),
+    ),
   );
   // Add group & form fields to node type form.
   $form['nodeblock_settings'] = array(
@@ -116,23 +134,25 @@ function nodeblock_form_node_type_form_alter(&$form, &$form_state) {
     'nodeblock' => array(
       '#type' => 'radios',
       '#title' => t('Available as block'),
-      '#default_value' => nodeblock_type_enabled($form['#node_type']),
+      '#default_value' => nodeblock_type_enabled($node_type),
       '#options' => array(0 => t('Disabled'), 1 => t('Enabled')),
       '#description' => t('Should these nodes be made available as blocks?'),
     ),
     'nodeblock_view_mode' => array(
       '#type' => 'select',
       '#title' => t('Default view mode'),
-      '#default_value' => nodeblock_type_view_mode($form['#node_type']),
+      '#default_value' => nodeblock_type_view_mode($node_type),
       '#options' => $view_modes,
       '#description' => t("Select a default View Mode for Node Blocks of this Content Type. 'Disabled' View Modes will show the default View Mode until enabled in the 'Custom Display Settings' fieldset on the 'Manage Display' tab."),
+      '#states' => $states,
     ),
     'nodeblock_node_link' => array(
       '#type' => 'select',
       '#title' => t('Default links display'),
-      '#default_value' => nodeblock_type_node_link($form['#node_type']),
+      '#default_value' => nodeblock_type_node_link($node_type),
       '#options' => $options,
       '#description' => t("Select the default Node('Read More') link display for Node Blocks of this Content Type."),
+      '#states' => $states,
     ),
   );
 
@@ -140,26 +160,83 @@ function nodeblock_form_node_type_form_alter(&$form, &$form_state) {
     $form['nodeblock_settings']['nodeblock_comment_link'] = array(
       '#type' => 'select',
       '#title' => t('Default comments display'),
-      '#default_value' => nodeblock_type_comment_link($form['#node_type']),
+      '#default_value' => nodeblock_type_comment_link($node_type),
       '#options' => $options,
       '#description' => t("Select the default Comment link display for Node Blocks of this Content Type."),
     );
   }
 
-  $form['nodeblock_settings']['nodeblock_node_overrides'] = array(
+  $form['nodeblock_settings']['overrides'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Overrides per node'),
+    '#description' => t('Allow users to override these values per node.'),
+    '#states' => $states,
+  );
+
+  $form['nodeblock_settings']['overrides']['nodeblock_node_overrides'] = array(
     '#type' => 'checkboxes',
     '#title' => t('Overrides per node'),
-    '#default_value' => nodeblock_type_node_overrides($form['#node_type']),
+    '#default_value' => nodeblock_type_node_overrides($node_type),
     '#options' => array(
       'nodeblock' => t('Available as block'),
       'view_mode' => t('View mode'),
       'block_title' => t('Block title'),
+      'block_title_in_fieldset' => t('Show the Block title field in the Node Block fieldset'),
       'machine_name' => t('Machine name'),
       'node_link' => t('Links display'),
       'comment_link' => t('Comments display'),
       'translation_fallback' => t('Translation fallback'),
     ),
-    '#description' => t("Allow users to override these values per node."),
+    'block_title_in_fieldset' => array(
+      '#states' => array(
+        'disabled' => array(
+          ':input[name="nodeblock_node_override_block_title_field"]' => array('value' => 'nodeblock'),
+        ),
+      ),
+    ),
+  );
+
+  $form['nodeblock_settings']['overrides']['nodeblock_node_override_block_available'] = array(
+    '#type' => 'select',
+    '#title' => t('Available as block'),
+    '#default_value' => nodeblock_type_node_override_block_available($node_type),
+    '#options' => array(
+      'enabled' => t('Default on'),
+      'disabled' => t('Default off'),
+    ),
+    '#description' => t("Allow users to override block availability."),
+    '#states' => array(
+      // Only show these fields when nodeblock override is enabled.
+      'visible' => array(
+        ':input[name="nodeblock_node_overrides[nodeblock]"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $block_title_fields = array(
+    'nodeblock' => t('Node Block provides a field'),
+  );
+
+  $fields = field_info_fields();
+  $field_instances = field_info_instances('node', $node_type);
+  foreach ($field_instances as $field_name => $field_instance) {
+    if ($fields[$field_name]['module'] == 'text' && $fields[$field_name]['type'] == 'text') {
+      $block_title_fields[$field_name] = t('Field: @field', array('@field' => $field_instance['label']));
+    }
+  }
+
+  $form['nodeblock_settings']['overrides']['nodeblock_node_override_block_title_field'] = array(
+    '#type' => 'select',
+    '#title' => t('Block title field'),
+    '#default_value' => nodeblock_type_node_override_block_title_field($node_type),
+    '#options' => $block_title_fields,
+    '#description' => t('Select a field for the block title or use the default Node Block field.'),
+    '#states' => array(
+      // Only show these fields when nodeblock override is enabled.
+      'visible' => array(
+        ':input[name="nodeblock_node_overrides[block_title]"]' => array('checked' => TRUE),
+      ),
+    ),
   );
 }
 
@@ -172,123 +249,162 @@ function nodeblock_form_node_form_alter(&$form, &$form_state) {
   if (nodeblock_type_enabled($node->type) && user_access('maintain nodeblock')) {
     $overrides = nodeblock_type_node_overrides($node->type);
 
-    if (count($overrides)) {
-      $form['nodeblock'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Node Block'),
-        '#tree' => TRUE,
-        '#group' => 'additional_settings',
-      );
+    $nodeblock = isset($node->nodeblock) ? $node->nodeblock : array();
 
-      if (isset($overrides['nodeblock'])) {
-        $form['nodeblock']['enabled'] = array(
-          '#type' => 'checkbox',
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['enabled'] : TRUE,
-          '#required' => FALSE,
-          '#title' => t('Create a block for this node'),
-          '#description' => t('Should a block be created for this node?'),
-        );
-      }
+    $form['nodeblock'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Node Block'),
+      '#tree' => TRUE,
+      '#group' => 'additional_settings',
+      '#access' => count($overrides),
+    );
+    $states = array(
+      // Only show these fields when nodeblock is enabled.
+      'visible' => array(
+        ':input[name="nodeblock[enabled]"]' => array('checked' => TRUE),
+      ),
+    );
 
-      if (isset($overrides['block_title'])) {
-        $form['nodeblock']['custom_block_title'] = array(
-          '#type' => 'checkbox',
-          '#default_value' => isset($node->nodeblock) && $node->nodeblock['block_title'] != $node->title,
-          '#required' => FALSE,
-          '#title' => t('Provide a block title'),
-          '#description' => t('Nodeblock builds a block title based on the node title. You can alter the block title here. On the block overviews the node title will be used, when displaying the node this block title will be used.'),
-        );
+    // Default value for enabled checkbox.
+    $default_enabled = empty($overrides['nodeblock']) || nodeblock_type_node_override_block_available($node->type) == 'enabled';
+    $form['nodeblock']['enabled'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => $nodeblock ? $nodeblock['enabled'] : $default_enabled,
+      '#required' => FALSE,
+      '#title' => t('Create a block for this node'),
+      '#description' => t('Should a block be created for this node?'),
+      '#access' => !empty($overrides['nodeblock']),
+    );
 
-        $form['nodeblock']['block_title'] = array(
-          '#title' => t('Provide a block title'),
-          '#type' => 'textfield',
-          '#maxlength' => 255,
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['block_title'] : '',
-          '#required' => FALSE,
-          '#states' => array(
-            'invisible' => array(
-              ':input[name="nodeblock[custom_block_title]"]' => array('checked' => FALSE),
-            ),
-          ),
-        );
-      }
+    $langcode = $node->language;
+    // Get langcode from entity translation.
+    if (module_exists('entity_translation')) {
+      $handler = entity_translation_get_handler('node', $node);
 
-      if (isset($overrides['machine_name'])) {
-        $form['nodeblock']['custom_machine_name'] = array(
-          '#type' => 'checkbox',
-          '#default_value' => isset($node->nodeblock) && $node->nodeblock['machine_name'] != $node->nid,
-          '#required' => FALSE,
-          '#title' => t('Provide a machine name'),
-          '#description' => t('Nodeblock builds a block delta based on the node id. When you want to put a Nodeblock in a context or a panel then it\'ll be saved with a node id. This might provide you with problems if you are using multiple environments (e.g. a staging and production server).'),
-        );
+      $form_langcode = $handler->getFormLanguage();
 
-        $form['nodeblock']['machine_name'] = array(
-          '#type' => 'machine_name',
-          '#maxlength' => 32,
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['machine_name'] : '',
-          '#required' => FALSE,
-          '#machine_name' => array(
-            'exists' => '_nodeblock_machine_name_exists',
-          ),
-          '#states' => array(
-            'invisible' => array(
-              ':input[name="nodeblock[custom_machine_name]"]' => array('checked' => FALSE),
-            ),
-          ),
-        );
-      }
-
-      if (isset($overrides['view_mode'])) {
-        $view_modes = array();
-        $view_modes['node_block_default'] = t('Default');
-        $view_modes += nodeblock_get_view_modes($node->type);
-
-        $form['nodeblock']['view_mode'] = array(
-          '#type' => 'select',
-          '#options' => $view_modes,
-          '#title' => t('View mode'),
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['view_mode'] : 'node_block_default',
-          '#group' => 'nodeblock',
-        );
-      }
-
-      $options = array(
-        'node_block_default' => t('Default'),
-        '0' => t('Hide'),
-        '1' => t('Show'),
-      );
-      if (isset($overrides['node_link'])) {
-        $form['nodeblock']['node_link'] = array(
-          '#type' => 'select',
-          '#options' => $options,
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['node_link'] : 'node_block_default',
-          '#title' => t('Node Link Display'),
-          '#group' => 'nodeblock',
-        );
-      }
-
-      if (isset($overrides['node_link']) && module_exists('comment')) {
-        $form['nodeblock']['comment_link'] = array(
-          '#type' => 'select',
-          '#options' => $options,
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['comment_link'] : 'node_block_default',
-          '#title' => t('Node Comments Display'),
-          '#group' => 'nodeblock',
-        );
-      }
-
-      // Add translation fallback field for nodeblock and translation enabled source nodes only.
-      $translation_supported = module_exists('translation') && translation_supported_type($node->type) && empty($node->translation_source) && (empty($node->tnid) || $node->tnid == 0 || $node->tnid == $node->nid);
-      if(isset($overrides['translation_fallback']) && $translation_supported) {
-        $form['nodeblock']['translation_fallback'] = array(
-          '#type' => 'checkbox',
-          '#title' => t('Enable translation fallback?'),
-          '#description' => t('If checked, the source translation node will be used when a translation for the current language does not exist. If unchecked, the block will not be displayed if a matching translation does not exist.'),
-          '#default_value' => isset($node->nodeblock) ? $node->nodeblock['translation_fallback'] : '',
-        );
+      if (isset($nodeblock['custom_block_title'][$form_langcode])) {
+        $langcode = $form_langcode;
       }
     }
+
+    $form['nodeblock']['custom_block_title'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => $nodeblock && $nodeblock['custom_block_title'][$langcode],
+      '#required' => FALSE,
+      '#title' => t('Provide a block title'),
+      '#description' => t('Nodeblock builds a block title based on the node title. You can alter the block title here. On the block overviews the node title will be used, when displaying the node this block title will be used.'),
+      '#states' => $states,
+      '#access' => !empty($overrides['block_title']),
+    );
+
+    $block_title_field = nodeblock_type_node_override_block_title_field($node->type);
+    $form['nodeblock']['block_title'] = array(
+      '#title' => t('Provide a block title'),
+      '#type' => 'textfield',
+      '#maxlength' => 255,
+      '#default_value' => $nodeblock ? $nodeblock['block_title'] : '',
+      '#required' => FALSE,
+      '#access' => !empty($overrides['block_title']) && $block_title_field == 'nodeblock',
+      '#states' => array(
+        'invisible' => array(
+          ':input[name="nodeblock[custom_block_title]"]' => array('checked' => FALSE),
+        ),
+      ) + $states,
+    );
+    if (!empty($overrides['block_title']) && $block_title_field != 'nodeblock' && !empty($overrides['block_title_in_fieldset'])) {
+      $form['#pre_render'][] = 'nodeblock_node_form_pre_render';
+    }
+
+    $form['nodeblock']['custom_machine_name'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => $nodeblock && $nodeblock['custom_machine_name'],
+      '#required' => FALSE,
+      '#title' => t('Provide a machine name'),
+      '#description' => t('Nodeblock builds a block delta based on the node id. When you want to put a Nodeblock in a context or a panel then it\'ll be saved with a node id. This might provide you with problems if you are using multiple environments (e.g. a staging and production server).'),
+      '#states' => $states,
+      '#access' => !empty($overrides['machine_name']),
+    );
+
+    $form['nodeblock']['machine_name'] = array(
+      '#type' => 'machine_name',
+      '#maxlength' => 32,
+      '#default_value' => $nodeblock ? $nodeblock['machine_name'] : '',
+      '#required' => FALSE,
+      '#machine_name' => array(
+        'exists' => '_nodeblock_machine_name_exists',
+      ),
+      '#access' => !empty($overrides['machine_name']),
+      '#states' => array(
+        'invisible' => array(
+          ':input[name="nodeblock[custom_machine_name]"]' => array('checked' => FALSE),
+        ),
+      ) + $states,
+    );
+
+    $view_modes = array();
+    $view_modes['node_block_default'] = t('Default');
+    $view_modes += nodeblock_get_view_modes($node->type);
+
+    $form['nodeblock']['view_mode'] = array(
+      '#type' => 'select',
+      '#options' => $view_modes,
+      '#title' => t('View mode'),
+      '#default_value' => $nodeblock ? $nodeblock['view_mode'] : 'node_block_default',
+      '#group' => 'nodeblock',
+      '#states' => $states,
+      '#access' => !empty($overrides['view_mode'])
+    );
+
+    $options = array(
+      'node_block_default' => t('Default'),
+      '0' => t('Hide'),
+      '1' => t('Show'),
+    );
+    $form['nodeblock']['node_link'] = array(
+      '#type' => 'select',
+      '#options' => $options,
+      '#default_value' => $nodeblock ? $nodeblock['node_link'] : 'node_block_default',
+      '#title' => t('Node Link Display'),
+      '#group' => 'nodeblock',
+      '#states' => $states,
+      '#access' => !empty($overrides['node_link']),
+    );
+
+    $form['nodeblock']['comment_link'] = array(
+      '#type' => 'select',
+      '#options' => $options,
+      '#default_value' => $nodeblock ? $nodeblock['comment_link'] : 'node_block_default',
+      '#title' => t('Node Comments Display'),
+      '#group' => 'nodeblock',
+      '#states' => $states,
+      '#access' => !empty($overrides['node_link']) && module_exists('comment')
+    );
+
+    // Add translation fallback field for nodeblock and translation enabled source nodes only.
+    $translation_supported = module_exists('translation') && translation_supported_type($node->type) && empty($node->translation_source) && (empty($node->tnid) || $node->tnid == 0 || $node->tnid == $node->nid);
+    $form['nodeblock']['translation_fallback'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable translation fallback?'),
+      '#description' => t('If checked, the source translation node will be used when a translation for the current language does not exist. If unchecked, the block will not be displayed if a matching translation does not exist.'),
+      '#default_value' => $nodeblock ? $nodeblock['translation_fallback'] : '',
+      '#states' => $states,
+      '#access' => !empty($overrides['translation_fallback']) && $translation_supported,
+    );
   }
+}
+
+/**
+ * Pre render function to move the nodeblock title field to the right fieldgroup.
+ */
+function nodeblock_node_form_pre_render($element) {
+  $field = nodeblock_type_node_override_block_title_field($element['#node']->type);
+  $element['nodeblock'][$field] = $element[$field];
+  $element['nodeblock'][$field]['#weight'] = $element['nodeblock']['block_title']['#weight'];
+  $element['nodeblock'][$field]['#states'] = $element['nodeblock']['block_title']['#states'];
+  $element['nodeblock']['#sorted'] = FALSE;
+  unset($element[$field]);
+  return $element;
 }
 
 /**
@@ -355,10 +471,49 @@ function nodeblock_node_load($nodes) {
 
     foreach ($nodes as $nid => $node) {
       if (nodeblock_type_enabled($node->type) && isset($nodeblocks[$node->nid])) {
-        $nodes[$nid]->nodeblock = (array)$nodeblocks[$node->nid];
+        $node->nodeblock = (array)$nodeblocks[$node->nid];
+        // These values are not stored in the db.
+        $node->nodeblock['custom_machine_name'] = $node->nodeblock['machine_name'] != $node->nid;
+        foreach (_nodeblock_node_languages($node) as $langcode) {
+          $real_block_title = _nodeblock_block_title($node, $langcode);
+          $nodes[$nid]->nodeblock['real_block_title'][$langcode] = $real_block_title;
+          $nodes[$nid]->nodeblock['custom_block_title'][$langcode] = $real_block_title != _nodeblock_node_title($node, $langcode);
+        }
       }
     }
   }
+}
+
+/**
+ * Helper function to get the Node Block block title.
+ */
+function _nodeblock_block_title($node, $langcode) {
+  $block_title = '';
+  if (nodeblock_type_enabled($node->type) && isset($node->nodeblock)) {
+    $block_title_field = nodeblock_type_node_override_block_title_field($node->type);
+    if ($block_title_field == 'nodeblock') {
+      $block_title = isset($node->nodeblock['block_title']) ? $node->nodeblock['block_title'] : _nodeblock_node_title($node, $langcode);
+    }
+    else {
+      $values = isset($node->{$block_title_field}[$langcode][0]['value']) ? $node->{$block_title_field}[$langcode][0]['value'] : NULL;
+      $block_title = $values ?: ($node->nid ? '' : _nodeblock_node_title($node, $langcode));
+    }
+  }
+  return $block_title;
+}
+
+/**
+ * Helper function to get the Node title.
+ */
+function _nodeblock_node_title($node, $langcode) {
+  // Support for the title module.
+  if (module_exists('title')) {
+    drupal_static_reset('title_entity_sync');
+    $node_clone = clone $node;
+    title_entity_sync('node', $node_clone, $langcode);
+    return $node_clone->title;
+  }
+  return $node->title;
 }
 
 /**
@@ -370,27 +525,14 @@ function nodeblock_node_update($node) {
     return;
   }
 
+  // Check if this node already has a nodeblock entry.
   $nid = db_select('nodeblock', 'nb')
     ->condition('nid', $node->nid)
     ->fields('nb', array('nid'))
     ->execute()->fetchColumn();
 
   if ($nid) {
-    $values = _nodeblock_defaults($node->type);
-    $overrides = nodeblock_type_node_overrides($node->type);
-
-    if (isset($node->nodeblock)) {
-      $values = $node->nodeblock + $values;
-    }
-
-    if ((isset($values['custom_machine_name']) && !$values['custom_machine_name']) || !isset($values['machine_name']) || !isset($overrides['machine_name'])) {
-      $values['machine_name'] = $node->nid;
-    }
-    unset($values['custom_machine_name']);
-    if ((isset($values['custom_block_title']) && !$values['custom_block_title']) || !isset($values['block_title']) || !isset($overrides['block_title'])) {
-      $values['block_title'] = $node->title;
-    }
-    unset($values['custom_block_title']);
+    $values = _nodeblock_prepare_nodeblock($node);
 
     // Update machine name.
     $old_machine_name = db_select('nodeblock', 'nb')
@@ -418,26 +560,68 @@ function nodeblock_node_update($node) {
 }
 
 /**
+ * Helper function to prepare the nodeblock data before insert/update.
+ */
+function _nodeblock_prepare_nodeblock($node) {
+  $overrides = nodeblock_type_node_overrides($node->type);
+  $values = _nodeblock_defaults($node->type);
+
+  if (isset($node->nodeblock)) {
+    // Set the real nid from the node. This is needed to make sure that they
+    // match as they might be different when importing nodes e.g. via
+    // node_export from another server where the nodeblock node has a
+    // different nid. In this case, $node->nid already has been set to the
+    // correct target nid by node_export.
+    $node->nodeblock['nid'] = $node->nid;
+    $values = $node->nodeblock + $values;
+  }
+
+  // Custom machine name is not selected, machine name is not set user cannot override machine name.
+  if (empty($values['custom_machine_name']) || !isset($values['machine_name']) || !isset($overrides['machine_name'])) {
+    $values['machine_name'] = $node->nid;
+  }
+
+  // Node Block is used as block title field.
+  if (nodeblock_type_node_override_block_title_field($node->type) == 'nodeblock') {
+    // Custom block title is not selected or user cannot override block title.
+    if (empty($values['custom_block_title']) || !isset($overrides['block_title'])) {
+      $values['block_title'] = $node->title;
+    }
+  }
+
+  return array_intersect_key($values, array_flip(array('nid', 'enabled', 'machine_name', 'block_title', 'view_mode', 'node_link', 'comment_link', 'translation_fallback')));
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function nodeblock_node_presave($node) {
+  if (nodeblock_type_enabled($node->type) && isset($node->nodeblock)) {
+    $block_title_field = nodeblock_type_node_override_block_title_field($node->type);
+    $overrides = nodeblock_type_node_overrides($node->type);
+    $values = $node->nodeblock;
+
+    // Node Block is NOT used as block title field.
+    if ($block_title_field != 'nodeblock') {
+      foreach (_nodeblock_node_languages($node) as $langcode) {
+        // Custom block title is not selected or user cannot override block title.
+        if (empty($values['custom_block_title']) || !isset($overrides['block_title'])) {
+          // Fill block title field with the node title.
+          $node->{$block_title_field}[$langcode][0]['value'] = _nodeblock_node_title($node, $langcode);
+        }
+      }
+    }
+  }
+}
+
+/**
  * Implements hook_node_insert().
  */
 function nodeblock_node_insert($node) {
   if (nodeblock_type_enabled($node->type)) {
-    $values = _nodeblock_defaults($node->type);
-    if (isset($node->nodeblock)) {
-      $values = $node->nodeblock + $values;
-    }
-
-    if ((isset($values['custom_machine_name']) && !$values['custom_machine_name']) || !isset($values['machine_name']) || _nodeblock_machine_name_exists($values['machine_name'])) {
-      $values['machine_name'] = $node->nid;
-    }
-    unset($values['custom_machine_name']);
-
-    if ((isset($values['custom_block_title']) && !$values['custom_block_title']) || !isset($values['block_title'])) {
-      $values['block_title'] = $node->title;
-    }
-    unset($values['custom_block_title']);
-
+    $values = _nodeblock_prepare_nodeblock($node);
     $values['nid'] = $node->nid;
+    $values['translation_fallback'] = (int)$values['translation_fallback'];
 
     db_insert('nodeblock')
       ->fields($values)
@@ -481,7 +665,7 @@ function nodeblock_block_info() {
 
     // Deselect types that aren't nodeblock enabled
     foreach ($types as $key => $type) {
-      if(!nodeblock_type_enabled($type)){
+      if(!nodeblock_type_enabled($type->type)){
         unset($types[$key]);
       }
     }
@@ -489,7 +673,7 @@ function nodeblock_block_info() {
     if ($types) {
       // Fetch all nodes of the selected types, excluding translations.
       $request = db_select('node', 'n')
-        ->fields('n', array('title', 'nid'))
+        ->fields('n', array('title', 'nid', 'type'))
         ->condition('n.type', array_keys($types), 'IN')
         ->condition(db_or()->where('n.nid = n.tnid')->condition('n.tnid', 0));
 
@@ -499,12 +683,40 @@ function nodeblock_block_info() {
 
       $results = $request->execute();
       foreach ($results as $node) {
-        $blocks[$node->machine_name] = array('info' => $node->title, 'nid' => $node->nid);
+        // Check if someone different then the node module implements hook_node_grants or hook_node_access.
+        $no_node_access_hooks = count(module_implements('node_grants')) == 0 && count(module_implements('node_access')) == 1;
+        $blocks[$node->machine_name] = array(
+          'info' => t('(Nodeblock: @type): @title', array('@type' => node_type_get_name($node), '@title' => $node->title)),
+          'nid' => $node->nid,
+          'cache' => variable_get('nodeblock_dangerous_force_block_caching', $no_node_access_hooks) ? DRUPAL_CACHE_PER_ROLE : DRUPAL_NO_CACHE,
+        );
       }
     }
   }
 
   return $blocks;
+}
+
+/**
+ * Implements hook_ctools_block_info() from Ctools.
+ */
+function nodeblock_ctools_block_info($module, $delta, &$info) {
+  // Load map of all Nodeblock NIDs and their node types.
+  $map = &drupal_static(__FUNCTION__);
+
+  if (!isset($map)) {
+    $query = db_select('nodeblock', 'nodeblock');
+    $query->join('node', 'node', 'node.nid = nodeblock.nid');
+    $query->fields('node', array('nid', 'type'));
+    $query->condition('nodeblock.enabled', 1);
+    $map = $query->execute()->fetchAllKeyed();
+  }
+
+  // Set category to the content type's name.
+  if (isset($map[$delta])) {
+    $type = node_type_get_type($map[$delta]);
+    $info['category'] = $type->name;
+  }
 }
 
 /**
@@ -525,25 +737,26 @@ function nodeblock_load_nodeblock($machine_name) {
  * Implements hook_block_view().
  */
 function nodeblock_block_view($delta = '') {
+  global $language_content;
+
   if (!_nodeblock_table_exists()) {
     return;
   }
 
   $node = nodeblock_load_nodeblock($delta);
-  if (!node_access('view', $node) || !nodeblock_type_enabled($node->type) || !isset($node->nodeblock)) {
+  if (!$node) {
     return;
   }
 
   // If the node type is translatable, try to load the node with the appropriate
   // language from the translation set.
   if (module_exists('translation') && translation_supported_type($node->type)) {
-    global $language;
     $translations = translation_node_get_translations($node->tnid);
 
-    if (!empty($translations[$language->language])) {
-      $node = node_load($translations[$language->language]->nid);
+    if (!empty($translations[$language_content->language])) {
+      $node = node_load($translations[$language_content->language]->nid);
     }
-    elseif (!$node->nodeblock['translation_fallback'] && $node->language != $language->language && $node->language != LANGUAGE_NONE) {
+    elseif (!$node->nodeblock['translation_fallback'] && $node->language != $language_content->language && $node->language != LANGUAGE_NONE) {
       // If no translation was found, and not using the fallback option
       // return nothing, so the block doesn't display.
       return;
@@ -551,25 +764,30 @@ function nodeblock_block_view($delta = '') {
     // Otherwise we just use the main node.
   }
 
-  // Make sure we work on a copy of the node object.
-  $node = clone $node;
-
-  $view_mode = $node->nodeblock['view_mode'];
-  $node->nodeblock['shown_as_block'] = TRUE;
-  if ($view_mode == 'node_block_default') {
-    $view_mode = nodeblock_type_view_mode($node->type);
+  if (!$node || !nodeblock_type_enabled($node->type) || !isset($node->nodeblock) || !node_access('view', $node)) {
+    return;
   }
 
-  $title = $node->nodeblock['block_title'];
+  // Make sure we work on a copy of the node object.
+  $node_clone = clone $node;
+
+  $view_mode = $node_clone->nodeblock['view_mode'];
+  $node_clone->nodeblock['shown_as_block'] = TRUE;
+  if ($view_mode == 'node_block_default') {
+    $view_mode = nodeblock_type_view_mode($node_clone->type);
+  }
+
+  $langcode = isset($node_clone->nodeblock['real_block_title'][$language_content->language]) ? $language_content->language : $node->language;
+  $title = $node_clone->nodeblock['real_block_title'][$langcode];
   $block = array(
     'subject' => $title == '<none>' ? '' : check_plain($title),
-    'content' => node_view($node, $view_mode),
-    '#node' => $node,
+    'content' => node_view($node_clone, $view_mode),
+    '#node' => $node_clone,
   );
 
-  $node_link = $node->nodeblock['node_link'];
+  $node_link = $node_clone->nodeblock['node_link'];
   if ($node_link == 'node_block_default') {
-    $node_link = nodeblock_type_node_link($node->type);
+    $node_link = nodeblock_type_node_link($node_clone->type);
   }
 
   if(!$node_link && isset($block['content']['links']['node'])) {
@@ -577,9 +795,9 @@ function nodeblock_block_view($delta = '') {
     unset($block['content']['links']['translation']);
   }
 
-  $comment_link = $node->nodeblock['comment_link'];
+  $comment_link = $node_clone->nodeblock['comment_link'];
   if ($comment_link == 'node_block_default') {
-    $comment_link = nodeblock_type_comment_link($node->type);
+    $comment_link = nodeblock_type_comment_link($node_clone->type);
   }
   if(!$comment_link && isset($block['content']['links']['comment'])) {
     unset($block['content']['links']['comment']);
@@ -696,9 +914,8 @@ function nodeblock_preprocess_node(&$variables) {
  * Checks for all available View Modes, then checks which are available for the given content type.
  */
 function nodeblock_get_view_modes($type) {
-  $bundle = field_extract_bundle('node', $type);
   $entity_info = entity_get_info('node');
-  $view_modes = field_view_mode_settings('node', $bundle);
+  $view_modes = field_view_mode_settings('node', $type);
   $options = array();
   $options_dis = array();
   if (!empty($entity_info['view modes'])) {
@@ -727,4 +944,21 @@ function nodeblock_get_view_modes($type) {
  */
 function nodeblock_views_api() {
   return array('api' => 2.0);
+}
+
+/**
+ * Helper function to return the nodes languages.
+ */
+function _nodeblock_node_languages($node) {
+  $langcodes = array();
+
+  // Determine the languages of this node.
+  if (module_exists('entity_translation') && !empty($node->translations->data)) {
+    $langcodes = array_keys($node->translations->data);
+  }
+  else {
+    $langcodes[] = $node->language;
+  }
+
+  return $langcodes;
 }

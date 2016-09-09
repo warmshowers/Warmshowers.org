@@ -407,13 +407,25 @@ function smart_ip_update_db_batch_finished($success, $results, $operations, $ela
  * Download a Maxmind binary database and activate it for use
  */
 function smart_ip_maxmind_bin_db_update($license = '', $cron_run = FALSE, $force = FALSE) {
+  $data_source = variable_get('smart_ip_source', 'ipinfodb_service');
+  if ($data_source == 'maxmind_bin') {
+    $license = !empty($license) ? $license : variable_get('smart_ip_maxmind_license', '');
+    $version = variable_get('smart_ip_maxmind_bin_version', SMART_IP_MAXMIND_BIN_LICENSED_VERSION);  
+    $edition = variable_get('smart_ip_maxmind_bin_edition', SMART_IP_MAXMIND_BIN_EDITION_CITY);
+    $last_update_time = strtotime('midnight', variable_get('smart_ip_maxmind_bin_db_last_update', 0));
+  }
+  elseif ($data_source == 'maxmindgeoip2_bin') {
+    $license = !empty($license) ? $license : variable_get('smart_ip_maxmind_geoip2_license', '');
+    $version = variable_get('smart_ip_maxmind_geoip2_bin_version', SMART_IP_MAXMIND_BIN_LICENSED_VERSION);  
+    $edition = variable_get('smart_ip_maxmind_geoip2_bin_edition', SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_CITY);
+    $last_update_time = strtotime('midnight', variable_get('smart_ip_maxmind_geoip2_bin_db_last_update', 0));
+  }
+  
   // Only update the binary database when it is out of date or under specific direction
-  if (!$force && smart_ip_maxmind_bin_db_up_to_date()) {
+  if (!$force && smart_ip_maxmind_bin_db_up_to_date($version, $last_update_time)) {
     return FALSE;
   }
 
-  $version  = variable_get('smart_ip_maxmind_bin_version', SMART_IP_MAXMIND_BIN_LICENSED_VERSION);
-  $edition  = variable_get('smart_ip_maxmind_bin_edition', SMART_IP_MAXMIND_BIN_EDITION_CITY);
   $filename = smart_ip_get_bin_source_filename($version, $edition);
   $path = file_stream_wrapper_uri_normalize('private://smart_ip');
   $gz_name = "$path/$filename.tar.gz";
@@ -427,16 +439,27 @@ function smart_ip_maxmind_bin_db_update($license = '', $cron_run = FALSE, $force
     $url = SMART_IP_MAXMIND_BIN_DOWNLOAD_BASE_URL . '?' . http_build_query(array(
       'edition_id' => $edition,
       'suffix' => 'tar.gz',
-      'license_key' => $license ? $license : variable_get('smart_ip_maxmind_license', ''),
+      'license_key' => $license,
     ));
   }
   else {
-    $url = SMART_IP_MAXMIND_LITE_BIN_DOWNLOAD_BASE_URL . "/$filename.dat.gz";
+    if ($data_source == 'maxmind_bin') {
+      $url = SMART_IP_MAXMIND_LITE_BIN_DOWNLOAD_BASE_URL . "/$filename.dat.gz";
+    }
+    elseif ($data_source == 'maxmindgeoip2_bin') {
+      $url = SMART_IP_MAXMIND_GEOIP2_LITE_BIN_DOWNLOAD_BASE_URL . "/$filename.gz";
+    }
   }
   
   if (file_put_contents($gz_name, fopen($url, 'r')) === FALSE) {
-  	variable_set('smart_ip_maxmind_bin_db_update_error', 'Maxmind bin DB download failed');
-  	watchdog('smart_ip', 'Maxmind bin DB download failed', array(), WATCHDOG_WARNING);
+    if ($data_source == 'maxmind_bin') {
+      variable_set('smart_ip_maxmind_bin_db_update_error', t('MaxMind GeoIP Legacy binary database download failed'));
+      watchdog('smart_ip', 'MaxMind GeoIP Legacy bin database download failed', array(), WATCHDOG_WARNING);
+    }
+    elseif ($data_source == 'maxmindgeoip2_bin') {
+      variable_set('smart_ip_maxmind_geoip2_bin_db_update_error', t('MaxMind GeoIP2 binary database download failed'));
+      watchdog('smart_ip', 'MaxMind GeoIP2 bin database download failed', array(), WATCHDOG_WARNING);
+    }
   	return FALSE;
   }
 
@@ -452,7 +475,7 @@ function smart_ip_maxmind_bin_db_update($license = '', $cron_run = FALSE, $force
   catch (Exception $e) {
     drupal_mkdir('private://smart_ip/db_tmp');
     $source_fp = gzopen(drupal_realpath($gz_name), 'rb');
-    $target_fp  = fopen(drupal_realpath("$path/db_tmp/$filename.dat"), 'w');
+    $target_fp = fopen(drupal_realpath("$path/db_tmp/$filename.dat"), 'w');
     while (!gzeof($source_fp)) {
       $string = gzread($source_fp, 4096);
       fwrite($target_fp, $string, strlen($string));
@@ -473,20 +496,37 @@ function smart_ip_maxmind_bin_db_update($license = '', $cron_run = FALSE, $force
     }
   }
   catch (Exception $e) {
-    $msg = 'Error during database download/extraction: ' . $e->getMessage();
-    variable_set('smart_ip_maxmind_bin_db_update_error', $msg);
+    if ($data_source == 'maxmind_bin') {
+      $msg = t('Error during MaxMind GeoIP Legacy binary database download/extraction: %error', array('%error' => $e->getMessage()));
+      variable_set('smart_ip_maxmind_bin_db_update_error', $msg);
+    }
+    elseif ($data_source == 'maxmindgeoip2_bin') {
+      $msg = t('Error during MaxMind GeoIP2 binary database download/extraction: %error', array('%error' => $e->getMessage()));
+      variable_set('smart_ip_maxmind_geoip2_bin_db_update_error', $msg);
+    }
     watchdog('smart_ip', $msg, array(), WATCHDOG_WARNING);
     return FALSE;
   }
 
-  variable_set('smart_ip_maxmind_bin_db_update_error', NULL);
-  variable_set('smart_ip_maxmind_bin_db_last_update', REQUEST_TIME);
-
-  if ($cron_run) {
-    watchdog('smart_ip', 'The Maxmind binary database has been updated via cron.');   
+  if ($data_source == 'maxmind_bin') {
+    variable_set('smart_ip_maxmind_bin_db_update_error', NULL);
+    variable_set('smart_ip_maxmind_bin_db_last_update', REQUEST_TIME);
+    if ($cron_run) {
+      watchdog('smart_ip', 'The MaxMind GeoIP Legacy binary database has been updated via cron.');   
+    }
+    else {
+      watchdog('smart_ip', 'The MaxMind GeoIP Legacy binary database has been manually updated.');
+    }
   }
-  else {
-    watchdog('smart_ip', 'The Maxmind binary database has been manually updated.');
+  elseif ($data_source == 'maxmindgeoip2_bin') {
+    variable_set('smart_ip_maxmind_geoip2_bin_db_update_error', NULL);
+    variable_set('smart_ip_maxmind_geoip2_bin_db_last_update', REQUEST_TIME);
+    if ($cron_run) {
+      watchdog('smart_ip', 'The MaxMind GeoIP2 binary database has been updated via cron.');   
+    }
+    else {
+      watchdog('smart_ip', 'The MaxMind GeoIP2 binary database has been manually updated.');
+    }
   }
   
   file_unmanaged_delete($gz_name);
@@ -496,21 +536,25 @@ function smart_ip_maxmind_bin_db_update($license = '', $cron_run = FALSE, $force
 }
 
 /**
- * Maxmind updates the DB every Tuesday, and we download every Wednesday.
- * That means that we only want to download if the current DB was downloaded
- * prior to the most recently available version.
+ * MaxMind updates the binary database every Tuesday, and we download
+ * every Wednesday for licensed version. Every first Tuesday of the month for
+ * lite or free version, and we download every first Wednesday of the month.
+ * That means that we only want to download if the current database was
+ * downloaded prior to the most recently available version.
  */
-function smart_ip_maxmind_bin_db_up_to_date() {
-  $time_now = strtotime('midnight');
-  $bin_last_update_time   = strtotime('midnight', variable_get('smart_ip_maxmind_bin_db_last_update', 0));
-  $time_of_most_recent_db = $bin_last_update_time + (7 * 86400);
-  $day_now = date('w', $time_now);
-  $is_download_day = FALSE;
-  if ($bin_last_update_time == 0 || $day_now == 3) {
-    $is_download_day = TRUE;
+function smart_ip_maxmind_bin_db_up_to_date($version, $last_update_time) {
+  $time_now = strtotime('midnight', REQUEST_TIME);
+  if ($version == SMART_IP_MAXMIND_BIN_LICENSED_VERSION) {
+    $wednesday = strtotime('first Wednesday', $time_now);
+    if ($wednesday <= $time_now && $wednesday > $last_update_time) {
+      return TRUE;
+    }
   }
-  if (($time_now - $time_of_most_recent_db) >= 0 && $is_download_day) {
-    return FALSE;
+  elseif ($version == SMART_IP_MAXMIND_BIN_LITE_VERSION) {
+    $first_wed = strtotime('first Wednesday of this month', $time_now);
+    if ($first_wed <= $time_now && $first_wed > $last_update_time) {
+      return TRUE;
+    }
   }
-  return TRUE;
+  return FALSE;  
 }

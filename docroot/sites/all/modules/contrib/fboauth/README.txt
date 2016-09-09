@@ -13,7 +13,9 @@ Installation
 1. In order for your site to use Facebook Connect you must register an
    application on Facebook. Visit https://www.facebook.com/developers/apps.php
    and create a new application, usually simply the name of your website such as
-   "example.com". You will need to request review of your application with Facebook.
+   "example.com". Be sure to set the contact e-mail addresses for the app and
+   enable the app for use by the public. You may need to request review of
+   your application with Facebook if you are requesting access to certain data.
    In order to get reviewed, you will need to provide Facebok with various
    pieces of information including a privacy policy, a description of your application,
    and notes for why you want to request information about the various fields
@@ -31,6 +33,8 @@ Installation
 5. Configure the Facebook OAuth module settings under "Configuration" ->
    "People" -> "Facebook OAuth settings". Copy and paste the App ID and
    App Secret from your newly created Facebook application's settings.
+
+   Set the API version of the Facebook App.
 
    Note that it is highly recommended to request access to the Facebook user's
    e-mail address so that normal Drupal functionality (the password reset for

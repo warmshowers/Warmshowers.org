@@ -20,22 +20,47 @@ To learn more about Compass, visit: http://compass-style.org
 DEVELOPING WITH SASS AND COMPASS
 --------------------------------
 
+Zen 7.x-5.0 was developed with the latest version of Sass and Compass (at the
+time!) Newer versions are not compatible with Zen's Sass files. To ensure you
+are using the correct version of Sass and Compass, you will need to use the
+"bundle" command which will read Zen's Gemfile to ensure the proper versions are
+used when compiling your CSS. To install the correction versions of Sass and
+Compass, go to the root directory of your sub-theme and type:
+
+  bundle install
+
+You will also need to prefix any compass commands with "bundle exec". For
+example, type "bundle exec compass compile" instead of just "compass compile".
+
 To automatically generate the CSS versions of the scss while you are doing theme
 development, you'll need to tell Compass to "watch" the sass directory so that
-any time a .scss file is changed it will automatically place a generated CSS
-file into your sub-theme's css directory:
+any time a .scss file is changed it will automatically generate a CSS file in
+your sub-theme's css directory:
 
-  compass watch <path to your sub-theme's directory>
+  bundle exec compass watch <path to your sub-theme's directory>
 
   If you are already in the root of your sub-theme's directory, you can simply
-  type:  compass watch
+  type:  bundle exec compass watch
 
-While using generated CSS with Firebug, the line numbers it reports will be
-wrong since it will be showing the generated CSS file's line numbers and not the
-line numbers of the source Sass files. To correct this problem, you can install
-the FireSass plug-in into Firefox and then edit your sub-theme's config.rb file
-to set: firesass = true
-  https://addons.mozilla.org/en-US/firefox/addon/firesass-for-firebug/
+While using generated CSS with Firebug, the line numbers it reports will not
+match the .scss file, since it references the generated CSS file's lines, not
+the line numbers of the "source" sass files. How then do we debug? Sourcemaps to
+the rescue! To find the oringial, newer browsers have support for sourcemap
+files (*.map). These files are used by the built-in development tools of newer
+browsers to map the generated line to the SCSS source. When in development mode,
+Zen can be set to generate sourcemap files. Edit config.rb, and uncomment:
+
+  sourcemap=true
+
+
+Enabling and using sourcemap files (*.map) in your browser
+
+In short, Open Developer tools, go to settings, and enable an option to the
+effect of: 'view original sources' or 'Enable CSS source maps'.
+
+* Firefox: https://hacks.mozilla.org/2014/02/live-editing-sass-and-less-in-the-firefox-developer-tools/
+* Chrome:  https://developer.chrome.com/devtools/docs/css-preprocessors#toc-enabling-css-source-maps
+* IE: http://msdn.microsoft.com/en-US/library/ie/dn255007%28v=vs.85%29#source_maps
 
 
 MOVING YOUR CSS TO PRODUCTION
@@ -48,10 +73,10 @@ will only generate CSS for .scss files that have recently changed; in order to
 force it to regenerate all the CSS files, you can use the Compass' clean command
 to delete all the generated CSS files.
 
-- Delete all CSS files by running: compass clean
+- Delete all CSS files by running: bundle exec compass clean
 - Edit the config.rb file in your theme's directory and uncomment this line by
   deleting the "#" from the beginning:
     #environment = :production
-- Regenerate all the CSS files by running: compass compile
+- Regenerate all the CSS files by running: bundle exec compass compile
 
 And don't forget to turn on Drupal's CSS aggregation. :-)

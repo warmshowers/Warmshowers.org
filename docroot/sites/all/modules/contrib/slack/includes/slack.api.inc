@@ -18,12 +18,11 @@
  * @return bool|object
  *   Slack response.
  */
-function slack_send_message($message, $channel = '', $username = '') {
-  $webhook_url = slack_get_default_webhook_url();
+function slack_send_message($webhook_url, $message, $channel = '', $username = '', $icon_options = array(), $attachment_options = array()) {
   if (!$webhook_url) {
+    drupal_set_message('Please, enter the webhook value and try again', 'error');
     return FALSE;
   }
-  $message_options = array();
   if ($channel) {
     $message_options['channel'] = $channel;
   }
@@ -36,14 +35,24 @@ function slack_send_message($message, $channel = '', $username = '') {
   else {
     $message_options['username'] = slack_get_default_username();
   }
-  $icon_type = variable_get('slack_icon_type');
-  if ($icon_type == 'emoji') {
-    $message_options['icon_emoji'] = slack_get_default_icon_emoji();
+
+  if ($icon_options['type'] == 'emoji') {
+    if ($icon_options['emoji']) {
+      $message_options['icon_emoji'] = $icon_options['emoji'];
+    }
+    else {
+      $message_options['icon_emoji'] = slack_get_default_icon_emoji();
+    }
   }
-  elseif ($icon_type == 'image') {
-    $message_options['icon_url'] = slack_get_default_icon_url();
+  elseif ($icon_options['type'] == 'image') {
+    if ($icon_options['icon']) {
+      $message_options['icon_url'] = $icon_options['icon'];
+    }
+    else {
+      $message_options['icon_url'] = slack_get_default_icon_url();
+    }
   }
-  $result = _slack_send_message($webhook_url, $message, $message_options);
+  $result = _slack_send_message($webhook_url, $message, $message_options, $attachment_options);
   return $result;
 }
 
@@ -62,6 +71,12 @@ function slack_send_message($message, $channel = '', $username = '') {
  *     - username: The bot name displayed in the channel
  *     - icon_emoji: The bot icon displayed in the channel
  *     - icon_url: The bot icon displayed in the channel
+ * @param array $attachments
+ *   An optional associative array to further style the message
+ *        - title: an optinal title for the message
+ *        - pretext: Text preceding the message
+ *        - color: a color to emphasize the text body
+ *        - title_link: a link associated with the message
  *
  * @return object
  *   Can contain:
@@ -71,12 +86,23 @@ function slack_send_message($message, $channel = '', $username = '') {
  *     - code:                200        404           500
  *     - error:               -          Not found     Server Error
  */
-function _slack_send_message($webhook_url, $message, $message_options = array()) {
+function _slack_send_message($webhook_url, $message, $message_options = array(), $attachment_options = array()) {
   $headers = array(
-    'Content-Type' => 'application/x-www-form-urlencoded',
+    'Content-Type' => 'application/json',
   );
-  $message_options['text'] = _slack_process_message($message);
-  $sending_data = 'payload=' . drupal_json_encode($message_options);
+  $message = _slack_process_message($message);
+  if(empty($attachment_options)) {
+    $message_options['text'] = $message;
+  }
+  else {
+    $attachment_options['fallback'] = $message;
+    $attachment_options['text'] = $message;
+
+    $message_options['attachments'] = array(
+      $attachment_options
+    );
+  }
+  $sending_data = json_encode($message_options, JSON_UNESCAPED_SLASHES);
   $options = array(
     'method' => 'POST',
     'data' => $sending_data,
@@ -154,8 +180,8 @@ function slack_get_default_username() {
  *   Get default Slack bot icon.
  */
 function slack_get_default_icon_url() {
-  $icon = variable_get('slack_icon_url');
-  return $icon;
+  $icon['url'] = variable_get('slack_icon_url');
+  return $icon['url'];
 }
 
 /**
@@ -165,8 +191,8 @@ function slack_get_default_icon_url() {
  *   Get default Slack bot icon emoji.
  */
 function slack_get_default_icon_emoji() {
-  $icon = variable_get('slack_icon_emoji');
-  return $icon;
+  $icon['emoji'] = variable_get('slack_icon_emoji');
+  return $icon['emoji'];
 }
 
 /**

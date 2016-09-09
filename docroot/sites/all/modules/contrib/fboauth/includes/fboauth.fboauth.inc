@@ -5,7 +5,6 @@
  * Provides functions used during Facebook login processes.
  */
 
-
 /**
  * Menu callback; The main page for processing OAuth login transactions.
  *
@@ -29,18 +28,26 @@ function fboauth_action_page($action) {
     watchdog('fboauth', 'A Facebook login was attempted but could not be processed because the module is not yet configured. Vist the <a href="!url">Facebook OAuth configuration</a> to set up the module.', array('!url' => url('admin/config/people/fboauth')));
   }
   elseif (isset($_REQUEST['error'])) {
-    $link = fboauth_action_link_properties($action_name, $app_id);
+    $url = !$user->uid ? url('<front>', array('absolute' => TRUE)) : url("user/{$user->uid}/edit", array('absolute' => TRUE));
+    $link = fboauth_action_link_properties($action_name, $url);
     watchdog('fboauth', 'A user refused to allow access to the necessary 
-      Facebook information (@permissions) to login to the site.',
-      array('@permissions' => $link['query']['scope']));
+      Facebook information (@permissions) to login to the site.', array('@permissions' => $link['query']['scope']));
+    $html_class = variable_get('fboauth_popup', 1) ? ' class="fboauth-popup"' : '';
     $error_message = t('This site requires access to information in order to 
       log you into the site. If you like, you can 
-      <a href="!facebook">sign in with Facebook again</a> or 
-      <a href="!register">through the standard username/password registration</a>.',
-      array(
-        '!facebook' => url($link['href'],
-        array('query' => $link['query'])),
-        '!register' => url('user/register')));
+    	<a href="!facebook"' . $html_class . '>sign in with Facebook again</a> or 
+      <a href="!register">through the standard username/password registration</a>.', array(
+      '!facebook' => url($link['href'], array('query' => $link['query'])),
+      '!register' => url('user/register')));
+
+    drupal_set_message($error_message, 'error');
+
+    if (variable_get('fboauth_popup', 1)) {
+      // Close the popup and set the parent window to the target destination.
+      print fboauth_close_popup_window($url);
+      drupal_exit();
+    }
+    drupal_goto($url);
   }
   elseif (!isset($_REQUEST['code'])) {
     watchdog('fboauth', 'A Facebook request code was expected but no authorization was received.');
@@ -51,11 +58,42 @@ function fboauth_action_page($action) {
     if (empty($destination)) {
       $destination = isset($_REQUEST['destination']) ? $_REQUEST['destination'] : '<front>';
     }
-    drupal_goto($destination);
+    if (variable_get('fboauth_popup', 1)) {
+      // Close the popup and set the parent window to the target destination.
+      $url = !isset($user->pass) || $user->pass == '' ? url("user/{$user->uid}/edit", array('absolute' => TRUE)) : url($destination);
+      print fboauth_close_popup_window($url);
+      drupal_exit();
+    }
+    else {
+      drupal_goto($destination);
+    }
   }
 
   // In the event of an error, we stay on this page.
   return $error_message;
+}
+
+/**
+ * Returns a HTML string to close the popup modal window and redirect the opener window to the relevant URL.
+ *
+ * @param $url
+ * @return string
+ */
+function fboauth_close_popup_window($url) {
+  return "
+    <html>
+    <head>
+      <script type=\"text/javascript\">
+      if (window.opener) {
+        window.opener.location = '$url';
+        setTimeout(function(){ window.close(); }, 500);
+      }
+      else {
+        window.location = '$url';
+      }
+      </script>
+    </head>
+    </html>";
 }
 
 /**
@@ -83,12 +121,23 @@ function fboauth_action_connect($app_id, $access_token) {
   // Save access_token in session for future use.
   $_SESSION['fboauth']['access_token'] = $access_token;
 
-  $fbuser = fboauth_graph_query('me', $access_token);
+  $id = 'me'; // Versions prior to v2.4 and v2.5 are working with just this.
+  if (variable_get('fboauth_apiversion', 'v2.3') == 'v2.5'
+   || variable_get('fboauth_apiversion', 'v2.3') == 'v2.4') {
+    $id .= '?fields=email,name,first_name,last_name,age_range,link,gender,locale,timezone,updated_time,verified,birthday,location';
+  }
+
+  $fbuser = fboauth_graph_query($id, $access_token);
+
+  if (variable_get('fboauth_debug', '') == 1) {
+    watchdog('debug', '<pre>fbuser=' . print_r($fbuser, TRUE) . '</pre>');
+  }
+
   // Use fake email if user email not available.
   if (empty($fbuser->email)) {
     $fbuser->email = $fbuser->id . '@facebook.com';
-  };
- 
+  }
+
   $uid = fboauth_uid_load($fbuser->id);
   // If the user isn't logged in.
   if (!$user->uid) {
@@ -113,16 +162,15 @@ function fboauth_action_connect($app_id, $access_token) {
               // note:  drupal security team doesn't consider it a vulnerabilty that UID is publicly available
               // https://www.drupal.org/node/1004778
               drupal_set_message(t("We found your e-mail @email in the @sitename system, but it hasn't been confirmed. " .
-                'Please <a href="!login">login manually</a> and then <a href="!edit">' .
-                'resend your confirmation code</a> to confirm that you are the owner of this email address. This is required before you can connect to the site from Facebook with it.',
-                array(
-                  '@email'    => $fbuser->email,
-                  '@sitename' => variable_get('site_name', ''),
-                  '!login'    => url('user/login'),
-                  '!edit'     => url('user/' . $account->uid . '/edit/email-addresses'))));
+                      'Please <a href="!login">login manually</a> and then <a href="!edit">' .
+                      'resend your confirmation code</a> to confirm that you are the owner of this email address. This is required before you can connect to the site from Facebook with it.', array(
+                '@email' => $fbuser->email,
+                '@sitename' => variable_get('site_name', ''),
+                '!login' => url('user/login'),
+                '!edit' => url('user/' . $account->uid . '/edit/email-addresses'))));
               return;
             }
-          } 
+          }
           else {
             // Email address not found in System   
           }
@@ -137,28 +185,27 @@ function fboauth_action_connect($app_id, $access_token) {
           // Connect the account only if we allow anonymous users to connect accounts that have
           // never been connected before.
           if (variable_get('fboauth_anon_connect', TRUE)) {
-             // Logins will be denied if the user's account is blocked.
-             if (fboauth_login_user($account)) {
-               fboauth_save($account->uid, $fbuser->id);
-               drupal_set_message(t("You've connected your account with Facebook."));
-             }
+            // Logins will be denied if the user's account is blocked.
+            if (fboauth_login_user($account)) {
+              fboauth_save($account->uid, $fbuser->id);
+              drupal_set_message(t("You've connected your account with Facebook."));
+            }
           }
           else {
             drupal_set_message(t('We found your e-mail @email in the @sitename system, but the account has never been connected to Facebook before. ' .
-            'Please <a href="!login">login manually</a> and <a href="!edit">connect to Facebook</a> while logged in. ' .
-            'Once you have completed this step, you may login through Facebook whenever you like.',
-            array(
-             '@email'    => $fbuser->email,
-             '@sitename' => variable_get('site_name', ''),
-             '!login'    => url('user/login'),
-             '!edit'     => url('user/' . $account->uid . '/edit'))));
+                    'Please <a href="!login">login manually</a> and <a href="!edit">connect to Facebook</a> while logged in. ' .
+                    'Once you have completed this step, you may login through Facebook whenever you like.', array(
+              '@email' => $fbuser->email,
+              '@sitename' => variable_get('site_name', ''),
+              '!login' => url('user/login'),
+              '!edit' => url('user/' . $account->uid . '/edit'))));
           }
         }
         // Register a new user only if allowed.
         elseif (variable_get('user_register', 1)) {
           $account = fboauth_create_user($fbuser);
 
-          if ( !isset($account) || empty($account) ) {
+          if (!isset($account) || empty($account)) {
             drupal_set_message(t('Unable to create a new account using your Facebook profile.'), 'warning');
             return;
           }
@@ -171,22 +218,20 @@ function fboauth_action_connect($app_id, $access_token) {
           if ($account->status == 0) {
             _user_mail_notify('register_pending_approval', $account);
             drupal_set_message(
-            t('An account has been created for you on @sitename but an ' .
-              'administrator needs to approve your account. In the meantime, ' .
-              'a welcome message with further instructions has been sent ' .
-              'to your e-mail address.',
-              array(
-                '@sitename' => variable_get('site_name', ''))));
+                t('An account has been created for you on @sitename but an ' .
+                    'administrator needs to approve your account. In the meantime, ' .
+                    'a welcome message with further instructions has been sent ' .
+                    'to your e-mail address.', array(
+              '@sitename' => variable_get('site_name', ''))));
           }
           // Log in the user if no approval is required.
           elseif (fboauth_login_user($account)) {
-            drupal_set_message(t('Welcome to @sitename. ' . 
-              'Basic information has been imported from Facebook into your account. ' . 
-              'You may want to <a href="!edit">edit your account</a> to confirm the ' .
-              'details and set a password.',
-              array(
-                '@sitename' => variable_get('site_name', ''),
-                '!edit' => url('user/' . $account->uid . '/edit'))));
+            drupal_set_message(t('Welcome to @sitename. ' .
+                    'Basic information has been imported from Facebook into your account. ' .
+                    'You may want to <a href="!edit">edit your account</a> to confirm the ' .
+                    'details and set a password.', array(
+              '@sitename' => variable_get('site_name', ''),
+              '!edit' => url('user/' . $account->uid . '/edit'))));
           }
           // If the login fails, fboauth_login_user() throws an error message.
         }
@@ -201,8 +246,8 @@ function fboauth_action_connect($app_id, $access_token) {
       // Email not provided by Facebook.
       else {
         drupal_set_message(t("Facebook didn't provide an e-mail address " .
-          "to be associated with your account, so we can't compare it " .
-          "with the e-mail addresses in this system."));
+                "to be associated with your account, so we can't compare it " .
+                "with the e-mail addresses in this system."));
         return;
       }
       // Done if no e-mail address provided by facebook.
@@ -215,7 +260,6 @@ function fboauth_action_connect($app_id, $access_token) {
     drupal_set_message(t("You've connected your account with Facebook."));
   }
 }
-
 
 /**
  * Facebook OAuth callback for deauthorizing the site from Facebook.
@@ -249,8 +293,8 @@ function fboauth_create_user($fbuser, $options = array()) {
   // Set default options.
   $defaults = array(
     'username' => variable_get('fboauth_user_username', 'name'),
-    'picture'  => (variable_get('user_pictures', 0) && variable_get('fboauth_user_picture', 'picture')) ? 'picture' : '',
-    'status'   => variable_get('user_register', 1) == 1 ? 1 : 0,
+    'picture' => (variable_get('user_pictures', 0) && variable_get('fboauth_user_picture', 'picture')) ? 'picture' : '',
+    'status' => variable_get('user_register', 1) == 1 ? 1 : 0,
   );
   $options += $defaults;
 
@@ -308,19 +352,19 @@ function fboauth_create_user($fbuser, $options = array()) {
     $function = $module . '_fboauth_user_presave';
     $function($edit, $fbuser);
   }
-  
+
   // check for a valid email address and username and if they don't exist return NULL
-  if ( !isset($edit) || empty($edit) ) {
+  if (!isset($edit) || empty($edit)) {
     watchdog('fboauth', 'Account information not provided.');
-   return NULL;
-  } 
-  if (!isset($edit['mail']) || empty($edit['mail']) ) {
+    return NULL;
+  }
+  if (!isset($edit['mail']) || empty($edit['mail'])) {
     watchdog('fboauth', 'Email address not provided by Facebook.');
     return NULL;
   }
-  if ( !isset($edit['name']) || empty($edit['name']) ) {
-   watchdog('fboauth', 'Username not able to be retrieved from Facebook or be generated.');
-   return NULL;
+  if (!isset($edit['name']) || empty($edit['name'])) {
+    watchdog('fboauth', 'Username not able to be retrieved from Facebook or be generated.');
+    return NULL;
   }
 
   $account = user_save(NULL, $edit);
@@ -329,7 +373,7 @@ function fboauth_create_user($fbuser, $options = array()) {
   if ($account->uid && $options['picture'] === 'picture') {
     $picture_directory = file_default_scheme() . '://' . variable_get('user_picture_path', 'pictures');
     if (file_prepare_directory($picture_directory, FILE_CREATE_DIRECTORY)) {
-      $picture_result = drupal_http_request('https://graph.facebook.com/v2.3/' . $fbuser->id . '/picture?type=large');
+      $picture_result = drupal_http_request('https://graph.facebook.com/' . variable_get('fboauth_apiversion', 'v2.3') . '/' . $fbuser->id . '/picture?type=large');
       $picture_path = file_stream_wrapper_uri_normalize($picture_directory . '/picture-' . $account->uid . '-' . REQUEST_TIME . '.jpg');
       $picture_file = file_save_data($picture_result->data, $picture_path, FILE_EXISTS_REPLACE);
 
@@ -342,11 +386,11 @@ function fboauth_create_user($fbuser, $options = array()) {
       $picture_file = file_save($picture_file);
       file_usage_add($picture_file, 'user', 'user', $account->uid);
       db_update('users')
-        ->fields(array(
-        'picture' => $picture_file->fid,
-        ))
-        ->condition('uid', $account->uid)
-        ->execute();
+          ->fields(array(
+            'picture' => $picture_file->fid,
+          ))
+          ->condition('uid', $account->uid)
+          ->execute();
     }
   }
 
@@ -380,17 +424,14 @@ function fboauth_login_user($account) {
   }
   else {
     if ($account->access) {
-      drupal_set_message(t('The account with username %name and email %mail ' . 
-        'is blocked.',
-        array('%name' => $account->name,
+      drupal_set_message(t('The account with username %name and email %mail ' .
+              'is blocked.', array('%name' => $account->name,
         '%mail' => $account->mail,)), 'error');
     }
     else {
-      drupal_set_message(t('The account with username %name and email %mail ' . 
-        'is not yet activated.',
-        array('%name' => $account->name,
+      drupal_set_message(t('The account with username %name and email %mail ' .
+              'is not yet activated.', array('%name' => $account->name,
         '%mail' => $account->mail,)), 'error');
-
     }
   }
 
@@ -434,17 +475,27 @@ function fboauth_access_token($code, $action_name, $app_id = NULL, $app_secret =
     'redirect_uri' => fboauth_action_url('fboauth/' . $action_name, array('absolute' => TRUE, 'query' => !empty($_GET['destination']) ? array('destination' => $_GET['destination']) : array())),
     'code' => $code,
   );
-  $token_url = url('https://graph.facebook.com/v2.3/oauth/access_token', array('absolute' => TRUE, 'query' => $query));
-  $authentication_result = drupal_http_request($token_url);
+
+  $token_url = url('https://graph.facebook.com/' . variable_get('fboauth_apiversion', 'v2.3') . '/oauth/access_token', array('absolute' => TRUE, 'query' => $query));
+
+  $attempts = 5;
+  do {
+    $authentication_result = drupal_http_request($token_url);
+    if ($authentication_result->code == 200) {
+      break;
+    }
+    // Facebook access code generation seems to take a lot of time. That's why we have to wait
+    // some seconds before the code can be acquired.
+    sleep(1);
+  } while (--$attempts > 0);
 
   if ($authentication_result->code != 200) {
     $error = !empty($authentication_result->error) ? $authentication_result->error : t('(no error returned)');
     $data = !empty($authentication_result->data) ? print_r($authentication_result->data, TRUE) : t('(no data returned)');
     watchdog('fboauth', 'Facebook OAuth could not acquire an access token from Facebook. 
       We queried the following URL: <code><pre>@url</pre></code>.' .
-      " Facebook's servers returned an error " .
-      '@error: <code><pre>@return</pre></code>',
-      array('@url' => $token_url, '@error' => $error, '@return' => $data));
+        " Facebook's servers returned an error " .
+        '@error: <code><pre>@return</pre></code>', array('@url' => $token_url, '@error' => $error, '@return' => $data));
   }
   else {
     $authentication_values = drupal_json_decode($authentication_result->data);
@@ -691,7 +742,7 @@ function fboauth_user_connections() {
     ),
     'apprequests' => array(
       'label' => t('App requests'),
-      // No permission.
+    // No permission.
     ),
     'albums' => array(
       'permission' => 'user_photos',
@@ -809,33 +860,29 @@ function fboauth_graph_query($id, $access_token = NULL, $parameters = array(), $
   }
 
   if ($method == 'GET' || $method == 'DELETE') {
-    $graph_url = url('https://graph.facebook.com/v2.3/' . $id,
-      array(
-        'absolute' => TRUE,
-        'query'    => $parameters));
+    $graph_url = url('https://graph.facebook.com/' . variable_get('fboauth_apiversion', 'v2.3') . '/' . $id, array(
+      'absolute' => TRUE,
+      'query' => $parameters));
     $graph_result = drupal_http_request(
-      $graph_url,
-      array(
-        'headers' => array(),
-        'method'  => $method));
+        $graph_url, array(
+      'headers' => array(),
+      'method' => $method));
   }
   elseif ($method == 'POST') {
-    $graph_url = 'https://graph.facebook.com/v2.3/' . $id;
+    $graph_url = 'https://graph.facebook.com/' . variable_get('fboauth_apiversion', 'v2.3') . '/' . $id;
     $post_data = http_build_query($parameters, '', '&');
     $graph_result = drupal_http_request(
-      $graph_url,
-      array(
-        'headers' => array(),
-        'method'  => $method,
-        'data'    => $post_data));
+        $graph_url, array(
+      'headers' => array(),
+      'method' => $method,
+      'data' => $post_data));
   }
   else {
-    drupal_set_message(t('Invalid request type "@type" for Facebook graphy query. Must be either @get, @post, or @delete.',
-      array(
-        '@type'   => $method,
-        '@get'    => 'GET',
-        '@post'   => 'POST',
-        '@delete' => 'DELETE')), 'error');
+    drupal_set_message(t('Invalid request type "@type" for Facebook graphy query. Must be either @get, @post, or @delete.', array(
+      '@type' => $method,
+      '@get' => 'GET',
+      '@post' => 'POST',
+      '@delete' => 'DELETE')), 'error');
   }
 
   // If the response contains a redirect (such as to an image), return the
@@ -863,7 +910,7 @@ function fboauth_deauthorize() {
   // A signed_request key is used when a deauth url is provided by the app.
   if (isset($_POST['signed_request'])) {
     $app_secret = variable_get('fboauth_secret', '');
-    $signed_request = fboauth_parse_signed_request($_POST['signed_request'], $app_secret);
+    $signed_request = fboauth_parse_signed_request(check_plain($_POST['signed_request']), $app_secret);
 
     if ($signed_request && $deauth_uid = fboauth_uid_load($signed_request['user_id'])) {
       fboauth_save($deauth_uid, NULL);

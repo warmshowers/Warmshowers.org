@@ -22,8 +22,8 @@ function browscap_settings_form($form, &$form_state) {
   $form['browscap_enable_automatic_updates'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable automatic updates'),
-    '#default_value' => variable_get('browscap_enable_automatic_updates', TRUE),
-    '#description' => t('Automatically update the user agent detection information.'),
+    '#default_value' => variable_get('browscap_enable_automatic_updates', FALSE),
+    '#description' => t('Automatically update the user agent detection information. <em>Warning: This may require several seconds and possibly up to a minute or more during cron.</em>'),
   );
   $form['browscap_automatic_updates_timer'] = array(
     '#type' => 'select',
@@ -54,9 +54,5 @@ function browscap_settings_form($form, &$form_state) {
  * Submit handler for the refresh browscap button.
  */
 function browscap_refresh_submit($form, &$form_state) {
-  // Update the browscap information.
   _browscap_import(FALSE);
-
-  // Record when the browscap information was updated.
-  variable_set('browscap_imported', REQUEST_TIME);
 }

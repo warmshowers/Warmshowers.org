@@ -12,6 +12,9 @@
  *   An associative array containing:
  *   - form: A render element representing the form.
  *
+ * @return string
+ *   The HTML output.
+ *
  * @ingroup themeable
  */
 function theme_uc_file_hook_user_file_downloads($variables) {

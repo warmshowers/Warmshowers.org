@@ -6,36 +6,11 @@ class smart_ip_views_bridge_openlayers_proximity_handler_filter_square extends o
    * Process operator.
    */
   function op_process($op = 'simple', $field) {
-    if (isset($this->view->exposed_input) && !empty($this->view->exposed_input)) {
-      $exposed_input = $this->view->exposed_input['flat']['location'];
-      $this->options['value']['location'] = $exposed_input;
-      foreach ($this->value as $key => $value) {
-        if (is_numeric($key)) {
-          $this->value[$key]['location'] = $exposed_input;
-        }
-        elseif ($key == 'location') {
-          $this->value['location'] = $exposed_input;
-        }
-      }
+    if (empty($this->table_alias)) {
+      $this->table_alias = 'openlayers_proximity';
     }
-    else {
-      $token = $this->options['value']['location'];
-      smart_ip_views_bridge_substitute_token_value($this->options['value']['location'], $token);
-      foreach ($this->value as $key => $value) {
-        if (is_numeric($key)) {
-          //smart_ip_views_bridge_substitute_token_value($this->value[$key]['location'], $token);
-        }
-        elseif ($key == 'location') {
-          smart_ip_views_bridge_substitute_token_value($this->value['location'], $token);
-        }
-      }
-    }
-    //$this->table = 'openlayers_proximity';
-    $this->table_alias = 'openlayers_proximity';
-    //$this->field = 'flat';
-    // $this->real_field = 'flat';
-    // $this->options['table'] = 'openlayers_proximity';
-    // $this->options['field'] = 'flat';
+    $token = $this->value['location'];
+    smart_ip_views_bridge_substitute_token_value($this->value['location'], $token);
     parent::op_process($op, $field);
   }
 
@@ -44,6 +19,8 @@ class smart_ip_views_bridge_openlayers_proximity_handler_filter_square extends o
    */
   function value_form(&$form, &$form_state) {
     parent::value_form($form, $form_state);
+    // Remove "Get location from a node" and "Expose this filter to visitors, to allow them to change it" options
+    unset($form['location_as']['#options']['node'], $form['expose_button']);
     // Add description showing Smart IP tokens
     $form['value']['location']['#description'] .= smart_ip_views_bridge_form_fields_description();
   }
@@ -59,5 +36,16 @@ class smart_ip_views_bridge_openlayers_proximity_handler_filter_square extends o
       smart_ip_views_bridge_substitute_token_value($form['flat']['location']['#default_value'], $token);
       smart_ip_views_bridge_substitute_token_value($form['flat']['location']['#value'], $token);
     }
+  }
+
+  /**
+   * Validate the exposed filter form
+   */
+  function exposed_validate(&$form, &$form_state) {
+    // This Smart IP views filter doesn't support exposed filter form. Thus, we don't need exposed 
+    // filter form validation here (it just causes issues with other exposed filter form if enabled).
+    // This handler inherits the parent's filter form validation, to disable it, this function should
+    // be present and the parent validation code below should be commented.
+    //parent::exposed_validate($form, $form_state);
   }
 }

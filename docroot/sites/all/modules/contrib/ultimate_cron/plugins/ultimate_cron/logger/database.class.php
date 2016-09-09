@@ -8,6 +8,9 @@ define('ULTIMATE_CRON_DATABASE_LOGGER_CLEANUP_METHOD_DISABLED', 1);
 define('ULTIMATE_CRON_DATABASE_LOGGER_CLEANUP_METHOD_EXPIRE', 2);
 define('ULTIMATE_CRON_DATABASE_LOGGER_CLEANUP_METHOD_RETAIN', 3);
 
+/**
+ * Class for using database as log storage.
+ */
 class UltimateCronDatabaseLogger extends UltimateCronLogger {
   public $options = array();
   public $log_entry_class = '\UltimateCronDatabaseLogEntry';
@@ -210,7 +213,7 @@ class UltimateCronDatabaseLogger extends UltimateCronLogger {
       '#parents' => array('settings', $this->type, $this->name, 'retain'),
       '#type' => 'textfield',
       '#title' => t('Retain logs'),
-      '#description' => t('Retain X amount of log entries.'),
+      '#description' => t('Retain X amount of log entries; this value is per cron job. Setting this to 1000 on sites with 15 cron jobs will store a total of 15000 entries. High values can result in slower log performance.'),
       '#default_value' => $values['retain'],
       '#fallback' => TRUE,
       '#required' => TRUE,
@@ -275,15 +278,19 @@ class UltimateCronDatabaseLogger extends UltimateCronLogger {
         ->fetchObject($this->log_entry_class, array($name, $this));
     }
     else {
-      $log_entry = db_select('ultimate_cron_log', 'l')
-        ->fields('l')
-        ->condition('l.name', $name)
-        ->condition('l.log_type', $log_types, 'IN')
-        ->orderBy('l.start_time', 'DESC')
-        ->orderBy('l.end_time', 'DESC')
-        ->range(0, 1)
-        ->execute()
-        ->fetchObject($this->log_entry_class, array($name, $this));
+      $subquery = db_select('ultimate_cron_log', 'l3')
+        ->fields('l3', array('name', 'log_type'))
+        ->groupBy('name')
+        ->groupBy('log_type');
+      $subquery->addExpression('MAX(l3.start_time)', 'start_time');
+
+      $query = db_select('ultimate_cron_log', 'l1')
+        ->fields('l1');
+      $query->join($subquery, 'l2', 'l1.name = l2.name AND l1.start_time = l2.start_time AND l1.log_type = l2.log_type');
+      $query->condition('l2.name', $name);
+      $query->condition('l2.log_type', $log_types, 'IN');
+
+      $log_entry = $query->execute()->fetchObject($this->log_entry_class, array($name, $this));
     }
     if ($log_entry) {
       $log_entry->finished = TRUE;
@@ -302,19 +309,18 @@ class UltimateCronDatabaseLogger extends UltimateCronLogger {
       return parent::loadLatestLogEntries($jobs, $log_types);
     }
 
-    $result = db_query("SELECT l.*
-    FROM {ultimate_cron_log} l
-    JOIN (
-      SELECT l3.name, (
-        SELECT l4.lid
-        FROM {ultimate_cron_log} l4
-        WHERE l4.name = l3.name
-        AND l4.log_type IN (:log_types)
-        ORDER BY l4.name desc, l4.start_time DESC
-        LIMIT 1
-      ) AS lid FROM {ultimate_cron_log} l3
-      GROUP BY l3.name
-    ) l2 on l2.lid = l.lid", array(':log_types' => $log_types));
+    $subquery = db_select('ultimate_cron_log', 'l3')
+      ->fields('l3', array('name', 'log_type'))
+      ->groupBy('name')
+      ->groupBy('log_type');
+    $subquery->addExpression('MAX(l3.start_time)', 'start_time');
+
+    $query = db_select('ultimate_cron_log', 'l1')
+      ->fields('l1');
+    $query->join($subquery, 'l2', 'l1.name = l2.name AND l1.start_time = l2.start_time AND l1.log_type = l2.log_type');
+    $query->condition('l2.log_type', $log_types, 'IN');
+
+    $result = $query->execute();
 
     $log_entries = array();
     while ($object = $result->fetchObject()) {
@@ -355,6 +361,9 @@ class UltimateCronDatabaseLogger extends UltimateCronLogger {
 
 }
 
+/**
+ * Class for Ultimate Cron log entries.
+ */
 class UltimateCronDatabaseLogEntry extends UltimateCronLogEntry {
   /**
    * Save log entry.
@@ -418,4 +427,5 @@ class UltimateCronDatabaseLogEntry extends UltimateCronLogEntry {
       }
     }
   }
+
 }

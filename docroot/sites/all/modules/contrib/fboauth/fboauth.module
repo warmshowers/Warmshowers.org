@@ -40,6 +40,30 @@ function fboauth_menu() {
 }
 
 /**
+ * Implements hook_init().
+ */
+function fboauth_init() {
+  global $user;
+  if (variable_get('fboauth_always_load_js', 0)) {
+    $url = drupal_parse_url(request_uri());
+
+    if (drupal_match_path($url['path'], '/user/' . $user->uid . '/fboauth')) {
+      $fbid = fboauth_fbid_load($user->uid);
+      if ($fbid !== FALSE) {
+        // We have a fbid so must be displaying the deauth button, no need for
+        // the popup window.
+      }
+      else {
+        drupal_add_js(drupal_get_path('module', 'fboauth') . '/fboauth_popup.js');
+      }
+    }
+    elseif (!drupal_match_path($url['path'], '/user/' . $user->uid . '/fboauth')) {
+      drupal_add_js(drupal_get_path('module', 'fboauth') . '/fboauth_popup.js');
+    }
+  }
+}
+
+/**
  * Implements hook_theme().
  */
 function fboauth_theme() {
@@ -68,6 +92,9 @@ function fboauth_block_info() {
   $blocks['login'] = array(
     'info' => t('Facebook login'),
   );
+  $blocks['connect'] = array(
+    'info' => t('Facebook connect'),
+  );
   return $blocks;
 }
 
@@ -78,8 +105,14 @@ function fboauth_block_view($delta) {
   $block = array();
   if (variable_get('fboauth_id', '') && !fboauth_fbid_load()) {
     // Set the redirect to the current page (unless we're on the login page).
-    $redirect = (arg(0) === 'user' && (arg(1) === 'login' || arg(1) == '')) ? NULL : $_GET['q'];
+    $destination = drupal_get_destination();
+    $redirect = (arg(0) === 'user' && (arg(1) === 'login' || arg(1) == '')) ? NULL : $destination['destination'];
     $block['content'] = fboauth_action_display('connect', $redirect);
+
+    if (variable_get('fboauth_popup', 1) &&
+        !variable_get('fboauth_always_load_js', 0)) {
+      drupal_add_js(drupal_get_path('module', 'fboauth') . '/fboauth_popup.js');
+    }
   }
   return $block;
 }
@@ -129,6 +162,13 @@ function fboauth_form_user_profile_form_alter(&$form, &$form_state) {
     '#title' => t('Facebook connect'),
     '#markup' => theme('fboauth_user_form_connect', array('uid' => $uid, 'fbid' => $fbid)),
   );
+
+  if (variable_get('fboauth_popup', 1) &&
+      !variable_get('fboauth_always_load_js', 0)) {
+    $fboauth_form['#attached']['js'] = array(
+      drupal_get_path('module', 'fboauth') . '/fboauth_popup.js',
+    );
+  }
 
   // The account settings move around in this form.
   $account_form = isset($form['account']) ? $form['account'] : $form;
@@ -272,37 +312,36 @@ function fboauth_save($uid, $fbid) {
 
   if (!empty($fbid)) {
     $id = db_insert('fboauth_users')
-  ->fields(array(
-      'uid' => $uid,
-      'fbid' => $fbid,
-    ))
-  ->execute();
+        ->fields(array(
+          'uid' => $uid,
+          'fbid' => $fbid,
+        ))
+        ->execute();
   }
   $loggedin_account = user_load($uid); //load user, all user fields & fbuid
   // Check if the logged in user has a picture saved & has linked their FB account through fboauth, but only if
   // the site is configured to do this.
-  if(variable_get('fboauth_user_picture','picture') == 'picture' && is_null($loggedin_account->picture) && !empty($fbid)) {
-      $picture_directory =  file_default_scheme() . '://' . variable_get('user_picture_path', 'pictures');
-      if(file_prepare_directory($picture_directory, FILE_CREATE_DIRECTORY)){
-        $picture_result = drupal_http_request('https://graph.facebook.com/v2.3/' . $fbid . '/picture?type=large');
-        $picture_path = file_stream_wrapper_uri_normalize($picture_directory . '/picture-' . $loggedin_account->uid . '-' . REQUEST_TIME . '.jpg');
-        $picture_file = file_save_data($picture_result->data, $picture_path, FILE_EXISTS_REPLACE);
-        // Check to make sure the picture isn't too large for the site settings.
-        $max_dimensions = variable_get('user_picture_dimensions', '85x85');
-        file_validate_image_resolution($picture_file, $max_dimensions);
-        // Update the user record.
-        $picture_file->uid = $loggedin_account->uid;
-        $picture_file = file_save($picture_file);
-        file_usage_add($picture_file, 'user', 'user', $loggedin_account->uid);
-        db_update('users')
+  if (variable_get('fboauth_user_picture', 'picture') == 'picture' && is_null($loggedin_account->picture) && !empty($fbid)) {
+    $picture_directory = file_default_scheme() . '://' . variable_get('user_picture_path', 'pictures');
+    if (file_prepare_directory($picture_directory, FILE_CREATE_DIRECTORY)) {
+      $picture_result = drupal_http_request('https://graph.facebook.com/'.variable_get('fboauth_apiversion', 'v2.3').'/' . $fbid . '/picture?type=large');
+      $picture_path = file_stream_wrapper_uri_normalize($picture_directory . '/picture-' . $loggedin_account->uid . '-' . REQUEST_TIME . '.jpg');
+      $picture_file = file_save_data($picture_result->data, $picture_path, FILE_EXISTS_REPLACE);
+      // Check to make sure the picture isn't too large for the site settings.
+      $max_dimensions = variable_get('user_picture_dimensions', '85x85');
+      file_validate_image_resolution($picture_file, $max_dimensions);
+      // Update the user record.
+      $picture_file->uid = $loggedin_account->uid;
+      $picture_file = file_save($picture_file);
+      file_usage_add($picture_file, 'user', 'user', $loggedin_account->uid);
+      db_update('users')
           ->fields(array(
-          'picture' => $picture_file->fid,
+            'picture' => $picture_file->fid,
           ))
           ->condition('uid', $loggedin_account->uid)
           ->execute();
-}
+    }
   }
-
 }
 
 /**
@@ -375,8 +414,14 @@ function fboauth_action_link_properties($action_name, $redirect = NULL, $app_id 
       'client_id' => $app_id,
       'redirect_uri' => fboauth_action_url('fboauth/' . $action_name, array('absolute' => TRUE, 'query' => $query)),
     ),
-    'href' => 'https://www.facebook.com/v2.3/dialog/oauth',
+    'href' => 'https://www.facebook.com/'.variable_get('fboauth_apiversion', 'v2.3').'/dialog/oauth',
+    'attributes' => array(),
   );
+
+  if (variable_get('fboauth_popup', 1)) {
+    $return['attributes']['class'] = array('fboauth-popup');
+    $return['query']['display'] = 'popup';
+  }
 
   if ($permissions) {
     $return['query']['scope'] = implode(',', $permissions);
@@ -445,7 +490,7 @@ function theme_fboauth_action__connect($variables) {
   $action = $variables['action'];
   $link = $variables['properties'];
   $url = url($link['href'], array('query' => $link['query']));
-  $link['attributes']['class'] = isset($link['attributes']['class']) ? $link['attributes']['class'] : 'facebook-action-connect';
+  $link['attributes']['class'][] = 'facebook-action-connect';
   $link['attributes']['rel'] = 'nofollow';
   $attributes = isset($link['attributes']) ? drupal_attributes($link['attributes']) : '';
   $title = isset($link['title']) ? check_plain($link['title']) : '';

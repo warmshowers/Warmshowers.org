@@ -15,6 +15,7 @@
  *
  * @author Roland Michael dela Peña.
  */
+define('SMART_IP_MAXMIND_GEOIP2_LITE_BIN_DOWNLOAD_BASE_URL', 'http://geolite.maxmind.com/download/geoip/database');
 define('SMART_IP_MAXMIND_LITE_BIN_DOWNLOAD_BASE_URL', 'http://geolite.maxmind.com/download/geoip/database');
 define('SMART_IP_MAXMIND_LITE_CSV_DOWNLOAD_BASE_URL', 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV');
 define('SMART_IP_MAXMIND_GEOIP_BASE_URL', 'https://geoip.maxmind.com');
@@ -23,10 +24,17 @@ define('SMART_IP_MAXMIND_LOCATION_CSV', 'Location.csv');
 define('SMART_IP_MAXMIND_BLOCKS_CSV', 'Blocks.csv');
 define('SMART_IP_MAXMIND_BIN_DB_NAME', 'GeoIP');
 define('SMART_IP_MAXMIND_BIN_LITE_DB_NAME', 'GeoLite');
-define('SMART_IP_MAXMIND_BIN_EDITION_CITY', 133);
-define('SMART_IP_MAXMIND_BIN_EDITION_COUNTRY', 106);
 define('SMART_IP_MAXMIND_BIN_LICENSED_VERSION', 0);
 define('SMART_IP_MAXMIND_BIN_LITE_VERSION', 1);
+define('SMART_IP_MAXMIND_BIN_EDITION_CITY', 133);
+define('SMART_IP_MAXMIND_BIN_EDITION_COUNTRY', 106);
+define('SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_CITY', 'GeoIP2-City');
+define('SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_COUNTRY', 'GeoIP2-Country');
+define('SMART_IP_MAXMIND_GEOIP2_FILENAME_LITE_CITY', 'GeoLite2-City.mmdb');
+define('SMART_IP_MAXMIND_GEOIP2_FILENAME_LINCENSED_CITY', 'GeoIP2-City.mmdb');
+define('SMART_IP_MAXMIND_GEOIP2_FILENAME_LITE_COUNTRY', 'GeoLite2-Country.mmdb');
+define('SMART_IP_MAXMIND_GEOIP2_FILENAME_LINCENSED_COUNTRY', 'GeoIP2-Country.mmdb');
+
 
 /******************************************************************************
  * Drupal Hooks                                                               *
@@ -104,7 +112,7 @@ function smart_ip_init(){
   }
   // Save a database hit. If there's already session data, 
   // don't check if we need to geolocate the anonymous role
-  $smart_ip_session = smart_ip_session_get('smart_ip');
+  $smart_ip_session = smart_ip_session_get('smart_ip', FALSE);
   if (empty($smart_ip_session['location'])) {
     $roles_to_geo_locate = variable_get('smart_ip_roles_to_geolocate', array(DRUPAL_AUTHENTICATED_RID));
     if(in_array(DRUPAL_ANONYMOUS_RID, $roles_to_geo_locate) ){
@@ -152,6 +160,10 @@ function smart_ip_cron() {
   if (variable_get('smart_ip_maxmind_bin_db_auto_update', TRUE)) {
     module_load_include('inc', 'smart_ip', 'includes/smart_ip.utility');
     smart_ip_maxmind_bin_db_update(variable_get('smart_ip_maxmind_license', ''), TRUE);
+  }
+  if (variable_get('smart_ip_maxmind_geoip2_bin_db_auto_update', TRUE)) {
+    module_load_include('inc', 'smart_ip', 'includes/smart_ip.utility');
+    smart_ip_maxmind_bin_db_update(variable_get('smart_ip_maxmind_geoip2_license', ''), TRUE);
   }
 }
 
@@ -224,7 +236,7 @@ function smart_ip_menu() {
 /**
  * Implements hook_user_presave().
  *
- * Detects IP and geo location upon registration.
+ * Save new user's geolocation upon registration.
  */
 function smart_ip_user_presave(&$edit, $account, $category) {
   if ($account->is_new == TRUE && variable_get('smart_ip_save_user_location_creation', TRUE)) {
@@ -240,7 +252,7 @@ function smart_ip_user_presave(&$edit, $account, $category) {
 /**
  * Implements hook_user_login().
  *
- * Detects IP and geo location upon user login.
+ * Save user's geolocation upon login.
  */
 function smart_ip_user_login(&$edit, $account) {
   // Now check to see if this user has "administer smart_ip" permission
@@ -293,7 +305,7 @@ function smart_ip_user_login(&$edit, $account) {
 function smart_ip_addressfield_default_values_alter(&$default_values, $context) {
   // If no other default country was provided, set it to one retrieved from SmartIP.
   $smart_ip_session = smart_ip_session_get('smart_ip');
-  if (empty($default_values['country']) && $smart_ip_session['location']['country_code']) {
+  if (empty($default_values['country']) && !empty($smart_ip_session['location']['country_code'])) {
     $default_values['country'] = $smart_ip_session['location']['country_code'];
   }
 }
@@ -338,7 +350,9 @@ function smart_ip_tokens($type, $tokens, array $data = array(), array $options =
     $smart_ip_session = smart_ip_session_get('smart_ip');
     if (!empty($smart_ip_session['location'])) {
       foreach ($tokens as $name => $original) {
-        $replacements[$original] = $smart_ip_session['location'][$name];
+        if (!empty($smart_ip_session['location'][$name])) {
+          $replacements[$original] = $smart_ip_session['location'][$name];
+        }
       }
     }
   }
@@ -397,17 +411,23 @@ function theme_smart_ip_longitude_dms($variable) {
 /**
  * Get the geo location from the IP address
  *
- * @return
- *   FALSE if the lookup failed to find a location for this IP
+ * @param string $ip_address
+ *   IP address to query for geolocation. It will use current user's IP
+ *   address if empty.
+ * @return array
+ *   Geolocation details of queried IP address
  */
-function smart_ip_get_location($ip_address) {
+function smart_ip_get_location($ip_address = NULL) {
+  if (empty($ip_address)) {
+    $ip = ip_address();
+  }
   // Use a static cache if this function is called more often
   // for the same ip on the same page.
   $results = &drupal_static(__FUNCTION__);
-  $result  = array();
   if (isset($results[$ip_address])) {
     return $results[$ip_address];
   }
+  $result  = array();
   $smart_ip_source = variable_get('smart_ip_source', 'ipinfodb_service');
   if ($smart_ip_source == 'local_db') {
     // Local database
@@ -428,7 +448,7 @@ function smart_ip_get_location($ip_address) {
       }
     }
   }
-  if ($smart_ip_source == 'mod_geoip') {
+  elseif ($smart_ip_source == 'mod_geoip') {
     if (function_exists('apache_note')) {
       $result['country']      = apache_note('GEOIP_COUNTRY_NAME');
       $result['country_code'] = apache_note('GEOIP_COUNTRY_CODE');
@@ -453,15 +473,15 @@ function smart_ip_get_location($ip_address) {
       $result['time_zone']    = '';
     }
   }
-  if ($smart_ip_source == 'maxmindgeoip_service') {
-    // Maxmind GeoIP service
+  elseif ($smart_ip_source == 'maxmindgeoip_service') {
+    // MaxMind GeoIP Legacy Web Services
     module_load_include('inc', 'smart_ip', 'includes/smart_ip.country_list');
     $countries = country_get_predefined_list();
     $request = drupal_http_request(smart_ip_get_maxmindgeoip_url($ip_address));
     if (!empty($request->code) && $request->code == 200 && !empty($request->data)) {
       switch (variable_get('smart_ip_maxmind_service', 'country')) {
         case 'country':
-          // For Maxmind GeoIp Country
+          // For MaxMind GeoIP Legacy Country Web Service
           // In case of errors the country code "(null),IP_NOT_FOUND" is returned,
           // so we need to check if the code is in our countries list.
           $result['country_code'] = isset($request->data) && isset($countries[$request->data]) ? strtoupper($request->data) : '';
@@ -474,8 +494,23 @@ function smart_ip_get_location($ip_address) {
           $result['longitude']    = '';
           $result['time_zone']    = '';
           break;
+        case 'city':
+          // For MaxMind GeoIP Legacy City Web Service
+          // In case of errors the country code "(null),IP_NOT_FOUND" is returned,
+          // so we need to check if the code is in our countries list.
+          $response = str_getcsv($request->data);
+          $result['country_code'] = isset($request->data) && isset($countries[$response[0]]) ? strtoupper($response[0]) : '';
+          $result['country']      = empty($result['country_code']) ? '' : $countries[$response[0]];
+          $result['region']       = $response[1];
+          $result['region_code']  = $response[1];
+          $result['city']         = $response[2];
+          $result['zip']          = '';
+          $result['latitude']     = $response[3];
+          $result['longitude']    = $response[4];
+          $result['time_zone']    = '';
+          break;
         case 'city_isp_org':
-          // For Maxmind GeoIP City/ISP/Organization Web Service
+          // For MaxMind GeoIP Legacy City/ISP/Organization Web Service
           // In case of errors the country code "(null),IP_NOT_FOUND" is returned,
           // so we need to check if the code is in our countries list.
           $response = str_getcsv($request->data);
@@ -494,20 +529,143 @@ function smart_ip_get_location($ip_address) {
           $result['organization_name'] = $response[9];
           break;
         case 'omni':
-          //@TODO For Maxmind GeoIP Omni Web Service
+          // For MaxMind GeoIP Legacy Insights (formerly Omni) Web Service
+          // In case of errors the country code "(null),IP_NOT_FOUND" is returned,
+          // so we need to check if the code is in our countries list.
+          $response = str_getcsv($request->data);
+          $result['country_code'] = $response[0];
+          $result['country']      = $response[1];
+          $result['region']       = $response[3];
+          $result['region_code']  = $response[2];
+          $result['city']         = $response[4];
+          $result['zip']          = $response[11];
+          $result['latitude']     = $response[5];
+          $result['longitude']    = $response[6];
+          $result['time_zone']    = $response[9];
+          $result['metro_code']   = $response[7];
+          $result['area_code']    = $response[8];
+          $result['isp_name']     = $response[12];
+          $result['domain']       = $response[14];
+          $result['autonomous_system_number'] = $response[15];
+          $result['netspeed']  = $response[16];
+          $result['user_type'] = $response[17];
+          $result['country_confidence_factor'] = $response[19];
+          $result['city_confidence_factor']    = $response[20];
+          $result['region_confidence_factor']  = $response[21];
+          $result['zip_confidence_factor']     = $response[22];
+          $result['accuracy_radius']   = $response[18];
+          $result['continent_code']    = $response[10];
+          $result['organization_name'] = $response[13];
           break;
       }
     }
     else {
-      watchdog('smart_ip', 'The web service request from %site seems to be broken, due to "%error".', array('%site' => $smart_ip_source, '%error' => "$result->code $result->error"), WATCHDOG_WARNING);
+      watchdog('smart_ip', 'The MaxMind GeoIP Legacy Web Service request from %site seems to be broken, due to "%error".', array('%site' => $smart_ip_source, '%error' => "$result->code $result->error"), WATCHDOG_WARNING);
     }
   }
-  if ($smart_ip_source == 'maxmind_bin') {
-    // Maxmind binary database
-    if (!extension_loaded('geoip')) {
-      module_load_include('inc', 'smart_ip', 'includes/geoipcity');
+  elseif ($smart_ip_source == 'maxmindgeoip2_service') {
+    // MaxMind GeoIP2 Precision Web Services
+    global $language;
+    $lang = $language->language;
+    $request  = drupal_http_request(smart_ip_get_maxmindgeoip2_url($ip_address));
+    $response = drupal_json_decode($request->data);
+    if (!empty($request->code) && $request->code == 200 && !empty($request->data)) {
+      $result['country_code'] = isset($response['country']['iso_code']) ? $response['country']['iso_code'] : '';
+      if (isset($response['country']['names']['en'])) {
+        $result['country'] = isset($response['country']['names'][$lang]) ? $response['country']['names'][$lang] : $response['country']['names']['en'];
+      }
+      else {
+        $result['country'] = '';
+      }
+      if (isset($response['subdivisions']['names']['en'])) {
+        $result['region'] = isset($response['subdivisions']['names'][$lang]) ? $response['subdivisions']['names'][$lang] : $response['subdivisions']['names']['en'];
+      }
+      else {
+        $result['region'] = '';
+      }
+      $result['region_code'] = isset($response['subdivisions']['iso_code']) ? $response['subdivisions']['iso_code'] : '';
+      if (isset($response['city']['names']['en'])) {
+        $result['city'] = isset($response['city']['names'][$lang]) ? $response['city']['names'][$lang] : $response['city']['names']['en'];
+      }
+      else {
+        $result['city'] = '';
+      }
+      $result['zip'] = isset($response['postal']['code']) ? $response['postal']['code'] : '';
+      $result['latitude']  = isset($response['location']['latitude']) ? $response['location']['latitude'] : '';
+      $result['longitude'] = isset($response['location']['longitude']) ? $response['location']['longitude'] : '';
+      $result['time_zone'] = isset($response['location']['time_zone']) ? $response['location']['time_zone'] : '';
+      if (isset($response['location']['metro_code'])) {
+        $result['metro_code'] = $response['location']['metro_code'];
+      }
+      if (isset($response['location']['accuracy_radius'])) {
+        $result['accuracy_radius'] = $response['location']['accuracy_radius'];
+      }
+      if (isset($response['location']['average_income'])) {
+        $result['average_income'] = $response['location']['average_income'];
+      }
+      if (isset($response['location']['population_density'])) {
+        $result['population_density'] = $response['location']['population_density'];
+      }
+      if (isset($response['continent']['names'][$lang])) {
+        $result['continent'] = $response['continent']['names'][$lang];
+      }
+      elseif (isset($response['continent']['names']['en'])) {
+        $result['continent'] = $response['continent']['names']['en'];
+      }
+      if (isset($response['continent']['code'])) {
+        $result['continent'] = $response['continent']['code'];
+      }
+      if (isset($response['traits']['isp'])) {
+        $result['isp_name'] = $response['traits']['isp'];
+      }
+      if (isset($response['traits']['domain'])) {
+        $result['domain'] = $response['traits']['domain'];
+      }
+      if (isset($response['traits']['netspeed'])) {
+        $result['netspeed'] = $response['traits']['netspeed'];
+      }
+      if (isset($response['traits']['user_type'])) {
+        $result['user_type'] = $response['traits']['user_type'];
+      }
+      if (isset($response['traits']['organization'])) {
+        $result['organization_name'] = $response['traits']['organization'];
+      }
+      if (isset($response['traits']['autonomous_system_number'])) {
+        $result['autonomous_system_number'] = $response['traits']['autonomous_system_number'];
+      }
+      if (isset($response['traits']['autonomous_system_organization'])) {
+        $result['autonomous_system_organization'] = $response['traits']['autonomous_system_organization'];
+      }
+      if (isset($response['traits']['is_anonymous_proxy'])) {
+        $result['is_anonymous_proxy'] = $response['traits']['is_anonymous_proxy'];
+      }
+      if (isset($response['traits']['is_satellite_provider'])) {
+        $result['is_satellite_provider'] = $response['traits']['is_satellite_provider'];
+      }
+      if (isset($response['country']['confidence'])) {
+        $result['country_confidence_factor'] = $response['country']['confidence'];
+      }
+      if (isset($response['city']['confidence'])) {
+        $result['city_confidence_factor'] = $response['city']['confidence'];
+      }
+      if (isset($response['postal']['confidence'])) {
+        $result['zip_confidence_factor'] = $response['postal']['confidence'];
+      }
+      if (isset($response['subdivisions']['confidence'])) {
+        $result['region_confidence_factor'] = $response['subdivisions']['confidence'];
+      }
     }
-    $db_path  = drupal_realpath(file_stream_wrapper_uri_normalize('private://smart_ip'));
+    else {
+      watchdog('smart_ip', 'The Maxmind GeoIP2 Precision Web Service request from %site seems to be broken, due to "%error".', array('%site' => $smart_ip_source, '%error' => "$result->code $result->error"), WATCHDOG_WARNING);
+    }
+  }
+  elseif ($smart_ip_source == 'maxmind_bin') {
+    // MaxMind GeoIP Legacy binary database
+    module_load_include('inc', 'smart_ip', 'includes/geoipcity');
+    $db_path = variable_get('smart_ip_maxmind_bin_custom_path', '');
+    if (empty($db_path)) {
+      $db_path = drupal_realpath(file_stream_wrapper_uri_normalize('private://smart_ip'));
+    }
     $version  = variable_get('smart_ip_maxmind_bin_version', SMART_IP_MAXMIND_BIN_LICENSED_VERSION);
     $edition  = variable_get('smart_ip_maxmind_bin_edition', SMART_IP_MAXMIND_BIN_EDITION_CITY);
     $filename = smart_ip_get_bin_source_filename($version, $edition);
@@ -554,33 +712,82 @@ function smart_ip_get_location($ip_address) {
       variable_set('smart_ip_maxmind_bin_db_update_error', t('Maxmind bin database does not exist (you can download the database now to get rid of this message).'));
     }
   }
-  if ($smart_ip_source == 'ip2location_bin') {
-    // IP2Location binary file
-    module_load_include('inc', 'smart_ip', 'includes/IP2Location');
+  elseif ($smart_ip_source == 'maxmindgeoip2_bin') {
+    // MaxMind GeoIP2 binary database
+    module_load_include('php', 'smart_ip', 'includes/vendor/autoload');
+    $version  = variable_get('smart_ip_maxmind_geoip2_bin_version', SMART_IP_MAXMIND_BIN_LICENSED_VERSION);
+    $edition  = variable_get('smart_ip_maxmind_geoip2_bin_edition', SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_CITY);
+    $filename = smart_ip_get_geoip2_bin_source_filename($version, $edition);
+    $db_path  = variable_get('smart_ip_maxmind_geoip2_bin_custom_path', '');
+    if (empty($db_path)) {
+      $db_path = drupal_realpath(file_stream_wrapper_uri_normalize('private://smart_ip'));
+    }
+    $db_path  = "$db_path/$filename";
+    if (file_exists($db_path)) {
+      $reader = new GeoIp2\Database\Reader($db_path);
+      if ($edition == SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_CITY) {
+        $record = $reader->city($ip_address);
+      }
+      elseif ($edition == SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_COUNTRY) {
+        $record = $reader->country($ip_address);
+      }
+      if (!empty($record)) {
+        global $language;
+        $lang = $language->language;
+        $raw = $record->jsonSerialize();
+        if (!isset($raw['country']['names'][$lang])) {
+          // The current language is not yet supported by MaxMind, use English as
+          // default language.
+          $lang = 'en';
+        }
+        $result['original_data'] = $raw;
+        $result['country']       = isset($raw['country']['names'][$lang]) ? $raw['country']['names'][$lang] : '';
+        $result['country_code']  = isset($raw['country']['iso_code']) ? strtoupper($raw['country']['iso_code']) : '';
+        $result['city']          = isset($raw['city']['names'][$lang]) ? $raw['city']['names'][$lang] : '';
+        $result['zip']           = isset($raw['postal']['code']) ? $raw['postal']['code'] : '';
+        $result['region_code']   = isset($raw['subdivisions'][0]['iso_code']) ? $raw['subdivisions'][0]['iso_code'] : '';
+        $result['region']        = isset($raw['subdivisions'][0]['names'][$lang]) ? $raw['subdivisions'][0]['names'][$lang] : '';
+        $result['latitude']      = isset($raw['location']['latitude']) ? $raw['location']['latitude'] : '';
+        $result['longitude']     = isset($raw['location']['longitude']) ? $raw['location']['longitude'] : '';
+        $result['time_zone']     = isset($raw['location']['time_zone']) ? $raw['location']['time_zone'] : '';
+      }
+    }
+  }
+  elseif ($smart_ip_source == 'ip2location_bin') {
+    // IP2Location binary database
+    module_load_include('php', 'smart_ip', 'includes/vendor/autoload');
+    $ip_ver = smart_ip_get_ip_address_version($ip_address);
+    if ($ip_ver == 4) {
+      $custom_path = variable_get('smart_ip_ip2location_bin_path', '');
+    }
+    elseif ($ip_ver == 6) {
+      $custom_path = variable_get('smart_ip_ip2location_ipv6_bin_path', '');
+    }
     switch (variable_get('smart_ip_ip2location_bin_cache', 'no_cache')) {
       case 'shared_memory':
-        $location_data = new IP2Location(variable_get('smart_ip_ip2location_bin_path', ''), IP2Location::SHARED_MEMORY);
+        $location_data = new IP2Location\Database($custom_path, IP2Location\Database::SHARED_MEMORY);
         break;
       case 'memory_cache':
-        $location_data = new IP2Location(variable_get('smart_ip_ip2location_bin_path', ''), IP2Location::MEMORY_CACHE);
+        $location_data = new IP2Location\Database($custom_path, IP2Location\Database::MEMORY_CACHE);
         break;
       case 'no_cache':
       default:
-        $location_data = new IP2Location(variable_get('smart_ip_ip2location_bin_path', ''), IP2Location::FILE_IO);
+        $location_data = new IP2Location\Database($custom_path, IP2Location\Database::FILE_IO);
         break;
     }
-    $record = $location_data->lookup($ip_address, IP2Location::ALL);
-    $result['country_code'] = strtoupper($record->countryCode);
-    $result['country']      = ucwords(strtolower($record->countryName));
-    $result['region']       = ucwords(strtolower($record->regionName));
-    $result['region_code']  = '';
-    $result['city']         = ucwords(strtolower($record->cityName));
-    $result['zip']          = $record->zipCode;
-    $result['latitude']     = $record->latitude;
-    $result['longitude']    = $record->longitude;
-    $result['time_zone']    = $record->timeZone;
+    $record = $location_data->lookup($ip_address, IP2Location\Database::ALL);
+    $result['original_data'] = $record;
+    $result['country_code']  = isset($record['countryCode']) ? strtoupper($record['countryCode']) : '';
+    $result['country']       = isset($record['countryName']) ? $record['countryName'] : '';
+    $result['region']        = isset($record['regionName']) ? $record['regionName'] : '';
+    $result['region_code']   = '';
+    $result['city']          = isset($record['cityName']) ? $record['cityName'] : '';
+    $result['zip']           = isset($record['zipCode']) ? $record['zipCode'] : '';
+    $result['latitude']      = isset($record['latitude']) ? $record['latitude'] : '';
+    $result['longitude']     = isset($record['longitude']) ? $record['longitude'] : '';
+    $result['time_zone']     = isset($record['timeZone']) ? $record['timeZone'] : '';
   }
-  if ($smart_ip_source == 'ipinfodb_service') {
+  elseif ($smart_ip_source == 'ipinfodb_service') {
     // IPInfoDB.com service
     $ipinfodb_key = variable_get('smart_ip_ipinfodb_key', 0);
     $version = variable_get('smart_ip_use_ipinfodb_api_version', 3);
@@ -627,7 +834,7 @@ function smart_ip_get_location($ip_address) {
       }
     }
   }
-  if ($smart_ip_source == 'x_header') {
+  elseif ($smart_ip_source == 'x_header') {
     // X-GeoIP
     module_load_include('inc', 'smart_ip', 'includes/smart_ip.country_list');
     $countries = country_get_predefined_list();
@@ -641,11 +848,12 @@ function smart_ip_get_location($ip_address) {
     $result['longitude']    = '';
     $result['time_zone']    = '';
   }
-  if ($smart_ip_source == 'cf_header') {
+  elseif ($smart_ip_source == 'cf_header') {
     // Cloudflare IP Geolocation
     module_load_include('inc', 'smart_ip', 'includes/smart_ip.country_list');
     $countries = country_get_predefined_list();
     $result['country_code'] = isset($_SERVER['HTTP_CF_IPCOUNTRY']) ? $_SERVER['HTTP_CF_IPCOUNTRY'] : '';
+    $result['country_code'] = strtoupper($result['country_code']);
     $result['country']      = empty($result['country_code']) ? '' : $countries[$result['country_code']];
     $result['region']       = '';
     $result['region_code']  = '';
@@ -655,13 +863,14 @@ function smart_ip_get_location($ip_address) {
     $result['longitude']    = '';
     $result['time_zone']    = '';
   }
-  if (!empty($result)) {
+  if (isset($result['latitude']) && isset($result['longitude'])) {
     // If coordinates are (0, 0) there was no match
-    if ($result['latitude'] == 0 && $result['longitude'] == 0) {
+    if ($result['latitude'] === 0 && $result['longitude'] === 0) {
       $result['latitude']  = NULL;
       $result['longitude'] = NULL;
     }
   }
+  $result['source'] = 0;
   $result['ip_address'] = $ip_address;
   $result['timestamp']  = REQUEST_TIME;
   // Make sure external data in UTF-8.
@@ -694,7 +903,7 @@ function smart_ip_get_current_visitor_location_data() {
   if (isset($smart_ip_session['debug_mode'])) {
     return $smart_ip_session['location'];
   }
-  $location = smart_ip_get_location(ip_address());
+  $location = smart_ip_get_location();
   if (!isset($location['country']) && !isset($location['country_code']) && 
     !isset($location['region']) && !isset($location['region_code']) && 
     !isset($location['city']) && !isset($location['zip']) && 
@@ -804,6 +1013,7 @@ function smart_ip_set_session_data($location) {
 function smart_ip_set_user_data($account, $location) {
   if ($account->uid != 0) {
     $user_obj = user_load($account->uid);
+    drupal_alter('smart_ip_user_save', $user_obj, $location);
     user_save($user_obj, array('data' => array('geoip_location' => $location)));
   }
 }
@@ -822,15 +1032,21 @@ function smart_ip_session_set($key, $value) {
 
 /**
  * Read session variable.
+ *
+ * @param string $key
+ *   The session variable to read. Pass 'smart_ip' to read the smart_ip data.
+ * @param bool $locate
+ *   (optional) If the key is 'smart_ip' and the data is not set, whether to
+ *   trigger a location lookup as fallback. Defaults to TRUE
  */
-function smart_ip_session_get($key) {
+function smart_ip_session_get($key, $locate = TRUE) {
   if (module_exists('session_cache')) {
     $smart_ip_session = session_cache_get($key);
   }
   else {
     $smart_ip_session = isset($_SESSION) && isset($_SESSION[$key]) ? $_SESSION[$key] : NULL;
   }
-  if ($key == 'smart_ip') {
+  if ($key == 'smart_ip' && !variable_get('smart_ip_debug', FALSE) && $locate) {
     $ip = ip_address();
     if (!isset($smart_ip_session['location']['ip_address']) || $smart_ip_session['location']['ip_address'] != $ip) {
       global $user;
@@ -856,7 +1072,13 @@ function smart_ip_check_allowed_page() {
   }
   else {
     if (isset($_GET['uri'])) {
-      $url = $_GET['uri'];
+      // Handle "uri" from ajax request
+      if (empty($_GET['uri'])) {
+        $url = variable_get('site_frontpage', 'node');
+      }
+      else {      
+        $url = $_GET['uri'];
+      }
     }
     else {
       $url = $_GET['q'];
@@ -866,6 +1088,10 @@ function smart_ip_check_allowed_page() {
     // Compare the lowercase internal and lowercase path alias (if any).
     $page_match = drupal_match_path($path, $pages);
     if ($path != $url) {
+      $page_match = $page_match || drupal_match_path($url, $pages);
+    }
+    elseif ($path == $url) {
+      $url = drupal_get_normal_path($url);
       $page_match = $page_match || drupal_match_path($url, $pages);
     }
     return $page_match;
@@ -893,23 +1119,40 @@ function smart_ip_get_ipinfodb_url($ipinfodb_key, $ip_address, $version = 3) {
 }
 
 /**
- * Get Maxmind GeoIP URL
+ * Get Maxmind GeoIP Legacy Web Services URL
+ * Reference: http://dev.maxmind.com/geoip/legacy/web-services
  * @param String $ip_adress IP address to geolocate
  */
 function smart_ip_get_maxmindgeoip_url($ip_address) {
-  $maxmind_key = variable_get('smart_ip_maxmind_key', '');
+  $maxmind_license = variable_get('smart_ip_maxmind_key', '');
   switch(variable_get('smart_ip_maxmind_service', 'country')){
     case 'country':
-      return SMART_IP_MAXMIND_GEOIP_BASE_URL . "/a?l=$maxmind_key&i=$ip_address";
+      return SMART_IP_MAXMIND_GEOIP_BASE_URL . "/a?l=$maxmind_license&i=$ip_address";
+      break;
+    case 'city':
+      return SMART_IP_MAXMIND_GEOIP_BASE_URL . "/b?l=$maxmind_license&i=$ip_address";
       break;
     case 'city_isp_org':
-      return SMART_IP_MAXMIND_GEOIP_BASE_URL . "/f?l=$maxmind_key&i=$ip_address";
+      return SMART_IP_MAXMIND_GEOIP_BASE_URL . "/f?l=$maxmind_license&i=$ip_address";
       break;
     case 'omni':
-      return '';
+      return SMART_IP_MAXMIND_GEOIP_BASE_URL . "/e?l=$maxmind_license&i=$ip_address";
       break;
   }
   return '';
+}
+
+/**
+ * Get Maxmind GeoIP2 Precision Web Services URL
+ * Reference: http://dev.maxmind.com/geoip/geoip2/web-services
+ * @param String $ip_adress IP address to geolocate
+ */
+function smart_ip_get_maxmindgeoip2_url($ip_address) {
+  $maxmind_uid     = variable_get('smart_ip_maxmind_geoip_uid', '');
+  $maxmind_license = variable_get('smart_ip_maxmind_geoip_license', '');
+  $service_type    = variable_get('smart_ip_maxmind_geoip_service', 'country');
+  $url = str_replace('://', "://$maxmind_uid:$maxmind_license@", SMART_IP_MAXMIND_GEOIP_BASE_URL) . "/geoip/v2.1/$service_type/$ip_address";  
+  return $url;
 }
 
 /**
@@ -938,17 +1181,40 @@ function smart_ip_get_csv_source_filename() {
 }
 
 /**
- * Helper function for grabbing Maxmind's binary archive filename.
+ * Helper function for grabbing MaxMind GeoIP Legacy's binary archive filename.
  */
 function smart_ip_get_bin_source_filename($version, $edition) {
   if ($version == SMART_IP_MAXMIND_BIN_LITE_VERSION) {
     $file = SMART_IP_MAXMIND_BIN_LITE_DB_NAME;
   }
   else {
+    // Filename of licensed country edition can be verified at:
+    // http://updates.maxmind.com/app/update_getfilename?product_id=106
     $file = SMART_IP_MAXMIND_BIN_DB_NAME;
   }
   if ($edition == SMART_IP_MAXMIND_BIN_EDITION_CITY) {
+    // Filename of licensed city edition can be verified at:
+    // http://updates.maxmind.com/app/update_getfilename?product_id=132
     $file .= 'City';
+  }
+  return $file;
+}
+
+/**
+ * Helper function for grabbing MaxMind GeoIP2's binary archive filename.
+ */
+function smart_ip_get_geoip2_bin_source_filename($version = SMART_IP_MAXMIND_BIN_LITE_VERSION, $edition = SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_CITY) {
+  if ($version == SMART_IP_MAXMIND_BIN_LICENSED_VERSION && $edition == SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_COUNTRY) {
+    $file = SMART_IP_MAXMIND_GEOIP2_FILENAME_LINCENSED_COUNTRY;
+  }
+  elseif ($version == SMART_IP_MAXMIND_BIN_LICENSED_VERSION && $edition == SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_CITY) {
+    $file = SMART_IP_MAXMIND_GEOIP2_FILENAME_LINCENSED_CITY;
+  }
+  elseif ($version == SMART_IP_MAXMIND_BIN_LITE_VERSION && $edition == SMART_IP_MAXMIND_GEOIP2_BIN_EDITION_COUNTRY) {
+    $file = SMART_IP_MAXMIND_GEOIP2_FILENAME_LITE_COUNTRY;
+  }
+  else {
+    $file = SMART_IP_MAXMIND_GEOIP2_FILENAME_LITE_CITY;
   }
   return $file;
 }
@@ -1016,6 +1282,18 @@ function coordinates_dd_to_dms($coord) {
   $coord   *= 60;
   $seconds  = round($coord, 6);
   return array($degrees, $minutes, $seconds, $negative);
+}
+
+/**
+ * Determine IP address version.
+ */
+function smart_ip_get_ip_address_version($ip_address) {
+  if (filter_var($ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+    return 4;
+  }
+  elseif (filter_var($ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+    return 6;
+  }
 }
 
 /**

@@ -487,7 +487,7 @@ class UltimateCronPlugin {
 
     // No plugins = no settings = no vertical tabs for you mister!
     if (empty($plugins)) {
-      continue;
+      return;
     }
 
     ctools_include('plugins');
@@ -599,7 +599,7 @@ class UltimateCronPlugin {
    */
   static public function jobSettingsFormValidate($form, &$form_state, $plugin_type, $job = NULL) {
     $name = !empty($form_state['values']['settings'][$plugin_type]['name']) ? $form_state['values']['settings'][$plugin_type]['name'] : $job->hook[$plugin_type]['name'];
-    $plugin = _ultimate_cron_plugin_load($plugin_type, $name);
+    $plugin = _ultimate_cron_plugin_require($plugin_type, $name);
     $plugin->settingsFormValidate($form, $form_state, $job);
   }
 
@@ -608,7 +608,7 @@ class UltimateCronPlugin {
    */
   static public function jobSettingsFormSubmit($form, &$form_state, $plugin_type, $job = NULL) {
     $name = !empty($form_state['values']['settings'][$plugin_type]['name']) ? $form_state['values']['settings'][$plugin_type]['name'] : $job->hook[$plugin_type]['name'];
-    $plugin = _ultimate_cron_plugin_load($plugin_type, $name);
+    $plugin = _ultimate_cron_plugin_require($plugin_type, $name);
     $plugin->settingsFormSubmit($form, $form_state, $job);
 
     // Weed out blank values that have fallbacks.
@@ -702,8 +702,12 @@ class UltimateCronPlugin {
       }
     }
   }
+
 }
 
+/**
+ * Class for handling multiple plugins.
+ */
 class UltimateCronPluginMultiple extends UltimateCronPlugin {
   static public $multiple = TRUE;
 
@@ -739,7 +743,7 @@ class UltimateCronPluginMultiple extends UltimateCronPlugin {
 
     // No plugins = no settings = no vertical tabs for you mister!
     if (empty($plugins)) {
-      continue;
+      return;
     }
 
     $weight = 10;
@@ -816,10 +820,11 @@ class UltimateCronPluginMultiple extends UltimateCronPlugin {
       }
     }
   }
+
 }
 
 /**
- * Abstract class for Ultimate Cron schedulers
+ * Abstract class for Ultimate Cron schedulers.
  *
  * A scheduler is responsible for telling Ultimate Cron whether a job should
  * run or not.
@@ -856,10 +861,11 @@ abstract class UltimateCronScheduler extends UltimateCronPlugin {
    *   TRUE if job is behind its schedule.
    */
   abstract public function isBehind($job);
+
 }
 
 /**
- * Abstract class for Ultimate Cron launchers
+ * Abstract class for Ultimate Cron launchers.
  *
  * A launcher is responsible for locking and launching/running a job.
  *
@@ -970,6 +976,7 @@ abstract class UltimateCronLauncher extends UltimateCronPlugin {
     foreach ($jobs as $name => $job) {
       $lock_ids[$name] = $this->isLocked($job);
     }
+    return $lock_ids;
   }
 
   /**
@@ -999,6 +1006,17 @@ abstract class UltimateCronLauncher extends UltimateCronPlugin {
 
       // Restore state.
       $_SERVER['PHP_SELF'] = $php_self;
+    }
+    catch (Throwable $e) {
+      // Restore state.
+      if (isset($php_self)) {
+        $_SERVER['PHP_SELF'] = $php_self;
+      }
+
+      watchdog('ultimate_cron', 'Error running @name: @error', array(
+        '@name' => $job->name,
+        '@error' => (string) $e,
+      ), WATCHDOG_ERROR);
     }
     catch (Exception $e) {
       // Restore state.
@@ -1130,7 +1148,7 @@ abstract class UltimateCronLauncher extends UltimateCronPlugin {
 }
 
 /**
- * Abstract class for Ultimate Cron loggers
+ * Abstract class for Ultimate Cron loggers.
  *
  * Each logger must implement its own functions for getting/setting data
  * from the its storage backend.
@@ -1331,6 +1349,7 @@ abstract class UltimateCronLogger extends UltimateCronPlugin {
    *   Log entries.
    */
   abstract public function getLogEntries($name, $log_types, $limit = 10);
+
 }
 
 /**
@@ -1546,7 +1565,8 @@ abstract class UltimateCronLogEntry {
    */
   public function formatEndTime() {
     return $this->end_time ? t('Previous run finished @ @end_time', array(
-        '@end_time' => format_date((int) $this->end_time, 'custom', 'Y-m-d H:i:s'))) : '';
+        '@end_time' => format_date((int) $this->end_time, 'custom', 'Y-m-d H:i:s')
+    )) : '';
   }
 
   /**
@@ -1613,6 +1633,7 @@ abstract class UltimateCronLogEntry {
    * Save log entry.
    */
   abstract public function save();
+
 }
 
 /**
@@ -1621,6 +1642,7 @@ abstract class UltimateCronLogEntry {
  * There's nothing special about this plugin.
  */
 class UltimateCronSettings extends UltimateCronPluginMultiple {
+
 }
 
 /**
@@ -1636,4 +1658,5 @@ class UltimateCronTaggedSettings extends UltimateCronSettings {
   public function isValid($job = NULL) {
     return $job ? in_array($this->name, $job->hook['tags']) : parent::isValid();
   }
+
 }

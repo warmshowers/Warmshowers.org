@@ -4,9 +4,13 @@
  * Export-ui handler for the Ultimate Cron jobs.
  */
 
+/**
+ * Class for cTools Export UI.
+ */
 class ultimate_cron_job_ctools_export_ui extends ctools_export_ui {
   /**
    * Accumulator for jobs that are behind.
+   *
    * @var integer
    */
   protected $jobs_behind = 0;
@@ -290,7 +294,7 @@ class ultimate_cron_job_ctools_export_ui extends ctools_export_ui {
     $form['#attached']['js'][] = drupal_get_path('module', 'ultimate_cron') . '/js/ultimate_cron.js';
 
     if (module_exists('nodejs')) {
-      $settings = _ultimate_cron_plugin_load('settings', 'general')->getDefaultSettings();
+      $settings = _ultimate_cron_plugin_require('settings', 'general')->getDefaultSettings();
       if (!empty($settings['nodejs'])) {
         nodejs_send_content_channel_token('ultimate_cron');
         $form['#attached']['js'][] = drupal_get_path('module', 'ultimate_cron') . '/js/ultimate_cron.nodejs.js';
@@ -618,4 +622,5 @@ class ultimate_cron_job_ctools_export_ui extends ctools_export_ui {
       unset($row['sort']);
     }
   }
+
 }

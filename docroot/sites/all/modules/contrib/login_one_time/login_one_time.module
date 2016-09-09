@@ -6,6 +6,27 @@
  */
 
 /**
+ * Implements hook_variable_info().
+ */
+function login_one_time_variable_info($options) {
+  $variable['login_one_time_subject'] = array (
+    'title' => t('One-time Login mail Subject', array(), $options),
+    'description' => t('The Subject of the one-time login mail', array(), $options),
+    'default' => t("One-time login link for [user:name] at [site:name]", array(), $options),
+    'type' => 'string',
+    'localize' => TRUE,
+  );
+  $variable['login_one_time_body'] = array (
+    'title' => t('One-time Login mail Body', array(), $options),
+    'description' => t('The Body of the one-time login mail', array(), $options),
+    'default' => t("[user:name],\n\nA request to give you a one-time login for your account has been made at [site:name].\n\nYou may now log in to [site:url-brief] by clicking on this link or copying and pasting it in your browser:\n\n[user:login-one-time]\n\nThis is a one-time login, so it can be used only once.  It expires in two weeks and nothing will happen if it's not used.\n\n--  [site:name] team", array(), $options),
+    'type' => 'string',
+    'localize' => TRUE,
+  );
+  return $variable;
+}
+
+/**
  * Implements hook_perm().
  */
 function login_one_time_permission() {
@@ -421,7 +442,7 @@ function login_one_time_user_options($autocomplete = NULL) {
     $where = '';
     if ($autocomplete) {
       $where = " AND u.name LIKE :autocomplete";
-      $args[':autocomplete'] = '%' . $autocomplete . '.%';
+      $args[':autocomplete'] = '%' . $autocomplete . '%';
     }
     $result = db_query(
       'SELECT u.name AS name FROM {users} u'
@@ -432,7 +453,7 @@ function login_one_time_user_options($autocomplete = NULL) {
       $args
     );
     foreach ($result as $row) {
-      $options[$row->name] = $row->name;
+      $options[$row->name] = check_plain($row->name);
     }
   }
 
@@ -539,6 +560,7 @@ function login_one_time_get_link($account, $path = NULL) {
     array(
       'query' => array('destination' => $path),
       'absolute' => TRUE,
+      'language' => user_preferred_language($account),
     )
   );
 }
@@ -573,14 +595,36 @@ function login_one_time_form_user_admin_settings_alter(&$form, &$form_state) {
 }
 
 /**
+ * Retrieve the Global (or user) Language, seperated method to not polute the language variable in the parameter list.
+ */
+function _login_one_time_getLanguage(){
+    global $language ;
+  return $language->language;
+}
+
+/**
  * Returns a mail string for a variable name.
  *
  * Used by user_mail() and the settings forms to retrieve strings.
  */
 function login_one_time_mail_text($key, $path = NULL, $language = NULL, $variables = array()) {
-  if ($admin_setting = variable_get($key, FALSE)) {
-    // An admin setting overrides the default string.
-    return strtr($admin_setting, $variables);
+
+  if (empty($language)) {
+    $language = _login_one_time_getLanguage();
+  }
+  if (is_object($language)) {
+    $language = $language->language;
+  }
+  if (module_exists("i18n_variable")) {
+    $admin_setting = i18n_variable_get($key, $language, FALSE);
+  }
+  else {
+    $admin_setting = variable_get($key, FALSE);
+  }
+
+  if ($admin_setting) {
+   // An admin setting overrides the default string.
+   return strtr($admin_setting, $variables);
   }
   else {
     $langcode = isset($language) ? $language->language : NULL;
@@ -602,7 +646,7 @@ function login_one_time_mail_text($key, $path = NULL, $language = NULL, $variabl
  * Implements hook_mail().
  */
 function login_one_time_mail($key, &$message, $params) {
-   // This code handles a mixture of Drupal 6 legacy !variables and Drupal 7 tokens.
+  // This code handles a mixture of Drupal 6 legacy !variables and Drupal 7 tokens.
 
   $language = $message['language'];
   $path = &$params['path'];

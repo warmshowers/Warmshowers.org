@@ -10,6 +10,13 @@ Nodeblock - Use nodes as blocks
 
 
 For Omega theme users:
-https://drupal.org/node/1945718
+* https://drupal.org/node/1945718
 
+Block caching
+Nodeblock tries to determine if your site has special node access functionality
+if a module implements hook_node_grants or another module then the `node` module
+implements hook_node_access then Nodeblock blocks will not be block cached.
 
+You can override this behavior with variable
+"nodeblock_dangerous_force_block_caching" but be aware that this might have
+security implications.

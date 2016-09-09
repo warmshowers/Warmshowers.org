@@ -312,6 +312,10 @@ class UltimateCronBackgroundProcessLegacyLauncher extends UltimateCronLauncher {
         ->fetchAllAssoc('handle', PDO::FETCH_OBJ);
       db_set_active($old_db);
     }
+    catch (Throwable $e) {
+      db_set_active($old_db);
+      throw $e;
+    }
     catch (Exception $e) {
       db_set_active($old_db);
       throw $e;
@@ -794,6 +798,12 @@ class UltimateCronBackgroundProcessLegacyLauncher extends UltimateCronLauncher {
         $job->unlock($lock_id);
       }
 
+    }
+    catch (Throwable $e) {
+      watchdog('bgpl_launcher', 'Error executing %job: @error', array('%job' => $job->name, '@error' => (string) $e), WATCHDOG_ERROR);
+      $job->sendSignal('background_process_legacy_dont_log');
+      $log_entry->finish();
+      $job->unlock($lock_id);
     }
     catch (Exception $e) {
       watchdog('bgpl_launcher', 'Error executing %job: @error', array('%job' => $job->name, '@error' => (string) $e), WATCHDOG_ERROR);

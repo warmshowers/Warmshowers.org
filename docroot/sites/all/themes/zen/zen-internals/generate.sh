@@ -12,7 +12,7 @@ STARTERKIT=../STARTERKIT;
 cd $STARTERKIT;
 cp config.rb config.rb.orig;
 echo "asset_cache_buster :none" >> config.rb;
-compass clean;
+bundle exec compass clean;
 
 # Create our custom init partial, while keeping the original.
 mv sass/_init.scss $ORIG/;
@@ -20,7 +20,7 @@ cat $ORIG/_init.scss $ORIG/extras/sass/_init_extras.scss > sass/_init.scss;
 
 # Build the stylesheets for the Zen base theme.
 cp $ORIG/extras/sass/styles-fixed* sass/;
-compass compile --environment production --no-line-comments --output-style compressed;
+bundle exec compass compile --environment production --no-line-comments --output-style compressed;
 rm sass/styles-fixed*;
 
 # Copy the stylesheets from STARTERKIT to the Zen theme.
@@ -34,8 +34,8 @@ cp $ORIG/extras/sass/css-* sass/;
 cp $ORIG/extras/sass/layouts/css-* sass/layouts/;
 cp $ORIG/extras/sass/components/css-* sass/components/;
 rm css/*.css css/*/*.css;
-compass clean;
-compass compile --no-line-comments;
+bundle exec compass clean;
+bundle exec compass compile --no-line-comments;
 rm sass/css-* sass/*/css-*;
 
 # Don't use the generated styles.css.

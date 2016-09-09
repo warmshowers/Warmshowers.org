@@ -12,6 +12,9 @@
  *   - model: Product model number, also known as SKU.
  *   - attributes: (optional) Array of attributes to apply to enclosing DIV.
  *
+ * @return string
+ *   The HTML output.
+ *
  * @ingroup themeable
  */
 function theme_uc_product_model($variables) {

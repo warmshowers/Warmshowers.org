@@ -270,7 +270,7 @@ function comment_notify_unsubscribe_by_hash($hash) {
     $result = db_query("SELECT c.cid
       FROM {comment} c, (
         SELECT oc.nid, oc.uid
-        FROM {comment} AS oc, comment_notify AS ocn
+        FROM {comment} AS oc, {comment_notify} AS ocn
         WHERE oc.cid = ocn.cid
         AND ocn.notify_hash = :hash
       ) AS o

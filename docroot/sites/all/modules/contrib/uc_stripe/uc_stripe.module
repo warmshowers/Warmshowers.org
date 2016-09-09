@@ -9,11 +9,6 @@
  * https://www.drupal.org/node/1467886
  */
 
-// Specify the endpoint API version currently used here.
-define('UC_STRIPE_STRIPE_API_VERSION', '2015-06-15');
-// Currently required Stripe PHP Library version
-define('UC_STRIPE_STRIPE_PHP_LIBRARY_VERSION', '2.2.0');
-
 /**
  * Implements hook_libraries_info() to define what files should be loaded.
  *
@@ -24,61 +19,71 @@ function uc_stripe_libraries_info() {
   $libraries['stripe'] = array(
     'name' => 'Stripe PHP Library',
     'vendor url' => 'http://stripe.com',
-    'download url' => 'https://stripe.com/docs/libraries',
+    'download url' => 'https://github.com/stripe/stripe-php/releases',
+    'download file url' => 'https://github.com/stripe/stripe-php/archive/v3.13.0.tar.gz',
     'version arguments' => array(
-      'file' => 'lib/Stripe.php',
-      'pattern' => '/VERSION.*\'([0-9\.]+)\'/',
-      'lines' => 500,
+      'file' => 'VERSION',
+      'pattern' => '/(\d+\.\d+\.\d+)/',
     ),
-
-    // Unfortunately the order here is important, as some code executes on
-    // loading each of these.
-    'files' => array(
-      'php' => array(
-        'lib/Util/RequestOptions.php',
-        'lib/Util/Set.php',
-        'lib/Util/Util.php',
-        'lib/Object.php',
-        'lib/ApiResource.php',
-        'lib/Account.php',
-        'lib/ExternalAccount.php',
-        'lib/AlipayAccount.php',
-        'lib/ApiRequestor.php',
-        'lib/ApplicationFee.php',
-        'lib/ApplicationFeeRefund.php',
-        'lib/AttachedObject.php',
-        'lib/SingletonApiResource.php',
-        'lib/Balance.php',
-        'lib/BalanceTransaction.php',
-        'lib/BankAccount.php',
-        'lib/BitcoinReceiver.php',
-        'lib/BitcoinTransaction.php',
-        'lib/Card.php',
-        'lib/Charge.php',
-        'lib/Collection.php',
-        'lib/Coupon.php',
-        'lib/Customer.php',
-        'lib/Error/Base.php',
-        'lib/Error/Api.php',
-        'lib/Error/ApiConnection.php',
-        'lib/Error/Authentication.php',
-        'lib/Error/Card.php',
-        'lib/Error/InvalidRequest.php',
-        'lib/Error/RateLimit.php',
-        'lib/Event.php',
-        'lib/FileUpload.php',
-        'lib/HttpClient/ClientInterface.php',
-        'lib/HttpClient/CurlClient.php',
-        'lib/Invoice.php',
-        'lib/InvoiceItem.php',
-        'lib/Plan.php',
-        'lib/Recipient.php',
-        'lib/Refund.php',
-        'lib/Stripe.php',
-        'lib/Subscription.php',
-        'lib/Token.php',
-        'lib/Transfer.php',
-        'lib/TransferReversal.php',
+    'versions' => array(
+      '2.2.0' => array(
+        'files' => array(
+          'php' => array(
+            'lib/Util/RequestOptions.php',
+            'lib/Util/Set.php',
+            'lib/Util/Util.php',
+            'lib/Object.php',
+            'lib/ApiResource.php',
+            'lib/Account.php',
+            'lib/ExternalAccount.php',
+            'lib/AlipayAccount.php',
+            'lib/ApiRequestor.php',
+            'lib/ApplicationFee.php',
+            'lib/ApplicationFeeRefund.php',
+            'lib/AttachedObject.php',
+            'lib/SingletonApiResource.php',
+            'lib/Balance.php',
+            'lib/BalanceTransaction.php',
+            'lib/BankAccount.php',
+            'lib/BitcoinReceiver.php',
+            'lib/BitcoinTransaction.php',
+            'lib/Card.php',
+            'lib/Charge.php',
+            'lib/Collection.php',
+            'lib/Coupon.php',
+            'lib/Customer.php',
+            'lib/Error/Base.php',
+            'lib/Error/Api.php',
+            'lib/Error/ApiConnection.php',
+            'lib/Error/Authentication.php',
+            'lib/Error/Card.php',
+            'lib/Error/InvalidRequest.php',
+            'lib/Error/RateLimit.php',
+            'lib/Event.php',
+            'lib/FileUpload.php',
+            'lib/HttpClient/ClientInterface.php',
+            'lib/HttpClient/CurlClient.php',
+            'lib/Invoice.php',
+            'lib/InvoiceItem.php',
+            'lib/Plan.php',
+            'lib/Recipient.php',
+            'lib/Refund.php',
+            'lib/Stripe.php',
+            'lib/Subscription.php',
+            'lib/Token.php',
+            'lib/Transfer.php',
+            'lib/TransferReversal.php',
+          ),
+        ),
+        'stripe_api_version' => '2015-06-15',
+      ),
+      '3.13.0' => array(
+        'files' => array(
+          'php' => array(
+            'init.php',
+          ),
+        ),
+        'stripe_api_version' => '2016-03-07',
       ),
     ),
   );
@@ -164,7 +169,7 @@ function uc_stripe_form_uc_cart_checkout_form_alter(&$form, &$form_state) {
   }
   $form['actions']['continue']['#attributes']['disabled'] = 'disabled';
 
-  $apikey = variable_get('uc_stripe_testmode', TRUE) ? variable_get('uc_stripe_api_key_test_publishable', '') : variable_get('uc_stripe_api_key_live_publishable', '');
+  $apikey = variable_get('uc_stripe_testmode', TRUE) ? check_plain(variable_get('uc_stripe_api_key_test_publishable', '')) : check_plain(variable_get('uc_stripe_api_key_live_publishable', ''));
 
 
   // Add custom JS and CSS
@@ -234,17 +239,25 @@ function uc_stripe_uc_checkout_complete($order, $account) {
 
 
 /**
- * Provide customer id for order pane.
+ * Implements uc_order_pane_callback() specified in 'callback' of
+ * uc_stripe_uc_order_pane()
+ *
+ * Returns text for customer id for order pane.
  *
  * @param $op
- * @param $arg1
- * @return string
+ * @param $order
+ * @param $form
+ * @param $form_state
+ * @return array
  */
-function uc_stripe_order_pane_stripe($op, $arg1) {
-  if ($op == 'view') {
-    $stripe_customer_id = _uc_stripe_get_customer_id($arg1->uid);
-    $output = t("Stripe Customer ID: ") . $stripe_customer_id;
-    return $output;
+function uc_stripe_order_pane_stripe($op, $order, &$form = NULL, &$form_state = NULL) {
+  switch ($op) {
+    case 'view':
+      $stripe_customer_id = _uc_stripe_get_customer_id($order->uid);
+      $output = t("Customer ID: ") . $stripe_customer_id;
+      return array('#markup' => $output);
+    default:
+      return;
   }
 }
 
@@ -304,13 +317,65 @@ function uc_stripe_settings_form() {
   return $form;
 }
 
+/**
+ * Implements hook_form_FORMID_alter()
+ *
+ * Add validation function for stripe settings
+ *
+ * @param $form
+ * @param $form_state
+ */
+function uc_stripe_form_uc_payment_method_settings_form_alter(&$form, &$form_state) {
+  $form['#validate'][] = 'uc_stripe_settings_form_validate';
+}
 
-//-------------------------------------------------------------------------------------------|
-//
-//
-//
-//
-//-------------------------------------------------------------------------------------------|
+/**
+ * Validation function and normalize keys (trim spaces)
+ *
+ * @param $form
+ * @param $form_state
+ */
+function uc_stripe_settings_form_validate($form, &$form_state) {
+  $elements = array('uc_stripe_api_key_test_secret', 'uc_stripe_api_key_test_publishable', 'uc_stripe_api_key_live_secret', 'uc_stripe_api_key_live_publishable', );
+
+  if ($form_state['values']['uc_pg_uc_stripe_enabled']) {
+    foreach ($elements as $element_name) {
+      $form_state['values'][$element_name] = _uc_stripe_sanitize_key($form_state['values'][$element_name]);
+      if (!_uc_stripe_validate_key($form_state['values'][$element_name])) {
+        form_set_error($element_name, t('@name does not appear to be a valid stripe key', array('@name' => $element_name)));
+      }
+    }
+  }
+
+  // Make sure they haven't tried to validate credit card numbers, as uc_stripe will not provide a real one.
+  if (!empty($form_state['values']['uc_credit_validate_numbers'])) {
+    form_set_error('uc_credit_validate_numbers', t('When used with Ubercart Stripe, "Validate credit card number at checkout" must be unchecked.'));
+  }
+
+}
+
+/**
+ * Sanitize and strip whitespace from Stripe keys
+ *
+ * @param $key
+ */
+function _uc_stripe_sanitize_key($key) {
+  $key = trim($key);
+  $key = check_plain($key);
+  return $key;
+}
+
+/**
+ * Validate Stripe key
+ *
+ * @param $key
+ * @return boolean
+ */
+function _uc_stripe_validate_key($key) {
+  $valid = preg_match('/^[a-zA-Z0-9_]+$/', $key);
+  return $valid;
+}
+
 /**
  * Custom submit function to store the stripe token
  *
@@ -393,7 +458,7 @@ function uc_stripe_charge($order_id, $amount, $data) {
 
       //Create the customer in stripe
       $customer = \Stripe\Customer::create(array(
-          "card" => $stripe_token,
+          "source" => $stripe_token,
           'description' => "OrderID: {$order->order_id}",
           'email' => "$order->primary_email"
         )
@@ -455,6 +520,7 @@ function uc_stripe_charge($order_id, $amount, $data) {
         "amount" => $amount,
         "currency" => strtolower($order->currency),
         "customer" => $stripe_customer_id,
+        "description" => t("Order #@order_id", array("@order_id" => $order_id)),
       )
     );
 
@@ -463,7 +529,8 @@ function uc_stripe_charge($order_id, $amount, $data) {
 
     $result = array(
       'success' => TRUE,
-      'message' => t('Payment of @amount processed successfully, transaction id @transaction_id.', array('@amount' => $formatted_amount, '@transaction_id' => $charge->__get('id'))),
+      'message' => t('Payment of @amount processed successfully, Stripe transaction id @transaction_id.', array('@amount' => $formatted_amount, '@transaction_id' => $charge->id)),
+      'comment' => t('Stripe transaction ID: @transaction_id', array('@transaction_id' => $charge->id)),
       'uid' => $user->uid,
     );
 
@@ -623,8 +690,9 @@ function _uc_stripe_prepare_api() {
 
   $secret_key = variable_get('uc_stripe_testmode', TRUE) ? variable_get('uc_stripe_api_key_test_secret', '') : variable_get('uc_stripe_api_key_live_secret', '');
   try {
+    $library = libraries_load('stripe');
     \Stripe\Stripe::setApiKey($secret_key);
-    \Stripe\Stripe::setApiVersion(UC_STRIPE_STRIPE_API_VERSION);
+    \Stripe\Stripe::setApiVersion($library['stripe_api_version']);
   } catch (Exception $e) {
     watchdog('uc_stripe', 'Error setting the Stripe API Key. Payments will not be processed: %error', array('%error' => $e->getMessage()));
   }
@@ -685,3 +753,5 @@ function uc_stripe_uc_payment_method_credit_form($form) {
 
   return $output;
 }
+
+

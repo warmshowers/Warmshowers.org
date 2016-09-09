@@ -5,7 +5,7 @@
  */
 
 /**
- * Plugin definition for Ctools Export UI
+ * Plugin definition for Ctools Export UI.
  */
 $plugin = array(
   'schema' => 'ultimate_cron_job',

@@ -80,14 +80,14 @@ function fivestar_field_instance_settings_form($field, $instance) {
   $form['allow_revote'] = array(
     '#type' => 'checkbox',
     '#title' => t('Allow users to re-vote on already voted content.'),
-    '#default_value' => isset($instance['settings']['allow_revote']) ? $instance['settings']['allow_revote'] : FALSE,
+    '#default_value' => isset($instance['settings']['allow_revote']) ? $instance['settings']['allow_revote'] : TRUE,
     '#return_value' => 1,
   );
 
   $form['allow_ownvote'] = array(
     '#type' => 'checkbox',
     '#title' => t('Allow users to vote on their own content.'),
-    '#default_value' => isset($instance['settings']['allow_ownvote']) ? $instance['settings']['allow_ownvote'] : FALSE,
+    '#default_value' => isset($instance['settings']['allow_ownvote']) ? $instance['settings']['allow_ownvote'] : TRUE,
     '#return_value' => 1,
   );
 
@@ -133,7 +133,7 @@ function _fivestar_field_helper($entity_type, $entity, $field, $instance, $langc
     else {
       $rating = (isset($items[$delta]['rating'])) ? $items[$delta]['rating'] : 0;
     }
-    $target = _fivestar_field_target($entity, $field, $instance, $item, $langcode);    
+    $target = _fivestar_field_target($entity, $field, $instance, $item, $langcode);
     if (!empty($target)) {
       if ($entity_type == 'comment' && $op == 'delete') {
         $target['vote_source'] = $entity->hostname;
@@ -358,11 +358,11 @@ function fivestar_field_formatter_info() {
       ),
     ),
     'fivestar_formatter_rating' => array(
-      'label' => t('Rating (i.e. 4.2/5)'),
+      'label' => t('Rating (e.g. 4.2/5)'),
       'field types' => array('fivestar'),
     ),
     'fivestar_formatter_percentage' => array(
-      'label' => t('Percentage (i.e. 92)'),
+      'label' => t('Percentage (e.g. 92)'),
       'field types' => array('fivestar'),
     ),
   );

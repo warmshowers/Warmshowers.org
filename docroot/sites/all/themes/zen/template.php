@@ -127,11 +127,11 @@ function zen_preprocess_html(&$variables, $hook) {
   );
 
   // Send X-UA-Compatible HTTP header to force IE to use the most recent
-  // rendering engine or use Chrome's frame rendering engine if available.
+  // rendering engine.
   // This also prevents the IE compatibility mode button to appear when using
   // conditional classes on the html tag.
   if (is_null(drupal_get_http_header('X-UA-Compatible'))) {
-    drupal_add_http_header('X-UA-Compatible', 'IE=edge,chrome=1');
+    drupal_add_http_header('X-UA-Compatible', 'IE=edge');
   }
 
   $variables['skip_link_anchor'] = check_plain(theme_get_setting('zen_skip_link_anchor'));
@@ -221,8 +221,13 @@ function zen_process_html_tag(&$variables) {
   $tag = &$variables['element'];
 
   if ($tag['#tag'] == 'style' || $tag['#tag'] == 'script') {
-    // Remove redundant type attribute and CDATA comments.
-    unset($tag['#attributes']['type'], $tag['#value_prefix'], $tag['#value_suffix']);
+    // Remove redundant CDATA comments.
+    unset($tag['#value_prefix'], $tag['#value_suffix']);
+
+    // Remove redundant type attribute.
+    if (isset($tag['#attributes']['type']) && $tag['#attributes']['type'] !== 'text/ng-template') {
+      unset($tag['#attributes']['type']);
+    }
 
     // Remove media="all" but leave others unaffected.
     if (isset($tag['#attributes']['media']) && $tag['#attributes']['media'] === 'all') {
@@ -254,7 +259,7 @@ function zen_preprocess_page(&$variables, $hook) {
   $secondary_links = variable_get('menu_secondary_links_source', 'user-menu');
   if ($secondary_links) {
     $menus = function_exists('menu_get_menus') ? menu_get_menus() : menu_list_system_menus();
-    $variables['secondary_menu_heading'] = $menus[$secondary_links];
+    $variables['secondary_menu_heading'] = isset($menus[$secondary_links]) ? $menus[$secondary_links] : '';
   }
   else {
     $variables['secondary_menu_heading'] = '';
@@ -305,6 +310,9 @@ function zen_process_maintenance_page(&$variables, $hook) {
 function zen_preprocess_node(&$variables, $hook) {
   // Add $unpublished variable.
   $variables['unpublished'] = (!$variables['status']) ? TRUE : FALSE;
+
+  // Set preview variable to FALSE if it doesn't exist.
+  $variables['preview'] = isset($variables['preview']) ? $variables['preview'] : FALSE;
 
   // Add pubdate to submitted variable.
   $variables['pubdate'] = '<time pubdate datetime="' . format_date($variables['node']->created, 'custom', 'c') . '">' . $variables['date'] . '</time>';
@@ -618,7 +626,27 @@ function zen_menu_local_task($variables) {
  * Implements hook_preprocess_menu_link().
  */
 function zen_preprocess_menu_link(&$variables, $hook) {
-  foreach ($variables['element']['#attributes']['class'] as $key => $class) {
+  // Normalize menu item classes to be an array.
+  if (empty($variables['element']['#attributes']['class'])) {
+    $variables['element']['#attributes']['class'] = array();
+  }
+  $menu_item_classes =& $variables['element']['#attributes']['class'];
+  if (!is_array($menu_item_classes)) {
+    $menu_item_classes = array($menu_item_classes);
+  }
+
+  // Normalize menu link classes to be an array.
+  if (empty($variables['element']['#localized_options']['attributes']['class'])) {
+    $variables['element']['#localized_options']['attributes']['class'] = array();
+  }
+  $menu_link_classes =& $variables['element']['#localized_options']['attributes']['class'];
+  if (!is_array($menu_link_classes)) {
+    $menu_link_classes = array($menu_link_classes);
+  }
+
+  // Add BEM-style classes to the menu item classes.
+  $extra_classes = array('menu__item');
+  foreach ($menu_item_classes as $key => $class) {
     switch ($class) {
       // Menu module classes.
       case 'expanded':
@@ -627,28 +655,31 @@ function zen_preprocess_menu_link(&$variables, $hook) {
       case 'active':
       // Menu block module classes.
       case 'active-trail':
-        array_unshift($variables['element']['#attributes']['class'], 'is-' . $class);
+        $extra_classes[] = 'is-' . $class;
         break;
       case 'has-children':
-        array_unshift($variables['element']['#attributes']['class'], 'is-parent');
+        $extra_classes[] = 'is-parent';
         break;
     }
   }
-  array_unshift($variables['element']['#attributes']['class'], 'menu__item');
-  if (empty($variables['element']['#localized_options']['attributes']['class'])) {
-    $variables['element']['#localized_options']['attributes']['class'] = array();
+  $menu_item_classes = array_merge($extra_classes, $menu_item_classes);
+
+  // Add BEM-style classes to the menu link classes.
+  $extra_classes = array('menu__link');
+  if (empty($menu_link_classes)) {
+    $menu_link_classes = array();
   }
   else {
-    foreach ($variables['element']['#localized_options']['attributes']['class'] as $key => $class) {
+    foreach ($menu_link_classes as $key => $class) {
       switch ($class) {
         case 'active':
         case 'active-trail':
-          array_unshift($variables['element']['#localized_options']['attributes']['class'], 'is-' . $class);
+          $extra_classes[] = 'is-' . $class;
           break;
       }
     }
   }
-  array_unshift($variables['element']['#localized_options']['attributes']['class'], 'menu__link');
+  $menu_link_classes = array_merge($extra_classes, $menu_link_classes);
 }
 
 /**
@@ -671,12 +702,12 @@ function zen_status_messages($variables) {
     if (count($messages) > 1) {
       $output .= " <ul class=\"messages__list\">\n";
       foreach ($messages as $message) {
-        $output .= '  <li class=\"messages__item\">' . $message . "</li>\n";
+        $output .= '  <li class="messages__item">' . $message . "</li>\n";
       }
       $output .= " </ul>\n";
     }
     else {
-      $output .= $messages[0];
+      $output .= reset($messages);
     }
     $output .= "</div>\n";
   }
