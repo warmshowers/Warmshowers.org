@@ -12,21 +12,22 @@ def get_settings():
     # Default settings
     s3_bucket = 'warmshowers-database-backup'
     backup_dir = '/var/backups/db_backups'
+    docroot_dir = '/var/www/warmshowers.org/docroot'
     dry_run  = False
+    force_dump  = False
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Sync database dumps from the last seven days.')
     parser.add_argument('--bucket', help='S3 database bucket. Default: ' + s3_bucket, default=s3_bucket)
-    parser.add_argument('--path', help='Full path to backup directory. Default: ' + backup_dir, default=backup_dir)
-    parser.add_argument('--dryrun', help="Perform a dry run. Default: %r" % dry_run, default=dry_run)
+    parser.add_argument('--backup-path', help='Full path to backup directory. Default: ' + backup_dir, default=backup_dir)
+    parser.add_argument('--docroot-path', help='Full path to backup directory. Default: ' + docroot_dir, default=docroot_dir)
+    parser.add_argument('--dryrun', action='store_true', help="Perform a dry run. Default: %r" % dry_run, default=dry_run)
+    parser.add_argument('--force-dump', action='store_true', help="Perform a database dump, even if the dump file already exists. Default: %r" % force_dump, default=force_dump)
     args = parser.parse_args()
 
-    if (args.dryrun != None and args.dryrun != dry_run):
-        args.dryrun = True
-
     # Create backup settings tuple
-    BackupSettings = namedtuple('BackupSettings', 's3_bucket backup_dir dry_run')
-    settings = BackupSettings(s3_bucket = args.bucket, backup_dir = os.path.normpath(args.path), dry_run = args.dryrun)
+    BackupSettings = namedtuple('BackupSettings', 's3_bucket backup_dir docroot_dir dry_run force_dump')
+    settings = BackupSettings(s3_bucket = args.bucket, backup_dir = os.path.normpath(args.backup_path), docroot_dir = os.path.normpath(args.docroot_path), dry_run = args.dryrun, force_dump = args.force_dump)
 
     return settings;
 
@@ -127,7 +128,25 @@ def upload_new_dumps(days):
 
     print "Uploaded %d dumps to S3" % count 
 
+def create_db_dump():
+    filename = settings.backup_dir + '/' + date.today().strftime('db_backup-%d-%m-%y.sql.gz')
+    # Do not create a db dump if a file already exists and the force-dump option
+    # is false.
+    if (os.path.isfile(filename) and not settings.force_dump):
+        print "%s already exists. Aborting DB dump." % filename
+        return
+
+    drushcmd_sql_dump =  'drush -r ' + settings.docroot_dir + ' sql-dump | gzip > ' + filename
+    print "Creating database dump %s" % filename
+    if (not settings.dry_run):
+        print os.popen(drushcmd_sql_dump).read()
+
+    print "Done."
+
 def run():
+    # Create one DB dump for today
+    create_db_dump()
+
     # Get the xyz.sql.gz dump filename for the past seven days.
     # Format: db_backup-[day]-[month]-[year].sql.gz
     # eg. db_backup-25-08-16.sql.gz
