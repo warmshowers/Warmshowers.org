@@ -50,9 +50,8 @@ function drush_uc_stripe_subscription_cancel($order_id = 'all') {
   }
 
   $library = libraries_load('stripe');
-  $info = libraries_info('stripe');
-  if (!$library['loaded'] || !array_key_exists(\Stripe\Stripe::VERSION, $info['versions'])) {
-    drush_print("Failed to load one of the supported Stripe PHP library versions: " . join(', ', array_keys($info['versions'])));
+  if (!$library['loaded'] || \Stripe\Stripe::VERSION != UC_STRIPE_STRIPE_PHP_LIBRARY_VERSION) {
+    drush_print("Failed to load stripe library version " . UC_STRIPE_STRIPE_PHP_LIBRARY_VERSION);
     return;
   }
 

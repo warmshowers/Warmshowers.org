@@ -7,31 +7,26 @@
  * Google Geocoding service.
  */
 
-define('DEVICE_GEOLOCATION_SMART_IP', 1);
+define('DEVICE_GEOLOCATION_MAXMIND', 1);
 define('DEVICE_GEOLOCATION_W3C', 2);
 
 /**
  * Implements hook_init().
  */
 function device_geolocation_init() {
-  // Check to see if the page is one of those allowed for geolocation
-  if (!smart_ip_check_allowed_page()) {
-    // This page is not on the list to acquire/update user's geolocation
-    return;
-  }
-  $ajax_check = variable_get('device_geolocation_ajax_check', FALSE);
+  $user_allowed = !is_null(smart_ip_session_get('device_geolocation')); // If true, the user has allowed to share his/her location
+  $ajax_check   = !$user_allowed && variable_get('device_geolocation_ajax_check', FALSE);
   if ($ajax_check || device_geolocation_check_geolocation_attempt()) {
     device_geolocation_get_coordinates();
-    if ($ajax_check) {
-      // Add javascript app that checks if device geolocation needs refresh via ajax call
-      drupal_add_js(array('device_geolocation' => array('ask_geolocate' => FALSE)), 'setting');
-      drupal_add_js(drupal_get_path('module', 'device_geolocation') . '/js/device_geolocation_check.js', array('scope' => 'footer', 'weight' => 0));
-    }
-    else {
+    if (!$ajax_check) {
       drupal_add_js(array('device_geolocation' => array('ask_geolocate' => TRUE)), 'setting');
     }
-    drupal_add_js('//maps.googleapis.com/maps/api/js?key=' . variable_get('device_geolocation_google_map_api', NULL), 'external');
+    drupal_add_js('//maps.googleapis.com/maps/api/js?sensor=false', 'external');
     drupal_add_js(drupal_get_path('module', 'device_geolocation') . '/js/device_geolocation.js', array('scope' => 'footer', 'weight' => 1));
+  }
+  if ($ajax_check) {
+    drupal_add_js(array('device_geolocation' => array('ask_geolocate' => FALSE)), 'setting');
+    drupal_add_js(drupal_get_path('module', 'device_geolocation') . '/js/device_geolocation_check.js', array('scope' => 'footer', 'weight' => 0));
   }
 }
 
@@ -142,12 +137,6 @@ function device_geolocation_form_alter(&$form, &$form_state, $form_id) {
       '#default_value' => $device_geolocation_check_frequency === NULL ? '' : $device_geolocation_check_frequency / 3600,
       '#field_suffix'  => t('hours'),
     );
-    $form['smart_ip_preferences']['device_geolocation_google_map_api'] = array(
-      '#title'         => t('Google map API key'),
-      '#type'          => 'textfield',
-      '#description'   => t('The use of Google map service requires API key. Get your API key !here.', array('!here' => l(t('here'), 'https://developers.google.com/maps/documentation/javascript/get-api-key'))),
-      '#default_value' => variable_get('device_geolocation_google_map_api', NULL),
-    );
     $form['#validate'][] = '_device_geolocation_check_frequency_validate';
   }
 }
@@ -214,6 +203,7 @@ function device_geolocation_detector_ajax() {
         $label = check_plain($label);
         $smart_ip_session['location'][$label] = check_plain($address);
         smart_ip_session_set('device_geolocation', TRUE);
+        smart_ip_session_set('device_geolocation_attempt', NULL);
       }
     }
     if (empty($smart_ip_session['location']['zip']) && isset($smart_ip_session['location']['postal_code'])) {
@@ -286,10 +276,10 @@ function device_geolocation_get_coordinates() {
 }
 
 /**
- * Check for Geolocation attempt ajax callback.
+ * Check Geolocation attempt ajax callback.
  */
 function device_geolocation_check_geolocation_attempt_ajax() {
-  if (smart_ip_check_allowed_page() && device_geolocation_check_geolocation_attempt()) {
+  if (device_geolocation_check_geolocation_attempt()) {
     drupal_json_output(array('ask_geolocate' => TRUE));
     return;
   }
@@ -297,25 +287,20 @@ function device_geolocation_check_geolocation_attempt_ajax() {
 }
 
 /**
- * Check for Geolocation attempt.
+ * Check Geolocation attempt.
  */
 function device_geolocation_check_geolocation_attempt() {
   $device_geolocation_check_frequency = variable_get('device_geolocation_check_frequency', NULL);
-  $timestamp = smart_ip_session_get('device_geolocation_attempt');
+  // Check if the current page is on the list of "Ask user's geolocation on specific Drupal native pages"
+  // then refresh user's location or if user has allowed to share his/her location then refresh on
+  // specified frequency time.
   if ($device_geolocation_check_frequency === NULL) {
-    // User's device geolocation checking is set disabled
     return FALSE;
   }
-  elseif (is_null(smart_ip_session_get('device_geolocation')) && empty($timestamp)) {
-    // The user has not allowed to share his/her location yet then return that user's location needs
-    // update and start the timer.
-    smart_ip_session_set('device_geolocation_attempt', REQUEST_TIME);
-    return TRUE;
+  elseif ((smart_ip_check_allowed_page() && is_null(smart_ip_session_get('device_geolocation'))) || !is_null(smart_ip_session_get('device_geolocation'))) {
+    if (is_null(smart_ip_session_get('device_geolocation_attempt')) || $device_geolocation_check_frequency < (REQUEST_TIME - smart_ip_session_get('device_geolocation_attempt'))) {
+      smart_ip_session_set('device_geolocation_attempt', REQUEST_TIME);
+      return TRUE;
+    }
   }
-  elseif (!empty($timestamp) && $device_geolocation_check_frequency < (REQUEST_TIME - $timestamp)) {
-    // Return that user's location needs update and reset the timer.
-    smart_ip_session_set('device_geolocation_attempt', REQUEST_TIME);
-    return TRUE;
-  }
-  return FALSE;
 }

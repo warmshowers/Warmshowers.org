@@ -22,7 +22,7 @@
     <meta name="HandheldFriendly" content="true">
     <meta name="viewport" content="width=device-width">
   <?php endif; ?>
-  <!--[if IEMobile]><meta http-equiv="cleartype" content="on"><![endif]-->
+  <meta http-equiv="cleartype" content="on">
 
   <?php print $styles; ?>
   <?php print $scripts; ?>

@@ -116,19 +116,6 @@ function _node_resource_definition() {
               'default value' => variable_get('services_node_index_page_size', 20),
               'source' => array('param' => 'pagesize'),
             ),
-            array(
-              'name' => 'options',
-              'optional' => TRUE,
-              'type' => 'array',
-              'description' => 'Additional query options.',
-              'default value' => array(
-                'orderby' => array(
-                  'sticky' => 'DESC',
-                  'created' => 'DESC'
-                )
-              ),
-              'source' => array('param' => 'options'),
-            ),
           ),
           'access arguments' => array('access content'),
         ),
@@ -319,7 +306,6 @@ function _node_resource_create($node) {
   $form_state['values'] = $node;
   $form_state['values']['op'] = variable_get('services_node_save_button_' . $node_type . '_resource_create', t('Save'));
   $form_state['programmed_bypass_access_check'] = FALSE;
-  $form_state['no_cache'] = TRUE;
 
   // Build a stub node object for the form in a similar way as node_add() does,
   // but always make the node author default to the current user (if the user
@@ -331,13 +317,7 @@ function _node_resource_create($node) {
   // Contributed modules may check the triggering element in the form state.
   // The triggering element is usually set from the browser's POST request, so
   // we'll automatically set it as the submit action from here.
-  $stub_form_state = array(
-    'no_cache' => TRUE,
-    'build_info' => array(
-      'args' => array((object) $stub_node),
-    ),
-  );
-  $stub_form = drupal_build_form($node_type . '_node_form', $stub_form_state);
+  $stub_form = drupal_get_form($node_type . '_node_form', (object) $stub_node);
   $form_state['triggering_element'] = $stub_form['actions']['submit'];
 
   drupal_form_submit($node_type . '_node_form', $form_state, (object)$stub_node);
@@ -482,8 +462,6 @@ function _node_resource_delete($nid) {
  *   indicating items to retrieve.
  * @param $page_size
  *   Integer number of items to be returned.
- * @param $options
- *   Additional query options.
  * @return
  *   An array of node objects.
  *
@@ -493,11 +471,13 @@ function _node_resource_delete($nid) {
  *     - Is there an easier syntax we can define which can make the urls
  *       for index requests more straightforward?
  */
-function _node_resource_index($page, $fields, $parameters, $page_size, $options = array()) {
+function _node_resource_index($page, $fields, $parameters, $page_size) {
   $node_select = db_select('node', 't')
-    ->addTag('node_access');
+    ->addTag('node_access')
+    ->orderBy('sticky', 'DESC')
+    ->orderBy('created', 'DESC');
 
-  services_resource_build_index_query($node_select, $page, $fields, $parameters, $page_size, 'node', $options);
+  services_resource_build_index_query($node_select, $page, $fields, $parameters, $page_size, 'node');
 
   if (!user_access('administer nodes')) {
     $node_select->condition('status', 1);
@@ -631,7 +611,7 @@ function _node_resource_load_node_comments($nid, $count = 0, $start = 0) {
   $return_comments = array();
 
   foreach ($comments as $comment) {
-    $return_comments[] = services_field_permissions_clean('view', 'comment', $comment);
+    $return_comments[] = services_field_permissions_comment_clean('view', 'comment', $comment);
   }
 
   return $return_comments;
