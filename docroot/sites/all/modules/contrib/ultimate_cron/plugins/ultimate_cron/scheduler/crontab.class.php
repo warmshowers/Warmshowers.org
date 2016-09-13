@@ -176,5 +176,4 @@ class UltimateCronCrontabScheduler extends UltimateCronScheduler {
   protected function getSkew($job) {
     return $job->getUniqueID() & 0xff;
   }
-
 }

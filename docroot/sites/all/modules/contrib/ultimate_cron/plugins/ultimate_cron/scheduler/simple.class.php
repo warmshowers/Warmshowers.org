@@ -94,5 +94,4 @@ class UltimateCronSimpleScheduler extends UltimateCronCrontabScheduler {
       '#required' => TRUE,
     );
   }
-
 }

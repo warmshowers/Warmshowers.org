@@ -23,7 +23,9 @@
           } else {
             if ($l10nClient.is('.l10n-client-minimized')) {
               this.toggle(1);
-              $l10nClient.find('.string-search').focus();
+              if (!$.browser.safari) {
+                $l10nClient.find('.string-search').focus();
+              }
             }
             else {
               this.toggle(0);

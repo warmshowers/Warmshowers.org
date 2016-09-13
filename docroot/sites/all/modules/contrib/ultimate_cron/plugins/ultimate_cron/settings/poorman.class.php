@@ -69,5 +69,4 @@ class UltimateCronPoormanSettings extends UltimateCronSettings {
       );
     }
   }
-
 }

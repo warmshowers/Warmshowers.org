@@ -4,9 +4,6 @@
  * File containing functions for Ultimate Cron signal handling using cache.
  */
 
-/**
- * Class for handling Ultimate Cron signals.
- */
 class UltimateCronSignalCache {
   /**
    * Get a signal without claiming it.
@@ -67,7 +64,6 @@ class UltimateCronSignalCache {
   static public function set($name, $signal) {
     $bin = variable_get('ultimate_cron_signal_cache_bin', 'signal');
     cache_set("signal-$name-$signal", TRUE, $bin);
-    return TRUE;
   }
 
   /**
@@ -93,5 +89,4 @@ class UltimateCronSignalCache {
     $bin = variable_get('ultimate_cron_signal_cache_bin', 'signal');
     cache_set("flushed-$name", microtime(TRUE), $bin);
   }
-
 }

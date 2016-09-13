@@ -4,9 +4,6 @@
  * Cache logger for Ultimate Cron.
  */
 
-/**
- * Class for using cache as storage for logs.
- */
 class UltimateCronCacheLogger extends UltimateCronLogger {
   public $log_entry_class = 'UltimateCronCacheLogEntry';
 
@@ -77,12 +74,9 @@ class UltimateCronCacheLogger extends UltimateCronLogger {
       '#required' => TRUE,
     );
   }
-
 }
 
-/**
- * Class for using cache as storage for log entries.
- */
+
 class UltimateCronCacheLogEntry extends UltimateCronLogEntry {
   /**
    * Save log entry.
@@ -104,5 +98,4 @@ class UltimateCronCacheLogEntry extends UltimateCronLogEntry {
     cache_set('uc-name:' . $this->name, $this->lid, $settings['bin'], $expire);
     cache_set('uc-lid:' . $this->lid, $this->getData(), $settings['bin'], $expire);
   }
-
 }

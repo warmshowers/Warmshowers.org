@@ -18,9 +18,6 @@
  *   - collapsed: TRUE or FALSE indicating whether or not the cart block is
  *     collapsed.
  *
- * @return string
- *   The HTML output.
- *
  * @ingroup themeable
  */
 function theme_uc_cart_block_title($variables) {
