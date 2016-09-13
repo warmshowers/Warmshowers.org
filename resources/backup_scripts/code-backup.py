@@ -1,5 +1,18 @@
 #!/usr/bin/env python
 
+###############################################################################
+# Codebase Backup script for Warm Showers
+#
+# This script will sync the docroot/files directory with an S3 bucket.
+#
+# Tested with Python 2.7.12.
+#
+# Sample cron entry (run once every day at 2:30AM):
+#
+# 30 2 * * * /var/www/warmshowers.org/resources/backup_scripts/code-backup.py
+#
+#
+
 import os
 import argparse
 from collections import namedtuple
@@ -11,7 +24,7 @@ def get_settings():
     dry_run  = False
 
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description='Sync code backups from the last seven days.')
+    parser = argparse.ArgumentParser(description='Sync Drupal files directory to S3.')
     parser.add_argument('--bucket', help='S3 database bucket. Default: ' + s3_bucket, default=s3_bucket)
     parser.add_argument('--path', help='Full path to the files directory. Default: ' + files_dir, default=files_dir)
     parser.add_argument('--dryrun', help="Perform a dry run. Default: %r" % dry_run, default=dry_run)

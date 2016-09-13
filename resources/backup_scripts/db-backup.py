@@ -1,5 +1,20 @@
 #!/usr/bin/env python
 
+###############################################################################
+# Database Backup script for Warm Showers
+#
+# This script will create database dumps for the past seven days, and sync
+# those dumps with S3. Old dumps will be deleted locally and on S3.
+#
+# Dependencies: /usr/bin/drush
+# Tested with Python 2.7.12.
+#
+# Sample cron entry (run once every day at 2:30AM):
+#
+# 30 2 * * * /var/www/warmshowers.org/resources/backup_scripts/db-backup.py
+#
+#
+
 import os
 import glob
 import json
@@ -45,6 +60,7 @@ def get_s3_dumps():
 
     return dumps;
 
+# Return a list of database dump file names for a given date range
 def previous_days(start, total):
     start = date.today()
     days = []
@@ -54,12 +70,15 @@ def previous_days(start, total):
 
     return days;
 
+# Return a list of database dumps located in the backup directory
 def get_local_dumps():
     return glob.glob(settings.backup_dir + '/db_backup-*.sql.gz');
 
+# Return a list of database dump file names for the past seven days
 def last_seven_days():
     return previous_days(date.today(), 7);
 
+# Delete a remote database dump file on S3.
 def delete_remote_db(db):
     print "Deleting remote dump " + db + "..."
     awscmd_delete_file = 'aws s3 rm s3://' + settings.s3_bucket + '/' + db
@@ -68,6 +87,7 @@ def delete_remote_db(db):
 
     print "Done.\n"
     
+# Delete a local database dump file
 def delete_local_db(db):
     print "Deleting local dump " + db + "..."
     if (not settings.dry_run):
@@ -75,6 +95,7 @@ def delete_local_db(db):
 
     print "Done.\n"
     
+# Upload a databse dump file to S3
 def upload_db(filename):
     if not os.path.isfile(filename):
         print "Database does not exist: " + filename
@@ -87,6 +108,7 @@ def upload_db(filename):
 
     print "Done.\n"
 
+# Return TRUE if the given database dump file name belongs to a given date range
 def is_old_dump(db, days):
     db = os.path.basename(db)
     match = re.match( r'^(db_backup-\d{2}-\d{2}-\d{2}).*\.sql\.gz$', db)
@@ -99,6 +121,7 @@ def is_old_dump(db, days):
     else:
         return True
 
+# Remove old database dump files
 def prune_dumps(days, db_files, delete_callback):
     count = 0
     if (db_files != None):
@@ -109,14 +132,17 @@ def prune_dumps(days, db_files, delete_callback):
 
     return count
 
+# Remove remote old database dump files stored on S3
 def prune_remote_dumps(days):
     count = prune_dumps(days, get_s3_dumps(), delete_remote_db)
     print "Removed %d old dumps from S3" % count
 
+# Remove local old database dump files
 def prune_local_dumps(days):
     count = prune_dumps(days, get_local_dumps(), delete_local_db);
     print "Removed %d old local dumps" % count
 
+# Upload new database dump files
 def upload_new_dumps(days):
     count = 0
     remote_dumps = get_s3_dumps()
@@ -128,6 +154,7 @@ def upload_new_dumps(days):
 
     print "Uploaded %d dumps to S3" % count 
 
+# Create a database dump file for today
 def create_db_dump():
     filename = settings.backup_dir + '/' + date.today().strftime('db_backup-%d-%m-%y.sql.gz')
     # Do not create a db dump if a file already exists and the force-dump option
@@ -143,6 +170,7 @@ def create_db_dump():
 
     print "Done."
 
+# Main entry point
 def run():
     # Create one DB dump for today
     create_db_dump()
