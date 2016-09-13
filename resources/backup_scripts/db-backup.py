@@ -136,7 +136,7 @@ def create_db_dump():
         print "%s already exists. Aborting DB dump." % filename
         return
 
-    drushcmd_sql_dump =  'drush -r ' + settings.docroot_dir + ' sql-dump | gzip > ' + filename
+    drushcmd_sql_dump = 'drush -r ' + settings.docroot_dir + ' sql-dump --result-file=' + filename + ' --structure-tables-key=common --gzip'
     print "Creating database dump %s" % filename
     if (not settings.dry_run):
         print os.popen(drushcmd_sql_dump).read()
