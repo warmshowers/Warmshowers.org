@@ -156,15 +156,16 @@ def upload_new_dumps(days):
 
 # Create a database dump file for today
 def create_db_dump():
-    filename = settings.backup_dir + '/' + date.today().strftime('db_backup-%d-%m-%y.sql.gz')
+    filename = settings.backup_dir + '/' + date.today().strftime('db_backup-%d-%m-%y.sql')
+
     # Do not create a db dump if a file already exists and the force-dump option
     # is false.
-    if (os.path.isfile(filename) and not settings.force_dump):
+    if (os.path.isfile(filename + '.gz') and not settings.force_dump):
         print "%s already exists. Aborting DB dump." % filename
         return
 
-    drushcmd_sql_dump = 'drush -r ' + settings.docroot_dir + ' sql-dump --result-file=' + filename + ' --structure-tables-key=common --gzip'
-    print "Creating database dump %s" % filename
+    drushcmd_sql_dump = '/tmp/drush -r ' + settings.docroot_dir + ' sql-dump --result-file=' + filename + ' --structure-tables-key=common --gzip'
+    print "Creating database dump %s" % filename + '.gz'
     if (not settings.dry_run):
         print os.popen(drushcmd_sql_dump).read()
 
