@@ -224,6 +224,18 @@ function googleanalytics_admin_settings_form($form_state) {
       ),
     ),
   );
+
+  $colorbox_dependencies = '<div class="admin-requirements">';
+  $colorbox_dependencies .= t('Requires: !module-list', array('!module-list' => (module_exists('colorbox') ? t('@module (<span class="admin-enabled">enabled</span>)', array('@module' => 'Colorbox')) : t('@module (<span class="admin-disabled">disabled</span>)', array('@module' => 'Colorbox')))));
+  $colorbox_dependencies .= '</div>';
+
+  $form['tracking']['linktracking']['googleanalytics_trackcolorbox'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Track content in colorbox modal dialogs'),
+    '#default_value' => variable_get('googleanalytics_trackcolorbox', 1),
+    '#description' => t('Enable to track the content shown in colorbox modal windows.') . $colorbox_dependencies,
+    '#disabled' => (module_exists('colorbox') ? FALSE : TRUE),
+  );
   $form['tracking']['linktracking']['googleanalytics_tracklinkid'] = array(
     '#type' => 'checkbox',
     '#title' => t('Track enhanced link attribution'),
@@ -246,7 +258,7 @@ function googleanalytics_admin_settings_form($form_state) {
     '#type' => 'checkboxes',
     '#title' => t('Track messages of type'),
     '#default_value' => variable_get('googleanalytics_trackmessages', array()),
-    '#description' => t('This will track the selected message types shown to users. Tracking of form validation errors may help you identifying usability issues in your site. For each visit (user session), a maximum of approximately 500 combined GATC requests (both events and page views) can be tracked. Every message is tracked as one individual event. Note that - as the number of events in a session approaches the limit - additional events might not be tracked. Messages from excluded pages cannot tracked.'),
+    '#description' => t('This will track the selected message types shown to users. Tracking of form validation errors may help you identifying usability issues in your site. For each visit (user session), a maximum of approximately 500 combined GATC requests (both events and page views) can be tracked. Every message is tracked as one individual event. Note that - as the number of events in a session approaches the limit - additional events might not be tracked. Messages from excluded pages cannot be tracked.'),
     '#options' => array(
       'status' => t('Status message'),
       'warning' => t('Warning message'),
@@ -305,7 +317,7 @@ function googleanalytics_admin_settings_form($form_state) {
   $form['googleanalytics_custom_dimension'] = array(
     '#collapsed' => TRUE,
     '#collapsible' => TRUE,
-    '#description' => t('You can set values for Google Analytics <a href="@custom_var_documentation">Custom Dimensions</a> here. You must have already configured your custom dimensions in the <a href="@setup_documentation">Google Analytics Management Interface</a>. You may use tokens. Global and user tokens are always available; on node pages, node tokens are also available. A dimension <em>value</em> is allowed to have a maximum lenght of 150 bytes. Expect longer values to get trimmed.', array('@custom_var_documentation' => 'https://developers.google.com/analytics/devguides/collection/analyticsjs/custom-dims-mets', '@setup_documentation' => 'https://support.google.com/analytics/answer/2709829')),
+    '#description' => t('You can set values for Google Analytics <a href="@custom_var_documentation">Custom Dimensions</a> here. You must have already configured your custom dimensions in the <a href="@setup_documentation">Google Analytics Management Interface</a>. You may use tokens. Global and user tokens are always available; on node pages, node tokens are also available. A dimension <em>value</em> is allowed to have a maximum length of 150 bytes. Expect longer values to get trimmed.', array('@custom_var_documentation' => 'https://developers.google.com/analytics/devguides/collection/analyticsjs/custom-dims-mets', '@setup_documentation' => 'https://support.google.com/analytics/answer/2709829')),
     '#theme' => 'googleanalytics_admin_custom_var_table',
     '#title' => t('Custom dimensions'),
     '#tree' => TRUE,
@@ -428,6 +440,8 @@ function googleanalytics_admin_settings_form($form_state) {
     );
   }
 
+  $user_access_add_js_snippets = !user_access('add JS snippets for google analytics');
+  $user_access_add_js_snippets_permission_warning = $user_access_add_js_snippets ? ' <em>' . t('This field has been disabled because you do not have sufficient permissions to edit it.') . '</em>' : '';
   $form['advanced']['codesnippet'] = array(
     '#type' => 'fieldset',
     '#title' => t('Custom JavaScript code'),
@@ -447,15 +461,17 @@ function googleanalytics_admin_settings_form($form_state) {
     '#type' => 'textarea',
     '#title' => t('Code snippet (before)'),
     '#default_value' => variable_get('googleanalytics_codesnippet_before', ''),
+    '#disabled' => $user_access_add_js_snippets,
     '#rows' => 5,
-    '#description' => t('Code in this textarea will be added <strong>before</strong> <code>ga("send", "pageview");</code>.'),
+    '#description' => t('Code in this textarea will be added <strong>before</strong> <code>ga("send", "pageview");</code>.') . $user_access_add_js_snippets_permission_warning,
   );
   $form['advanced']['codesnippet']['googleanalytics_codesnippet_after'] = array(
     '#type' => 'textarea',
     '#title' => t('Code snippet (after)'),
     '#default_value' => variable_get('googleanalytics_codesnippet_after', ''),
+    '#disabled' => $user_access_add_js_snippets,
     '#rows' => 5,
-    '#description' => t('Code in this textarea will be added <strong>after</strong> <code>ga("send", "pageview");</code>. This is useful if you\'d like to track a site in two accounts.'),
+    '#description' => t('Code in this textarea will be added <strong>after</strong> <code>ga("send", "pageview");</code>. This is useful if you\'d like to track a site in two accounts.') . $user_access_add_js_snippets_permission_warning,
   );
 
   $form['advanced']['googleanalytics_debug'] = array(
@@ -541,6 +557,12 @@ function googleanalytics_admin_settings_form_validate($form, &$form_state) {
 
 /**
  * Layout for the custom variables table in the admin settings form.
+ *
+ * @param array $variables
+ *   An array contains the form elements.
+ *
+ * @return string
+ *   The rendered output.
  */
 function theme_googleanalytics_admin_custom_var_table($variables) {
   $form = $variables['form'];
@@ -551,7 +573,7 @@ function theme_googleanalytics_admin_custom_var_table($variables) {
   );
 
   $rows = array();
-  foreach (element_children($form['indexes']) as $key => $id) {
+  foreach (element_children($form['indexes']) as $id) {
     $rows[] = array(
       'data' => array(
         drupal_render($form['indexes'][$id]['index']),
@@ -600,11 +622,18 @@ function googleanalytics_token_element_validate(&$element, &$form_state) {
   return $element;
 }
 
+/**
+ * @param array $value
+ *   An array of token values.
+ *
+ * @return array
+ *   A unique array of invalid tokens.
+ */
 function _googleanalytics_get_forbidden_tokens($value) {
   $invalid_tokens = array();
   $value_tokens = is_string($value) ? token_scan($value) : $value;
 
-  foreach ($value_tokens as $type => $tokens) {
+  foreach ($value_tokens as $tokens) {
     if (array_filter($tokens, '_googleanalytics_contains_forbidden_token')) {
       $invalid_tokens = array_merge($invalid_tokens, array_values($tokens));
     }
@@ -617,8 +646,9 @@ function _googleanalytics_get_forbidden_tokens($value) {
 /**
  * Validate if a string contains forbidden tokens not allowed by privacy rules.
  *
- * @param $token_string
+ * @param string $token_string
  *   A string with one or more tokens to be validated.
+ *
  * @return boolean
  *   TRUE if blacklisted token has been found, otherwise FALSE.
  */
@@ -724,7 +754,7 @@ function _googleanalytics_extract_create_field_values($string) {
   $list = array_map('trim', $list);
   $list = array_filter($list, 'strlen');
 
-  foreach ($list as $position => $text) {
+  foreach ($list as $text) {
     // Check for an explicit key.
     $matches = array();
     if (preg_match('/(.*)\|(.*)/', $text, $matches)) {

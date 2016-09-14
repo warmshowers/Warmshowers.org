@@ -1785,7 +1785,7 @@ function file_validate_is_image(stdClass $file) {
 /**
  * Verifies that image dimensions are within the specified maximum and minimum.
  *
- * Non-image files will be ignored. If a image toolkit is available the image
+ * Non-image files will be ignored. If an image toolkit is available the image
  * will be scaled to fit within the desired maximum dimensions.
  *
  * @param $file
@@ -2022,7 +2022,7 @@ function file_download() {
  *
  * @see file_transfer()
  * @see file_download_access()
- * @see hook_file_downlaod()
+ * @see hook_file_download()
  */
 function file_download_headers($uri) {
   // Let other modules provide headers and control access to the file.
