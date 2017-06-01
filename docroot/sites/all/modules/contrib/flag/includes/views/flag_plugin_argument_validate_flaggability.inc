@@ -33,41 +33,42 @@ class flag_plugin_argument_validate_flaggability extends views_plugin_argument_v
     }
     $options = $this->flags_options();
 
-    $form[$this->_option_name('flag_name')] = array(
+    $form['flag_name'] = array(
       '#type' => 'radios',
       '#title' => t('Flag'),
       '#options' => $options,
-      '#default_value' => $this->_get_option('flag_name', '*relationship*'),
+      '#default_value' => $this->options['flag_name'],
       '#description' => t('Select the flag to validate against.'),
     );
     if (!$options) {
-      $form[$this->_option_name('flag_name')]['#description'] = '<p class="warning">' . t('No %type flags exist. You must first <a href="@create-url">create a %type flag</a> before being able to use one.', array('%type' => $this->flag_type, '@create-url' => FLAG_ADMIN_PATH)) . '</p>';
+      $form['flag_name']['#description'] = '<p class="warning">' . t('No %type flags exist. You must first <a href="@create-url">create a %type flag</a> before being able to use one.', array('%type' => $this->flag_type, '@create-url' => FLAG_ADMIN_PATH)) . '</p>';
     }
 
-    $form[$this->_option_name('flag_test')] = array(
+    $form['flag_test'] = array(
       '#type' => 'select',
       '#title' => t('Validate the @type only if', array('@type' => $this->flag_type)),
       '#options' => $this->tests_options(),
-      '#default_value' => $this->_get_option('flag_test', 'flaggable'),
+      '#default_value' => $this->options['flag_test'],
     );
 
     // This validator supports the "multiple IDs" syntax. It may not be
     // extremely useful, but similar validators do support this and it's a good
     // thing to be compatible.
-    $form[$this->_option_name('flag_id_type')] = array(
+    $form['flag_id_type'] = array(
       '#type' => 'select',
       '#title' => t('Argument type'),
       '#options' => array(
         'id' => t('ID'),
         'ids' => t('IDs separated by , or +'),
       ),
-      '#default_value' => $this->_get_option('flag_id_type', 'id'),
+      '#default_value' => $this->options['flag_id_type'],
     );
   }
 
   /**
-   * Returns form #options for the flags. Returns empty array if no flags were
-   * found.
+   * Returns form #options for the flags.
+   *
+   * Returns empty array if no flags were found.
    */
   function flags_options() {
     $flags = flag_get_flags($this->flag_type);
@@ -83,18 +84,6 @@ class flag_plugin_argument_validate_flaggability extends views_plugin_argument_v
     }
   }
 
-  // This function seems useless, but in the Drupal 6 branch it allows for
-  // compatibility between Views 3 and Views 2.
-  function _get_option($option, $default) {
-    return $this->options[$option];
-  }
-
-  // This function seems useless, but in the Drupal 6 branch it allows for
-  // compatibility between Views 3 and Views 2.
-  function _option_name($option) {
-    return $option;
-  }
-
   /**
    * Migrate existing Views 2 options to Views 3.
    */
@@ -108,8 +97,9 @@ class flag_plugin_argument_validate_flaggability extends views_plugin_argument_v
   }
 
   /**
-   * Declares all tests. This scheme makes it easy for derived classes to add
-   * and remove tests.
+   * Declares all tests.
+   *
+   * This scheme makes it easy for derived classes to add and remove tests.
    */
   function tests_info($which = NULL) {
     return array(
@@ -137,15 +127,16 @@ class flag_plugin_argument_validate_flaggability extends views_plugin_argument_v
   }
 
   function get_flag() {
-    $flag_name = $this->_get_option('flag_name', '*relationship*');
+    $flag_name = $this->options['flag_name'];
 
     if ($flag_name == '*relationship*') {
       // Pick the first flag mentioned in the relationships.
       foreach ($this->view->relationship as $id => $handler) {
-        // Note: we can't do $handler->field, because the relationship handler's init() may overwrite it.
+        // Note: we can't do $handler->field, because the relationship handler's
+        // init() may overwrite it.
         if (strpos($handler->options['field'], 'flag') !== FALSE && !empty($handler->options['flag'])) {
           $flag = flag_get_flag($handler->options['flag']);
-          if ($flag && $flag->content_type == $this->flag_type) {
+          if ($flag && $flag->entity_type == $this->flag_type) {
             return $flag;
           }
         }
@@ -161,8 +152,8 @@ class flag_plugin_argument_validate_flaggability extends views_plugin_argument_v
    * carry out is determined by 'flag_test'.
    */
   function validate_argument($argument) {
-    $flag_test = $this->_get_option('flag_test', 'flaggable');
-    $id_type   = $this->_get_option('flag_id_type', 'id');
+    $flag_test = $this->options['flag_test'];
+    $id_type   = $this->options['flag_id_type'];
 
     $flag = $this->get_flag();
     if (!$flag) {
@@ -206,33 +197,33 @@ class flag_plugin_argument_validate_flaggability extends views_plugin_argument_v
   //
 
   function test_flaggable($ids, $flag) {
-    return array_filter($ids, array($flag, 'applies_to_content_id'));
+    return array_filter($ids, array($flag, 'applies_to_entity_id'));
   }
 
   function test_flagged($ids, $flag) {
-    // view_break_phrase() is guaranteed to return only integers, so this is SQL safe.
+    // view_break_phrase() is guaranteed to return only integers, so this is SQL
+    // safe.
     $flattened_ids = implode(',', $ids);
-    return $this->_test_by_sql("SELECT content_id FROM {flag_counts} WHERE fid = :fid AND content_id IN ($flattened_ids) AND count > 0", array(':fid' => $flag->fid));
+    return $this->_test_by_sql("SELECT entity_id FROM {flag_counts} WHERE fid = :fid AND entity_id IN ($flattened_ids) AND count > 0", array(':fid' => $flag->fid));
   }
 
   function test_flagged_by_current_user($ids, $flag) {
     global $user;
     if (!$user->uid) {
-      // Anonymous user
+      // Anonymous user.
       return array();
     }
     $flattened_ids = implode(',', $ids);
-    return $this->_test_by_sql("SELECT content_id FROM {flag_content} WHERE fid = :fid AND content_id IN ($flattened_ids) AND uid = :uid", array(':fid' => $flag->fid, ':uid' => $user->uid));
+    return $this->_test_by_sql("SELECT entity_id FROM {flagging} WHERE fid = :fid AND entity_id IN ($flattened_ids) AND uid = :uid", array(':fid' => $flag->fid, ':uid' => $user->uid));
   }
 
-  // Helper: executes an SQL query and returns all the content_id's.
+  // Helper: executes an SQL query and returns all the entity_id's.
   function _test_by_sql($sql, $args) {
     $passed = array();
     $result = db_query($sql, $args);
     foreach ($result as $row) {
-      $passed[] = $row->content_id;
+      $passed[] = $row->entity_id;
     }
     return $passed;
   }
 }
-

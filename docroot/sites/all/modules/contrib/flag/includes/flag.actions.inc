@@ -12,17 +12,17 @@ function flag_trigger_info() {
   $hooks = array(
     'flag' => array(
       'flag_flag' => array(
-        'label' => t('Content has been flagged with any flag'),
+        'label' => t('Object has been flagged with any flag'),
       ),
       'flag_unflag' => array(
-        'label' => t('Content has been unflagged with any flag')
+        'label' => t('Object has been unflagged with any flag'),
       ),
     ),
   );
 
   foreach (flag_get_flags() as $flag) {
-    $hooks['flag']['flag_flag_' . $flag->name]['label'] = t('A %type has been flagged with %name', array('%type' => $flag->content_type, '%name' => $flag->name));
-    $hooks['flag']['flag_unflag_' . $flag->name]['label'] = t('A %type has been unflagged with %name', array('%type' => $flag->content_type, '%name' => $flag->name));
+    $hooks['flag']['flag_flag_' . $flag->name]['label'] = t('A %type has been flagged with %name', array('%type' => $flag->entity_type, '%name' => $flag->name));
+    $hooks['flag']['flag_unflag_' . $flag->name]['label'] = t('A %type has been unflagged with %name', array('%type' => $flag->entity_type, '%name' => $flag->name));
   }
 
   return $hooks;
@@ -179,13 +179,13 @@ function flag_user_action_submit($form, $form_state) {
  *
  * @param $context
  *   The current action context.
- * @param $content_type
- *   The content type applicable to this action, such as "node" or "comment".
+ * @param string $entity_type
+ *   The entity type applicable to this action, such as "node" or "comment".
  */
-function flag_action_form($context, $content_type) {
+function flag_action_form($context, $entity_type) {
   $form = array();
 
-  $flags = flag_get_flags($content_type);
+  $flags = flag_get_flags($entity_type);
   // If this is a flag_action action, do not allow the triggering flag.
   if (isset($context['actions_flag'])) {
     unset($flags[$context['actions_flag']]);
@@ -214,7 +214,7 @@ function flag_action_form($context, $content_type) {
   );
 
   if (empty($options)) {
-    $error = t('There are no available %type flags. Before you can create an action of this type, you need to <a href="!url">create a %type flag</a>.', array('%type' => $content_type, '!url' => url(FLAG_ADMIN_PATH . '/add')));
+    $error = t('There are no available %type flags. Before you can create an action of this type, you need to <a href="!url">create a %type flag</a>.', array('%type' => $entity_type, '!url' => url(FLAG_ADMIN_PATH . '/add')));
     $form['flag_action']['flag']['#type'] = 'item';
     $form['flag_action']['flag']['#markup'] = $error;
     $form['flag_action']['flag']['#element_validate'][] = 'flag_action_validate_flag';

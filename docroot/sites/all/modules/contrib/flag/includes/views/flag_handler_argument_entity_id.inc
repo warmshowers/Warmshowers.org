@@ -10,7 +10,7 @@
  *
  * @ingroup views
  */
-class flag_handler_argument_content_id extends views_handler_argument_numeric {
+class flag_handler_argument_entity_id extends views_handler_argument_numeric {
 
   /**
    * Returns the flag object associated with our argument.
@@ -27,19 +27,20 @@ class flag_handler_argument_content_id extends views_handler_argument_numeric {
    */
   function title_query() {
     if (!($flag = $this->get_flag())) {
-      return array(); // Error message is printed by get_flag().
+      // Error message is printed by get_flag().
+      return array();
     }
     $views_info = $flag->get_views_info();
 
     $titles = array();
-    $placeholders = implode(', ', array_fill(0, sizeof($this->value), '%d'));
+    $placeholders = implode(', ', array_fill(0, count($this->value), '%d'));
 
     $result = db_select($views_info['views table'], 'o')
       ->fields('o', array($views_info['title field']))
       ->condition('o.' . $views_info['join field'], $this->value, 'IN')
       ->execute();
     foreach ($result as $title) {
-      $titles[] = check_plain($title->$views_info['title field']);
+      $titles[] = check_plain($title->{$views_info['title field']});
     }
     return $titles;
   }
