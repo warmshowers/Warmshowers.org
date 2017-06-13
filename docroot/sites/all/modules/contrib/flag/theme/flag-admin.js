@@ -40,33 +40,6 @@ Drupal.behaviors.flagRoles.attach = function(context) {
   }
 };
 
-
-/**
- * Behavior to make link options dependent on the link radio button.
- */
-Drupal.behaviors.flagLinkOptions = {};
-Drupal.behaviors.flagLinkOptions.attach = function(context) {
-  $('.flag-link-options input.form-radio', context).change(function() {
-    // Reveal only the fieldset whose ID is link-options-LINKTYPE,
-    // where LINKTYPE is the value of the selected radio button.
-    var radioButton = this;
-    var $relevant   = $('fieldset#link-options-' + radioButton.value);
-    var $irrelevant = $('fieldset[id^=link-options-]').not($relevant);
-
-    $relevant.show();
-    $irrelevant.hide();
-
-    if ($relevant.size()) {
-      $('#link-options-intro').show();
-    }
-    else {
-      $('#link-options-intro').hide();
-    }
-  })
-  // Hide the link options by default if needed.
-  .filter(':checked').trigger('change');
-};
-
 /**
  * Vertical tabs integration.
  */

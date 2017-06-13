@@ -33,24 +33,22 @@ Drupal.flagLink = function(context) {
 
     // Find the wrapper of the old link.
     var $wrapper = $(element).parents('.flag-wrapper:first');
-    if ($wrapper.length == 0) {
-      // If no ancestor wrapper was found, or if the 'flag-wrapper' class is
-      // attached to the <a> element itself, then take the element itself.
-      $wrapper = $(element);
-    }
     // Replace the old link with the new one.
     $wrapper.after($newLink).remove();
     Drupal.attachBehaviors($newLink.get(0));
 
     $('.flag-message', $newLink).fadeIn();
-    setTimeout(function(){ $('.flag-message', $newLink).fadeOut() }, 3000);
+    setTimeout(function(){ $('.flag-message.flag-auto-remove', $newLink).fadeOut() }, 3000);
     return $newLink.get(0);
   }
 
   /**
    * A click handler that is attached to all <A class="flag"> elements.
    */
-  function flagClick() {
+  function flagClick(event) {
+    // Prevent the default browser click handler
+    event.preventDefault();
+
     // 'this' won't point to the element when it's inside the ajax closures,
     // so we reference it using a variable.
     var element = this;
@@ -75,27 +73,31 @@ Drupal.flagLink = function(context) {
       data: { js: true },
       dataType: 'json',
       success: function (data) {
-        if (data.status) {
-          // Success.
-          data.link = $wrapper.get(0);
-          $.event.trigger('flagGlobalBeforeLinkUpdate', [data]);
-          if (!data.preventDefault) { // A handler may cancel updating the link.
-            data.link = updateLink(element, data.newLink);
-          }
-          $.event.trigger('flagGlobalAfterLinkUpdate', [data]);
+        data.link = $wrapper.get(0);
+        $.event.trigger('flagGlobalBeforeLinkUpdate', [data]);
+        if (!data.preventDefault) { // A handler may cancel updating the link.
+          data.link = updateLink(element, data.newLink);
         }
-        else {
-          // Failure.
-          alert(data.errorMessage);
-          $wrapper.removeClass('flag-waiting');
-        }
+
+        // Find all the link wrappers on the page for this flag, but exclude
+        // the triggering element because Flag's own javascript updates it.
+        var $wrappers = $('.flag-wrapper.flag-' + data.flagName.flagNameToCSS() + '-' + data.contentId).not(data.link);
+        var $newLink = $(data.newLink);
+
+        // Hide message, because we want the message to be shown on the triggering element alone.
+        $('.flag-message', $newLink).hide();
+
+        // Finally, update the page.
+        $wrappers = $newLink.replaceAll($wrappers);
+        Drupal.attachBehaviors($wrappers.parent());
+
+        $.event.trigger('flagGlobalAfterLinkUpdate', [data]);
       },
       error: function (xmlhttp) {
         alert('An HTTP error '+ xmlhttp.status +' occurred.\n'+ element.href);
         $wrapper.removeClass('flag-waiting');
       }
     });
-    return false;
   }
 
   $('a.flag-link-toggle:not(.flag-processed)', context).addClass('flag-processed').click(flagClick);
