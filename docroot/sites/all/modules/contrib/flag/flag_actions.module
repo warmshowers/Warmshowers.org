@@ -6,10 +6,17 @@
  */
 
 /**
- * Implements hook_flag(). Trigger actions if any are available.
+ * Implements hook_flag_flag(). Trigger actions if any are available.
  */
-function flag_actions_flag($event, $flag, $content_id, $account) {
-  flag_actions_do($event, $flag, $content_id, $account);
+function flag_actions_flag_flag($flag, $entity_id, $account, $flagging) {
+  flag_actions_do('flag', $flag, $entity_id, $account);
+}
+
+/**
+ * Implements hook_flag_unflag(). Trigger actions if any are available.
+ */
+function flag_actions_flag_unflag($flag, $entity_id, $account, $flagging) {
+  flag_actions_do('unflag', $flag, $entity_id, $account);
 }
 
 /**
@@ -24,6 +31,7 @@ function flag_actions_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('administer actions'),
     'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
   );
   $items[FLAG_ADMIN_PATH . '/actions/add'] = array(
     'title' => 'Add action',
@@ -86,7 +94,7 @@ function flag_actions_get_actions($flag_name = NULL, $reset = FALSE) {
   if (!isset($flag_actions) || $reset) {
     $flag_actions = array();
     $query = db_select('flag_actions', 'a');
-    $query->innerJoin('flags', 'f', 'a.fid = f.fid');
+    $query->innerJoin('flag', 'f', 'a.fid = f.fid');
     $query->addField('f', 'name', 'flag');
     $result = $query
       ->fields('a')
@@ -128,17 +136,17 @@ function flag_actions_get_actions($flag_name = NULL, $reset = FALSE) {
 /**
  * Insert a new flag action.
  *
- * @param $fid
+ * @param int $fid
  *   The flag object ID.
- * @param $event
+ * @param string $event
  *   The flag event, such as "flag" or "unflag".
- * @param $threshold
+ * @param int $threshold
  *   The flagging threshold at which this action will be executed.
- * @param $repeat_threshold
+ * @param int $repeat_threshold
  *   The number of additional flaggings after which the action will be repeated.
- * @param $callback
+ * @param string $callback
  *   The action callback to be executed.
- * @param $parameters
+ * @param array $parameters
  *   The action parameters.
  */
 function flag_actions_insert_action($fid, $event, $threshold, $repeat_threshold, $callback, $parameters) {
@@ -157,15 +165,15 @@ function flag_actions_insert_action($fid, $event, $threshold, $repeat_threshold,
 /**
  * Update an existing flag action.
  *
- * @param $aid
+ * @param int $aid
  *   The flag action ID to update.
- * @param $event
+ * @param string $event
  *   The flag event, such as "flag" or "unflag".
- * @param $threshold
+ * @param int $threshold
  *   The flagging threshold at which this action will be executed.
- * @param $repeat_threshold
+ * @param int $repeat_threshold
  *   The number of additional flaggings after which the action will be repeated.
- * @param $parameters
+ * @param array $parameters
  *   The action parameters.
  */
 function flag_actions_update_action($aid, $event, $threshold, $repeat_threshold, $parameters) {
@@ -183,7 +191,7 @@ function flag_actions_update_action($aid, $event, $threshold, $repeat_threshold,
 /**
  * Delete a flag action.
  *
- * @param $aid
+ * @param int $aid
  *   The flag action ID to delete.
  */
 function flag_actions_delete_action($aid) {
@@ -195,16 +203,16 @@ function flag_actions_delete_action($aid) {
 /**
  * Perform flag actions.
  */
-function flag_actions_do($event, $flag, $content_id, $account) {
+function flag_actions_do($event, $flag, $entity_id, $account) {
   $actions = flag_actions_get_actions($flag->name);
   if (!$actions) {
     return;
   }
 
-  $flag_action = $flag->get_flag_action($content_id);
+  $flag_action = $flag->get_flag_action($entity_id);
   $flag_action->action = $event;
-  $flag_action->count = $count = $flag->get_count($content_id);
-  $relevant_objects = $flag->get_relevant_action_objects($content_id);
+  $flag_action->count = $count = $flag->get_count($entity_id);
+  $relevant_objects = $flag->get_relevant_action_objects($entity_id);
   $object_changed = FALSE;
   foreach ($actions as $aid => $action) {
     if ($action->event == 'flag') {
@@ -241,7 +249,7 @@ function flag_actions_do($event, $flag, $content_id, $account) {
           $callback($relevant_objects['node'], $context);
         }
         else {
-          $callback($relevant_objects[$flag->content_type], $context);
+          $callback($relevant_objects[$flag->entity_type], $context);
         }
       }
 
@@ -371,7 +379,7 @@ function theme_flag_actions_add_form($variables) {
   $fieldset = array(
     '#type' => 'fieldset',
     '#title' => t('Add a new flag action'),
-    '#children' => '<div class="container-inline">'. drupal_render($form['flag']) . drupal_render($form['submit']) .'</div>',
+    '#children' => '<div class="container-inline">' . drupal_render($form['flag']) . drupal_render($form['submit']) . '</div>',
     '#parents' => array('add_action'),
     '#attributes' => array(),
     '#groups' => array('add_action' => array()),
@@ -385,11 +393,10 @@ function theme_flag_actions_add_form($variables) {
  *
  * @param $form_state
  *   The form state.
- * @param $aid
+ * @param int|NULL $aid
  *   If editing an action, an action ID must be passed in.
- * @param $flag_name
+ * @param string|NULL $flag_name
  *   If adding a new action to a flag, a flag name must be specified.
- *
  */
 function flag_actions_form($form, &$form_state, $aid = NULL, $flag_name = NULL) {
   // This is a multistep form. Get the callback value if set and continue.
@@ -414,7 +421,7 @@ function flag_actions_form($form, &$form_state, $aid = NULL, $flag_name = NULL) 
 
   $form['new'] = array(
     '#type' => 'value',
-    '#value' => isset($callback) ? FALSE: TRUE,
+    '#value' => isset($callback) ? FALSE : TRUE,
   );
 
   if (!isset($callback)) {
@@ -422,7 +429,7 @@ function flag_actions_form($form, &$form_state, $aid = NULL, $flag_name = NULL) 
 
     $actions = $flag->get_valid_actions();
     $options = array();
-    foreach($actions as $key => $action) {
+    foreach ($actions as $key => $action) {
       $options[$key] = $action['label'];
     }
 
@@ -441,7 +448,7 @@ function flag_actions_form($form, &$form_state, $aid = NULL, $flag_name = NULL) 
   }
   elseif (!isset($action)) {
     $actions = $flag->get_valid_actions();
-    $action = (object)$actions[$callback];
+    $action = (object) $actions[$callback];
     $action->parameters = array();
     $action->event = 'flag';
     $action->threshold = 10;
@@ -504,7 +511,7 @@ function flag_actions_form($form, &$form_state, $aid = NULL, $flag_name = NULL) 
   }
 
   // Merge in the standard flag action form.
-  $action_form = $callback .'_form';
+  $action_form = $callback . '_form';
   $edit = array();
   if (function_exists($action_form)) {
     $edit += $action->parameters;
@@ -516,7 +523,7 @@ function flag_actions_form($form, &$form_state, $aid = NULL, $flag_name = NULL) 
   }
 
   // Add a few customizations to existing flag actions.
-  $flag_actions_form = 'flag_actions_'. $callback .'_form';
+  $flag_actions_form = 'flag_actions_' . $callback . '_form';
   if (function_exists($flag_actions_form)) {
     $flag_actions_form($form, $flag, $edit);
   }
@@ -659,7 +666,7 @@ function flag_actions_system_send_email_action_form(&$form, &$flag, $context) {
   }
 
   if (!isset($context['message'])) {
-    $form['message']['#default_value'] = t("The @flag_content_type [flag-action:content-title] has been flagged [flag-action:count] times with the @flag_title flag.\n\nView this @flag_content_type at [flag-action:content-url].", array('@flag_content_type' => $flag->content_type, '@flag_title' => $flag->get_title()));
+    $form['message']['#default_value'] = t("The @flag_entity_type [flag-action:content-title] has been flagged [flag-action:count] times with the @flag_title flag.\n\nView this @flag_entity_type at [flag-action:content-url].", array('@flag_entity_type' => $flag->entity_type, '@flag_title' => $flag->get_title()));
   }
 
   $form['help'] = array(

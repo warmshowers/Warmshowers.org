@@ -6,144 +6,12 @@
  */
 
 /**
- * Implements hook_install().
- */
-function flag_install() {
-}
-
-/**
- * Implements hook_uninstall().
- */
-function flag_uninstall() {
-  $result = db_select('variable', 'v')
-    ->fields('v', array('name'))
-    ->condition('name', 'flag_%', 'LIKE')
-    ->execute();
-  foreach ($result as $row) {
-    variable_del($row->name);
-  }
-
-  drupal_set_message(t('Flag has been uninstalled.'));
-}
-
-/**
- * Implements hook_enable().
- *
- * We create the demonstration flag on enable, so hook implementations in flag
- * module will fire correctly, as the APIs are not available on install.
- */
-function flag_enable() {
-  // Load the flag API in case we want to use it when enabling.
-  include_once(drupal_get_path('module', 'flag') . '/flag.module');
-
-  if (!flag_get_flags()) {
-    // Install a demonstration flag only if no flag exists. This is to prevent
-    // a case where a disables and enables the module, and the demonstration
-    // flag is overwritten or re-created.
-    $flag = flag_flag::factory_by_content_type('node');
-    $configuration = array(
-      'name' => 'bookmarks',
-      'global' => 0,
-      'show_on_page' => 1,
-      'show_on_teaser' => 1,
-      'show_on_form' => 1,
-      // The following UI labels aren't wrapped in t() because they are written
-      // to the DB in English. They are passed to t() later, thus allowing for
-      // multilingual sites.
-      'title' => 'Bookmarks',
-      'flag_short' => 'Bookmark this',
-      'flag_long' => 'Add this post to your bookmarks',
-      'flag_message' => 'This post has been added to your bookmarks',
-      'unflag_short' => 'Unbookmark this',
-      'unflag_long' => 'Remove this post from your bookmarks',
-      'unflag_message' => 'This post has been removed from your bookmarks',
-      'types' => _flag_install_get_suggested_node_types(),
-    );
-    $flag->form_input($configuration);
-    $flag->save();
-  }
-}
-
-/**
- * Returns some node types to which the demonstration 'bookmarks' flag will apply.
- */
-function _flag_install_get_suggested_node_types() {
-  $preferred = array('article', 'story', 'forum', 'blog');
-  $existing = array_intersect($preferred, array_keys(node_type_get_types()));
-  if (!$existing) {
-    // As a last resort, take the first preference.
-    return array($preferred[0]);
-  }
-  return $existing;
-}
-
-/**
- * Implements hook_requirements().
- *
- * Prevent installing this module if the "Flag content" module is installed as well.
- */
-function flag_requirements($phase) {
-  $requirements = array();
-  $t = get_t();
-  if ($phase == 'install') {
-    if (!defined('MAINTENANCE_MODE') && _flag_flag_content_installed()) {
-      $requirements['flag_content_clash'] = array(
-        'title' => $t('Flag'),
-        'severity' => REQUIREMENT_ERROR,
-        'description' => _flag_flag_content_message(),
-      );
-    }
-  }
-
-  if ($phase == 'runtime') {
-    if (module_exists('translation') && !module_exists('translation_helpers')) {
-      $requirements['flag_translation'] = array(
-        'title' => $t('Flag'),
-        'severity' => REQUIREMENT_ERROR,
-        'description' => $t('To have the flag module work with translations, you need to install and enable the <a href="http://drupal.org/project/translation_helpers">Translation helpers</a> module.'),
-        'value' => $t('Translation helpers module not found.'),
-      );
-    }
-    if (module_exists('session_api')) {
-      if (file_exists('./robots.txt')) {
-        $flag_path = url('flag') . '/';
-        $robots_string = 'Disallow: ' . $flag_path;
-        $contents = file_get_contents('./robots.txt');
-        if (strpos($contents, $robots_string) === FALSE) {
-          $requirements['flag_robots'] = array(
-            'title' => $t('Flag robots.txt problem'),
-            'severity' => REQUIREMENT_WARNING,
-            'description' => $t('Flag module may currently be used with anonymous users, however the robots.txt file does not exclude the "@flag-path" path, which may cause search engines to randomly flag and unflag content when they index the site. It is highly recommended to add "@robots-string" to your robots.txt file (located in the root of your Drupal installation).', array('@flag-path' => $flag_path, '@robots-string' => $robots_string)),
-            'value' => $t('Search engines flagging content'),
-          );
-        }
-      }
-    }
-  }
-  return $requirements;
-}
-
-/**
- * Returns TRUE if the "Flag content" module, which we aren't compatible with,
- * is installed.
- */
-function _flag_flag_content_installed() {
-  $version = @drupal_get_installed_schema_version('flag_content', TRUE);
-  return (isset($version) && $version != SCHEMA_UNINSTALLED);
-}
-
-function _flag_flag_content_message() {
-  $t = get_t();
-  return $t("You are trying to install the <em>Flag</em> module. However, you have the <em>\"Flag content\"</em> module installed, and these two modules aren't compatible (because they happen to use a database table by the same name). To install the <em>Flag</em> module, you'll first have to disable and then <a href='@uninstall-url'>uninstall</a> the <em>\"Flag content\"</em> module.", array('@uninstall-url' => url('admin/modules/uninstall')));
-}
-
-/**
  * Implements hook_schema().
  */
 function flag_schema() {
   $schema = array();
 
-  $schema['flags'] = array(
+  $schema['flag'] = array(
     'description' => 'All available flags in the system.',
     'fields' => array(
       'fid' => array(
@@ -153,17 +21,17 @@ function flag_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
-      'content_type' => array(
-        'description' => 'The flag type, such as one of "node", "comment", or "user".',
+      'entity_type' => array(
+        'description' => 'The flag type, for example "node", "comment", or "user".',
         'type' => 'varchar',
-        'length' => '32',
+        'length' => '128',
         'not null' => TRUE,
         'default' => '',
       ),
       'name' => array(
         'description' => 'The machine-name for this flag.',
         'type' => 'varchar',
-        'length' => '128',
+        'length' => '32',
         'not null' => FALSE,
         'default' => '',
       ),
@@ -193,46 +61,46 @@ function flag_schema() {
     ),
   );
 
-  $schema['flag_content'] = array(
-    'description' => 'Content that has been flagged.',
+  $schema['flagging'] = array(
+    'description' => 'Objects that have been flagged.',
     'fields' => array(
-      'fcid' => array(
+      'flagging_id' => array(
         'description' => 'The unique ID for this particular tag.',
         'type' => 'serial',
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
       'fid' => array(
-        'description' => 'The unqiue flag ID this content has been flagged with, from {flags}.',
+        'description' => 'The unique flag ID this object has been flagged with, from {flag}.',
         'type' => 'int',
         'size' => 'small',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ),
-      'content_type' => array(
-        'description' => 'The flag type, one of "node", "comment", "user".',
+      'entity_type' => array(
+        'description' => 'The flag type, for example "node", "comment", or "user".',
         'type' => 'varchar',
         'length' => '128',
         'not null' => TRUE,
         'default' => '',
       ),
-      'content_id' => array(
-        'description' => 'The unique ID of the content, such as either the {cid}, {uid}, or {nid}.',
+      'entity_id' => array(
+        'description' => 'The unique ID of the flagged entity, for example the uid, cid, or nid.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ),
       'uid' => array(
-        'description' => 'The user ID by whom this content was flagged.',
+        'description' => 'The user ID by whom this object was flagged.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
         'default' => 0,
       ),
       'sid' => array(
-        'description' => "The user's session id as stored in the session table.",
+        'description' => "The user's numeric sid from the session_api table.",
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -245,24 +113,29 @@ function flag_schema() {
         'not null' => TRUE,
         'default' => 0,
         'disp-size' => 11,
-      )
+      ),
     ),
-    'primary key' => array('fcid'),
+    'primary key' => array('flagging_id'),
     'unique keys' => array(
-      'fid_content_id_uid_sid' => array('fid', 'content_id', 'uid', 'sid'),
+      'fid_entity_id_uid_sid' => array('fid', 'entity_id', 'uid', 'sid'),
     ),
     'indexes' => array(
-      'content_type_uid_sid' => array('content_type', 'uid', 'sid'),
-      'content_type_content_id_uid_sid' => array('content_type', 'content_id', 'uid', 'sid'),
-      'content_id_fid' => array('content_id', 'fid'),
+      'entity_type_uid_sid' => array('entity_type', 'uid', 'sid'),
+      'entity_type_entity_id_uid_sid' => array(
+        'entity_type',
+        'entity_id',
+        'uid',
+        'sid',
+      ),
+      'entity_id_fid' => array('entity_id', 'fid'),
     ),
   );
 
   $schema['flag_types'] = array(
-    'description' => 'The types (usually as defined in {node_type}) that are affected by a flag.',
+    'description' => 'The entity bundles that are affected by a flag.',
     'fields' => array(
       'fid' => array(
-        'description' => 'The unqiue flag ID as defined for the flag in {flags}.',
+        'description' => 'The unqiue flag ID as defined for the flag in {flag}.',
         'type' => 'int',
         'size' => 'small',
         'unsigned' => TRUE,
@@ -270,7 +143,7 @@ function flag_schema() {
         'default' => 0,
       ),
       'type' => array(
-        'description' => 'The types (usually from {node_type}) that can be flagged by this fid.',
+        'description' => 'The entity bundles that can be flagged by this fid.',
         'type' => 'varchar',
         'length' => '128',
         'not null' => TRUE,
@@ -292,15 +165,15 @@ function flag_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'content_type' => array(
-        'description' => 'The flag type, usually one of "node", "comment", "user".',
+      'entity_type' => array(
+        'description' => 'The flag type, for example "node", "comment", or "user".',
         'type' => 'varchar',
         'length' => '128',
         'not null' => TRUE,
         'default' => '',
       ),
-      'content_id' => array(
-        'description' => 'The unique ID of the content, usually either the {cid}, {uid}, or {nid}.',
+      'entity_id' => array(
+        'description' => 'The unique ID of the flagged entity, for example the uid, cid, or nid.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -308,7 +181,7 @@ function flag_schema() {
         'disp-width' => '10',
       ),
       'count' => array(
-        'description' => 'The number of times this content has been flagged for this flag.',
+        'description' => 'The number of times this object has been flagged for this flag.',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
@@ -322,18 +195,71 @@ function flag_schema() {
         'not null' => TRUE,
         'default' => 0,
         'disp-size' => 11,
-      )
+      ),
     ),
-    'primary key' => array('fid', 'content_id'),
+    'primary key' => array('fid', 'entity_id'),
     'indexes' => array(
-      'fid_content_type' => array('fid', 'content_type'),
-      'content_type_content_id' => array('content_type', 'content_id'),
+      'fid_entity_type' => array('fid', 'entity_type'),
+      'entity_type_entity_id' => array('entity_type', 'entity_id'),
       'fid_count' => array('fid', 'count'),
       'fid_last_updated' => array('fid', 'last_updated'),
     ),
   );
 
   return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function flag_uninstall() {
+  $result = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', 'flag_%', 'LIKE')
+    ->execute();
+  foreach ($result as $row) {
+    variable_del($row->name);
+  }
+
+  drupal_set_message(t('Flag has been uninstalled.'));
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function flag_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    if (module_exists('translation') && !module_exists('translation_helpers')) {
+      $requirements['flag_translation'] = array(
+        'title' => $t('Flag'),
+        'severity' => REQUIREMENT_ERROR,
+        'description' => $t('To have the flag module work with translations, you need to install and enable the <a href="http://drupal.org/project/translation_helpers">Translation helpers</a> module.'),
+        'value' => $t('Translation helpers module not found.'),
+      );
+    }
+    if (module_exists('session_api')) {
+      if (file_exists('./robots.txt')) {
+        $flag_path = url('flag') . '/';
+        // We don't use url() because this may return an absolute URL when
+        // language negotiation is set to 'domain'.
+        $flag_path = parse_url($flag_path, PHP_URL_PATH);
+        $robots_string = 'Disallow: ' . $flag_path;
+        $contents = file_get_contents('./robots.txt');
+        if (strpos($contents, $robots_string) === FALSE) {
+          $requirements['flag_robots'] = array(
+            'title' => $t('Flag robots.txt problem'),
+            'severity' => REQUIREMENT_WARNING,
+            'description' => $t('Flag module may currently be used with anonymous users, however the robots.txt file does not exclude the "@flag-path" path, which may cause search engines to randomly flag and unflag content when they index the site. It is highly recommended to add "@robots-string" to your robots.txt file (located in the root of your Drupal installation).', array('@flag-path' => $flag_path, '@robots-string' => $robots_string)),
+            'value' => $t('Search engines flagging content'),
+          );
+        }
+      }
+    }
+  }
+  return $requirements;
 }
 
 function flag_update_last_removed() {
@@ -375,7 +301,11 @@ function flag_update_6200() {
 function flag_update_6201() {
   // Remove "content type" from one key, see http://drupal.org/node/612602.
   db_drop_unique_key('flag_content', 'fid_content_type_content_id_uid');
-  db_add_unique_key('flag_content', 'fid_content_id_uid', array('fid', 'content_id', 'uid'));
+  db_add_unique_key('flag_content', 'fid_content_id_uid', array(
+    'fid',
+    'content_id',
+    'uid',
+  ));
 
   // Add a count index, see http://drupal.org/node/489610.
   db_add_index('flag_counts', 'count', array('count'));
@@ -390,11 +320,25 @@ function flag_update_6202() {
   db_drop_index('flag_content', 'content_type_uid');
 
   // Add the column.
-  db_add_field('flag_content', 'sid', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0));
+  db_add_field('flag_content', 'sid', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  ));
 
   // Re-add the removed keys.
-  db_add_unique_key('flag_content', 'fid_content_id_uid_sid', array('fid', 'content_id', 'uid', 'sid'));
-  db_add_index('flag_content', 'content_type_uid_sid', array('content_type', 'uid', 'sid'));
+  db_add_unique_key('flag_content', 'fid_content_id_uid_sid', array(
+    'fid',
+    'content_id',
+    'uid',
+    'sid',
+  ));
+  db_add_index('flag_content', 'content_type_uid_sid', array(
+    'content_type',
+    'uid',
+    'sid',
+  ));
 }
 
 /**
@@ -436,14 +380,25 @@ function flag_update_6206() {
     db_drop_unique_key('flag_content', 'content_type_content_id_uid_sid');
   }
 
-  db_add_index('flag_content', 'content_type_content_id_uid_sid', array('content_type', 'content_id', 'uid', 'sid'));
+  db_add_index('flag_content', 'content_type_content_id_uid_sid', array(
+    'content_type',
+    'content_id',
+    'uid',
+    'sid',
+  ));
 }
 
 /**
  * Adds column last_updated to flag_counts table.
  */
 function flag_update_6207() {
-  db_add_field('flag_counts', 'last_updated', array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'disp-size' => 11), array('indexes' => array('last_updated' => array('last_updated'))));
+  db_add_field('flag_counts', 'last_updated', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+    'disp-size' => 11),
+    array('indexes' => array('last_updated' => array('last_updated'))));
 }
 
 /**
@@ -492,65 +447,258 @@ function flag_update_7203() {
 }
 
 /**
- * Increase the size of the database columns that refer to entity types or bundles.
+ * Rebuild the class registry due to classes moving files.
  */
-function flag_update_7204() {
-  // Change the 'content_type' column on the {flags} table.
-  db_change_field('flags', 'content_type', 'content_type',
+function flag_update_7300() {
+  registry_rebuild();
+}
+
+/**
+ * Rename {flag_content} table to {flagging} and {flags} table to {flag}.
+ */
+function flag_update_7301() {
+  db_rename_table('flag_content', 'flagging');
+  db_rename_table('flags', 'flag');
+  // A second cache clear appears to be required here...
+  cache_clear_all();
+  // ...which in fact isn't enough, as the schema cache appears to need explicit
+  // clearing to prevent the next updates failing to get the schema for the new
+  // table names.
+  drupal_get_schema(NULL, TRUE);
+}
+
+/**
+ * Rename database columns on the {flag} table.
+ */
+function flag_update_7302() {
+  // No keys or indexes are affected.
+  // Change field 'content_type' to 'entity_type'.
+  db_change_field('flag', 'content_type', 'entity_type',
+    // Spec of the field. Identical to our current hook_schema(): we're not
+    // changing anything except the name.
     array(
       'description' => 'The flag type, such as one of "node", "comment", or "user".',
       'type' => 'varchar',
-      'length' => '128',
+      'length' => '32',
       'not null' => TRUE,
       'default' => '',
     )
+    // No keys to re-add.
   );
+}
 
-  // Drop the indexes that use the 'content_type' column of the {flag_contents} table.
-  db_drop_index('flag_content', 'content_type_content_id_uid_sid');
-  db_drop_index('flag_content', 'content_type_uid_sid');
+/**
+ * Rename database columns on the {flagging} table.
+ */
+function flag_update_7303() {
+  // Drop affected keys and indexes.
+  db_drop_unique_key('flagging', 'fid_content_id_uid_sid');
+  db_drop_index('flagging', 'content_type_uid_sid');
+  db_drop_index('flagging', 'content_type_content_id_uid_sid');
+  db_drop_index('flagging', 'content_id_fid');
 
-  // Change the 'content_type' column on the {flag_content} table.
-  db_change_field('flag_content', 'content_type', 'content_type',
+  // Change field 'content_type' to 'entity_type'.
+  db_change_field('flagging', 'content_type', 'entity_type',
+    // Spec of the field. Identical to our current hook_schema(): we're not
+    // changing anything except the name.
     array(
-      'description' => 'The flag type, one of "node", "comment", "user".',
+      'description' => 'The flag type, eg "node", "comment", "user".',
       'type' => 'varchar',
-      'length' => '128',
+      'length' => '32',
       'not null' => TRUE,
       'default' => '',
-    )
-  );
-
-  // Recreate the indexes which utilize the 'content_type' of the {flag_content} table
-  db_add_index('flag_content', 'content_type_content_id_uid_sid', array('content_type', 'content_id', 'uid', 'sid'));
-  db_add_index('flag_content', 'content_type_uid_sid', array('content_type', 'uid', 'sid'));
-
-  // Change the 'type' column on the {flag_types} table.
-  db_change_field('flag_types', 'type', 'type',
+    ),
+    // Keys spec.
     array(
-      'description' => 'The types (usually from {node_type}) that can be flagged by this fid.',
-      'type' => 'varchar',
-      'length' => '128',
-      'not null' => TRUE,
-      'default' => '',
+      'indexes' => array(
+        'entity_type_uid_sid' => array('entity_type', 'uid', 'sid'),
+      ),
     )
   );
 
-  // Drop the indexes that use the 'content_type' column of the {flag_counts} table.
+  // Change field 'content_id' to 'entity_id'.
+  db_change_field('flagging', 'content_id', 'entity_id',
+    // Spec of the field. Identical to our current hook_schema(): we're not
+    // changing anything except the name.
+    array(
+      'description' => 'The unique ID of the content, such as either the {cid}, {uid}, or {nid}.',
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    )
+  );
+  db_add_unique_key('flagging', 'fid_entity_id_uid_sid', array('fid', 'entity_id', 'uid', 'sid'));
+  db_add_index('flagging', 'entity_type_entity_id_uid_sid', array('entity_type', 'entity_id', 'uid', 'sid'));
+  db_add_index('flagging', 'entity_id_fid', array('entity_id', 'fid'));
+
+  // A serial field must be defined as a key, so make a temporary index on
+  // 'fcid' so we can safely drop the primary key.
+  // @see http://drupal.org/node/190027
+  db_add_index('flagging', 'temp', array('fcid'));
+  // Drop the primary key so we can rename the field.
+  db_drop_primary_key('flagging');
+
+  // Change field 'fcid' to 'flagging_id'.
+  db_change_field('flagging', 'fcid', 'flagging_id',
+    // Spec of the field. Identical to our current hook_schema(): we're not
+    // changing anything except the name.
+    array(
+      'description' => 'The unique ID for this particular tag.',
+      'type' => 'serial',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+    ),
+    // Keys spec. Identical to current hook_schema().
+    array(
+      'primary key' => array('flagging_id'),
+    )
+  );
+  // Drop our temporary index.
+  db_drop_index('flagging', 'temp');
+
+  cache_clear_all();
+}
+
+/**
+ * Rename database columns on the {flag_counts} table.
+ */
+function flag_update_7304() {
+  // Drop keys and indexes using 'content_type'.
   db_drop_index('flag_counts', 'fid_content_type');
   db_drop_index('flag_counts', 'content_type_content_id');
 
-  // Change the 'content_type' column on the {flag_counts} table.
-  db_change_field('flag_counts', 'content_type', 'content_type',
-    array('description' => 'The flag type, usually one of "node", "comment", "user".',
+  // Change field 'content_type' to 'entity_type'.
+  db_change_field('flag_counts', 'content_type', 'entity_type',
+    // Spec of the field. Identical to our current hook_schema(): we're not
+    // changing anything except the name.
+    array(
+      'description' => 'The flag type, usually one of "node", "comment", "user".',
       'type' => 'varchar',
-      'length' => '128',
+      'length' => '32',
       'not null' => TRUE,
       'default' => '',
+    ),
+    // Keys spec. Some are short-lived, as they are about to be dropped again.
+    // Note the hybrid names refer to 'content_id' still.
+    array(
+      'indexes' => array(
+        'fid_entity_type' => array('fid', 'entity_type'),
+        'entity_type_content_id' => array('entity_type', 'content_id'),
+      ),
     )
   );
 
-  // Recreate the indexes which utilize the 'content_type' of the {flag_counts} table.
-  db_add_index('flag_counts', 'fid_content_type', array('fid', 'content_type'));
-  db_add_index('flag_counts', 'content_type_content_id', array('content_type', 'content_id'));
+  // Now drop keys and indexes using 'content_id'.
+  db_drop_primary_key('flag_counts');
+  db_drop_index('flag_counts', 'entity_type_content_id');
+
+  // Change field 'content_id' to 'entity_id'.
+  db_change_field('flag_counts', 'content_id', 'entity_id',
+    // Spec of the field. Identical to our current hook_schema(): we're not
+    // changing anything except the name.
+    array(
+      'description' => 'The unique ID of the content, usually either the {cid}, {uid}, or {nid}.',
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+      'disp-width' => '10',
+    ),
+    // Keys spec. Identical to current hook_schema() now we're finished.
+    array(
+      'primary key' => array('fid', 'entity_id'),
+      'indexes' => array(
+        'entity_type_entity_id' => array('entity_type', 'entity_id'),
+      ),
+    )
+  );
+}
+
+/**
+ * Convert flag roles to permissions.
+ */
+function flag_update_7305() {
+  // We can't use flag_get_flags() to get all flags to act on, because that
+  // now looks for user permissions and we want the old roles array to convert.
+  // Hence we need to get flags directly from the database.
+  // Flags defined in code are saved in the database by flag_get_flags(), so
+  // this will get them too, unless the module providing them was *only just*
+  // installed before update.php was run. This edge case is not covered.
+
+  $result = db_query("SELECT name, options FROM {flag}");
+  $flag_data = $result->fetchAllKeyed();
+
+  // Note we don't call hook_flag_alter() because we don't have a complete flag.
+  // If your custom module does something to flag roles, it is your
+  // responsibility to handle upgrading your extra role data.
+
+  foreach ($flag_data as $flag_name => $flag_options) {
+    $flag_options = unserialize($flag_options);
+    $flag_roles = $flag_options['roles'];
+
+    foreach ($flag_roles['flag'] as $rid) {
+      $permission = "flag $flag_name";
+      user_role_grant_permissions($rid, array($permission));
+    }
+    foreach ($flag_roles['unflag'] as $rid) {
+      $permission = "unflag $flag_name";
+      user_role_grant_permissions($rid, array($permission));
+    }
+
+    // Save the flag options with the roles array removed.
+    unset($flag_options['roles']);
+    db_update('flag')
+      ->fields(array(
+        'options' => serialize($flag_options),
+      ))
+      ->condition('name', $flag_name)
+      ->execute();
+  }
+
+  // Flags in code will now report as overridden because the roles option is no
+  // longer output. Notify the user that they should update them.
+  if (count(module_implements('flag_default_flags'))) {
+    drupal_set_message(t('Flags which are defined in code with hook_flag_default_flags() or Features need to be re-exported.'));
+  }
+
+  // Direct the user to read the change notice, which has more details of how
+  // access to flag objects has been affected.
+  return t('Flag roles have been converted to user permissions. Permissions have been granted to each flag based on flag roles. You should review the consequences of this in the <a href="!url">change record</a>.', array(
+    '!url' => 'http://drupal.org/node/1724256',
+  ));
+}
+
+/**
+ * Convert flag view modes settings.
+ */
+function flag_update_7306() {
+  foreach (flag_get_flags() as $flag) {
+    // Update show_on_teaser property to use new view mode settings.
+    if (!empty($flag->show_on_teaser)) {
+      $flag->show_in_links['teaser'] = TRUE;
+      unset($flag->show_on_teaser);
+    }
+
+    // Update show_on_page property to use new view mode settings.
+    if (!empty($flag->show_on_page)) {
+      $flag->show_in_links['full'] = TRUE;
+      unset($flag->show_on_page);
+    }
+
+    // Update show_on_comment and show_on_entity properties to use new view
+    // mode settings. Since the old logic was to show on all view modes, do
+    // that.
+    if (!empty($flag->show_on_entity) || !empty($flag->show_on_comment)) {
+      if ($entity_info = entity_get_info($flag->entity_type)) {
+        foreach ($entity_info['view modes'] as $view_mode => $value) {
+          $flag->show_in_links[$view_mode] = TRUE;
+        }
+      }
+
+      unset($flag->show_on_entity, $flag->show_on_comment);
+    }
+
+    $flag->save();
+  }
 }

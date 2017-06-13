@@ -35,7 +35,8 @@ class flag_handler_field_ops extends views_handler_field {
   function get_parent_relationship() {
     $parent = $this->view->relationship[$this->options['relationship']]->options['relationship'];
     if (!$parent || $parent == 'none') {
-      return NULL; // Base query table.
+      // Base query table.
+      return NULL;
     }
     else {
       return $this->view->relationship[$parent]->alias;
@@ -66,42 +67,60 @@ class flag_handler_field_ops extends views_handler_field {
    */
   function query() {
     if (!($flag = $this->get_flag())) {
-      return; // Error message is printed in render().
+      // Error message is printed in render().
+      return;
     }
     $info = $flag->get_views_info();
     $parent = $this->get_parent_relationship();
 
     // Find out if the content is flagged. We can't just peek at some field in
     // our loaded table because it doesn't always reflect the user browsing the
-    // page. So we explicitly add the flag_content table to find this out.
-    $join = new views_join();
-    $join->construct('flag_content', $info['views table'], $info['join field'], 'content_id');
-    $join->extra[] = array(
-      'field' => 'fid',
-      'value' => $flag->fid,
-      'numeric' => TRUE,
-    );
-    if (!$flag->global) {
-      $join->extra[] = array(
-        'field' => 'uid',
-        'value' => '***CURRENT_USER***',
-        'numeric' => TRUE,
-      );
-      $join->extra[] = array(
-        'field' => 'sid',
-        'value' => '***FLAG_CURRENT_USER_SID***',
-        'numeric' => TRUE,
-      );
+    // page. So we explicitly add the flagging table to find this out.
+    // If the relationship is created with 'Current User' checked, we probably
+    // already have the appropriate join. We just need the appropriate table
+    // alias for that join. We look in the relationship settings to see if
+    // user_scope is set to 'current' to determine this.
+    $relationship = $this->view->relationship[$this->options['relationship']];
+    if (isset($relationship->options['user_scope']) && $relationship->options['user_scope'] == 'current') {
+      $table_alias = $relationship->alias;
     }
-    $flag_table = $this->query->add_table('flag_content', $parent, $join);
-    $this->aliases['is_flagged'] = $this->query->add_field($flag_table, 'content_id');
+    // Otherwise, let's set up the alias, keeping it unique for this flag in
+    // case there are multiple flag relationships in a single view.
+    else {
+      $table_alias = 'flagging_current_user_' . $flag->fid;
+    }
+    // Now that we have the table alias, let's see if it's already been joined
+    // to. If it hasn't, we'll set up a join.
+    if (!isset($this->query->table_queue[$table_alias])) {
+      $join = new views_join();
+      $join->construct('flagging', $info['views table'], $info['join field'], 'entity_id');
+      $join->extra[] = array(
+        'field' => 'fid',
+        'value' => $flag->fid,
+        'numeric' => TRUE,
+      );
+      if (!$flag->global) {
+        $join->extra[] = array(
+          'field' => 'uid',
+          'value' => '***CURRENT_USER***',
+          'numeric' => TRUE,
+        );
+        $join->extra[] = array(
+          'field' => 'sid',
+          'value' => '***FLAG_CURRENT_USER_SID***',
+          'numeric' => TRUE,
+        );
+      }
+      $table_alias = $this->query->add_table($table_alias, $parent, $join);
+    }
+    $this->aliases['is_flagged'] = $this->query->add_field($table_alias, 'entity_id');
 
     // Next, find out the content ID. We can't add_field() on this table
-    // (flag_content), because its content_id may be NULL (in case no user has
+    // (flagging), because its entity_id may be NULL (in case no user has
     // flagged this content, and it's a LEFT JOIN). So we reach to the parent
     // relationship and add_field() *its* content ID column.
     $left_table = $this->view->relationship[$this->options['relationship']]->table_alias;
-    $this->aliases['content_id'] = $this->query->add_field($left_table, $info['join field']);
+    $this->aliases['entity_id'] = $this->query->add_field($left_table, $info['join field']);
   }
 
   /**
@@ -111,15 +130,16 @@ class flag_handler_field_ops extends views_handler_field {
    */
   function pre_render(&$values) {
     if (!($flag = $this->get_flag())) {
-      return; // Error message is printed in render().
+      // Error message is printed in render().
+      return;
     }
 
     $ids = array();
     foreach ($values as $row) {
-      $content_id = $row->{$this->aliases['content_id']};
+      $entity_id = $row->{$this->aliases['entity_id']};
       $is_flagged = $row->{$this->aliases['is_flagged']};
-      if (isset($content_id)) {
-        $ids[$content_id] = $is_flagged ? 'unflag' : 'flag';
+      if (isset($entity_id)) {
+        $ids[$entity_id] = $is_flagged ? 'unflag' : 'flag';
       }
     }
     $this->flag_applies = $ids ? $flag->access_multiple($ids) : array();
@@ -127,13 +147,14 @@ class flag_handler_field_ops extends views_handler_field {
 
   function render($values) {
     if (!($flag = $this->get_flag())) {
-      return t('Missing flag'); // get_flag() itself will print a more detailed message.
+      // get_flag() itself will print a more detailed message.
+      return t('Missing flag');
     }
 
-    $content_id = $values->{$this->aliases['content_id']};
+    $entity_id = $values->{$this->aliases['entity_id']};
     $is_flagged = $values->{$this->aliases['is_flagged']};
 
-    if (empty($this->flag_applies[$content_id])) {
+    if (empty($this->flag_applies[$entity_id])) {
       // Flag does not apply to this content.
       return;
     }
@@ -141,6 +162,6 @@ class flag_handler_field_ops extends views_handler_field {
     if (!empty($this->options['link_type'])) {
       $flag->link_type = $this->options['link_type'];
     }
-    return $flag->theme($is_flagged ? 'unflag' : 'flag', $content_id);
+    return $flag->theme($is_flagged ? 'unflag' : 'flag', $entity_id);
   }
 }
